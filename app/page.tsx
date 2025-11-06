@@ -1,51 +1,51 @@
-import { DeployButton } from "@/components/deploy-button";
-import { EnvVarWarning } from "@/components/env-var-warning";
-import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/lib/utils";
-import Link from "next/link";
+// langbridge/app/page.tsx
 
-export default function Home() {
+import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
+
+export default async function HomePage() {
+  const supabase = await createClient();
+
+  // 데이터 로직: 총 사용자 수 가져오기
+  const { count, error } = await supabase
+    .from('users') 
+    .select('*', { count: 'exact', head: true });
+
+  if (error) {
+    // 실제 운영 환경에서는 오류 로깅만 하고 사용자에게는 노출하지 않는 것이 좋습니다.
+    console.error('사용자 수를 가져오는 중 오류 발생:', error.message);
+  }
+
+  const userCount = count ?? 0;
+
   return (
-    <main className="min-h-screen flex flex-col items-center">
-      <div className="flex-1 w-full flex flex-col gap-20 items-center">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-            <div className="flex gap-5 items-center font-semibold">
-              <Link href={"/"}>Next.js Supabase Starter</Link>
-              <div className="flex items-center gap-2">
-                <DeployButton />
-              </div>
-            </div>
-            {!hasEnvVars ? <EnvVarWarning /> : <AuthButton />}
-          </div>
-        </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
-          <main className="flex-1 flex flex-col gap-6 px-4">
-            <h2 className="font-medium text-xl mb-4">Next steps</h2>
-            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
-          </main>
-        </div>
+    <div className="text-center"> {/* 💡 1. 텍스트 중앙 정렬 */}
+      
+      {/* 💡 2. 제목 스타일: 5xl 크기, 굵은 글꼴, 텍스트 색상, 하단 여백 */}
+      <h1 className="text-5xl font-bold text-gray-900 mb-4">환영합니다! LangBridge에 오신 것을</h1>
+      
+      {/* 💡 3. 부제 스타일: xl 크기, 텍스트 색상, 하단 여백 */}
+      <p className="text-xl text-gray-600 mb-8">
+        Next.js, Supabase, Tailwind를 사용한 풀스택 언어 교환 플랫폼입니다.
+      </p>
 
-        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-              target="_blank"
-              className="font-bold hover:underline"
-              rel="noreferrer"
-            >
-              Supabase
-            </a>
-          </p>
-          <ThemeSwitcher />
-        </footer>
-      </div>
-    </main>
+      {/* 가져온 데이터를 표시하는 섹션 */}
+      {/* 💡 4. 섹션 스타일: 배경색, 패딩, 둥근 모서리, 그림자 */}
+      <section className="bg-blue-50 p-6 rounded-lg shadow-xl max-w-lg mx-auto">
+        
+        {/* 💡 5. 섹션 제목 스타일: 3xl 크기, 굵은 글꼴, 텍스트 색상, 하단 여백 */}
+        <h2 className="text-3xl font-semibold text-blue-800 mb-3">현재 커뮤니티 현황</h2>
+        
+        {/* 💡 6. 카운트 숫자 스타일: 4xl 크기, 가장 굵은 글꼴, 텍스트 색상 */}
+        <p className="text-4xl font-extrabold text-blue-600">
+          총 등록 사용자 수: {userCount} 명
+        </p>
+        
+        {/* 💡 7. 참고 텍스트 스타일: 텍스트 색상, 상단 여백 */}
+        <p className="text-gray-700 mt-2">
+          (이 숫자는 Supabase DB에서 실시간으로 가져온 것입니다.)
+        </p>
+      </section>
+      
+    </div>
   );
 }

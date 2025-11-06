@@ -1,40 +1,39 @@
-import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import "./globals.css";
+// langbridge/app/layout.tsx
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+import { Inter } from 'next/font/google'; 
+import Header from '@/components/Header'; 
+import Footer from '@/components/Footer'; 
+import './globals.css'; 
 
-export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
-};
+// 폰트 설정
+const inter = Inter({ subsets: ['latin'] });
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  display: "swap",
-  subsets: ["latin"],
-});
-
+// **Root Layout Component**
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+    <html lang="ko">
+      {/* 💡 개선: 폰트 클래스와 안티-앨리어싱(antialiased) 적용 */}
+      <body className={`${inter.className} antialiased`}> 
+        
+        {/* 전체 컨테이너: flex-col 및 min-h-screen 유지 */}
+        <div className="flex flex-col min-h-screen">
+          
+          {/* 1. 상단: 네비게이션 바 */}
+          <Header />  
+          
+          {/* 2. 중간: 메인 콘텐츠 영역 */}
+          {/* <main> 태그를 flex-grow로 설정하여 푸터를 하단에 고정 */}
+          <main className="flex-grow container mx-auto p-4 sm:p-8"> 
+            {children}
+          </main>
+          
+          {/* 3. 하단: 푸터 */}
+          <Footer />
+        </div>
       </body>
     </html>
   );
