@@ -9,7 +9,7 @@ export default async function PlayerPage({ params }: { params: { audio_id: strin
 
   // 1. DB에서 오디오 메타데이터 가져오기
   const { data: audioContent, error } = await supabase
-    .from('audio_content')
+    .from('lang_audio_content')
     .select('*')
     .eq('id', audioId)
     .single();
@@ -21,7 +21,7 @@ export default async function PlayerPage({ params }: { params: { audio_id: strin
   // 2. Storage에서 오디오 파일의 공개 URL 가져오기
   const { data: storageData } = supabase
     .storage
-    .from('audio_files')
+    .from('kdryuls_automaking')
     .getPublicUrl(audioContent.audio_file_path); // 1단계 버킷 이름
   
   const audioUrl = storageData?.publicUrl || "";

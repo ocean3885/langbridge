@@ -1,21 +1,19 @@
-// langbridge/app/page.tsx
-
 import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
+import Link from 'next/link';
 
 export default async function HomePage() {
   const supabase = await createClient();
 
-  // 데이터 로직: 총 사용자 수 가져오기
-  const { count, error } = await supabase
-    .from('users') 
-    .select('*', { count: 'exact', head: true });
+const { data: userCountData, error: rpcError } = await supabase
+    .rpc('get_user_count'); 
 
-  if (error) {
-    // 실제 운영 환경에서는 오류 로깅만 하고 사용자에게는 노출하지 않는 것이 좋습니다.
-    console.error('사용자 수를 가져오는 중 오류 발생:', error.message);
+  // 에러 처리
+  if (rpcError) {
+    console.error('RPC 사용자 수 오류:', rpcError.message);
   }
 
-  const userCount = count ?? 0;
+  // 최종 카운트
+  const userCount = rpcError ? 0 : userCountData ?? 0;
 
   return (
     <div className="text-center"> {/* 💡 1. 텍스트 중앙 정렬 */}
@@ -23,10 +21,20 @@ export default async function HomePage() {
       {/* 💡 2. 제목 스타일: 5xl 크기, 굵은 글꼴, 텍스트 색상, 하단 여백 */}
       <h1 className="text-5xl font-bold text-gray-900 mb-4">환영합니다! LangBridge에 오신 것을</h1>
       
-      {/* 💡 3. 부제 스타일: xl 크기, 텍스트 색상, 하단 여백 */}
+      {/* 부제 스타일: xl 크기, 텍스트 색상, 하단 여백 */}
       <p className="text-xl text-gray-600 mb-8">
         Next.js, Supabase, Tailwind를 사용한 풀스택 언어 교환 플랫폼입니다.
       </p>
+
+      {/* 💡 생성 버튼 추가 */}
+      <div className="mb-8">
+        <Link 
+          href="/upload"
+          className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+        >
+          콘텐츠 생성하기
+        </Link>
+      </div>
 
       {/* 가져온 데이터를 표시하는 섹션 */}
       {/* 💡 4. 섹션 스타일: 배경색, 패딩, 둥근 모서리, 그림자 */}

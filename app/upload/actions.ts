@@ -7,19 +7,26 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 
-import ffmpeg from 'ffmpeg-static';
-import ffprobe from 'ffprobe-static';
 import { execa } from 'execa';
+
+// 시스템 ffmpeg, ffprobe 사용 (dev container 환경)
+const ffmpeg = 'ffmpeg';
+const ffprobe = 'ffprobe';
 
 // 1. Google TTS 클라이언트 초기화
 function getGoogleTTSClient() {
   const credsBase64 = process.env.GOOGLE_CREDENTIALS_BASE64;
-  if (!credsBase64) throw new Error("GOOGLE_CREDENTIALS_BASE64 환경 변수가 없습니다.");
+  if (!credsBase64) {
+    throw new Error("GOOGLE_CREDENTIALS_BASE64 환경 변수가 설정되지 않았습니다. README를 참조하여 Google Cloud TTS를 설정하세요.");
+  }
 
-  const credsJson = Buffer.from(credsBase64, 'base64').toString('utf-8');
-  const credentials = JSON.parse(credsJson);
-
-  return new TextToSpeechClient({ credentials });
+  try {
+    const credsJson = Buffer.from(credsBase64, 'base64').toString('utf-8');
+    const credentials = JSON.parse(credsJson);
+    return new TextToSpeechClient({ credentials });
+  } catch {
+    throw new Error("Google 인증 정보가 잘못되었습니다. GOOGLE_CREDENTIALS_BASE64 환경 변수를 확인하세요.");
+  }
 }
 
 // 2. TTS 생성 함수
@@ -34,7 +41,7 @@ async function generateTTS(client: TextToSpeechClient, text: string, lang: strin
 
 // ✅ ffmpeg: 무음 파일 생성
 async function createSilence(outputPath: string, seconds: number) {
-  await execa(ffmpeg!, [
+  await execa(ffmpeg, [
     "-f", "lavfi",
     "-i", `anullsrc=r=44100:cl=mono`,
     "-t", String(seconds),
@@ -50,7 +57,7 @@ async function concatAudio(inputs: string[], outputPath: string) {
   const listFile = outputPath + "_list.txt";
   await fs.writeFile(listFile, tmpList);
 
-  await execa(ffmpeg!, [
+  await execa(ffmpeg, [
     "-f", "concat",
     "-safe", "0",
     "-i", listFile,
@@ -63,7 +70,7 @@ async function concatAudio(inputs: string[], outputPath: string) {
 
 // ✅ ffprobe: duration 가져오기
 async function getDurationMs(filePath: string) {
-  const { stdout } = await execa(ffprobe.path, [
+  const { stdout } = await execa(ffprobe, [
     "-v", "error",
     "-show_entries", "format=duration",
     "-of", "default=noprint_wrappers=1:nokey=1",
@@ -101,7 +108,7 @@ export async function processFileAction(formData: FormData) {
 
   const sync_data = [];
   let current_time_ms = 0;
-  let concatList: string[] = [];
+  const concatList: string[] = [];
 
   const silence1 = path.join(tempDir, 'silence1.mp3');
   const silence2 = path.join(tempDir, 'silence2.mp3');
@@ -160,7 +167,7 @@ export async function processFileAction(formData: FormData) {
     const storagePath = `public/${user.id}/${Date.now()}-final.mp3`;
 
     const { error: upErr } = await supabase.storage
-      .from('audio_files')
+      .from('kdryuls_automaking')
       .upload(storagePath, finalBuf, {
         contentType: 'audio/mpeg',
         upsert: false
@@ -170,7 +177,7 @@ export async function processFileAction(formData: FormData) {
 
     // DB 저장
     const { data: audioObj, error: dbErr } = await supabase
-      .from('audio_content')
+      .from('lang_audio_content')
       .insert({
         user_id: user.id,
         title,
@@ -189,9 +196,11 @@ export async function processFileAction(formData: FormData) {
 
     return redirect(`/player/${audioObj.id}`);
 
-  } catch (err: any) {
-    console.error(err);
+  } catch (err) {
+    console.error('업로드 처리 중 오류:', err);
     await fs.rm(tempDir, { recursive: true, force: true });
-    throw new Error(`오류 발생: ${err.message}`);
+    
+    const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다';
+    throw new Error(`오류 발생: ${errorMessage}`);
   }
 }
