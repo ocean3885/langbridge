@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client'; // 👈 클라이언트 Supabase 가져오기
 import Link from 'next/link';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { User as UserIcon, AudioLines, LogOut } from 'lucide-react';
 
 // 사용자 상태를 나타내는 타입 정의 (필요하다면)
 interface User {
@@ -17,24 +26,57 @@ export default function Header() {
   const router = useRouter();
   const supabase = createClient(); // Supabase 클라이언트 초기화
 
-  // 1. 컴포넌트 마운트 시 사용자 세션 확인
+  // 세션 확인 + 인증 상태 변화 구독
   useEffect(() => {
-    async function checkUser() {
+    let isMounted = true;
+
+    async function syncUser() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
-        // Supabase의 user 객체에서 필요한 정보만 추출
+        if (!isMounted) return;
         if (user) {
-          setUser({ id: user.id, email: user.email! });
+          setUser({ id: user.id, email: user.email ?? '' });
+        } else {
+          setUser(null);
         }
       } catch (error) {
         console.error('Error fetching user session:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
-    checkUser();
-  }, [supabase]);
+
+    // 초기 동기화
+    syncUser();
+
+    // 인증 상태 변화 구독: 로그인/로그아웃/토큰 갱신 시 상태 반영
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const u = session?.user;
+        setUser(u ? { id: u.id, email: u.email ?? '' } : null);
+        router.refresh();
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.refresh();
+      }
+
+      // 세션 만료 감지 및 자동 재인증 시도
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('Session expired. Redirecting to login.');
+        setUser(null);
+        router.push('/auth/login?redirectTo=' + encodeURIComponent(window.location.pathname));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, router]);
 
   // 2. 로그아웃 핸들러 함수
   const handleLogout = async () => {
@@ -72,25 +114,53 @@ export default function Header() {
           <Link href="/" className="hover:text-blue-300 transition duration-150">홈</Link>
           <Link href="/upload" className="hover:text-blue-300 transition duration-150">생성</Link>
           <Link href="/categories" className="hover:text-blue-300 transition duration-150">카테고리</Link>
+          {user && (
+            <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">내 오디오</Link>
+          )}
           <Link href="/protected" className="hover:text-blue-300 transition duration-150">Protected</Link>
           
           {user ? (
-            // ✅ 로그인 상태: "로그아웃" 버튼 표시
+            // ✅ 로그인 상태: 드롭다운 메뉴
             <>
-              <span className="text-gray-300 hidden sm:inline">
-                 {user.email}님
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap"
-              >
-                로그아웃
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap">
+                    <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
+                      {user.email[0].toUpperCase()}
+                    </div>
+                    <span className="hidden sm:inline">{user.email}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/my-audio" className="flex items-center gap-2 cursor-pointer">
+                      <AudioLines className="w-4 h-4" />
+                      <span>내 오디오</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                      <UserIcon className="w-4 h-4" />
+                      <span>프로필</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>로그아웃</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             // ✅ 로그아웃 상태: "로그인" 버튼 표시
             <Link 
-              href="/auth/login" 
+              href={`/auth/login?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}
               className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap"
             >
               로그인

@@ -40,6 +40,16 @@ async function generateTTS(client: TextToSpeechClient, text: string, lang: strin
 }
 
 // ✅ ffmpeg: 무음 파일 생성
+// NEXT_REDIRECT 에러 감지 유틸 (Next의 리다이렉트는 내부적으로 특수 에러를 throw)
+function isNextRedirectError(err: unknown): boolean {
+  try {
+    const d = (err as any)?.digest;
+    return typeof d === 'string' && d.startsWith('NEXT_REDIRECT');
+  } catch {
+    return false;
+  }
+}
+
 async function createSilence(outputPath: string, seconds: number) {
   await execa(ffmpeg, [
     "-f", "lavfi",
@@ -51,7 +61,9 @@ async function createSilence(outputPath: string, seconds: number) {
   ]);
 }
 
-// ✅ ffmpeg: 오디오 여러 개 병합
+// ✅ ffmpeg: 여러 MP3를 병합 (재인코딩으로 파라미터 통일)
+//  - Google TTS MP3는 샘플레이트/코덱 파라미터가 silence 파일과 다를 수 있어 "-c copy" concat 시 재생 문제가 발생할 수 있음.
+//  - 재인코딩(libmp3lame)으로 통일해 플레이어 호환성을 높인다.
 async function concatAudio(inputs: string[], outputPath: string) {
   const tmpList = inputs.map(p => `file '${p}'`).join("\n");
   const listFile = outputPath + "_list.txt";
@@ -61,11 +73,27 @@ async function concatAudio(inputs: string[], outputPath: string) {
     "-f", "concat",
     "-safe", "0",
     "-i", listFile,
-    "-c", "copy",
+    // 표준화: 44.1kHz, mono, libmp3lame 품질 2(높음)
+    "-ar", "44100",
+    "-ac", "1",
+    "-c:a", "libmp3lame",
+    "-q:a", "2",
     outputPath,
   ]);
 
   await fs.unlink(listFile);
+}
+
+// ✅ ffmpeg: MP3 파라미터 정규화 (샘플레이트/채널/코덱 강제)
+async function normalizeMp3(inputPath: string, outputPath: string) {
+  await execa(ffmpeg, [
+    "-i", inputPath,
+    "-ar", "44100",
+    "-ac", "1",
+    "-c:a", "libmp3lame",
+    "-q:a", "2",
+    outputPath,
+  ]);
 }
 
 // ✅ ffprobe: duration 가져오기
@@ -122,9 +150,13 @@ export async function processFileAction(formData: FormData) {
       const pair = sentencePairs[i];
 
       // 1) TTS 생성
-      const audioBuf = await generateTTS(ttsClient, pair.text, 'es-ES');
-      const clipPath = path.join(tempDir, `clip_${i}.mp3`);
-      await fs.writeFile(clipPath, audioBuf);
+  const audioBuf = await generateTTS(ttsClient, pair.text, 'es-ES');
+  const rawClipPath = path.join(tempDir, `clip_raw_${i}.mp3`);
+  const clipPath = path.join(tempDir, `clip_${i}.mp3`); // 정규화된 경로
+  await fs.writeFile(rawClipPath, audioBuf);
+
+  // Google TTS MP3를 표준 파라미터로 정규화
+  await normalizeMp3(rawClipPath, clipPath);
 
       // 2) [1초 무음 + clip] ×3 + 1초 무음
       const repeatedPath = path.join(tempDir, `repeat_${i}.mp3`);
@@ -133,7 +165,7 @@ export async function processFileAction(formData: FormData) {
         silence1, clipPath,
         silence1, clipPath,
         silence1
-      ];
+      ]; // 반복 + 마지막 1초 무음
       await concatAudio(parts, repeatedPath);
 
       // 3) 길이 계산
@@ -192,15 +224,17 @@ export async function processFileAction(formData: FormData) {
 
     if (dbErr) throw dbErr;
 
-    await fs.rm(tempDir, { recursive: true, force: true });
-
     return redirect(`/player/${audioObj.id}`);
 
   } catch (err) {
+    // NEXT_REDIRECT는 의도된 흐름 제어이므로 그대로 다시 던져 리다이렉트가 동작하게 합니다.
+  if (isNextRedirectError(err)) throw err;
     console.error('업로드 처리 중 오류:', err);
-    await fs.rm(tempDir, { recursive: true, force: true });
     
     const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다';
     throw new Error(`오류 발생: ${errorMessage}`);
+  } finally {
+    // 항상 임시 디렉토리 정리
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
