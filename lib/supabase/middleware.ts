@@ -47,21 +47,16 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  // 디버깅용 로그 (배포 시 제거 가능)
-  if (!user && !request.nextUrl.pathname.startsWith("/auth")) {
-    console.log('Middleware: No user found for path:', request.nextUrl.pathname);
-  }
+  // 공개 경로 목록 (로그인 없이 접근 가능)
+  const publicPaths = ['/', '/auth', '/login'];
+  const isPublicPath = publicPaths.some(path => 
+    request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + '/')
+  );
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // 로그인이 필요한 경로이고 사용자가 없으면 로그인 페이지로 리다이렉트
+  if (!isPublicPath && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
-    // 원래 경로를 redirectTo로 전달
     url.searchParams.set('redirectTo', request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }

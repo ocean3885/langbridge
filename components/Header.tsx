@@ -18,6 +18,7 @@ import { User as UserIcon, AudioLines, LogOut } from 'lucide-react';
 interface User {
   id: string;
   email: string;
+  isPremium?: boolean;
 }
 
 export default function Header() {
@@ -31,18 +32,42 @@ export default function Header() {
     let isMounted = true;
 
     async function syncUser() {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (!isMounted) return;
+      
+      // Auth session missing은 로그아웃 상태에서 정상 - 에러로 처리하지 않음
+      if (userError && userError.message !== 'Auth session missing!') {
+        console.error('Unexpected auth error:', userError);
+      }
+      
+      if (!user) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // 유저가 있으면 일단 기본 정보로 설정 (프로필 조회 전)
+      setUser({ 
+        id: user.id, 
+        email: user.email ?? '',
+        isPremium: false // 일단 기본값
+      });
+      setLoading(false); // 여기서 먼저 로딩 해제
+      
+      // 프로필은 비동기로 나중에 업데이트
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!isMounted) return;
-        if (user) {
-          setUser({ id: user.id, email: user.email ?? '' });
-        } else {
-          setUser(null);
+        const { data: profile } = await supabase
+          .from('lang_profiles')
+          .select('is_premium')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (isMounted && profile) {
+          setUser(prev => prev ? { ...prev, isPremium: profile.is_premium ?? false } : null);
         }
-      } catch (error) {
-        console.error('Error fetching user session:', error);
-      } finally {
-        if (isMounted) setLoading(false);
+      } catch (err) {
+        // 프로필 조회 실패는 무시 (기본값 사용)
       }
     }
 
@@ -55,19 +80,47 @@ export default function Header() {
       
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const u = session?.user;
-        setUser(u ? { id: u.id, email: u.email ?? '' } : null);
+        if (u) {
+          // 일단 기본 정보로 설정
+          setUser({ 
+            id: u.id, 
+            email: u.email ?? '',
+            isPremium: false
+          });
+          setLoading(false);
+          
+          // 프로필은 비동기로 업데이트
+          try {
+            const { data: profile } = await supabase
+              .from('lang_profiles')
+              .select('is_premium')
+              .eq('id', u.id)
+              .maybeSingle();
+            
+            if (isMounted && profile) {
+              setUser(prev => prev ? { ...prev, isPremium: profile.is_premium ?? false } : null);
+            }
+          } catch (err) {
+            // 프로필 조회 실패 무시
+          }
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
         router.refresh();
       }
       
       if (event === 'SIGNED_OUT') {
         setUser(null);
+        setLoading(false);
+        router.push('/'); // 메인 페이지로 리다이렉트
         router.refresh();
       }
 
       // 세션 만료 감지 및 자동 재인증 시도
       if (event === 'TOKEN_REFRESHED' && !session) {
-        console.warn('Session expired. Redirecting to login.');
         setUser(null);
+        setLoading(false);
         router.push('/auth/login?redirectTo=' + encodeURIComponent(window.location.pathname));
       }
     });
@@ -80,13 +133,22 @@ export default function Header() {
 
   // 2. 로그아웃 핸들러 함수
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      setUser(null); // 상태 업데이트
-      router.push('/'); // 메인 페이지로 리디렉션
-      router.refresh(); // Next.js 라우터 새로고침 (Server Component 상태 갱신)
-    } else {
-      console.error('Logout error:', error.message);
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error.message);
+        alert('로그아웃 중 오류가 발생했습니다: ' + error.message);
+        return;
+      }
+      
+      setUser(null);
+      setLoading(false);
+      
+      // 강제로 메인 페이지로 이동 후 새로고침
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Logout exception:', err);
       alert('로그아웃 중 오류가 발생했습니다.');
     }
   };
@@ -113,11 +175,12 @@ export default function Header() {
         <div className="space-x-4 text-sm font-medium flex items-center">
           <Link href="/" className="hover:text-blue-300 transition duration-150">홈</Link>
           <Link href="/upload" className="hover:text-blue-300 transition duration-150">생성</Link>
-          <Link href="/categories" className="hover:text-blue-300 transition duration-150">카테고리</Link>
+          {user?.isPremium && (
+            <Link href="/categories" className="hover:text-blue-300 transition duration-150">카테고리</Link>
+          )}
           {user && (
             <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">내 오디오</Link>
           )}
-          <Link href="/protected" className="hover:text-blue-300 transition duration-150">Protected</Link>
           
           {user ? (
             // ✅ 로그인 상태: 드롭다운 메뉴

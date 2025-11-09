@@ -1,10 +1,13 @@
 import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { FolderOpen, Clock } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
+import AudioCard from '@/components/AudioCard';
 
 export default async function HomePage() {
   const supabase = await createClient();
+
+  // 현재 사용자 확인
+  const { data: { user } } = await supabase.auth.getUser();
 
 const { data: userCountData, error: rpcError } = await supabase
     .rpc('get_user_count'); 
@@ -18,10 +21,14 @@ const { data: userCountData, error: rpcError } = await supabase
   const userCount = rpcError ? 0 : userCountData ?? 0;
 
   // 카테고리 목록 가져오기
-  const { data: categories } = await supabase
+  const { data: categories, error: categoriesError } = await supabase
     .from('lang_categories')
     .select('id, name')
     .order('name');
+
+  if (categoriesError) {
+    console.error('카테고리 조회 오류:', categoriesError);
+  }
 
   // 카테고리별 오디오 콘텐츠 가져오기
   const categoriesWithAudio = await Promise.all(
@@ -133,25 +140,11 @@ const { data: userCountData, error: rpcError } = await supabase
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {category.audioList.map((audio) => (
-                      <Link 
+                      <AudioCard 
                         key={audio.id}
-                        href={`/player/${audio.id}`}
-                        className="block"
-                      >
-                        <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                          <CardHeader>
-                            <CardTitle className="text-lg hover:text-blue-600 transition-colors">
-                              {audio.title || '제목 없음'}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <Clock className="w-4 h-4" />
-                              <span>{new Date(audio.created_at).toLocaleDateString('ko-KR')}</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
+                        audio={audio}
+                        isLoggedIn={!!user}
+                      />
                     ))}
                   </div>
                 )}
