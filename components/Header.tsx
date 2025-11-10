@@ -66,7 +66,7 @@ export default function Header() {
         if (isMounted && profile) {
           setUser(prev => prev ? { ...prev, isPremium: profile.is_premium ?? false } : null);
         }
-      } catch (err) {
+      } catch {
         // 프로필 조회 실패는 무시 (기본값 사용)
       }
     }
@@ -100,7 +100,7 @@ export default function Header() {
             if (isMounted && profile) {
               setUser(prev => prev ? { ...prev, isPremium: profile.is_premium ?? false } : null);
             }
-          } catch (err) {
+          } catch {
             // 프로필 조회 실패 무시
           }
         } else {
@@ -156,7 +156,7 @@ export default function Header() {
   // 로딩 중일 때 (UX 개선)
   if (loading) {
     return (
-      <header className="bg-gray-800 text-white p-4 shadow-xl sticky top-0 z-10">
+      <header className="bg-gray-800 text-white p-4 shadow-xl sticky top-0 z-50">
         <nav className="container mx-auto flex justify-between items-center">
           <Link href="/" className="text-2xl font-extrabold tracking-wide">LangBridge</Link>
           <div className="space-x-4 text-sm font-medium">
@@ -169,14 +169,14 @@ export default function Header() {
 
   // 3. 렌더링: user 상태에 따라 버튼 변경
   return (
-    <header className="bg-gray-800 text-white p-4 shadow-xl sticky top-0 z-10">
+    <header className="bg-gray-800 text-white p-4 shadow-xl sticky top-0 z-50">
       <nav className="container mx-auto flex justify-between items-center">
         <Link href="/" className="text-2xl font-extrabold tracking-wide">LangBridge</Link>
         <div className="space-x-4 text-sm font-medium flex items-center">
           <Link href="/" className="hover:text-blue-300 transition duration-150">홈</Link>
           <Link href="/upload" className="hover:text-blue-300 transition duration-150">생성</Link>
           {user?.isPremium && (
-            <Link href="/categories" className="hover:text-blue-300 transition duration-150">카테고리</Link>
+            <Link href="/admin" className="hover:text-blue-300 transition duration-150">운영관리</Link>
           )}
           {user && (
             <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">내 오디오</Link>
