@@ -24,6 +24,10 @@ if ! command -v node &> /dev/null; then
     sudo apt-get install -y nodejs
 fi
 
+# PATH 새로고침
+export PATH="/usr/bin:/usr/local/bin:$PATH"
+source ~/.bashrc 2>/dev/null || true
+
 echo "Node.js 버전: $(node --version)"
 echo "npm 버전: $(npm --version)"
 
@@ -36,7 +40,8 @@ fi
 # PM2 설치 (프로세스 관리자)
 echo -e "${GREEN}📦 PM2 설치...${NC}"
 if ! command -v pm2 &> /dev/null; then
-    sudo npm install -g pm2
+    npm install -g pm2
+    export PATH="$HOME/.npm-global/bin:$PATH"
 fi
 
 # Nginx 설치 (리버스 프록시)
@@ -51,8 +56,10 @@ mkdir -p ~/langbridge
 cd ~/langbridge
 
 # Git 저장소 클론
-echo -e "${YELLOW}Git 저장소 URL을 입력하세요 (예: https://github.com/ocean3885/langbridge.git):${NC}"
+echo -e "${YELLOW}Git 저장소 URL을 입력하세요 (기본값: https://github.com/ocean3885/langbridge.git):${NC}"
+echo -e "${YELLOW}엔터를 누르면 기본값 사용${NC}"
 read -r REPO_URL
+REPO_URL=${REPO_URL:-"https://github.com/ocean3885/langbridge.git"}
 
 if [ ! -d ".git" ]; then
     git clone ${REPO_URL} .
