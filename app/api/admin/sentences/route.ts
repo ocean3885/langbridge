@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 // 문장 목록 조회
@@ -122,6 +123,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
     }
 
+    // 기존 문장 정보 조회 (이전 audio_path 가져오기)
+    const { data: oldSentence } = await supabase
+      .from('sentences')
+      .select('audio_path')
+      .eq('id', id)
+      .single();
+
     const { data, error } = await supabase
       .from('sentences')
       .update({ 
@@ -146,6 +154,22 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('문장 수정 오류:', error);
       return NextResponse.json({ error: '문장 수정에 실패했습니다.' }, { status: 500 });
+    }
+
+    // 오디오 파일이 변경된 경우 이전 파일 삭제
+    if (oldSentence?.audio_path && oldSentence.audio_path !== audio_path) {
+      try {
+        const adminClient = createAdminClient();
+        const { error: storageError } = await adminClient.storage
+          .from('kdryuls_automaking')
+          .remove([oldSentence.audio_path]);
+
+        if (storageError) {
+          console.error('이전 오디오 파일 삭제 실패:', storageError);
+        }
+      } catch (adminErr) {
+        console.error('Admin 클라이언트 오류:', adminErr);
+      }
     }
 
     return NextResponse.json(data);
@@ -197,6 +221,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // 삭제 전 문장 정보 조회 (audio_path 가져오기)
+    const { data: sentence } = await supabase
+      .from('sentences')
+      .select('audio_path')
+      .eq('id', parseInt(id))
+      .single();
+
+    // DB에서 문장 삭제
     const { error } = await supabase
       .from('sentences')
       .delete()
@@ -205,6 +237,22 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       console.error('문장 삭제 오류:', error);
       return NextResponse.json({ error: '문장 삭제에 실패했습니다.' }, { status: 500 });
+    }
+
+    // Storage에서 오디오 파일 삭제 (Service Role 사용)
+    if (sentence?.audio_path) {
+      try {
+        const adminClient = createAdminClient();
+        const { error: storageError } = await adminClient.storage
+          .from('kdryuls_automaking')
+          .remove([sentence.audio_path]);
+
+        if (storageError) {
+          console.error('스토리지 파일 삭제 실패:', storageError);
+        }
+      } catch (adminErr) {
+        console.error('Admin 클라이언트 오류:', adminErr);
+      }
     }
 
     return NextResponse.json({ message: '문장이 삭제되었습니다.' });

@@ -111,7 +111,7 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
       const storagePath = `sentences/${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('audio_files')
+        .from('kdryuls_automaking')
         .upload(storagePath, finalBuf, {
           contentType: 'audio/mpeg',
           upsert: false,
