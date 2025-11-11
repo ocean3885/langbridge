@@ -45,6 +45,10 @@ echo -e "${GREEN}🔗 EC2 서버 연결 중: ${EC2_USER}@${EC2_HOST}${NC}"
 ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
     set -e
     
+    # NVM 환경 로드
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    
     echo "📂 애플리케이션 디렉토리로 이동..."
     cd /home/ubuntu/langbridge
     
