@@ -36,7 +36,7 @@ git push origin ${CURRENT_BRANCH}
 # EC2 서버 정보 (환경변수 또는 직접 설정)
 EC2_HOST=${EC2_HOST:-"52.79.212.162"}
 EC2_USER=${EC2_USER:-"ubuntu"}
-SSH_KEY=${SSH_KEY:-"~/.ssh/notebook-lenovo.pem"}
+SSH_KEY=${SSH_KEY:-"~/.ssh/kdryuls-django-project.pem"}
 APP_DIR=${APP_DIR:-"/home/ubuntu/langbridge"}
 
 echo -e "${GREEN}🔗 EC2 서버 연결 중: ${EC2_USER}@${EC2_HOST}${NC}"
