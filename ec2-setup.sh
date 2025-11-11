@@ -82,7 +82,16 @@ GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/langbridge/google-credentials.json
 # Node Environment
 NODE_ENV=production
 EOF
-    echo -e "${YELLOW}⚠️  .env.local 파일을 수정해주세요!${NC}"
+    echo -e "${YELLOW}⚠️  .env.local 파일을 편집해주세요!${NC}"
+    echo -e "${YELLOW}편집기가 열립니다. 저장하고 닫으면 계속 진행됩니다.${NC}"
+    sleep 2
+    
+    # 기본 편집기로 .env.local 열기
+    ${EDITOR:-nano} .env.local
+    
+    echo -e "${GREEN}✓ 환경변수 파일 편집 완료${NC}"
+else
+    echo ".env.local 파일이 이미 존재합니다."
 fi
 
 # 의존성 설치
@@ -104,7 +113,7 @@ echo -e "${GREEN}⚙️  Nginx 설정...${NC}"
 sudo tee /etc/nginx/sites-available/langbridge > /dev/null << 'EOF'
 server {
     listen 80;
-    server_name _;
+    server_name lang.ai.kr;
 
     location / {
         proxy_pass http://localhost:3000;
