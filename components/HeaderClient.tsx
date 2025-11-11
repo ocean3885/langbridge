@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   DropdownMenu,
@@ -20,6 +21,7 @@ interface Props {
 
 export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props) {
   const supabase = createClient();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     try {
@@ -88,7 +90,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
             </DropdownMenu>
           ) : (
             <Link 
-              href={`/auth/login?redirectTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}
+              href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
               className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap"
             >
               로그인
