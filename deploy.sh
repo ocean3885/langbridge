@@ -56,7 +56,7 @@ ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
     git pull origin main
     
     echo "📦 의존성 설치..."
-    npm install --production=false
+    npm install
     
     echo "🏗️  프로젝트 빌드..."
     npm run build

@@ -40,62 +40,86 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
   };
 
   return (
-    <header className="bg-gray-800 text-white p-4 shadow-xl sticky top-0 z-50">
-      <nav className="container mx-auto flex justify-between items-center">
-        <Link href="/" className="text-2xl font-extrabold tracking-wide">LangBridge</Link>
-        <div className="space-x-4 text-sm font-medium flex items-center">
-          <Link href="/" className="hover:text-blue-300 transition duration-150">홈</Link>
-          <Link href="/upload" className="hover:text-blue-300 transition duration-150">생성</Link>
-          {isPremium && (
-            <Link href="/admin" className="hover:text-blue-300 transition duration-150">운영관리</Link>
-          )}
-          {isLoggedIn && (
-            <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">내 오디오</Link>
-          )}
-
-          {isLoggedIn ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap">
-                  <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
-                    {(userEmail ?? 'U')[0].toUpperCase()}
-                  </div>
-                  <span className="hidden sm:inline">{userEmail}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>내 계정</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/my-audio" className="flex items-center gap-2 cursor-pointer">
-                    <AudioLines className="w-4 h-4" />
-                    <span>내 오디오</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
-                    <UserIcon className="w-4 h-4" />
-                    <span>프로필</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>로그아웃</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link 
-              href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
-              className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded transition duration-150 whitespace-nowrap"
+    <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sticky top-0 z-50">
+      <nav className="container mx-auto">
+        {/* 래퍼: 모바일에선 두 줄(로고 중앙, 링크/계정은 justify-between), 데스크톱에선 한 줄 정렬 */}
+        <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {/* 1행: 로고 - 모바일 중앙, 데스크톱 좌측 */}
+          <div className="flex justify-center sm:justify-start">
+            <Link
+              href="/"
+              aria-label="홈으로 이동"
+              className="text-2xl font-extrabold tracking-wide flex-shrink-0"
             >
-              로그인
+              LangBridge
             </Link>
-          )}
+          </div>
+
+          {/* 2행: 링크/계정 - 모바일 전체폭 justify-between, 데스크톱 우측 정렬 */}
+          <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
+            {/* 왼쪽 링크 그룹 */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* 로고가 홈으로 이동하므로 별도 '홈' 버튼 제거 */}
+              <Link href="/upload" className="hover:text-blue-300 transition duration-150">
+                생성
+              </Link>
+              {isPremium && (
+                <Link href="/admin" className="hover:text-blue-300 transition duration-150">
+                  운영관리
+                </Link>
+              )}
+              {isLoggedIn && (
+                <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">
+                  내 오디오
+                </Link>
+              )}
+            </div>
+
+            {/* 오른쪽 계정/로그인 영역 */}
+            {isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap">
+                    <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
+                      {(userEmail ?? 'U')[0].toUpperCase()}
+                    </div>
+                    <span className="hidden sm:inline max-w-[200px] truncate">{userEmail}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/my-audio" className="flex items-center gap-2 cursor-pointer">
+                      <AudioLines className="w-4 h-4" />
+                      <span>내 오디오</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                      <UserIcon className="w-4 h-4" />
+                      <span>프로필</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>로그아웃</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
+                className="bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap"
+              >
+                로그인
+              </Link>
+            )}
+          </div>
         </div>
       </nav>
     </header>

@@ -119,7 +119,7 @@ const { data: userCountData, error: rpcError } = await supabase
 
       {/* 카테고리별 오디오 리스트 섹션 */}
       <div id="audio-list" className="max-w-7xl mx-auto scroll-mt-20">
-        <h2 className="text-4xl font-bold text-gray-900 mb-8">카테고리별 오디오</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-8">내 오디오 목록</h2>
         
         {categoriesWithAudio.length === 0 ? (
           <p className="text-gray-600 text-center">아직 카테고리가 없습니다.</p>
@@ -130,7 +130,7 @@ const { data: userCountData, error: rpcError } = await supabase
                 {/* 카테고리 헤더 */}
                 <div className="flex items-center gap-3 border-b-2 border-gray-200 pb-2">
                   <FolderOpen className="w-6 h-6 text-blue-600" />
-                  <h3 className="text-2xl font-bold text-gray-800">{category.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">{category.name}</h3>
                   <span className="text-sm text-gray-500">({category.audioList.length}개)</span>
                 </div>
 
