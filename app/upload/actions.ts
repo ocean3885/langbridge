@@ -41,13 +41,14 @@ async function generateTTS(client: TextToSpeechClient, text: string, lang: strin
 
 // ✅ ffmpeg: 무음 파일 생성
 // NEXT_REDIRECT 에러 감지 유틸 (Next의 리다이렉트는 내부적으로 특수 에러를 throw)
+function hasDigest(e: unknown): e is { digest?: unknown } {
+  return typeof e === 'object' && e !== null && 'digest' in e;
+}
+
 function isNextRedirectError(err: unknown): boolean {
-  try {
-    const d = (err as any)?.digest;
-    return typeof d === 'string' && d.startsWith('NEXT_REDIRECT');
-  } catch {
-    return false;
-  }
+  if (!hasDigest(err)) return false;
+  const d = err.digest;
+  return typeof d === 'string' && d.startsWith('NEXT_REDIRECT');
 }
 
 async function createSilence(outputPath: string, seconds: number) {
@@ -119,14 +120,29 @@ export async function processFileAction(formData: FormData) {
 
   const title = formData.get('title') as string;
   const categoryId = formData.get('category') as string;
-  const file = formData.get('input_file') as File;
+  const inputMode = (formData.get('input_mode') as string) || 'file';
+  const languageCode = (formData.get('language_code') as string) || 'es-ES';
 
-  if (!file || file.size === 0) throw new Error("파일이 없습니다.");
+  let lines: string[] = [];
+  if (inputMode === 'text') {
+    const inputText = (formData.get('input_text') as string) || '';
+    const text = inputText.toString();
+    if (!text.trim()) {
+      throw new Error('입력한 텍스트가 비어 있습니다. 내용을 입력하세요.');
+    }
+    lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  } else {
+    const file = formData.get('input_file') as File;
+    if (!file || file.size === 0) throw new Error('파일이 없습니다.');
+    const fileContent = await file.text();
+    lines = fileContent.split('\n').map(l => l.trim()).filter(Boolean);
+  }
 
-  const fileContent = await file.text();
-  const lines = fileContent.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    throw new Error('처리할 문장이 충분하지 않습니다. 최소 2줄 이상 필요합니다.');
+  }
 
-  const sentencePairs = [];
+  const sentencePairs: { text: string; translation: string }[] = [];
   for (let i = 0; i < lines.length - 1; i += 2) {
     sentencePairs.push({ text: lines[i], translation: lines[i + 1] });
   }
@@ -134,7 +150,8 @@ export async function processFileAction(formData: FormData) {
   const ttsClient = getGoogleTTSClient();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'langbridge-'));
 
-  const sync_data = [];
+  type SyncItem = { text: string; translation: string; start: number; end: number };
+  const sync_data: SyncItem[] = [];
   let current_time_ms = 0;
   const concatList: string[] = [];
 
@@ -149,8 +166,8 @@ export async function processFileAction(formData: FormData) {
     for (let i = 0; i < sentencePairs.length; i++) {
       const pair = sentencePairs[i];
 
-      // 1) TTS 생성
-  const audioBuf = await generateTTS(ttsClient, pair.text, 'es-ES');
+        // 1) TTS 생성 (선택된 언어 코드 사용)
+      const audioBuf = await generateTTS(ttsClient, pair.text, languageCode);
   const rawClipPath = path.join(tempDir, `clip_raw_${i}.mp3`);
   const clipPath = path.join(tempDir, `clip_${i}.mp3`); // 정규화된 경로
   await fs.writeFile(rawClipPath, audioBuf);

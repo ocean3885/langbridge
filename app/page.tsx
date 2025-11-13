@@ -181,9 +181,25 @@ const { data: userCountData, error: rpcError } = await supabase
           </div>
         )}
         {user && userGroupedCategories.length === 0 && (
-          <div className="text-center space-y-4">
-            <p className="text-gray-600">아직 생성한 오디오가 없습니다.</p>
-            <Link href="/upload" className="inline-block px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">첫 오디오 만들기</Link>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-8 text-center space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">첫 오디오를 만들어 학습을 시작해보세요</h3>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                문장을 입력하면 고품질 TTS로 오디오가 생성되고, 플레이어에서 문장별 반복과 메모로 학습할 수 있어요.
+              </p>
+            </div>
+            <ul className="text-left mx-auto max-w-2xl space-y-2 text-sm sm:text-base">
+              <li className="flex items-start gap-2"><span className="mt-0.5">📝</span><span>문장 입력 또는 붙여넣기 (여러 문장도 가능)</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">🌐</span><span>언어와 카테고리를 선택해 깔끔하게 정리</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">🔁</span><span>생성된 오디오에서 구간 반복과 그림자 따라하기</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">🗒️</span><span>문장별 메모로 깨달음과 예문을 기록</span></li>
+            </ul>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/upload" className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">
+                지금 업로드
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500">업로드는 언제든 삭제할 수 있어요. 나만의 학습 리듬을 만들어보세요!</p>
           </div>
         )}
         {user && userGroupedCategories.length > 0 && (

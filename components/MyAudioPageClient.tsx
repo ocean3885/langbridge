@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FolderOpen, Pencil, Check, X } from 'lucide-react';
+import { FolderOpen, Pencil, Check, X, Settings } from 'lucide-react';
 import MyAudioList from './MyAudioList';
+import CategoryManageModal from './CategoryManageModal';
 
 type AudioWithCategory = {
   id: string;
@@ -56,6 +57,7 @@ export default function MyAudioPageClient({
   const [selectedLanguageId, setSelectedLanguageId] = useState<number | 'all'>('all');
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [showManageModal, setShowManageModal] = useState(false);
   const router = useRouter();
   const [selectModes, setSelectModes] = useState<Record<string, boolean>>({});
 
@@ -76,8 +78,9 @@ export default function MyAudioPageClient({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-4xl font-bold whitespace-nowrap">내 오디오</h1>
 
-        {/* 언어 선택 셀렉트 박스 */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* 언어 선택 셀렉트 박스 */}
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial">
           <label htmlFor="language-filter" className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
             언어 :
           </label>
@@ -94,6 +97,16 @@ export default function MyAudioPageClient({
               </option>
             ))}
           </select>
+        </div>
+
+          {/* 카테고리 관리 버튼 */}
+          <button
+            onClick={() => setShowManageModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden sm:inline">관리</span>
+          </button>
         </div>
       </div>
 
@@ -189,9 +202,15 @@ export default function MyAudioPageClient({
                 selectMode={isSelectMode}
               />
             </section>
-          )})}
+          );})}
         </div>
       )}
+
+      <CategoryManageModal
+        isOpen={showManageModal}
+        onClose={() => setShowManageModal(false)}
+        onCategoryChanged={() => router.refresh()}
+      />
     </div>
   );
 }
