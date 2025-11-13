@@ -37,37 +37,64 @@ function relativeFromNowKo(iso: string | null | undefined): string {
 // 다중 삭제 액션 (서버): 선택된 항목의 소유권을 확인하고 Storage + DB에서 삭제
 async function bulkDeleteAction(formData: FormData) {
   'use server';
+  
+  console.log('🔴 bulkDeleteAction 시작');
+  
   const raw = formData.get('ids');
-  if (!raw || typeof raw !== 'string') return;
+  console.log('🔴 받은 ids:', raw);
+  
+  if (!raw || typeof raw !== 'string') {
+    console.log('🔴 ids가 없거나 잘못된 타입');
+    return;
+  }
+  
   let ids: string[] = [];
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) {
-      ids = parsed.filter((v) => typeof v === 'string');
+      ids = parsed.map(v => String(v)).filter(Boolean);
     }
-  } catch {
+  } catch (err) {
+    console.log('🔴 JSON 파싱 실패, CSV로 처리:', err);
     // fallback: csv
     ids = raw.split(',').map((v) => v.trim()).filter(Boolean);
   }
-  if (ids.length === 0) return;
+  
+  console.log('🔴 파싱된 ids:', ids);
+  
+  if (ids.length === 0) {
+    console.log('🔴 삭제할 항목 없음');
+    return;
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
+    console.log('🔴 사용자 인증 실패');
     redirect('/auth/login');
   }
+  
+  console.log('🔴 삭제 시작, 사용자:', user.id);
 
   // 각 항목 개별 처리 (권한/스토리지/DB)
   for (const id of ids) {
+    console.log(`🔴 처리 중: ${id}`);
+    
     const { data: target } = await supabase
       .from('lang_audio_content')
       .select('id,user_id,audio_file_path')
       .eq('id', id)
       .maybeSingle();
-    if (!target || target.user_id !== user!.id) continue;
+      
+    console.log(`🔴 조회 결과 (${id}):`, target);
+    
+    if (!target || target.user_id !== user!.id) {
+      console.log(`🔴 권한 없음 또는 없는 항목 (${id})`);
+      continue;
+    }
 
     if (target.audio_file_path) {
-      console.log(`삭제 시도: 버킷=kdryuls_automaking, 경로=${target.audio_file_path}`);
+      console.log(`🔴 스토리지 삭제 시도: ${target.audio_file_path}`);
       
       // Service Role 클라이언트 생성 (RLS 우회)
       const serviceSupabase = createServiceClient(
@@ -86,26 +113,29 @@ async function bulkDeleteAction(formData: FormData) {
         .remove([target.audio_file_path]);
       
       if (storageError) {
-        console.error(`❌ Storage 삭제 실패 (${target.audio_file_path}):`, storageError);
+        console.error(`🔴 Storage 삭제 실패 (${target.audio_file_path}):`, storageError);
       } else {
-        console.log(`✅ Storage 삭제 성공:`, storageData);
+        console.log(`🔴 Storage 삭제 성공:`, storageData);
       }
     } else {
-      console.log(`경고: audio_file_path가 없음 (ID: ${id})`);
+      console.log(`🔴 audio_file_path가 없음 (ID: ${id})`);
     }
     
     // DB에서 레코드 삭제
+    console.log(`🔴 DB 삭제 시도 (ID: ${id})`);
     const { error: dbError } = await supabase
       .from('lang_audio_content')
       .delete()
       .eq('id', id);
     
     if (dbError) {
-      console.error(`❌ DB 삭제 실패 (ID: ${id}):`, dbError);
+      console.error(`🔴 DB 삭제 실패 (ID: ${id}):`, dbError);
     } else {
-      console.log(`✅ DB 삭제 성공 (ID: ${id})`);
+      console.log(`🔴 DB 삭제 성공 (ID: ${id})`);
     }
   }
+  
+  console.log('🔴 bulkDeleteAction 완료');
 
   revalidatePath('/my-audio');
 }

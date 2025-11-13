@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,8 +36,6 @@ export default function MyAudioList({ audioList, bulkDelete, changeCategory, cat
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-  const hiddenRef = useRef<HTMLInputElement>(null);
 
   const allIds = useMemo(() => audioList.map(a => a.id), [audioList]);
   const allSelected = selected.size > 0 && selected.size === allIds.length;
@@ -63,11 +61,17 @@ export default function MyAudioList({ audioList, bulkDelete, changeCategory, cat
     if (!anySelected) return;
     if (!confirm(`선택한 ${selected.size}개 항목을 삭제하시겠습니까?`)) return;
 
-    const form = formRef.current;
-    const hidden = hiddenRef.current;
-    if (!form || !hidden) return;
-    hidden.value = JSON.stringify(Array.from(selected));
-    form.requestSubmit();
+    try {
+      const formData = new FormData();
+      formData.append('ids', JSON.stringify(Array.from(selected)));
+      await bulkDelete(formData);
+      // 삭제 후 최신 데이터 반영
+      router.refresh();
+      setSelected(new Set());
+    } catch (err) {
+      console.error('삭제 중 오류:', err);
+      alert('삭제에 실패했습니다. 콘솔 로그를 확인하세요.');
+    }
   };
 
   // 선택 모드가 해제되면 선택 상태/모달 초기화
@@ -98,7 +102,7 @@ export default function MyAudioList({ audioList, bulkDelete, changeCategory, cat
     <div className="space-y-4">
       {/* 선택 툴바: 선택 모드에서만 표시 */}
       {selectMode && (
-        <form ref={formRef} action={bulkDelete} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Checkbox
               id="select-all"
@@ -111,7 +115,6 @@ export default function MyAudioList({ audioList, bulkDelete, changeCategory, cat
             )}
           </div>
           <div className="flex items-center gap-2">
-            <input ref={hiddenRef} type="hidden" name="ids" />
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
@@ -137,7 +140,7 @@ export default function MyAudioList({ audioList, bulkDelete, changeCategory, cat
               삭제
             </button>
           </div>
-        </form>
+        </div>
       )}
 
   {/* (서버 액션 직접 호출로 숨김 폼 제거됨) */}
