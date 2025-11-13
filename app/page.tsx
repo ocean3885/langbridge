@@ -3,6 +3,13 @@ import Link from 'next/link';
 import { FolderOpen } from 'lucide-react';
 import AudioCard from '@/components/AudioCard';
 
+type UserAudio = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  category_id: number | null;
+};
+
 export default async function HomePage() {
   const supabase = await createClient();
 
@@ -20,49 +27,76 @@ const { data: userCountData, error: rpcError } = await supabase
   // 최종 카운트
   const userCount = rpcError ? 0 : userCountData ?? 0;
 
-  // 카테고리 목록 가져오기
-  const { data: categories, error: categoriesError } = await supabase
-    .from('lang_categories')
-    .select('id, name')
-    .order('name');
+  // 로그인한 사용자 소유 오디오 목록 가져오기 (최신 60개)
+  let userGroupedCategories: { id: number | null; name: string; languageName: string; audioList: UserAudio[] }[] = [];
+  if (user) {
+    const { data: userAudios, error: userAudioError } = await supabase
+      .from('lang_audio_content')
+      .select('id, title, created_at, category_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(60);
 
-  if (categoriesError) {
-    console.error('카테고리 조회 오류:', categoriesError);
-  }
+    if (userAudioError) {
+      console.error('내 오디오 조회 오류:', userAudioError);
+    }
 
-  // 카테고리별 오디오 콘텐츠 가져오기
-  const categoriesWithAudio = await Promise.all(
-    (categories || []).map(async (category) => {
-      const { data: audioList, error: audioError } = await supabase
-        .from('lang_audio_content')
-        .select('id, title, created_at')
-        .eq('category_id', category.id)
-        .order('created_at', { ascending: false })
-        .limit(6);
-
-      if (audioError) {
-        console.error(`카테고리 ${category.name} 오디오 조회 오류:`, audioError);
+    const categoryIds = Array.from(new Set((userAudios || []).map(a => a.category_id).filter(id => id !== null))) as number[];
+  const categoryMap: Record<number, { name: string; languageName: string }> = {};
+    if (categoryIds.length > 0) {
+      const { data: catRows, error: catErr } = await supabase
+        .from('lang_categories')
+        .select('id, name, language_id, languages(name_ko)')
+        .eq('user_id', user.id)
+        .in('id', categoryIds);
+      if (catErr) {
+        console.error('내 오디오 카테고리 이름 조회 오류:', catErr);
       }
+      (catRows || []).forEach((c) => { 
+        const languageData = Array.isArray(c.languages) ? c.languages[0] : c.languages;
+        categoryMap[c.id] = {
+          name: c.name,
+          languageName: languageData?.name_ko || '언어 미지정'
+        };
+      });
+    }
 
+    // 그룹화
+    const groups: Record<string, UserAudio[]> = {};
+    (userAudios || []).forEach(a => {
+      const key = a.category_id === null ? 'uncategorized' : String(a.category_id);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    });
+
+    userGroupedCategories = Object.entries(groups).map(([key, list]) => {
+      const catId = key === 'uncategorized' ? null : Number(key);
       return {
-        ...category,
-        audioList: audioList || []
+        id: catId,
+          name: catId === null ? '미분류' : (categoryMap[catId]?.name || '알 수 없는 카테고리'),
+          languageName: catId === null ? '' : (categoryMap[catId]?.languageName || ''),
+        audioList: list
       };
-    })
-  );
+    }).sort((a, b) => {
+      // 미분류는 항상 마지막
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  }
 
   return (
     <div className="space-y-16"> {/* 섹션 간 간격 증가 */}
       
-      {/* 히어로 섹션 */}
+  {/* 히어로 섹션 */}
       <div className="text-center space-y-8">
         {/* 메인 헤드라인 */}
         <div className="space-y-4">
-          <h1 className="text-6xl font-extrabold text-gray-900 tracking-tight">
-            LangBridge
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-gray-900 tracking-tight flex items-center justify-center gap-4">
+            <span>LangBridge</span>
           </h1>
-          <p className="text-2xl font-medium text-blue-600">
-            오디오 생성과 반복 학습으로 어학 능력을 향상시키세요
+          <p className="text-lg sm:text-2xl font-medium text-blue-600">
+            원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요
           </p>
         </div>
 
@@ -117,37 +151,64 @@ const { data: userCountData, error: rpcError } = await supabase
         </div>
       </div>
 
-      {/* 카테고리별 오디오 리스트 섹션 */}
+      {/* 내 오디오 목록 섹션 */}
       <div id="audio-list" className="max-w-7xl mx-auto scroll-mt-20">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">내 오디오 목록</h2>
-        
-        {categoriesWithAudio.length === 0 ? (
-          <p className="text-gray-600 text-center">아직 카테고리가 없습니다.</p>
-        ) : (
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">내 오디오 목록</h2>
+          {user && userGroupedCategories.length > 0 && (
+            <Link 
+              href="/my-audio" 
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
+            >
+              전체 보기
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
+        </div>
+        {!user && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-8 text-center space-y-4">
+            <h3 className="text-xl font-bold text-gray-800">나만의 학습 오디오를 만들어 반복 학습을 시작하세요</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              문장을 입력하면 스페인어 TTS로 자동 변환되고, 맞춤형 반복 패턴으로 청취/그림자 따라하기 학습을 할 수 있습니다.<br/>
+              가입 후 직접 문장을 업로드해 나만의 학습 재생 리스트를 구축해 보세요.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth/sign-up" className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">무료로 가입하기</Link>
+              <Link href="/upload" className="px-6 py-3 rounded-lg bg-white border border-gray-300 text-gray-800 font-semibold hover:bg-gray-50 transition">문장 업로드 미리보기</Link>
+            </div>
+          </div>
+        )}
+        {user && userGroupedCategories.length === 0 && (
+          <div className="text-center space-y-4">
+            <p className="text-gray-600">아직 생성한 오디오가 없습니다.</p>
+            <Link href="/upload" className="inline-block px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">첫 오디오 만들기</Link>
+          </div>
+        )}
+        {user && userGroupedCategories.length > 0 && (
           <div className="space-y-10">
-            {categoriesWithAudio.map((category) => (
-              <section key={category.id} className="space-y-4">
-                {/* 카테고리 헤더 */}
+            {userGroupedCategories.map(category => (
+              <section key={category.id ?? 'uncategorized'} className="space-y-4">
                 <div className="flex items-center gap-3 border-b-2 border-gray-200 pb-2">
                   <FolderOpen className="w-6 h-6 text-blue-600" />
-                  <h3 className="text-xl font-bold text-gray-800">{category.name}</h3>
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {category.name}
+                      {category.languageName && (
+                        <span className="ml-2 text-sm font-medium text-blue-600">({category.languageName})</span>
+                      )}
+                    </h3>
                   <span className="text-sm text-gray-500">({category.audioList.length}개)</span>
                 </div>
-
-                {/* 오디오 카드 그리드 */}
-                {category.audioList.length === 0 ? (
-                  <p className="text-gray-500 text-sm pl-4">아직 오디오가 없습니다.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {category.audioList.map((audio) => (
-                      <AudioCard 
-                        key={audio.id}
-                        audio={audio}
-                        isLoggedIn={!!user}
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {category.audioList.map(audio => (
+                    <AudioCard
+                      key={audio.id}
+                      audio={audio}
+                      isLoggedIn={true}
+                    />
+                  ))}
+                </div>
               </section>
             ))}
           </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +23,11 @@ interface Props {
 export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props) {
   const supabase = createClient();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -39,13 +45,66 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
     }
   };
 
+  // Hydration 문제 방지: 클라이언트에서만 Radix UI 렌더링
+  if (!mounted) {
+    return (
+      <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sticky top-0 z-50">
+        <nav className="container mx-auto">
+          <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex justify-center sm:justify-start items-center gap-3">
+              <Link
+                href="/"
+                aria-label="홈으로 이동"
+                className="text-2xl font-extrabold tracking-wide flex-shrink-0"
+              >
+                LangBridge
+              </Link>
+            </div>
+            <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <Link href="/upload" className="hover:text-blue-300 transition duration-150">
+                  생성
+                </Link>
+                {isPremium && (
+                  <span className="hover:text-blue-300 transition duration-150">
+                    운영관리
+                  </span>
+                )}
+                {isLoggedIn && (
+                  <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">
+                    내 오디오
+                  </Link>
+                )}
+              </div>
+              {isLoggedIn ? (
+                <div className="flex items-center gap-2 bg-blue-600 py-2 px-3 sm:px-4 rounded">
+                  <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
+                    {(userEmail ?? 'U')[0].toUpperCase()}
+                  </div>
+                  <span className="hidden sm:inline max-w-[200px] truncate">{userEmail}</span>
+                </div>
+              ) : (
+                <Link
+                  href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
+                  className="bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap"
+                >
+                  로그인
+                </Link>
+              )}
+            </div>
+          </div>
+        </nav>
+      </header>
+    );
+  }
+
   return (
     <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sticky top-0 z-50">
       <nav className="container mx-auto">
         {/* 래퍼: 모바일에선 두 줄(로고 중앙, 링크/계정은 justify-between), 데스크톱에선 한 줄 정렬 */}
         <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           {/* 1행: 로고 - 모바일 중앙, 데스크톱 좌측 */}
-          <div className="flex justify-center sm:justify-start">
+          <div className="flex justify-center sm:justify-start items-center gap-3">
             <Link
               href="/"
               aria-label="홈으로 이동"
@@ -83,7 +142,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
                     <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
                       {(userEmail ?? 'U')[0].toUpperCase()}
                     </div>
-                    <span className="hidden sm:inline max-w-[200px] truncate">{userEmail}</span>
+                    <span className="hidden md:inline max-w-[200px] truncate">{userEmail}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">

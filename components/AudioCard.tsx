@@ -6,8 +6,8 @@ import { Clock } from 'lucide-react';
 
 interface AudioCardProps {
   audio: {
-    id: number;
-    title: string;
+    id: string; // UUID
+    title: string | null;
     created_at: string;
   };
   isLoggedIn: boolean;
@@ -22,7 +22,7 @@ export default function AudioCard({ audio, isLoggedIn }: AudioCardProps) {
       router.push(`/auth/login?redirectTo=/player/${audio.id}`);
     } else {
       // 플레이어 페이지로 이동
-      router.push(`/player/${audio.id}`);
+  router.push(`/player/${audio.id}`);
     }
   };
 
