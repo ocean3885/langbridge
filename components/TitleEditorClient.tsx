@@ -47,7 +47,7 @@ export default function TitleEditorClient({ title, canEdit, action }: Props) {
   if (!editing) {
     return (
       <div className="flex items-center gap-2 mb-4">
-        <h1 className="text-4xl font-bold break-words">{title}</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold break-words">{title}</h1>
         <Button
           type="button"
           variant="ghost"

@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   Users, 
   AudioLines, 
-  FolderTree, 
   Settings,
   ChevronRight,
   Languages,
@@ -32,7 +31,6 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     { id: 'mappings', label: '단어-문장 매핑', icon: BookMarked, href: '/admin/word-sentence-map' },
     { id: 'users', label: '사용자 관리', icon: Users, href: '/admin/users' },
     { id: 'audio', label: '오디오 관리', icon: AudioLines, href: '/admin/audio' },
-    { id: 'categories', label: '카테고리 관리', icon: FolderTree, href: '/admin/categories' },
     { id: 'settings', label: '시스템 설정', icon: Settings, href: '/admin/settings' },
   ];
 

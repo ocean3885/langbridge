@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import AudioPlayerClient from '@/components/AudioPlayerClient'; // 클라이언트 컴포넌트
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Calendar, FolderOpen, ListMusic } from 'lucide-react';
+import { Calendar, FolderOpen } from 'lucide-react';
 import TitleEditorClient from '@/components/TitleEditorClient';
 import { revalidatePath } from 'next/cache';
+import BackButton from '@/components/BackButton';
 
 type RelatedAudio = {
   id: number;
@@ -145,49 +145,40 @@ export default async function PlayerPage({ params }: { params: Promise<{ audio_i
 
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <TitleEditorClient
-                title={mergedContent.title || '제목 없음'}
-                canEdit={sessionUserId !== null && 'user_id' in mergedContent && sessionUserId === mergedContent.user_id}
-                action={updateTitle}
-              />
-              <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-gray-600">
-                {mergedContent.category && (
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4" />
-                    <span className="font-medium">{mergedContent.category.name}</span>
-                  </div>
-                )}
-                {mergedContent.created_at && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {new Date(mergedContent.created_at).toLocaleDateString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                )}
-              </div>
+      <div className="mb-6">
+        <div className="flex justify-end mb-2">
+          <BackButton />
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <TitleEditorClient
+              title={mergedContent.title || '제목 없음'}
+              canEdit={sessionUserId !== null && 'user_id' in mergedContent && sessionUserId === mergedContent.user_id}
+              action={updateTitle}
+            />
+            <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-gray-600">
+              {mergedContent.category && (
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  <span className="font-medium">{mergedContent.category.name}</span>
+                </div>
+              )}
+              {mergedContent.created_at && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {new Date(mergedContent.created_at).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
-            <Button asChild variant="outline" size="sm">
-              <Link
-                href="/my-audio"
-                aria-label="내 오디오 목록"
-                className="flex items-center gap-1 sm:gap-2"
-              >
-                <ListMusic className="w-5 h-5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">내 오디오 목록</span>
-              </Link>
-            </Button>
           </div>
         </div>
-
-        <AudioPlayerClient 
+      </div>        <AudioPlayerClient 
           audioUrl={audioUrl} 
           syncData={mergedContent.sync_data} 
           contentId={audioIdNum}
@@ -292,8 +283,11 @@ export default async function PlayerPage({ params }: { params: Promise<{ audio_i
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* 헤더 영역 */}
       <div className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex justify-end mb-2">
+          <BackButton />
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
             <TitleEditorClient
               title={audioContent.title || '제목 없음'}
               canEdit={sessionUserId !== null && 'user_id' in audioContent && sessionUserId === audioContent.user_id}
@@ -323,16 +317,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ audio_i
               )}
             </div>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link
-              href="/my-audio"
-              aria-label="내 오디오 목록"
-              className="flex items-center gap-1 sm:gap-2"
-            >
-              <ListMusic className="w-5 h-5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">내 오디오 목록</span>
-            </Link>
-          </Button>
         </div>
       </div>
 

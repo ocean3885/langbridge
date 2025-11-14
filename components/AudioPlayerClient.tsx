@@ -66,10 +66,10 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
     
     audio.currentTime = startTime;
     
-    // 오디오가 일시정지 상태면 자동 재생
+    // 오디오가 일시정지 상태면 재생 시도 (사용자 클릭이므로 허용됨)
     if (audio.paused) {
-      audio.play().catch(err => {
-        console.error('Auto-play failed:', err);
+      audio.play().catch(() => {
+        // 자동재생 차단은 정상적인 동작 - 에러 무시
       });
     }
   };
@@ -94,10 +94,10 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
         }
       }
       
-      // 오디오가 일시정지 상태면 자동 재생
+      // 오디오가 일시정지 상태면 재생 시도 (사용자 클릭이므로 허용됨)
       if (audio.paused) {
-        audio.play().catch(err => {
-          console.error('Auto-play failed:', err);
+        audio.play().catch(() => {
+          // 자동재생 차단은 정상적인 동작 - 에러 무시
         });
       }
     }
@@ -128,7 +128,9 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       const data = syncData[index];
       audio.currentTime = data.start;
       if (audio.paused) {
-        audio.play().catch(err => console.error('Auto-play failed:', err));
+        audio.play().catch(() => {
+          // 자동재생 차단은 정상적인 동작 - 에러 무시
+        });
       }
     }
   };
@@ -197,7 +199,18 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       const activeIndex = syncData.findIndex(
         (data) => currentTime >= data.start && currentTime < data.end
       );
-      setCurrentSentenceIndex(activeIndex);
+      
+      // 현재 재생 중인 문장이 있으면 업데이트
+      // 없으면 이전 하이라이트 유지 (공백 구간에서도 마지막 문장 표시)
+      if (activeIndex !== -1) {
+        setCurrentSentenceIndex(activeIndex);
+      } else if (syncData.length > 0) {
+        // 마지막 문장의 끝 시간을 넘어서면 하이라이트 제거
+        const lastSentence = syncData[syncData.length - 1];
+        if (currentTime >= lastSentence.end) {
+          setCurrentSentenceIndex(-1);
+        }
+      }
 
       // 반복 재생 중인 문장의 끝에 도달하면 다시 시작
       if (repeatingSentenceIndex !== null) {
@@ -216,6 +229,9 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
         audio.play().catch(err => {
           console.error('Repeat playback failed:', err);
         });
+      } else {
+        // 반복 재생이 아니면 하이라이트 제거
+        setCurrentSentenceIndex(-1);
       }
     };
 
@@ -263,8 +279,19 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
         </div>
       )}
       
-      {/* 전체 반복 재생 버튼 */}
-      <div className="mb-4 flex justify-end">
+      {/* 컨트롤 버튼 */}
+      <div className="mb-4 flex justify-between items-center gap-2">
+        <a
+          href="/my-audio"
+          className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"
+          title="내 오디오 목록으로 이동"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+          <span className="font-medium hidden sm:inline">내 오디오 목록</span>
+          <span className="font-medium sm:hidden">목록</span>
+        </a>
         <button
           onClick={handleLoopAllToggle}
           className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${
