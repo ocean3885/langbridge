@@ -65,6 +65,9 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
                 <Link href="/upload" className="hover:text-blue-300 transition duration-150">
                   생성
                 </Link>
+                <Link href="/videos" className="hover:text-blue-300 transition duration-150">
+                  영상학습
+                </Link>
                 {isPremium && (
                   <span className="hover:text-blue-300 transition duration-150">
                     운영관리
@@ -121,6 +124,9 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
               {/* 로고가 홈으로 이동하므로 별도 '홈' 버튼 제거 */}
               <Link href="/upload" className="hover:text-blue-300 transition duration-150">
                 생성
+              </Link>
+              <Link href="/videos" className="hover:text-blue-300 transition duration-150">
+                영상학습
               </Link>
               {isPremium && (
                 <Link href="/admin" className="hover:text-blue-300 transition duration-150">

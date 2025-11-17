@@ -12,7 +12,8 @@ import {
   BookOpen,
   MessageSquare,
   GitMerge,
-  BookMarked
+  BookMarked,
+  Video
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -27,6 +28,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     { id: 'languages', label: '언어 관리', icon: Languages, href: '/admin/languages' },
     { id: 'words', label: '단어 관리', icon: BookOpen, href: '/admin/words' },
     { id: 'sentences', label: '문장 관리', icon: MessageSquare, href: '/admin/sentences' },
+    { id: 'videos', label: '영상 관리', icon: Video, href: '/admin/videos' },
     { id: 'conjugations', label: '동사 활용', icon: GitMerge, href: '/admin/verb-conjugations' },
     { id: 'mappings', label: '단어-문장 매핑', icon: BookMarked, href: '/admin/word-sentence-map' },
     { id: 'users', label: '사용자 관리', icon: Users, href: '/admin/users' },

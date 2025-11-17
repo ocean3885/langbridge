@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
 import Link from 'next/link';
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, Video, Clock } from 'lucide-react';
 import AudioCard from '@/components/AudioCard';
+import { getAllVideos } from '@/lib/supabase/queries/videos';
+import Image from 'next/image';
 
 type UserAudio = {
   id: string;
@@ -10,11 +12,28 @@ type UserAudio = {
   category_id: number | null;
 };
 
+// 초를 MM:SS 또는 H:MM:SS 형식으로 변환
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '-';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
 
   // 현재 사용자 확인
   const { data: { user } } = await supabase.auth.getUser();
+
+  // 비디오 목록 가져오기 (최신 6개)
+  const { data: videos } = await getAllVideos();
+  const recentVideos = videos.slice(0, 6);
 
 const { data: userCountData, error: rpcError } = await supabase
     .rpc('get_user_count'); 
@@ -98,6 +117,9 @@ const { data: userCountData, error: rpcError } = await supabase
           <p className="text-lg sm:text-2xl font-medium text-blue-600">
             원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요
           </p>
+          <p className="text-base sm:text-xl font-medium text-cyan-600">
+            📹 NEW! 영상 스크립트 반복 학습으로 실전 회화를 마스터하세요
+          </p>
         </div>
 
         {/* 주요 가치 제안 */}
@@ -119,10 +141,10 @@ const { data: userCountData, error: rpcError } = await supabase
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-            <div className="text-4xl mb-3">📈</div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">실력 향상</h3>
+            <div className="text-4xl mb-3">🎬</div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">영상 학습 <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full ml-1">NEW</span></h3>
             <p className="text-sm text-gray-600">
-              꾸준한 학습으로 확실한 성과를 경험하세요
+              실제 영상 콘텐츠로 스크립트 반복 학습하세요
             </p>
           </div>
         </div>
@@ -133,13 +155,13 @@ const { data: userCountData, error: rpcError } = await supabase
             href="/upload"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
           >
-            지금 시작하기
+            오디오 만들기
           </Link>
           <Link 
-            href="#audio-list"
-            className="inline-block bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-10 rounded-lg border-2 border-gray-300 transition-all duration-200 hover:border-gray-400"
+            href="/videos"
+            className="inline-block bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
           >
-            콘텐츠 둘러보기
+            영상 학습하기
           </Link>
         </div>
 
@@ -150,6 +172,87 @@ const { data: userCountData, error: rpcError } = await supabase
           </p>
         </div>
       </div>
+
+      {/* 학습 비디오 섹션 */}
+      {recentVideos.length > 0 && (
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <Video className="w-6 h-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">학습 비디오</h2>
+            </div>
+            <Link 
+              href="/videos" 
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
+            >
+              전체 보기
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentVideos.map((video) => (
+              <Link
+                key={video.id}
+                href={`/videos/${video.id}`}
+                className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+              >
+                {/* 썸네일 */}
+                <div className="relative w-full aspect-video bg-gray-200">
+                  {video.thumbnail_url ? (
+                    <Image
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Video className="w-16 h-16 text-gray-400" />
+                    </div>
+                  )}
+                  
+                  {/* 시간 배지 */}
+                  {video.duration !== null && (
+                    <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{formatDuration(video.duration)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 비디오 정보 */}
+                <div className="p-4">
+                  <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    {video.title}
+                  </h3>
+                  
+                  {video.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                      {video.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      {video.transcript_count || 0}개의 스크립트
+                    </span>
+                    <span>
+                      {new Date(video.created_at).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 내 오디오 목록 섹션 */}
       <div id="audio-list" className="max-w-7xl mx-auto scroll-mt-20">
