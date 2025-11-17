@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { Video, Clock, Globe } from 'lucide-react';
 import Image from 'next/image';
 
+// 동적 렌더링 강제
+export const dynamic = 'force-dynamic';
+
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return '-';
