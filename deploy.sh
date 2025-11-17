@@ -51,6 +51,10 @@ ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} << 'ENDSSH'
     
     echo "📂 애플리케이션 디렉토리로 이동..."
     cd /home/ubuntu/langbridge
+
+    # 🚨 추가된 안전 조치: 로컬 package-lock.json 변경사항 제거 🚨
+    echo "🧼 로컬 package-lock.json 변경사항 정리..."
+    git restore package-lock.json
     
     echo "⬇️  최신 코드 가져오기..."
     git pull origin main
