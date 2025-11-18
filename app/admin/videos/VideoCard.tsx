@@ -21,7 +21,7 @@ interface VideoCardProps {
     description: string | null;
     thumbnail_url: string | null;
     duration: number | null;
-    transcript_count: number;
+    transcript_count?: number;
     channel_id: string | null;
   };
   channels: Channel[];
