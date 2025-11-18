@@ -56,15 +56,81 @@ export default function TranscriptDisplay({
     textOriginal: string;
     textTranslated: string;
   } | null>(null);
+  // 시간 미세 조정 (0.1초 단위)
+  const adjustStart = (delta: number) => {
+    setEditingTranscript(prev => {
+      if (!prev) return prev;
+      const nextStart = Math.max(0, parseFloat((prev.start + delta).toFixed(3)));
+      return { ...prev, start: nextStart };
+    });
+  };
+  const adjustEnd = (delta: number) => {
+    setEditingTranscript(prev => {
+      if (!prev) return prev;
+      const end = prev.start + prev.duration;
+      let nextEnd = parseFloat((end + delta).toFixed(3));
+      if (nextEnd < prev.start + 0.1) {
+        nextEnd = prev.start + 0.1; // 최소 0.1초 유지
+      }
+      const nextDuration = parseFloat((nextEnd - prev.start).toFixed(3));
+      return { ...prev, duration: nextDuration };
+    });
+  };
+
+  // Forward-fit: 이전 구간 끝 + 0.01로 시작시간을 자동 맞춤
+  const forwardFit = () => {
+    setEditingTranscript(prev => {
+      if (!prev) return prev;
+      const idx = transcripts.findIndex(t => t.id === prev.id);
+      if (idx <= 0) return prev; // 이전 항목 없음
+      const prevItem = transcripts[idx - 1];
+      const newStart = parseFloat((prevItem.start + prevItem.duration + 0.01).toFixed(3));
+      const oldEnd = parseFloat((prev.start + prev.duration).toFixed(3));
+    let newDuration = parseFloat((oldEnd - newStart).toFixed(3));
+    if (newDuration < 0.1) newDuration = 0.1;
+      return { ...prev, start: Math.max(0, newStart), duration: newDuration };
+    });
+  };
+
+  // Backward-fit: 다음 구간 시작 - 0.01로 끝 시간을 맞춤
+  const backwardFit = () => {
+    setEditingTranscript(prev => {
+      if (!prev) return prev;
+      const idx = transcripts.findIndex(t => t.id === prev.id);
+      if (idx === -1 || idx >= transcripts.length - 1) return prev; // 다음 항목 없음
+      const next = transcripts[idx + 1];
+      const newEnd = parseFloat((next.start - 0.01).toFixed(3));
+      const minEnd = parseFloat((prev.start + 0.1).toFixed(3));
+      const finalEnd = newEnd <= minEnd ? minEnd : newEnd;
+      const newDuration = parseFloat((finalEnd - prev.start).toFixed(3));
+      return { ...prev, duration: newDuration };
+    });
+  };
   
   // 각 스크립트 요소에 대한 ref
   const transcriptRefs = useRef<(HTMLDivElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 현재 재생 라인 계산 (겹침 처리 및 클릭 우선)
+  let currentPlayingIndex = -1;
+
+  // 클릭으로 선택된 인덱스가 있으면 우선 표시 (seek 직후 깜빡임 방지)
+  if (selectedTranscriptIndex !== null) {
+    currentPlayingIndex = selectedTranscriptIndex;
+  } else {
+    // 겹치는 구간이 있을 경우 시작 시간이 가장 늦은 항목을 선택
+    const candidates = transcripts
+      .map((t, idx) => ({ t, idx }))
+      .filter(({ t }) => currentTime >= t.start && currentTime < t.start + t.duration);
+    if (candidates.length > 0) {
+      const best = candidates.reduce((a, b) => (
+        a.t.start === b.t.start ? (a.idx > b.idx ? a : b) : (a.t.start > b.t.start ? a : b)
+      ));
+      currentPlayingIndex = best.idx;
+    }
+  }
+
   // 반복 중일 때 하이라이트 보정
-  let currentPlayingIndex = transcripts.findIndex(
-    (t) => currentTime >= t.start && currentTime < t.start + t.duration
-  );
   if (repeatState.type === 'single' && repeatState.index1 !== null) {
     currentPlayingIndex = repeatState.index1;
   }
@@ -392,31 +458,114 @@ export default function TranscriptDisplay({
             <h3 className="text-lg font-semibold mb-4">스크립트 수정</h3>
             
             <div className="space-y-4">
-              {/* 시작 시간 */}
-              <div>
-                <label className="block text-sm font-medium mb-2">시작 시간 (초)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editingTranscript.start}
-                  onChange={(e) => setEditingTranscript({
-                    ...editingTranscript,
-                    start: parseFloat(e.target.value) || 0,
-                  })}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-                />
+              {/* 시작/끝 시간 조정 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 시작 시간 */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">시작 시간 (초)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => adjustStart(-0.1)}
+                      className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold"
+                      title="시작 -0.1초"
+                    >
+                      -0.1
+                    </button>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editingTranscript.start}
+                      onChange={(e) => setEditingTranscript({
+                        ...editingTranscript,
+                        start: Math.max(0, parseFloat(e.target.value) || 0),
+                      })}
+                      className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustStart(0.1)}
+                      className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold"
+                      title="시작 +0.1초"
+                    >
+                      +0.1
+                    </button>
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={forwardFit}
+                      disabled={transcripts.findIndex(t => t.id === editingTranscript?.id) <= 0}
+                      className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold disabled:opacity-50"
+                    >
+                      Forward Fit
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1">이전 문장의 끝에 맞춰 시작시간을 자동으로 맞춥니다.</p>
+                  </div>
+                </div>
+                {/* 끝 시간 */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">끝 시간 (초)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => adjustEnd(-0.1)}
+                      className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold"
+                      title="끝 -0.1초"
+                    >
+                      -0.1
+                    </button>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={parseFloat((editingTranscript.start + editingTranscript.duration).toFixed(3))}
+                      onChange={(e) => {
+                        const raw = parseFloat(e.target.value);
+                        if (!isNaN(raw)) {
+                          const desiredEnd = Math.max(editingTranscript.start + 0.1, raw);
+                          const newDuration = parseFloat((desiredEnd - editingTranscript.start).toFixed(3));
+                          setEditingTranscript({ ...editingTranscript, duration: newDuration });
+                        }
+                      }}
+                      className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustEnd(0.1)}
+                      className="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold"
+                      title="끝 +0.1초"
+                    >
+                      +0.1
+                    </button>
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={backwardFit}
+                      disabled={(() => {
+                        const i = transcripts.findIndex(t => t.id === editingTranscript?.id);
+                        return i === -1 || i >= transcripts.length - 1;
+                      })()}
+                      className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-semibold disabled:opacity-50"
+                    >
+                      Backward Fit
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1">다음 문장의 시작에 맞춰 끝시간을 자동으로 맞춥니다.</p>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">지속 시간: {(editingTranscript.duration).toFixed(3)}초</p>
+                </div>
               </div>
 
-              {/* 지속 시간 */}
+              {/* (기존) 지속 시간 직접 입력 유지 */}
               <div>
-                <label className="block text-sm font-medium mb-2">지속 시간 (초)</label>
+                <label className="block text-sm font-medium mb-2">지속 시간 직접 입력 (초)</label>
                 <input
                   type="number"
                   step="0.01"
                   value={editingTranscript.duration}
                   onChange={(e) => setEditingTranscript({
                     ...editingTranscript,
-                    duration: parseFloat(e.target.value) || 0,
+                    duration: Math.max(0.1, parseFloat(e.target.value) || editingTranscript.duration),
                   })}
                   className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
                 />
@@ -470,6 +619,7 @@ export default function TranscriptDisplay({
                 취소
               </button>
             </div>
+            
           </div>
         </div>
       )}

@@ -34,20 +34,34 @@ export default async function VideosPage() {
   }
 
   // 언어별로 그룹화
-  const videosByLanguage: Record<string, typeof videos> = {};
-  videos.forEach((video) => {
+  const groupedByLanguage = videos.reduce((acc, video) => {
     const langKey = video.language_name || '언어 미지정';
-    if (!videosByLanguage[langKey]) {
-      videosByLanguage[langKey] = [];
+    if (!acc[langKey]) {
+      acc[langKey] = [];
     }
-    videosByLanguage[langKey].push(video);
+    acc[langKey].push(video);
+    return acc;
+  }, {} as Record<string, typeof videos>);
+
+  // 각 언어 내에서 채널별로 그룹화
+  const groupedByLanguageAndChannel = Object.entries(groupedByLanguage).map(([language, vids]) => {
+    const byChannel = vids.reduce((acc, video) => {
+      const channelKey = video.channel_name || '채널 미지정';
+      if (!acc[channelKey]) {
+        acc[channelKey] = [];
+      }
+      acc[channelKey].push(video);
+      return acc;
+    }, {} as Record<string, typeof vids>);
+
+    return { language, channels: byChannel };
   });
 
   // 언어 목록을 정렬 (언어 미지정은 마지막)
-  const sortedLanguages = Object.keys(videosByLanguage).sort((a, b) => {
-    if (a === '언어 미지정') return 1;
-    if (b === '언어 미지정') return -1;
-    return a.localeCompare(b, 'ko');
+  const sortedGroups = groupedByLanguageAndChannel.sort((a, b) => {
+    if (a.language === '언어 미지정') return 1;
+    if (b.language === '언어 미지정') return -1;
+    return a.language.localeCompare(b.language, 'ko');
   });
 
   return (
@@ -76,78 +90,88 @@ export default async function VideosPage() {
         </div>
       ) : (
         <div className="space-y-12">
-          {sortedLanguages.map((languageName) => (
-            <section key={languageName} className="space-y-4">
+          {sortedGroups.map(({ language, channels }) => (
+            <section key={language} className="space-y-6">
               {/* 언어별 헤더 */}
-              <div className="flex items-center gap-3 border-b-2 border-gray-200 pb-2">
+              <div className="flex items-center gap-3 border-b-2 border-blue-500 pb-2">
                 <Globe className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-800">{languageName}</h2>
-                <span className="text-sm text-gray-500">
-                  ({videosByLanguage[languageName].length}개)
-                </span>
+                <h2 className="text-2xl font-bold text-gray-800">{language}</h2>
               </div>
 
-              {/* 비디오 그리드 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {videosByLanguage[languageName].map((video) => (
-                  <Link
-                    key={video.id}
-                    href={`/videos/${video.id}`}
-                    className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    {/* 썸네일 */}
-                    <div className="relative w-full aspect-video bg-gray-200">
-                      {video.thumbnail_url ? (
-                        <Image
-                          src={video.thumbnail_url}
-                          alt={video.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Video className="w-16 h-16 text-gray-400" />
-                        </div>
-                      )}
-                      
-                      {/* 시간 배지 */}
-                      {video.duration !== null && (
-                        <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatDuration(video.duration)}</span>
-                        </div>
-                      )}
-                    </div>
+              {/* 채널별 섹션 */}
+              {Object.entries(channels).map(([channelName, channelVideos]) => (
+                <div key={channelName} className="space-y-3">
+                  {/* 채널 헤더 */}
+                  <div className="flex items-center gap-2 pl-3 border-l-4 border-blue-400">
+                    <h3 className="text-xl font-semibold text-gray-700">{channelName}</h3>
+                    <span className="text-sm text-gray-500">
+                      ({channelVideos.length}개)
+                    </span>
+                  </div>
 
-                    {/* 비디오 정보 */}
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {video.title}
-                      </h3>
-                      
-                      {video.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                          {video.description}
-                        </p>
-                      )}
+                  {/* 비디오 그리드 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {channelVideos.map((video) => (
+                      <Link
+                        key={video.id}
+                        href={`/videos/${video.id}`}
+                        className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+                      >
+                        {/* 썸네일 */}
+                        <div className="relative w-full aspect-video bg-gray-200">
+                          {video.thumbnail_url ? (
+                            <Image
+                              src={video.thumbnail_url}
+                              alt={video.title}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Video className="w-16 h-16 text-gray-400" />
+                            </div>
+                          )}
+                          
+                          {/* 시간 배지 */}
+                          {video.duration !== null && (
+                            <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatDuration(video.duration)}</span>
+                            </div>
+                          )}
+                        </div>
 
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>
-                          {video.transcript_count || 0}개의 스크립트
-                        </span>
-                        <span>
-                          {new Date(video.created_at).toLocaleDateString('ko-KR', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                        {/* 비디오 정보 */}
+                        <div className="p-4">
+                          <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                            {video.title}
+                          </h3>
+                          
+                          {video.description && (
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                              {video.description}
+                            </p>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                              {video.transcript_count || 0}개의 스크립트
+                            </span>
+                            <span>
+                              {new Date(video.created_at).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </section>
           ))}
         </div>

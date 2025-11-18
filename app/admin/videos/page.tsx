@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getAllVideos } from '@/lib/supabase/queries/videos';
-import { Plus, Play } from 'lucide-react';
+import { Plus, Tag } from 'lucide-react';
 import AdminSidebar from '../AdminSidebar';
-import DeleteVideoButton from './DeleteVideoButton';
+import VideoCard from './VideoCard';
 
 export default async function AdminVideosPage() {
   const supabase = await createClient();
@@ -30,6 +29,12 @@ export default async function AdminVideosPage() {
 
   const { data: videos, error } = await getAllVideos();
 
+  // 채널 목록 조회
+  const { data: channels } = await supabase
+    .from('video_channels')
+    .select('id, channel_name, channel_url, language_id')
+    .order('channel_name', { ascending: true });
+
   if (error) {
     return (
       <>
@@ -43,11 +48,35 @@ export default async function AdminVideosPage() {
     );
   }
 
+  // 언어별 그룹핑
+  const groupedByLanguage = videos.reduce((acc, video) => {
+    const langKey = video.language_name || '언어 미지정';
+    if (!acc[langKey]) {
+      acc[langKey] = [];
+    }
+    acc[langKey].push(video);
+    return acc;
+  }, {} as Record<string, typeof videos>);
+
+  // 각 언어 내에서 채널별로 그룹핑
+  const groupedByLanguageAndChannel = Object.entries(groupedByLanguage).map(([language, vids]) => {
+    const byChannel = vids.reduce((acc, video) => {
+      const channelKey = video.channel_name || '채널 미지정';
+      if (!acc[channelKey]) {
+        acc[channelKey] = [];
+      }
+      acc[channelKey].push(video);
+      return acc;
+    }, {} as Record<string, typeof vids>);
+
+    return { language, channels: byChannel };
+  });
+
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
       <div className="min-h-screen bg-gray-50 ml-64 p-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">영상 관리</h1>
@@ -67,52 +96,36 @@ export default async function AdminVideosPage() {
           등록된 영상이 없습니다. 새로운 영상을 등록해보세요.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {videos.map((video) => (
-            <div
-              key={video.id}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white"
-            >
-              {/* 썸네일 */}
-              <div className="relative aspect-video bg-gray-900">
-                {video.thumbnail_url ? (
-                  <Image
-                    src={video.thumbnail_url}
-                    alt={video.title}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Play className="w-16 h-16 text-gray-600" />
+        <div className="space-y-8">
+          {groupedByLanguageAndChannel.map(({ language, channels: channelGroups }) => (
+            <div key={language}>
+              {/* 언어 헤더 */}
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <Tag className="w-6 h-6 text-blue-600" />
+                  {language}
+                </h2>
+                <div className="h-1 bg-gradient-to-r from-blue-500 to-transparent mt-2 rounded"></div>
+              </div>
+
+              {/* 채널별 섹션 */}
+              {Object.entries(channelGroups).map(([channelName, channelVideos]) => (
+                <div key={channelName} className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3 pl-2 border-l-4 border-blue-400">
+                    {channelName} ({channelVideos.length})
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {channelVideos.map((video) => (
+                      <VideoCard 
+                        key={video.id} 
+                        video={video} 
+                        channels={channels || []}
+                      />
+                    ))}
                   </div>
-                )}
-              </div>
-
-              {/* 정보 */}
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-2 line-clamp-2">{video.title}</h3>
-                {video.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                    {video.description}
-                  </p>
-                )}
-                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                  <span>스크립트: {video.transcript_count || 0}개</span>
-                  {video.duration && <span>{Math.floor(video.duration / 60)}분</span>}
                 </div>
-
-                {/* 액션 버튼 */}
-                <div className="flex gap-2">
-                  <Link
-                    href={`/videos/${video.id}`}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center text-sm font-medium"
-                  >
-                    학습하기
-                  </Link>
-                  <DeleteVideoButton videoId={video.id} videoTitle={video.title} />
-                </div>
-              </div>
+              ))}
             </div>
           ))}
         </div>

@@ -109,6 +109,8 @@ export async function getAllVideos(): Promise<{
     transcript_count?: number;
     language_id: number | null;
     language_name: string | null;
+    channel_id: string | null;
+    channel_name: string | null;
   }[];
   error: string | null;
 }> {
@@ -126,7 +128,9 @@ export async function getAllVideos(): Promise<{
         thumbnail_url,
         created_at,
         language_id,
+        channel_id,
         languages (name_ko),
+        video_channels (channel_name),
         transcripts (count)
       `)
       .order('created_at', { ascending: false });
@@ -146,10 +150,13 @@ export async function getAllVideos(): Promise<{
       thumbnail_url: string | null;
       created_at: string;
       language_id: number | null;
+      channel_id: string | null;
       languages?: { name_ko: string } | { name_ko: string }[] | null;
+      video_channels?: { channel_name: string } | { channel_name: string }[] | null;
       transcripts?: { count: number }[];
     }) => {
       const languageData = Array.isArray(video.languages) ? video.languages[0] : video.languages;
+      const channelData = Array.isArray(video.video_channels) ? video.video_channels[0] : video.video_channels;
       return {
         id: video.id,
         youtube_id: video.youtube_id,
@@ -160,6 +167,8 @@ export async function getAllVideos(): Promise<{
         created_at: video.created_at,
         language_id: video.language_id,
         language_name: languageData?.name_ko || null,
+        channel_id: video.channel_id,
+        channel_name: channelData?.channel_name || null,
         transcript_count: video.transcripts?.[0]?.count || 0,
       };
     });

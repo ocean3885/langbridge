@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         hostname: 'img.youtube.com',
         pathname: '/vi/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'yt3.googleusercontent.com',
+      },
     ],
   },
   experimental: {

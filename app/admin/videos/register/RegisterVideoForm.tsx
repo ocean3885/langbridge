@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { registerVideo } from '@/app/actions/video';
 
@@ -11,11 +11,30 @@ export default function RegisterVideoForm() {
     youtubeUrl: '',
     title: '',
     description: '',
-    duration: '',
     transcriptText: '',
     lang: 'ko',
+    videoLanguageId: '', // 영상 언어 (languages 테이블 id)
+    channelId: '', // 영상 채널 (video_channels.id)
     transcriptFile: null as File | null,
   });
+  const [languages, setLanguages] = useState<{ id: number; name_ko: string; name_en: string }[]>([]);
+  const [channels, setChannels] = useState<{ id: string; channel_name: string; channel_url?: string | null; language_id?: number | null }[]>([]);
+
+  // 영상 언어 목록 불러오기 (관리자 전용 API 재활용)
+  useEffect(() => {
+    fetch('/api/admin/languages')
+      .then(r => r.json())
+      .then(setLanguages)
+      .catch(err => console.error('언어 목록 로드 오류:', err));
+  }, []);
+
+  // 채널 목록 불러오기
+  useEffect(() => {
+    fetch('/api/admin/channels')
+      .then(r => r.json())
+      .then(setChannels)
+      .catch(err => console.error('채널 목록 로드 오류:', err));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +51,11 @@ export default function RegisterVideoForm() {
         youtubeUrl: formData.youtubeUrl,
         title: formData.title,
         description: formData.description || undefined,
-        duration: formData.duration ? parseInt(formData.duration) : undefined,
+        // duration 제거: 자동 처리 또는 null 저장
         transcriptText: transcriptText,
         lang: formData.lang || 'ko',
+        languageId: formData.videoLanguageId ? Number(formData.videoLanguageId) : null,
+        channelId: formData.channelId || null,
       });
 
       if (result.success) {
@@ -175,29 +196,54 @@ export default function RegisterVideoForm() {
           />
         </div>
 
-        {/* 영상 길이 */}
+        {/* 채널 */}
         <div>
-          <label htmlFor="duration" className="block text-sm font-medium mb-2">
-            영상 길이 (초)
-          </label>
-          <input
-            type="number"
-            id="duration"
-            name="duration"
-            value={formData.duration}
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="channelId" className="block text-sm font-medium">채널</label>
+            <a href="/admin/channels/register" className="text-xs text-blue-600 hover:underline">채널 추가</a>
+          </div>
+          {channels.length === 0 ? (
+            <div className="text-sm text-gray-600 mb-2">
+              등록된 채널이 없습니다. <a href="/admin/channels/register" className="text-blue-600 hover:underline">채널 추가 페이지</a>에서 먼저 채널을 등록해주세요.
+            </div>
+          ) : null}
+          <select
+            id="channelId"
+            name="channelId"
+            value={formData.channelId}
             onChange={handleChange}
-            placeholder="300"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            선택사항 - 입력하지 않으면 자동으로 YouTube에서 가져옵니다
-          </p>
+          >
+            <option value="">채널 선택 (선택사항)</option>
+            {channels.map(c => (
+              <option key={c.id} value={c.id}>{c.channel_name}</option>
+            ))}
+          </select>
         </div>
 
-        {/* 번역 언어 */}
+        {/* 영상 언어 */}
+        <div>
+          <label htmlFor="videoLanguageId" className="block text-sm font-medium mb-2">
+            영상 언어
+          </label>
+          <select
+            id="videoLanguageId"
+            name="videoLanguageId"
+            value={formData.videoLanguageId}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+          >
+            <option value="">언어 선택</option>
+            {languages.map(l => (
+              <option key={l.id} value={l.id}>{l.name_ko} ({l.name_en})</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 번역 언어 (translations.lang) */}
         <div>
           <label htmlFor="lang" className="block text-sm font-medium mb-2">
-            번역 언어
+            번역 언어 (저장될 번역 컬럼)
           </label>
           <select
             id="lang"
