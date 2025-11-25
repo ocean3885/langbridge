@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import AdminSidebar from '../AdminSidebar';
 import { Plus, Edit, ImageIcon } from 'lucide-react';
 
@@ -10,12 +11,11 @@ export default async function AdminChannelsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const { data: profile } = await supabase
-    .from('lang_profiles')
-    .select('is_premium')
-    .eq('id', user.id)
-    .single();
-  if (!profile?.is_premium) redirect('/');
+  const admin = createAdminClient();
+  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+    user_id: user.id
+  });
+  if (!isSuperAdmin) redirect('/');
 
   const { data: channels, error } = await supabase
     .from('video_channels')

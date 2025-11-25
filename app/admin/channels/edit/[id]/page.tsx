@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import AdminSidebar from '@/app/admin/AdminSidebar';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -16,12 +17,11 @@ export default async function EditChannelPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const { data: profile } = await supabase
-    .from('lang_profiles')
-    .select('is_premium')
-    .eq('id', user.id)
-    .single();
-  if (!profile?.is_premium) redirect('/');
+  const admin = createAdminClient();
+  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+    user_id: user.id
+  });
+  if (!isSuperAdmin) redirect('/');
 
   // 채널 정보 조회
   const { data: channel, error } = await supabase

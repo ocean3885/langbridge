@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import AdminSidebar from '../../AdminSidebar';
 import RegisterVideoForm from './RegisterVideoForm';
 
@@ -13,14 +14,13 @@ export default async function RegisterVideoPage() {
     redirect('/auth/login?redirectTo=/admin/videos/register');
   }
   
-  // is_premium 확인
-  const { data: profile } = await supabase
-    .from('lang_profiles')
-    .select('is_premium')
-    .eq('id', user.id)
-    .single();
+  // 운영자 확인
+  const admin = createAdminClient();
+  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+    user_id: user.id
+  });
   
-  if (!profile?.is_premium) {
+  if (!isSuperAdmin) {
     redirect('/');
   }
 

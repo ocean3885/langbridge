@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -79,14 +80,13 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // is_premium 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
+    // 운영자 확인
+    const admin = createAdminClient();
+    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+      user_id: user.id
+    });
 
-    if (!profile?.is_premium) {
+    if (!isSuperAdmin) {
       return { success: false, error: '권한이 없습니다.' };
     }
 

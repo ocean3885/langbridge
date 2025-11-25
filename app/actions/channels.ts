@@ -20,16 +20,6 @@ export async function registerChannel(input: RegisterChannelInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '운영자 권한이 필요합니다.' };
-    }
-
     const { error: insertError } = await supabase
       .from('video_channels')
       .insert({
@@ -60,16 +50,6 @@ export async function updateChannel(channelId: string, input: RegisterChannelInp
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
-    }
-
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '운영자 권한이 필요합니다.' };
     }
 
     const { error: updateError } = await supabase

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 // 채널 목록 조회 (관리자 로그인 필요)
@@ -10,12 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-    if (!profile?.is_premium) {
+    const admin = createAdminClient();
+    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+      user_id: user.id
+    });
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 

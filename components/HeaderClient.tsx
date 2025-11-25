@@ -12,15 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, AudioLines, LogOut } from 'lucide-react';
+import { User as UserIcon, AudioLines, LogOut, Video } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
   userEmail: string | null;
-  isPremium: boolean;
+  isAdmin: boolean;
 }
 
-export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props) {
+export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) {
   const supabase = createClient();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -68,15 +68,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
                 <Link href="/videos" className="hover:text-blue-300 transition duration-150">
                   영상학습
                 </Link>
-                {isPremium && (
+                {isAdmin && (
                   <span className="hover:text-blue-300 transition duration-150">
                     운영관리
                   </span>
-                )}
-                {isLoggedIn && (
-                  <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">
-                    내 오디오
-                  </Link>
                 )}
               </div>
               {isLoggedIn ? (
@@ -128,14 +123,9 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
               <Link href="/videos" className="hover:text-blue-300 transition duration-150">
                 영상학습
               </Link>
-              {isPremium && (
+              {isAdmin && (
                 <Link href="/admin" className="hover:text-blue-300 transition duration-150">
                   운영관리
-                </Link>
-              )}
-              {isLoggedIn && (
-                <Link href="/my-audio" className="hover:text-blue-300 transition duration-150">
-                  내 오디오
                 </Link>
               )}
             </div>
@@ -158,6 +148,12 @@ export default function HeaderClient({ isLoggedIn, userEmail, isPremium }: Props
                     <Link href="/my-audio" className="flex items-center gap-2 cursor-pointer">
                       <AudioLines className="w-4 h-4" />
                       <span>내 오디오</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/my-videos" className="flex items-center gap-2 cursor-pointer">
+                      <Video className="w-4 h-4" />
+                      <span>내 영상</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

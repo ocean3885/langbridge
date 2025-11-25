@@ -84,7 +84,7 @@ export interface RegisterVideoInput {
   transcriptText: string;
   lang?: string; // 번역 언어 코드 (기본값: 'ko')
   languageId?: number | null; // 영상 자체의 언어 (videos.language_id)
-  channelId?: string | null; // 영상 채널 (video_channels.id)
+  categoryId?: number | null; // 영상 카테고리 (user_categories.id)
 }
 
 export interface RegisterVideoResult {
@@ -111,18 +111,7 @@ export async function registerVideo(
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 2. 관리자 권한 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '관리자 권한이 필요합니다.' };
-    }
-
-    // 3. YouTube ID 추출
+    // 2. YouTube ID 추출
     const youtubeId = extractYoutubeId(input.youtubeUrl);
     if (!youtubeId) {
       return { success: false, error: '유효하지 않은 YouTube URL입니다.' };
@@ -134,7 +123,7 @@ export async function registerVideo(
       return { success: false, error: '유효한 스크립트 데이터가 없습니다.' };
     }
 
-    // 5. videos 테이블에 삽입
+    // 2. videos 테이블에 삽입
     const { data: video, error: videoError } = await supabase
       .from('videos')
       .insert({
@@ -143,7 +132,7 @@ export async function registerVideo(
         description: input.description || null,
         duration: input.duration || null,
         language_id: input.languageId ?? null,
-        channel_id: input.channelId ?? null,
+        category_id: input.categoryId ?? null,
         thumbnail_url: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
       })
       .select('id')
@@ -220,20 +209,10 @@ export async function deleteVideo(videoId: string): Promise<{ success: boolean; 
   try {
     const supabase = await createClient();
 
-    // 관리자 권한 확인
+    // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return { success: false, error: '로그인이 필요합니다.' };
-    }
-
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '관리자 권한이 필요합니다.' };
     }
 
     // 영상 삭제 (CASCADE로 transcripts, translations도 자동 삭제)
@@ -269,20 +248,10 @@ export async function updateVideoChannel(
   try {
     const supabase = await createClient();
 
-    // 관리자 권한 확인
+    // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return { success: false, error: '로그인이 필요합니다.' };
-    }
-
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '관리자 권한이 필요합니다.' };
     }
 
     // 영상의 채널 업데이트

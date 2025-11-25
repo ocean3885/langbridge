@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 // 언어 목록 조회
@@ -38,14 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    // is_premium 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
+    // 운영자 확인
+    const admin = createAdminClient();
+    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+      user_id: user.id
+    });
 
-    if (!profile?.is_premium) {
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -94,14 +94,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    // is_premium 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
+    // 운영자 확인
+    const admin = createAdminClient();
+    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+      user_id: user.id
+    });
 
-    if (!profile?.is_premium) {
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -152,14 +151,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    // is_premium 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
+    // 운영자 확인
+    const admin = createAdminClient();
+    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+      user_id: user.id
+    });
 
-    if (!profile?.is_premium) {
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 

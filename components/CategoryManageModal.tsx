@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Pencil, Trash2, Plus } from 'lucide-react';
 
 interface Category {
@@ -21,11 +21,23 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCategoryChanged?: () => void;
+  initialCategories?: Category[];
+  initialLanguages?: Language[];
+  apiEndpoint?: string; // API 엔드포인트 (기본값: '/api/categories')
+  contentType?: string; // 콘텐츠 타입 (예: '오디오', '비디오')
 }
 
-export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged }: Props) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [languages, setLanguages] = useState<Language[]>([]);
+export default function CategoryManageModal({ 
+  isOpen, 
+  onClose, 
+  onCategoryChanged, 
+  initialCategories = [], 
+  initialLanguages = [],
+  apiEndpoint = '/api/categories',
+  contentType = '오디오'
+}: Props) {
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [languages, setLanguages] = useState<Language[]>(initialLanguages);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -33,13 +45,14 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedLanguageId, setSelectedLanguageId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const hasInitialized = useRef(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [categoriesRes, languagesRes] = await Promise.all([
-        fetch('/api/categories?includeCount=true'),
+        fetch(`${apiEndpoint}?includeCount=true`),
         fetch('/api/admin/languages')
       ]);
 
@@ -51,9 +64,6 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
       if (languagesRes.ok) {
         const languagesData = await languagesRes.json();
         setLanguages(languagesData);
-        if (languagesData.length > 0 && selectedLanguageId === null) {
-          setSelectedLanguageId(languagesData[0].id);
-        }
       }
     } catch (err) {
       setError('데이터 로드 중 오류가 발생했습니다.');
@@ -61,13 +71,44 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
     } finally {
       setLoading(false);
     }
-  }, []); // selectedLanguageId 종속성 제거
+  }, [apiEndpoint]);
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
+      // 모달이 열릴 때 한 번만 초기화
+      if (!hasInitialized.current) {
+        // 초기 데이터가 있으면 즉시 사용
+        if (initialCategories.length > 0) {
+          setCategories(initialCategories);
+        }
+        if (initialLanguages.length > 0) {
+          setLanguages(initialLanguages);
+          // 선택된 언어가 없으면 첫 번째 언어 선택
+          if (selectedLanguageId === null) {
+            setSelectedLanguageId(initialLanguages[0].id);
+          }
+        }
+        // 초기 데이터가 없으면 로드
+        if (initialCategories.length === 0 || initialLanguages.length === 0) {
+          loadData();
+        }
+        hasInitialized.current = true;
+      }
+    } else {
+      // 모달이 닫힐 때 상태 초기화
+      setEditingId(null);
+      setEditingName('');
+      setError(null);
+      hasInitialized.current = false;
     }
   }, [isOpen, loadData]);
+
+  // 언어 목록이 로드되었을 때 선택된 언어가 없으면 첫 번째 언어 선택
+  useEffect(() => {
+    if (languages.length > 0 && selectedLanguageId === null) {
+      setSelectedLanguageId(languages[0].id);
+    }
+  }, [languages, selectedLanguageId]);
 
   async function handleAdd() {
     if (!newCategoryName.trim() || !selectedLanguageId) {
@@ -79,7 +120,7 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
     setError(null);
 
     try {
-      const response = await fetch('/api/categories', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -107,7 +148,7 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
     setError(null);
 
     try {
-      const response = await fetch('/api/categories', {
+      const response = await fetch(apiEndpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, name: name.trim() })
@@ -133,7 +174,7 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
     
     let confirmMessage = '이 카테고리를 삭제하시겠습니까?';
     if (contentCount > 0) {
-      confirmMessage = `이 카테고리에는 ${contentCount}개의 오디오 콘텐츠가 포함되어 있습니다.\n카테고리를 삭제하면 포함된 모든 콘텐츠도 함께 삭제됩니다.\n\n정말로 삭제하시겠습니까?`;
+      confirmMessage = `이 카테고리에는 ${contentCount}개의 ${contentType} 콘텐츠가 포함되어 있습니다.\n카테고리를 삭제하면 포함된 모든 콘텐츠도 함께 삭제됩니다.\n\n정말로 삭제하시겠습니까?`;
     }
     
     if (!confirm(confirmMessage)) return;
@@ -141,7 +182,7 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoryChanged
     setError(null);
 
     try {
-      const response = await fetch(`/api/categories?id=${id}`, {
+      const response = await fetch(`${apiEndpoint}?id=${id}`, {
         method: 'DELETE'
       });
 

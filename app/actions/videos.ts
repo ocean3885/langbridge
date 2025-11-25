@@ -19,17 +19,6 @@ export async function updateVideo(input: UpdateVideoInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 운영자 권한 확인
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '운영자 권한이 필요합니다.' };
-    }
-
     // 비디오 정보 업데이트
     const { error: updateError } = await supabase
       .from('videos')

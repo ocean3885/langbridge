@@ -25,9 +25,6 @@ interface Props {
 export default function UploadForm({ processFileAction, categories, languages, onCategoryAdded }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [inputMode, setInputMode] = useState<'file' | 'text' | 'ai'>('file');
   const [inputText, setInputText] = useState('');
   const [aiGeneratedCount, setAiGeneratedCount] = useState(0);
@@ -50,41 +47,6 @@ export default function UploadForm({ processFileAction, categories, languages, o
       setError(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다.');
     } finally {
       setIsUploading(false);
-    }
-  }
-
-  async function handleAddCategory() {
-    if (!newCategoryName.trim()) {
-      setError('카테고리 이름을 입력하세요.');
-      return;
-    }
-
-    setIsAddingCategory(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCategoryName.trim(), language_id: selectedLanguageId })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || '카테고리 추가에 실패했습니다.');
-      }
-
-      setNewCategoryName('');
-      setShowAddCategory(false);
-      
-      // 부모 컴포넌트에 카테고리가 추가되었음을 알림
-      if (onCategoryAdded) {
-        onCategoryAdded();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '카테고리 추가 중 오류가 발생했습니다.');
-    } finally {
-      setIsAddingCategory(false);
     }
   }
 
@@ -184,57 +146,24 @@ export default function UploadForm({ processFileAction, categories, languages, o
         />
       </div>
 
+      {/* 카테고리 */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label htmlFor="category" className="block text-sm font-semibold text-gray-700">
-            카테고리
-          </label>
-          <button
-            type="button"
-            onClick={() => setShowAddCategory(!showAddCategory)}
-            disabled={isUploading}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
-          >
-            {showAddCategory ? '취소' : '+ 새 카테고리'}
-          </button>
-        </div>
-
-        {showAddCategory ? (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="새 카테고리 이름"
-                disabled={isAddingCategory}
-                className="flex-1 border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-              />
-              <button
-                type="button"
-                onClick={handleAddCategory}
-                disabled={isAddingCategory || !newCategoryName.trim()}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {isAddingCategory ? '추가 중...' : '추가'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <select
-            name="category"
-            id="category"
-            disabled={isUploading}
-            className="w-full border border-gray-300 rounded-md p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-          >
-            <option value="">선택 안 함</option>
-            {filteredCategories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <label htmlFor="category" className="block text-sm font-medium mb-2">
+          카테고리
+        </label>
+        <select
+          name="category"
+          id="category"
+          disabled={isUploading}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+        >
+          <option value="">카테고리 선택 (선택사항)</option>
+          {filteredCategories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {inputMode === 'ai' ? (

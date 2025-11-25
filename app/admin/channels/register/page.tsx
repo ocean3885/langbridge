@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import AdminSidebar from '../../AdminSidebar';
 import RegisterChannelForm from './RegisterChannelForm';
 
@@ -11,13 +12,12 @@ export default async function RegisterChannelPage() {
     redirect('/auth/login?redirectTo=/admin/channels/register');
   }
 
-  const { data: profile } = await supabase
-    .from('lang_profiles')
-    .select('is_premium')
-    .eq('id', user.id)
-    .single();
+  const admin = createAdminClient();
+  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
+    user_id: user.id
+  });
 
-  if (!profile?.is_premium) {
+  if (!isSuperAdmin) {
     redirect('/');
   }
 

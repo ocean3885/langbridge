@@ -399,7 +399,7 @@ export default async function MyAudioPage() {
       {groupedCategories.length === 0 && (
         <>
           <h1 className="text-4xl font-bold mb-6">내 오디오</h1>
-          <p className="text-gray-600">아직 생성된 오디오가 없습니다. <Link href="/upload" className="text-blue-600 hover:underline">지금 만들어보세요.</Link></p>
+           <p className="text-gray-600">아직 생성된 오디오가 없습니다. <Link href="/upload?tab=audio" className="text-blue-600 hover:underline">지금 만들어보세요.</Link></p>
         </>
       )}
       {groupedCategories.length > 0 && (

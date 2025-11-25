@@ -12,6 +12,16 @@ type UserAudio = {
   category_id: number | null;
 };
 
+type UserVideo = {
+  id: string;
+  title: string;
+  youtube_id: string;
+  thumbnail_url: string | null;
+  duration: number | null;
+  created_at: string;
+  category_id: number | null;
+};
+
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return '-';
@@ -48,6 +58,7 @@ const { data: userCountData, error: rpcError } = await supabase
 
   // 로그인한 사용자 소유 오디오 목록 가져오기 (최신 60개)
   let userGroupedCategories: { id: number | null; name: string; languageName: string; audioList: UserAudio[] }[] = [];
+  let userGroupedVideoCategories: { id: number | null; name: string; languageName: string; videoList: UserVideo[] }[] = [];
   if (user) {
     const { data: userAudios, error: userAudioError } = await supabase
       .from('lang_audio_content')
@@ -102,6 +113,59 @@ const { data: userCountData, error: rpcError } = await supabase
       if (b.id === null) return -1;
       return a.name.localeCompare(b.name, 'ko');
     });
+
+    // 사용자 소유 비디오 목록 가져오기 (최신 60개)
+    const { data: userVideos, error: userVideoError } = await supabase
+      .from('videos')
+      .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id')
+      .order('created_at', { ascending: false })
+      .limit(60);
+
+    if (userVideoError) {
+      console.error('내 영상 조회 오류:', userVideoError);
+    }
+
+    const videoCategoryIds = Array.from(new Set((userVideos || []).map(v => v.category_id).filter(id => id !== null))) as number[];
+    const videoCategoryMap: Record<number, { name: string; languageName: string }> = {};
+    if (videoCategoryIds.length > 0) {
+      const { data: catRows, error: catErr } = await supabase
+        .from('lang_categories')
+        .select('id, name, language_id, languages(name_ko)')
+        .eq('user_id', user.id)
+        .in('id', videoCategoryIds);
+      if (catErr) {
+        console.error('내 영상 카테고리 이름 조회 오류:', catErr);
+      }
+      (catRows || []).forEach((c) => { 
+        const languageData = Array.isArray(c.languages) ? c.languages[0] : c.languages;
+        videoCategoryMap[c.id] = {
+          name: c.name,
+          languageName: languageData?.name_ko || '언어 미지정'
+        };
+      });
+    }
+
+    // 비디오 그룹화
+    const videoGroups: Record<string, UserVideo[]> = {};
+    (userVideos || []).forEach(v => {
+      const key = v.category_id === null ? 'uncategorized' : String(v.category_id);
+      if (!videoGroups[key]) videoGroups[key] = [];
+      videoGroups[key].push(v);
+    });
+
+    userGroupedVideoCategories = Object.entries(videoGroups).map(([key, list]) => {
+      const catId = key === 'uncategorized' ? null : Number(key);
+      return {
+        id: catId,
+        name: catId === null ? '미분류' : (videoCategoryMap[catId]?.name || '알 수 없는 카테고리'),
+        languageName: catId === null ? '' : (videoCategoryMap[catId]?.languageName || ''),
+        videoList: list
+      };
+    }).sort((a, b) => {
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.name.localeCompare(b.name, 'ko');
+    });
   }
 
   return (
@@ -112,7 +176,7 @@ const { data: userCountData, error: rpcError } = await supabase
         {/* 메인 헤드라인 */}
         <div className="space-y-4">
           <h1 className="text-4xl sm:text-6xl font-extrabold text-gray-900 tracking-tight flex items-center justify-center gap-4">
-            <span>LangBridge</span>
+            <span>Lang Bridge</span>
           </h1>
           <p className="text-lg sm:text-2xl font-medium text-blue-600">
             원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요
@@ -326,6 +390,120 @@ const { data: userCountData, error: rpcError } = await supabase
                       audio={audio}
                       isLoggedIn={true}
                     />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 내 영상 목록 섹션 */}
+      <div id="video-list" className="max-w-7xl mx-auto scroll-mt-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">내 영상 목록</h2>
+          {user && userGroupedVideoCategories.length > 0 && (
+            <Link 
+              href="/my-videos" 
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
+            >
+              전체 보기
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
+        </div>
+        {!user && (
+          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-4">
+            <h3 className="text-xl font-bold text-gray-800">영상 스크립트 반복 학습으로 실전 회화를 마스터하세요</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              YouTube 영상과 스크립트를 업로드하면 자막 싱크와 함께 문장별 반복 학습이 가능합니다.<br/>
+              가입 후 영상을 등록하고 효과적인 영상 기반 언어 학습을 시작해보세요.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth/sign-up" className="px-6 py-3 rounded-lg bg-cyan-600 text-white font-semibold shadow hover:bg-cyan-700 transition">무료로 가입하기</Link>
+              <Link href="/videos" className="px-6 py-3 rounded-lg bg-white border border-gray-300 text-gray-800 font-semibold hover:bg-gray-50 transition">영상 둘러보기</Link>
+            </div>
+          </div>
+        )}
+        {user && userGroupedVideoCategories.length === 0 && (
+          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">첫 영상을 등록하여 영상 학습을 시작해보세요</h3>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                YouTube 영상과 스크립트를 업로드하면 영상과 함께 문장별 반복 학습이 가능합니다.
+              </p>
+            </div>
+            <ul className="text-left mx-auto max-w-2xl space-y-2 text-sm sm:text-base">
+              <li className="flex items-start gap-2"><span className="mt-0.5">🎬</span><span>YouTube URL과 스크립트 CSV 파일 업로드</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">📝</span><span>영상과 싱크된 자막으로 학습</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">🔁</span><span>문장별 반복 재생으로 집중 학습</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">📁</span><span>카테고리로 체계적으로 관리</span></li>
+            </ul>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/upload?tab=video" className="px-6 py-3 rounded-lg bg-cyan-600 text-white font-semibold shadow hover:bg-cyan-700 transition">
+                지금 영상 등록
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500">영상은 언제든 삭제할 수 있어요. 실전 회화 학습을 시작해보세요!</p>
+          </div>
+        )}
+        {user && userGroupedVideoCategories.length > 0 && (
+          <div className="space-y-10">
+            {userGroupedVideoCategories.map(category => (
+              <section key={category.id ?? 'uncategorized'} className="space-y-4">
+                <div className="flex items-center gap-3 border-b-2 border-gray-200 pb-2">
+                  <FolderOpen className="w-6 h-6 text-cyan-600" />
+                  <h3 className="text-xl font-bold text-gray-800">
+                    {category.name}
+                    {category.languageName && (
+                      <span className="ml-2 text-sm font-medium text-cyan-600">({category.languageName})</span>
+                    )}
+                  </h3>
+                  <span className="text-sm text-gray-500">({category.videoList.length}개)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {category.videoList.map(video => (
+                    <Link
+                      key={video.id}
+                      href={`/videos/${video.id}`}
+                      className="group bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden"
+                    >
+                      <div className="relative w-full aspect-video bg-gray-200">
+                        {video.thumbnail_url ? (
+                          <Image
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full">
+                            <Video className="w-10 h-10 text-gray-400" />
+                          </div>
+                        )}
+                        {video.duration !== null && (
+                          <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatDuration(video.duration)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
+                          {video.title}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {new Date(video.created_at).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </section>

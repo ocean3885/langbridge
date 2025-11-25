@@ -155,7 +155,7 @@ export default function VideoLearningClient({
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 왼쪽: 비디오 플레이어 */}
-        <div className="lg:sticky lg:top-4 h-fit">
+        <div className="lg:sticky lg:top-4 lg:self-start h-fit">
           <VideoPlayer
             youtubeId={youtubeId}
             selectedTranscriptIndex={selectedTranscriptIndex}
@@ -176,7 +176,7 @@ export default function VideoLearningClient({
         </div>
 
         {/* 오른쪽: 스크립트 목록 */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-12rem)]">
           <h2 className="text-xl font-semibold">스크립트</h2>
           <TranscriptDisplay
             videoId={videoId}

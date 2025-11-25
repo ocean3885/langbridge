@@ -30,17 +30,6 @@ export async function updateTranscript(input: UpdateTranscriptInput): Promise<Up
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 관리자 권한 확인 (is_premium 체크)
-    const { data: profile } = await supabase
-      .from('lang_profiles')
-      .select('is_premium')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_premium) {
-      return { success: false, error: '관리자 권한이 필요합니다.' };
-    }
-
     // 트랜스크립트 업데이트
     const { error: updateError } = await supabase
       .from('transcripts')
