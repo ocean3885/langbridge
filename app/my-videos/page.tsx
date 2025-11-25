@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
 
 // 동적 렌더링 강제
@@ -13,7 +14,7 @@ type VideoItem = {
   duration: number | null;
   thumbnail_url: string | null;
   created_at: string;
-  category_id: number | null;
+  category_id: string | null;
   category_name: string | null;
   language_name: string | null;
   transcript_count: number;
@@ -77,7 +78,7 @@ export default async function MyVideosPage() {
       thumbnail_url,
       created_at,
       category_id,
-      lang_categories:category_id (
+      user_categories:category_id (
         name
       ),
       languages:language_id (
@@ -102,12 +103,14 @@ export default async function MyVideosPage() {
   const videoList: VideoItem[] = [];
   
   for (const video of (videos || [])) {
-    const categoryData = video.lang_categories && !Array.isArray(video.lang_categories) 
-      ? video.lang_categories 
-      : null;
-    const languageData = video.languages && !Array.isArray(video.languages)
-      ? video.languages
-      : null;
+    // 1. user_categories가 존재하고 배열이며, 요소가 하나 이상 있을 때 첫 번째 요소(객체)를 가져옵니다.
+    const categoryObject = (Array.isArray(video.user_categories) && video.user_categories.length > 0)
+        ? video.user_categories[0]
+        : null;
+    // 2. languages가 존재하고 배열이며, 요소가 하나 이상 있을 때 첫 번째 요소(객체)를 가져옵니다.
+    const languageObject = (Array.isArray(video.languages) && video.languages.length > 0)
+        ? video.languages[0]
+        : null;
 
     // 트랜스크립트 개수 조회
     const { count: transcriptCount } = await supabase
@@ -124,8 +127,8 @@ export default async function MyVideosPage() {
       thumbnail_url: video.thumbnail_url,
       created_at: video.created_at,
       category_id: video.category_id,
-      category_name: categoryData?.name || null,
-      language_name: languageData?.name_ko || null,
+      category_name: categoryObject?.name || null,
+      language_name: languageObject?.name_ko || null,
       transcript_count: transcriptCount || 0,
     });
   }
@@ -133,14 +136,14 @@ export default async function MyVideosPage() {
   // 카테고리별로 그룹화
   const groupedByCategory = videoList.reduce((acc, video) => {
     const categoryKey = video.category_name || '카테고리 미지정';
-    const categoryId = video.category_id ?? 0;
+    const categoryId = video.category_id ?? null;
     
     if (!acc[categoryKey]) {
       acc[categoryKey] = { id: categoryId, videos: [] };
     }
     acc[categoryKey].videos.push(video);
     return acc;
-  }, {} as Record<string, { id: number; videos: VideoItem[] }>);
+  }, {} as Record<string, { id: string | null; videos: VideoItem[] }>);
 
   const sortedGroups = Object.entries(groupedByCategory).sort((a, b) => {
     if (a[0] === '카테고리 미지정') return 1;
@@ -211,10 +214,12 @@ export default async function MyVideosPage() {
                       {/* 썸네일 */}
                       <div className="relative w-40 h-24 flex-shrink-0 bg-gray-200 rounded overflow-hidden">
                         {video.thumbnail_url ? (
-                          <img
+                          <Image
                             src={video.thumbnail_url}
                             alt={video.title}
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="160px"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="flex items-center justify-center w-full h-full">

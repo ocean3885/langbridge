@@ -43,7 +43,7 @@ export default function VideoUploadForm({ languages, categories }: VideoUploadFo
         transcriptText: transcriptText,
         lang: formData.lang || 'ko',
         languageId: formData.videoLanguageId ? Number(formData.videoLanguageId) : null,
-        categoryId: formData.categoryId ? Number(formData.categoryId) : null,
+        categoryId: formData.categoryId ? String(formData.categoryId) : null,
       });
 
       if (result.success) {
