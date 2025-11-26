@@ -169,73 +169,72 @@ const { data: userCountData, error: rpcError } = await supabase
   }
 
   return (
-    <div className="space-y-16"> {/* 섹션 간 간격 증가 */}
+    <div className="space-y-11"> {/* 섹션 간 간격 증가 */}
       
-  {/* 히어로 섹션 */}
-      <div className="text-center space-y-8">
-        {/* 메인 헤드라인 */}
-        <div className="space-y-4">
-          <h1 className="text-4xl sm:text-6xl font-extrabold text-gray-900 tracking-tight flex items-center justify-center gap-4">
-            <span>Lang Bridge</span>
+      {/* 화이트 배경 히어로 섹션 */}
+      <section className="bg-white text-center px-4 py-8 sm:py-12 md:py-16 border-b border-gray-100">
+        <div className="space-y-10 max-w-6xl mx-auto">
+          <div className="space-y-3">
+            <p className="text-lg sm:text-2xl font-medium text-gray-700">원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요</p>
+            <p className="text-base sm:text-xl font-semibold text-cyan-700">📹 NEW! 영상 스크립트 반복 학습으로 실전 회화를 마스터하세요</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 pt-2">
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-3">🎯</div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">맞춤형 학습</h3>
+              <p className="text-sm text-gray-600">원하는 문장으로 나만의 오디오 콘텐츠를 생성하세요</p>
+            </div>
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-3">🔄</div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">반복 학습</h3>
+              <p className="text-sm text-gray-600">문장별 반복 재생으로 자연스럽게 체화하세요</p>
+            </div>
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-3">🎬</div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">영상 학습 <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full ml-1">NEW</span></h3>
+              <p className="text-sm text-gray-600">실제 영상 콘텐츠로 스크립트 반복 학습하세요</p>
+            </div>
+          </div>
+          
+          <h1 className="py-8 text-2xl sm:text-4xl font-bold tracking-tight 
+                        bg-clip-text text-transparent 
+                        bg-gradient-to-r from-teal-800 via-sky-600 to-indigo-600 
+                        drop-shadow-lg">
+              Unlock Global Opportunities with Lang Bridge.
           </h1>
-          <p className="text-lg sm:text-2xl font-medium text-blue-600">
-            원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요
-          </p>
-          <p className="text-base sm:text-xl font-medium text-cyan-600">
-            📹 NEW! 영상 스크립트 반복 학습으로 실전 회화를 마스터하세요
-          </p>
-        </div>
-
-        {/* 주요 가치 제안 */}
-        <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-6 px-4">
-          <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-            <div className="text-4xl mb-3">🎯</div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">맞춤형 학습</h3>
-            <p className="text-sm text-gray-600">
-              원하는 문장으로 나만의 오디오 콘텐츠를 생성하세요
-            </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
+            <Link
+              href="/upload"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              오디오 만들기
+            </Link>
+            <Link
+              href="/videos"
+              className="inline-block bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              영상 학습하기
+            </Link>
           </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-            <div className="text-4xl mb-3">🔄</div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">반복 학습</h3>
-            <p className="text-sm text-gray-600">
-              문장별 반복 재생으로 자연스럽게 체화하세요
-            </p>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-            <div className="text-4xl mb-3">🎬</div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">영상 학습 <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full ml-1">NEW</span></h3>
-            <p className="text-sm text-gray-600">
-              실제 영상 콘텐츠로 스크립트 반복 학습하세요
-            </p>
-          </div>
+          <p className="text-sm text-gray-500 pt-4">현재 <span className="font-semibold text-blue-600">{userCount}명</span>의 학습자가 함께하고 있습니다</p>
         </div>
+      </section>
 
-        {/* CTA 버튼 */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Link 
-            href="/upload"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            오디오 만들기
-          </Link>
-          <Link 
-            href="/videos"
-            className="inline-block bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-4 px-10 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            영상 학습하기
-          </Link>
+      {/* 최상단 이미지 섹션 */}
+      <section className="w-full">
+        <div className="max-w-7xl mx-auto">
+          <Image
+            src="/images/main.png"
+            alt="LangBridge 소개 이미지"
+            width={1600}
+            height={640}
+            priority
+            className="w-full h-[320px] sm:h-[420px] object-cover rounded-xl shadow-lg"
+            sizes="100vw"
+            quality={90}
+          />
         </div>
-
-        {/* 커뮤니티 현황 - 간단하게 */}
-        <div className="pt-8">
-          <p className="text-sm text-gray-500">
-            현재 <span className="font-semibold text-blue-600">{userCount}명</span>의 학습자가 함께하고 있습니다
-          </p>
-        </div>
-      </div>
+      </section>
 
       {/* 학습 비디오 섹션 */}
       {recentVideos.length > 0 && (

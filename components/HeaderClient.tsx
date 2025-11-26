@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -55,9 +56,16 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
               <Link
                 href="/"
                 aria-label="홈으로 이동"
-                className="text-2xl font-extrabold tracking-wide flex-shrink-0"
+                className="flex items-center flex-shrink-0"
               >
-                LangBridge
+                <Image
+                  src="/images/langbridge_logo.png"
+                  alt="LangBridge"
+                  width={160}
+                  height={40}
+                  priority
+                  className="h-8 w-auto"
+                />
               </Link>
             </div>
             <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
@@ -106,9 +114,16 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
             <Link
               href="/"
               aria-label="홈으로 이동"
-              className="text-2xl font-extrabold tracking-wide flex-shrink-0"
+              className="flex items-center flex-shrink-0"
             >
-              LangBridge
+              <Image
+                src="/images/logo4.png"
+                alt="LangBridge"
+                width={160}
+                height={40}
+                priority
+                className="h-13 w-auto"
+              />
             </Link>
           </div>
 
