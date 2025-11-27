@@ -49,7 +49,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
   // Hydration 문제 방지: 클라이언트에서만 Radix UI 렌더링
   if (!mounted) {
     return (
-      <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sticky top-0 z-50">
+      <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sm:sticky sm:top-0 z-50">
         <nav className="container mx-auto">
           <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex justify-center sm:justify-start items-center gap-3">
@@ -105,7 +105,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
   }
 
   return (
-    <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sticky top-0 z-50">
+    <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sm:sticky sm:top-0 z-50">
       <nav className="container mx-auto">
         {/* 래퍼: 모바일에선 두 줄(로고 중앙, 링크/계정은 justify-between), 데스크톱에선 한 줄 정렬 */}
         <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">

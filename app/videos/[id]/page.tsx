@@ -56,7 +56,6 @@ export default async function VideoPage({ params }: VideoPageProps) {
       description={video.description}
       categoryId={video.category_id ?? null}
       categoryName={categoryData?.name || null}
-      channelId={video.channel_id ?? null}
       channelName={channelData?.channel_name || null}
       viewCount={video.view_count}
       languageId={video.language_id}

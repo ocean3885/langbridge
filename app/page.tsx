@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 
 import Link from 'next/link';
 import { FolderOpen, Video, Clock } from 'lucide-react';
 import AudioCard from '@/components/AudioCard';
-import { getAllVideos } from '@/lib/supabase/queries/videos';
 import Image from 'next/image';
 
 type UserAudio = {
@@ -39,6 +38,18 @@ type UserVideo = {
   }>;
 };
 
+type AdminVideo = {
+  id: string;
+  title: string;
+  youtube_id: string | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  created_at: string;
+  channel_id: string | null;
+  language_id: number | null;
+  languages?: { name_ko: string }[] | { name_ko: string } | null;
+};
+
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return '-';
@@ -58,14 +69,40 @@ export default async function HomePage() {
   // 현재 사용자 확인
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 비디오 목록 가져오기 (최신 6개)
-  const { data: videos } = await getAllVideos();
-  const recentVideos = videos.slice(0, 6);
+  // 운영자 비디오 조회: videos 테이블에서 특정 운영자 uploader_id로 필터
+  const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
+  const { data: adminVideosRaw, error: adminVideosError } = await supabase
+    .from('videos')
+    .select('id, title, youtube_id, thumbnail_url, duration, created_at, channel_id, language_id, languages(name_ko)')
+    .eq('uploader_id', ADMIN_UPLOADER_ID)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (adminVideosError) {
+    console.error('운영자 비디오 조회 오류:', adminVideosError);
+  }
+
+  // 운영자 비디오 결과 정규화
+  const adminVideosRawSafe = (adminVideosRaw ?? []) as AdminVideo[];
+  const adminVideos = adminVideosRawSafe.map((v) => {
+    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
+    return {
+      id: v.id,
+      title: v.title,
+      youtube_id: v.youtube_id ?? null,
+      thumbnail_url: v.thumbnail_url ?? null,
+      duration: v.duration ?? null,
+      created_at: v.created_at,
+      channel_name: null as string | null, // 채널 이름은 별도 조인 필요 시 확장
+      transcript_count: null as number | null,
+      language_name: lang?.name_ko ?? null,
+    };
+  });
 
 const { data: userCountData, error: rpcError } = await supabase
     .rpc('get_user_count'); 
 
-  // 에러 처리
+  // 에러 처리: 콘솔에 표시하고 0으로 대체
   if (rpcError) {
     console.error('RPC 사용자 수 오류:', rpcError.message);
   }
@@ -130,12 +167,13 @@ const { data: userCountData, error: rpcError } = await supabase
       return a.name.localeCompare(b.name, 'ko');
     });
 
-    // 사용자 소유 비디오 목록 가져오기 (최신 60개)
+    // 사용자 소유 비디오 목록 가져오기 (최신 10개)
     const { data: userVideos, error: userVideoError } = await supabase
       .from('videos')
       .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id, user_categories(name, language_id, languages(name_ko))')
+      .eq('uploader_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(60);
+      .limit(10);
 
     if (userVideoError) {
       console.error('내 영상 조회 오류:', userVideoError);
@@ -263,8 +301,8 @@ const { data: userCountData, error: rpcError } = await supabase
         </div>
       </section>
 
-      {/* 학습 비디오 섹션 */}
-      {recentVideos.length > 0 && (
+      {/* 학습 비디오 섹션 (운영자 공개 영상) */}
+      {adminVideos.length > 0 && (
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
@@ -282,7 +320,7 @@ const { data: userCountData, error: rpcError } = await supabase
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentVideos.map((video) => (
+            {adminVideos.map((video) => (
               <Link
                 key={video.id}
                 href={`/videos/${video.id}`}
@@ -319,16 +357,20 @@ const { data: userCountData, error: rpcError } = await supabase
                     {video.title}
                   </h3>
                   
-                  {video.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                      {video.description}
-                    </p>
+                  {video.channel_name && (
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                        {video.channel_name}
+                      </span>
+                    </div>
                   )}
 
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>
-                      {video.transcript_count || 0}개의 스크립트
-                    </span>
+                    {video.transcript_count !== null && (
+                      <span>
+                        {video.transcript_count}개의 스크립트
+                      </span>
+                    )}
                     <span>
                       {new Date(video.created_at).toLocaleDateString('ko-KR', {
                         year: 'numeric',
@@ -521,7 +563,6 @@ const { data: userCountData, error: rpcError } = await supabase
                         <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
                           {video.title}
                         </h3>
-                        {/* 카테고리 배지 제거 요청에 따라 삭제 */}
                         <p className="text-xs text-gray-500">
                           {new Date(video.created_at).toLocaleDateString('ko-KR', {
                             year: 'numeric',

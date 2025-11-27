@@ -29,7 +29,6 @@ interface VideoLearningClientProps {
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
-  channelId: string | null;
   channelName: string | null;
   viewCount: number;
   languageId: number | null;
@@ -45,7 +44,6 @@ export default function VideoLearningClient({
   description,
   categoryId,
   categoryName,
-  channelId,
   channelName,
   viewCount,
   languageId,
@@ -58,6 +56,9 @@ export default function VideoLearningClient({
   // 반복 상태: none | single | range
   const [repeatState, setRepeatState] = useState<{ type: 'none' | 'single' | 'range', index1: number | null, index2: number | null }>({ type: 'none', index1: null, index2: null });
   
+  // 화면 크기 감지 (모바일 vs 데스크톱)
+  const [isMobile, setIsMobile] = useState(false);
+  
   // 편집 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
@@ -67,6 +68,16 @@ export default function VideoLearningClient({
   const [categories, setCategories] = useState<{ id: string; name: string; language_id: number | null }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const DeleteVideoButton = ({ videoId }: { videoId: string }) => {
     const [deleting, setDeleting] = useState(false);
@@ -181,8 +192,8 @@ export default function VideoLearningClient({
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* 뒤로가기 버튼 행 */}
+    <div className="flex flex-col lg:block lg:container lg:mx-auto lg:px-4 lg:py-8 h-screen lg:h-auto">
+      {/* 데스크톱: 뒤로가기 버튼 */}
       <div className="flex justify-end mb-2">
         <button
           onClick={() => router.back()}
@@ -194,43 +205,44 @@ export default function VideoLearningClient({
         </button>
       </div>
 
-      {/* 제목과 편집 버튼 행 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold break-words">{title}</h1>
-        {isAdmin && (
-          <button
-            onClick={handleOpenEditModal}
-            className="self-start sm:self-auto p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
-            title="비디오 정보 수정"
-          >
-            <Edit3 className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      {/* 채널, 카테고리, 조회수 정보 */}
-      <div className="flex flex-wrap gap-3 mb-4 text-sm">
-        {channelName && (
-          <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-            <span className="font-medium">채널:</span>
-            <span>{channelName}</span>
+      {/* 모바일: 비디오 섹션 (고정) */}
+      <div className="lg:hidden flex-shrink-0">
+        {/* 제목과 정보 */}
+        <div className="px-4 py-3 bg-white dark:bg-gray-900">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h1 className="text-lg font-bold break-words line-clamp-2 flex-1">{title}</h1>
+            {isAdmin && (
+              <button
+                onClick={handleOpenEditModal}
+                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
+                title="비디오 정보 수정"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
           </div>
-        )}
-        {categoryName && (
-          <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-            <span className="font-medium">카테고리:</span>
-            <span>{categoryName}</span>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {channelName && (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                <span className="font-medium">채널:</span>
+                <span>{channelName}</span>
+              </div>
+            )}
+            {categoryName && (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                <span className="font-medium">카테고리:</span>
+                <span>{categoryName}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+              <span className="font-medium">조회수:</span>
+              <span>{viewCount.toLocaleString()}회</span>
+            </div>
           </div>
-        )}
-        <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-          <span className="font-medium">조회수:</span>
-          <span>{viewCount.toLocaleString()}회</span>
         </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 왼쪽: 비디오 플레이어 */}
-        <div className="lg:sticky lg:top-4 lg:self-start h-fit">
+        
+        {/* 비디오 플레이어 - 모바일에서만 렌더링 */}
+        {isMobile && (
           <VideoPlayer
             youtubeId={youtubeId}
             selectedTranscriptIndex={selectedTranscriptIndex}
@@ -238,32 +250,100 @@ export default function VideoLearningClient({
             onTimeUpdate={handleTimeUpdate}
             repeatState={repeatState}
           />
-          <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <h3 className="font-semibold mb-2">사용 방법</h3>
-            <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-300">
-              <li>• 스크립트를 클릭하면 해당 구간부터 순차 재생됩니다</li>
-              <li>• 현재 재생 중인 문장은 파란색으로 표시됩니다</li>
-              <li>• 메모 아이콘을 클릭하여 각 문장에 메모를 남길 수 있습니다</li>
-              <li>• R 버튼을 클릭하면 해당 문장이 반복재생 됩니다</li>
-              <li>• R 버튼이 클릭된 두 문장 사이의 구간은 구간반복재생 됩니다</li>
-            </ul>
-          </div>
+        )}
+      </div>
+
+      {/* 모바일: 스크립트 섹션 (스크롤 가능) */}
+      <div className="lg:hidden flex-1 overflow-y-auto px-4 py-4">
+        <h2 className="text-lg font-semibold mb-3">스크립트</h2>
+        <TranscriptDisplay
+          videoId={videoId}
+          transcripts={transcripts}
+          currentTime={currentTime}
+          selectedTranscriptIndex={selectedTranscriptIndex}
+          onSelectTranscript={handleSelectTranscript}
+          userNotes={userNotes}
+          repeatState={repeatState}
+          onRepeat={handleRepeat}
+          isAdmin={isAdmin}
+        />
+      </div>
+
+      {/* 데스크톱: 기존 레이아웃 */}
+      <div className="hidden lg:block">
+        {/* 제목과 편집 버튼 행 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold break-words">{title}</h1>
+          {isAdmin && (
+            <button
+              onClick={handleOpenEditModal}
+              className="self-start sm:self-auto p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
+              title="비디오 정보 수정"
+            >
+              <Edit3 className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* 오른쪽: 스크립트 목록 */}
-        <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-12rem)]">
-          <h2 className="text-xl font-semibold">스크립트</h2>
-          <TranscriptDisplay
-            videoId={videoId}
-            transcripts={transcripts}
-            currentTime={currentTime}
-            selectedTranscriptIndex={selectedTranscriptIndex}
-            onSelectTranscript={handleSelectTranscript}
-            userNotes={userNotes}
-            repeatState={repeatState}
-            onRepeat={handleRepeat}
-            isAdmin={isAdmin}
-          />
+        {/* 채널, 카테고리, 조회수 정보 */}
+        <div className="flex flex-wrap gap-3 mb-4 text-sm">
+          {channelName && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+              <span className="font-medium">채널:</span>
+              <span>{channelName}</span>
+            </div>
+          )}
+          {categoryName && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+              <span className="font-medium">카테고리:</span>
+              <span>{categoryName}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+            <span className="font-medium">조회수:</span>
+            <span>{viewCount.toLocaleString()}회</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 왼쪽: 비디오 플레이어 - 데스크톱에서만 렌더링 */}
+          <div className="lg:sticky lg:top-4 lg:self-start h-fit">
+            {!isMobile && (
+              <VideoPlayer
+                youtubeId={youtubeId}
+                selectedTranscriptIndex={selectedTranscriptIndex}
+                transcripts={transcripts}
+                onTimeUpdate={handleTimeUpdate}
+                repeatState={repeatState}
+              />
+            )}
+            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <h3 className="font-semibold mb-2">사용 방법</h3>
+              <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-300">
+                <li>• 스크립트를 클릭하면 해당 구간부터 순차 재생됩니다</li>
+                <li>• 현재 재생 중인 문장은 파란색으로 표시됩니다</li>
+                <li>• 메모 아이콘을 클릭하여 각 문장에 메모를 남길 수 있습니다</li>
+                <li>• R 버튼을 클릭하면 해당 문장이 반복재생 됩니다</li>
+                <li>• R 버튼이 클릭된 두 문장 사이의 구간은 구간반복재생 됩니다</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* 오른쪽: 스크립트 목록 */}
+          <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-12rem)]">
+            <h2 className="text-xl font-semibold">스크립트</h2>
+            <TranscriptDisplay
+              videoId={videoId}
+              transcripts={transcripts}
+              currentTime={currentTime}
+              selectedTranscriptIndex={selectedTranscriptIndex}
+              onSelectTranscript={handleSelectTranscript}
+              userNotes={userNotes}
+              repeatState={repeatState}
+              onRepeat={handleRepeat}
+              isAdmin={isAdmin}
+            />
+          </div>
         </div>
       </div>
 

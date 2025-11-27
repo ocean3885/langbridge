@@ -1,4 +1,4 @@
-import { getAllVideos } from '@/lib/supabase/queries/videos';
+import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Video, Clock, Globe } from 'lucide-react';
 import Image from 'next/image';
@@ -19,50 +19,67 @@ function formatDuration(seconds: number | null): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
+type AdminVideo = {
+  id: string;
+  title: string;
+  youtube_id: string | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  created_at: string;
+  channel_name: string | null;
+  language_name: string | null;
+};
+
 export default async function VideosPage() {
-  const { data: videos, error } = await getAllVideos();
+  const supabase = await createClient();
+  const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
+  const { data: rows, error } = await supabase
+    .from('videos')
+    .select('id, title, youtube_id, thumbnail_url, duration, created_at, language_id, languages(name_ko), video_channels(channel_name)')
+    .eq('uploader_id', ADMIN_UPLOADER_ID)
+    .order('created_at', { ascending: false })
+    .limit(60);
 
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <p className="text-red-600 font-semibold">비디오를 불러오는 중 오류가 발생했습니다.</p>
-          <p className="text-sm text-red-500 mt-2">{error}</p>
+          <p className="text-sm text-red-500 mt-2">{String(error.message ?? error)}</p>
         </div>
       </div>
     );
   }
 
-  // 언어별로 그룹화
-  const groupedByLanguage = videos.reduce((acc, video) => {
+  const adminVideos: AdminVideo[] = (rows ?? []).map((v: any) => {
+    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
+    const channelRel = Array.isArray(v.video_channels) ? v.video_channels[0] : v.video_channels;
+    return {
+      id: v.id,
+      title: v.title,
+      youtube_id: v.youtube_id ?? null,
+      thumbnail_url: v.thumbnail_url ?? null,
+      duration: v.duration ?? null,
+      created_at: v.created_at,
+      channel_name: channelRel?.channel_name ?? null,
+      language_name: lang?.name_ko ?? null,
+    };
+  });
+
+  // 언어별 그룹화 (채널은 아직 없음)
+  const groupedByLanguage = adminVideos.reduce((acc, video) => {
     const langKey = video.language_name || '언어 미지정';
-    if (!acc[langKey]) {
-      acc[langKey] = [];
-    }
-    acc[langKey].push(video);
+    (acc[langKey] ||= []).push(video);
     return acc;
-  }, {} as Record<string, typeof videos>);
+  }, {} as Record<string, AdminVideo[]>);
 
-  // 각 언어 내에서 채널별로 그룹화
-  const groupedByLanguageAndChannel = Object.entries(groupedByLanguage).map(([language, vids]) => {
-    const byChannel = vids.reduce((acc, video) => {
-      const channelKey = video.channel_name || '채널 미지정';
-      if (!acc[channelKey]) {
-        acc[channelKey] = [];
-      }
-      acc[channelKey].push(video);
-      return acc;
-    }, {} as Record<string, typeof vids>);
-
-    return { language, channels: byChannel };
-  });
-
-  // 언어 목록을 정렬 (언어 미지정은 마지막)
-  const sortedGroups = groupedByLanguageAndChannel.sort((a, b) => {
-    if (a.language === '언어 미지정') return 1;
-    if (b.language === '언어 미지정') return -1;
-    return a.language.localeCompare(b.language, 'ko');
-  });
+  const sortedGroups = Object.entries(groupedByLanguage)
+    .map(([language, vids]) => ({ language, vids }))
+    .sort((a, b) => {
+      if (a.language === '언어 미지정') return 1;
+      if (b.language === '언어 미지정') return -1;
+      return a.language.localeCompare(b.language, 'ko');
+    });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -78,7 +95,7 @@ export default async function VideosPage() {
       </div>
 
       {/* 비디오 목록 */}
-      {videos.length === 0 ? (
+      {adminVideos.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
           <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-700 mb-2">
@@ -90,26 +107,26 @@ export default async function VideosPage() {
         </div>
       ) : (
         <div className="space-y-12">
-          {sortedGroups.map(({ language, channels }) => (
+          {sortedGroups.map(({ language, vids }) => (
             <section key={language} className="space-y-6">
               {/* 언어별 헤더 */}
               <div className="flex items-center gap-3 border-b-2 border-blue-500 pb-2">
                 <Globe className="w-6 h-6 text-blue-600" />
                 <h2 className="text-2xl font-bold text-gray-800">{language}</h2>
               </div>
-
               {/* 채널별 섹션 */}
-              {Object.entries(channels).map(([channelName, channelVideos]) => (
+              {Object.entries(
+                vids.reduce((acc, v) => {
+                  const key = v.channel_name || '채널 미지정';
+                  (acc[key] ||= []).push(v);
+                  return acc;
+                }, {} as Record<string, AdminVideo[]>)
+              ).map(([channelName, channelVideos]) => (
                 <div key={channelName} className="space-y-3">
-                  {/* 채널 헤더 */}
                   <div className="flex items-center gap-2 pl-3 border-l-4 border-blue-400">
                     <h3 className="text-xl font-semibold text-gray-700">{channelName}</h3>
-                    <span className="text-sm text-gray-500">
-                      ({channelVideos.length}개)
-                    </span>
+                    <span className="text-sm text-gray-500">({channelVideos.length}개)</span>
                   </div>
-
-                  {/* 비디오 그리드 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {channelVideos.map((video) => (
                       <Link
@@ -148,16 +165,7 @@ export default async function VideosPage() {
                             {video.title}
                           </h3>
                           
-                          {video.description && (
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                              {video.description}
-                            </p>
-                          )}
-
                           <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>
-                              {video.transcript_count || 0}개의 스크립트
-                            </span>
                             <span>
                               {new Date(video.created_at).toLocaleDateString('ko-KR', {
                                 year: 'numeric',

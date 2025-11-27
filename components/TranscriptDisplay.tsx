@@ -117,10 +117,14 @@ export default function TranscriptDisplay({
   // 현재 재생 라인 계산 (겹침 처리 및 클릭 우선)
   let currentPlayingIndex = -1;
 
+  // 실제로 영상이 재생 중일 때만 하이라이트 (currentTime > 0.5초 이상)
+  const isVideoPlaying = currentTime > 0.5;
+
   // 클릭으로 선택된 인덱스가 있으면 우선 표시 (seek 직후 깜빡임 방지)
   if (selectedTranscriptIndex !== null) {
     currentPlayingIndex = selectedTranscriptIndex;
-  } else {
+  } else if (isVideoPlaying) {
+    // 영상이 실제 재생 중일 때만 currentTime 기반 하이라이트
     // 겹치는 구간이 있을 경우 시작 시간이 가장 늦은 항목을 선택
     const candidates = transcripts
       .map((t, idx) => ({ t, idx }))
@@ -150,9 +154,9 @@ export default function TranscriptDisplay({
     }
   }
 
-  // 현재 재생 중인 스크립트를 자동으로 중앙에 배치
+  // 현재 재생 중인 스크립트를 자동으로 중앙에 배치 (영상 재생 중일 때만)
   useEffect(() => {
-    if (currentPlayingIndex === -1) return;
+    if (currentPlayingIndex === -1 || !isVideoPlaying) return;
 
     const element = transcriptRefs.current[currentPlayingIndex];
     if (!element) return;
@@ -185,7 +189,7 @@ export default function TranscriptDisplay({
         block: 'center',
       });
     }
-  }, [currentPlayingIndex]);
+  }, [currentPlayingIndex, isVideoPlaying]);
 
   // 현재 재생 중인 스크립트가 화면에 보이는지 체크
   useEffect(() => {
@@ -384,7 +388,7 @@ export default function TranscriptDisplay({
                   <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     {formatTime(transcript.start)}
                   </div>
-                  <div className="text-base font-medium mb-2">
+                  <div className="text-sm sm:text-base font-medium mb-2">
                     {transcript.text_original}
                   </div>
                   {translation && (

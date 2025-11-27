@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
         hostname: 'yt3.googleusercontent.com',
       },
     ],
+    qualities: [75, 90],
   },
   experimental: {
     serverActions: {
