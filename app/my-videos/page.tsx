@@ -79,7 +79,9 @@ export default async function MyVideosPage() {
       created_at,
       category_id,
       user_categories:category_id (
-        name
+        name,
+        language_id,
+        languages(name_ko)
       ),
       languages:language_id (
         name_ko
@@ -97,6 +99,27 @@ export default async function MyVideosPage() {
         </div>
       </div>
     );
+  }
+
+  // 보조: 카테고리 맵 조회 (RLS로 관계가 비어올 수 있어 ID 기준으로 보강)
+  const catIds = Array.from(new Set((videos || []).map(v => v.category_id).filter(Boolean))) as string[];
+  const categoryMap: Record<string, { name: string; languageName: string }> = {};
+  if (catIds.length > 0) {
+    const { data: catRows, error: catErr } = await supabase
+      .from('user_categories')
+      .select('id, name, language_id, languages(name_ko)')
+      .eq('user_id', user.id)
+      .in('id', catIds);
+    if (catErr) {
+      console.error('내 영상 카테고리 이름 조회 오류 (my-videos):', catErr);
+    }
+    (catRows || []).forEach((c: any) => {
+      const lang = Array.isArray(c.languages) ? c.languages[0] : c.languages;
+      categoryMap[String(c.id)] = {
+        name: c.name,
+        languageName: (lang && lang.name_ko) || ''
+      };
+    });
   }
 
   // 데이터 변환 및 트랜스크립트 카운트 조회
@@ -127,8 +150,8 @@ export default async function MyVideosPage() {
       thumbnail_url: video.thumbnail_url,
       created_at: video.created_at,
       category_id: video.category_id,
-      category_name: categoryObject?.name || null,
-      language_name: languageObject?.name_ko || null,
+      category_name: categoryObject?.name || categoryMap[String(video.category_id || '')]?.name || null,
+      language_name: languageObject?.name_ko || categoryMap[String(video.category_id || '')]?.languageName || null,
       transcript_count: transcriptCount || 0,
     });
   }

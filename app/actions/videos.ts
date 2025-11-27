@@ -7,6 +7,8 @@ export interface UpdateVideoInput {
   videoId: string;
   title: string;
   languageId: number | null;
+  categoryId?: string | null;
+  description?: string | null;
 }
 
 export async function updateVideo(input: UpdateVideoInput) {
@@ -25,6 +27,8 @@ export async function updateVideo(input: UpdateVideoInput) {
       .update({
         title: input.title,
         language_id: input.languageId,
+        category_id: input.categoryId ?? null,
+        description: input.description ?? null,
       })
       .eq('id', input.videoId);
 

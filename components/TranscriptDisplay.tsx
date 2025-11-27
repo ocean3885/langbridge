@@ -61,7 +61,10 @@ export default function TranscriptDisplay({
     setEditingTranscript(prev => {
       if (!prev) return prev;
       const nextStart = Math.max(0, parseFloat((prev.start + delta).toFixed(3)));
-      return { ...prev, start: nextStart };
+      // 끝 시간은 고정하고, 지속시간을 조정
+      const endTime = prev.start + prev.duration;
+      const nextDuration = Math.max(0.1, parseFloat((endTime - nextStart).toFixed(3)));
+      return { ...prev, start: nextStart, duration: nextDuration };
     });
   };
   const adjustEnd = (delta: number) => {
@@ -146,6 +149,43 @@ export default function TranscriptDisplay({
       }
     }
   }
+
+  // 현재 재생 중인 스크립트를 자동으로 중앙에 배치
+  useEffect(() => {
+    if (currentPlayingIndex === -1) return;
+
+    const element = transcriptRefs.current[currentPlayingIndex];
+    if (!element) return;
+
+    // 부모 스크롤 컨테이너 찾기 (overflow-y-auto가 설정된 요소)
+    let scrollContainer = element.parentElement;
+    while (scrollContainer) {
+      const style = window.getComputedStyle(scrollContainer);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        break;
+      }
+      scrollContainer = scrollContainer.parentElement;
+    }
+
+    if (scrollContainer && scrollContainer !== document.body && scrollContainer !== document.documentElement) {
+      // 스크롤 컨테이너 내에서 중앙 정렬
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const scrollTop = scrollContainer.scrollTop;
+      const targetScrollTop = scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2);
+      
+      scrollContainer.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
+    } else {
+      // 폴백: 기본 스크롤
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [currentPlayingIndex]);
 
   // 현재 재생 중인 스크립트가 화면에 보이는지 체크
   useEffect(() => {
@@ -358,7 +398,7 @@ export default function TranscriptDisplay({
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex flex-col gap-1">
                   <button
                     onClick={e => {
                       e.stopPropagation();

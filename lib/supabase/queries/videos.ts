@@ -23,6 +23,12 @@ export interface VideoWithTranscripts {
   thumbnail_url: string | null;
   created_at: string;
   language_id: number | null;
+  category_id: string | null;
+  channel_id: string | null;
+  view_count: number;
+  uploader_id: string | null;
+  user_categories?: { user_id: string; name: string } | { user_id: string; name: string }[] | null;
+  video_channels?: { channel_name: string } | { channel_name: string }[] | null;
   transcripts: TranscriptWithTranslation[];
 }
 
@@ -47,6 +53,12 @@ export async function getVideoWithTranscripts(
         thumbnail_url,
         created_at,
         language_id,
+        category_id,
+        channel_id,
+        view_count,
+        uploader_id,
+        user_categories:category_id ( user_id, name ),
+        video_channels:channel_id ( channel_name ),
         transcripts (
           id,
           video_id,

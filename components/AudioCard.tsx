@@ -39,7 +39,7 @@ export default function AudioCard({ audio, isLoggedIn }: AudioCardProps) {
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Clock className="w-4 h-4" />
-          <span>{new Date(audio.created_at).toLocaleDateString('ko-KR')}</span>
+          <span>{new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }).format(new Date(audio.created_at))}</span>
         </div>
       </CardContent>
     </Card>

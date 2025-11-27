@@ -12,6 +12,12 @@ type UserAudio = {
   category_id: number | null;
 };
 
+type CategoryRel = {
+  name: string;
+  language_id: number | null;
+  languages?: { name_ko: string }[] | { name_ko: string } | null;
+} | null;
+
 type UserVideo = {
   id: string;
   title: string;
@@ -20,6 +26,17 @@ type UserVideo = {
   duration: number | null;
   created_at: string;
   category_id: number | null;
+  user_categories?: (
+    {
+      name: string;
+      language_id: number | null;
+      languages?: { name_ko: string }[] | { name_ko: string } | null;
+    }
+  | null) | Array<{
+    name: string;
+    language_id: number | null;
+    languages?: { name_ko: string }[] | { name_ko: string } | null;
+  }>;
 };
 
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환
@@ -77,7 +94,6 @@ const { data: userCountData, error: rpcError } = await supabase
       const { data: catRows, error: catErr } = await supabase
         .from('lang_categories')
         .select('id, name, language_id, languages(name_ko)')
-        .eq('user_id', user.id)
         .in('id', categoryIds);
       if (catErr) {
         console.error('내 오디오 카테고리 이름 조회 오류:', catErr);
@@ -117,7 +133,7 @@ const { data: userCountData, error: rpcError } = await supabase
     // 사용자 소유 비디오 목록 가져오기 (최신 60개)
     const { data: userVideos, error: userVideoError } = await supabase
       .from('videos')
-      .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id')
+      .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id, user_categories(name, language_id, languages(name_ko))')
       .order('created_at', { ascending: false })
       .limit(60);
 
@@ -129,7 +145,7 @@ const { data: userCountData, error: rpcError } = await supabase
     const videoCategoryMap: Record<number, { name: string; languageName: string }> = {};
     if (videoCategoryIds.length > 0) {
       const { data: catRows, error: catErr } = await supabase
-        .from('lang_categories')
+        .from('user_categories')
         .select('id, name, language_id, languages(name_ko)')
         .eq('user_id', user.id)
         .in('id', videoCategoryIds);
@@ -155,10 +171,21 @@ const { data: userCountData, error: rpcError } = await supabase
 
     userGroupedVideoCategories = Object.entries(videoGroups).map(([key, list]) => {
       const catId = key === 'uncategorized' ? null : Number(key);
+      // 관계에서 직접 이름/언어를 우선 추출
+      const catRelRaw = list[0]?.user_categories;
+      let catObj: CategoryRel = null;
+      if (Array.isArray(catRelRaw)) {
+        catObj = (catRelRaw[0] as CategoryRel) ?? null;
+      } else {
+        catObj = (catRelRaw as CategoryRel) ?? null;
+      }
+      const relatedName = catObj?.name ?? null;
+      const langData = catObj?.languages ?? null;
+      const relatedLangName = Array.isArray(langData) ? langData[0]?.name_ko : (langData as { name_ko?: string } | null)?.name_ko || '';
       return {
         id: catId,
-        name: catId === null ? '미분류' : (videoCategoryMap[catId]?.name || '알 수 없는 카테고리'),
-        languageName: catId === null ? '' : (videoCategoryMap[catId]?.languageName || ''),
+        name: catId === null ? '미분류' : (relatedName || videoCategoryMap[catId]?.name || '알 수 없는 카테고리'),
+        languageName: catId === null ? '' : (relatedLangName || videoCategoryMap[catId]?.languageName || ''),
         videoList: list
       };
     }).sort((a, b) => {
@@ -494,6 +521,7 @@ const { data: userCountData, error: rpcError } = await supabase
                         <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
                           {video.title}
                         </h3>
+                        {/* 카테고리 배지 제거 요청에 따라 삭제 */}
                         <p className="text-xs text-gray-500">
                           {new Date(video.created_at).toLocaleDateString('ko-KR', {
                             year: 'numeric',

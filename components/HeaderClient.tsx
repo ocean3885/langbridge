@@ -59,12 +59,12 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                 className="flex items-center flex-shrink-0"
               >
                 <Image
-                  src="/images/langbridge_logo.png"
+                  src="/images/logo4.png"
                   alt="LangBridge"
                   width={160}
                   height={40}
                   priority
-                  className="h-8 w-auto"
+                  className="h-13 w-auto"
                 />
               </Link>
             </div>

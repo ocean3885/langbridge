@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/VideoPlayer';
 import TranscriptDisplay from '@/components/TranscriptDisplay';
 import { updateVideo } from '@/app/actions/videos';
+import { deleteVideo as deleteVideoAction } from '@/app/actions/video';
 import { Edit3, ArrowLeft } from 'lucide-react';
 
 interface TranscriptWithTranslation {
@@ -25,6 +26,12 @@ interface VideoLearningClientProps {
   videoId: string;
   youtubeId: string;
   title: string;
+  description: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  channelId: string | null;
+  channelName: string | null;
+  viewCount: number;
   languageId: number | null;
   transcripts: TranscriptWithTranslation[];
   userNotes: Record<string, { id: string; content: string }>;
@@ -35,6 +42,12 @@ export default function VideoLearningClient({
   videoId,
   youtubeId,
   title,
+  description,
+  categoryId,
+  categoryName,
+  channelId,
+  channelName,
+  viewCount,
   languageId,
   transcripts,
   userNotes,
@@ -48,20 +61,57 @@ export default function VideoLearningClient({
   // 편집 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState<string>(description || '');
   const [editLanguageId, setEditLanguageId] = useState<number | null>(languageId);
-  const [languages, setLanguages] = useState<{ id: number; name_ko: string; name_en: string }[]>([]);
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(categoryId);
+  const [categories, setCategories] = useState<{ id: string; name: string; language_id: number | null }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
+
+  const DeleteVideoButton = ({ videoId }: { videoId: string }) => {
+    const [deleting, setDeleting] = useState(false);
+    const onDelete = async () => {
+      if (!confirm('정말 이 영상을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+      setDeleting(true);
+      const res = await deleteVideoAction(videoId);
+      setDeleting(false);
+      if (res.success) {
+        alert('영상이 삭제되었습니다.');
+        router.push('/my-videos');
+      } else {
+        alert(`삭제 실패: ${res.error}`);
+      }
+    };
+    return (
+      <button
+        onClick={onDelete}
+        disabled={deleting}
+        className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+      >
+        {deleting ? '삭제 중...' : '영상 삭제'}
+      </button>
+    );
+  };
 
   // 언어 목록 가져오기
   useEffect(() => {
     if (isAdmin) {
-      fetch('/api/admin/languages')
+      fetch('/api/user-categories')
         .then(res => res.json())
-        .then(data => setLanguages(data))
-        .catch(err => console.error('언어 목록 불러오기 오류:', err));
+        .then(data => setCategories(Array.isArray(data) ? data : []))
+        .catch(err => console.error('카테고리 목록 불러오기 오류:', err));
     }
   }, [isAdmin]);
+
+  // 카테고리 변경 시 카테고리의 언어로 자동 변경
+  useEffect(() => {
+    if (editCategoryId !== null && editCategoryId !== '' && categories.length > 0) {
+      const cat = categories.find(c => String(c.id) === String(editCategoryId));
+      if (cat) {
+        setEditLanguageId(cat.language_id ?? null);
+      }
+    }
+  }, [editCategoryId, categories]);
 
   const handleTimeUpdate = useCallback((time: number) => {
     setCurrentTime(time);
@@ -97,7 +147,9 @@ export default function VideoLearningClient({
   // 편집 모달 열기
   const handleOpenEditModal = () => {
     setEditTitle(title);
+    setEditDescription(description || '');
     setEditLanguageId(languageId);
+    setEditCategoryId(categoryId);
     setEditModalOpen(true);
   };
 
@@ -109,10 +161,13 @@ export default function VideoLearningClient({
     }
 
     setIsSaving(true);
+
     const result = await updateVideo({
       videoId,
       title: editTitle.trim(),
       languageId: editLanguageId,
+      categoryId: (editCategoryId === '' || editCategoryId === null) ? null : editCategoryId,
+      description: editDescription.trim() || null,
     });
 
     setIsSaving(false);
@@ -151,6 +206,26 @@ export default function VideoLearningClient({
             <Edit3 className="w-5 h-5" />
           </button>
         )}
+      </div>
+
+      {/* 채널, 카테고리, 조회수 정보 */}
+      <div className="flex flex-wrap gap-3 mb-4 text-sm">
+        {channelName && (
+          <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+            <span className="font-medium">채널:</span>
+            <span>{channelName}</span>
+          </div>
+        )}
+        {categoryName && (
+          <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+            <span className="font-medium">카테고리:</span>
+            <span>{categoryName}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+          <span className="font-medium">조회수:</span>
+          <span>{viewCount.toLocaleString()}회</span>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -211,26 +286,36 @@ export default function VideoLearningClient({
                 />
               </div>
 
-              {/* 언어 */}
+              {/* 설명 */}
               <div>
-                <label className="block text-sm font-semibold mb-2">언어</label>
+                <label className="block text-sm font-semibold mb-2">설명</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border rounded-lg resize-y dark:bg-gray-700 dark:border-gray-600"
+                  placeholder="영상 설명을 입력하세요"
+                />
+              </div>
+
+              {/* 카테고리 */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">카테고리</label>
                 <select
-                  value={editLanguageId || ''}
-                  onChange={(e) => setEditLanguageId(e.target.value ? Number(e.target.value) : null)}
+                  value={editCategoryId ?? ''}
+                  onChange={(e) => setEditCategoryId(e.target.value === '' ? null : e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 >
-                  <option value="">언어 선택</option>
-                  {languages.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.name_ko} ({lang.name_en})
-                    </option>
+                  <option value="">카테고리 선택 없음</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
             </div>
 
             {/* 버튼 */}
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-wrap gap-3 mt-6 justify-between">
               <button
                 onClick={handleSaveVideo}
                 disabled={isSaving}
@@ -245,6 +330,7 @@ export default function VideoLearningClient({
               >
                 취소
               </button>
+              <DeleteVideoButton videoId={videoId} />
             </div>
           </div>
         </div>
