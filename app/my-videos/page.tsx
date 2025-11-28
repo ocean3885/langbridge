@@ -87,6 +87,7 @@ export default async function MyVideosPage() {
         name_ko
       )
     `)
+    .eq('uploader_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -113,11 +114,12 @@ export default async function MyVideosPage() {
     if (catErr) {
       console.error('내 영상 카테고리 이름 조회 오류 (my-videos):', catErr);
     }
-    (catRows || []).forEach((c: any) => {
+    (catRows || []).forEach((c) => {
       const lang = Array.isArray(c.languages) ? c.languages[0] : c.languages;
-      categoryMap[String(c.id)] = {
-        name: c.name,
-        languageName: (lang && lang.name_ko) || ''
+      const nameKo = (lang && (lang as { name_ko?: string }).name_ko) || '';
+      categoryMap[String(c.id as string)] = {
+        name: c.name as string,
+        languageName: nameKo
       };
     });
   }
@@ -177,23 +179,25 @@ export default async function MyVideosPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       {/* 헤더 */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-3 mb-3">
             <Video className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">내 영상 목록</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">내 영상 목록</h1>
           </div>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             카테고리별로 정리된 영상 목록입니다.
           </p>
         </div>
-        <Link
-          href="/upload?tab=video"
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          영상 생성
-        </Link>
+        <div className="sm:flex-shrink-0">
+          <Link
+            href="/upload?tab=video"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            영상 생성
+          </Link>
+        </div>
       </div>
 
       {/* 비디오 목록 */}
@@ -208,7 +212,7 @@ export default async function MyVideosPage() {
           </p>
           <Link
             href="/upload?tab=video"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             영상 생성
@@ -233,15 +237,15 @@ export default async function MyVideosPage() {
                     href={`/videos/${video.id}`}
                     className="block bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-200 hover:border-blue-300"
                   >
-                    <div className="flex items-center gap-4 p-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4">
                       {/* 썸네일 */}
-                      <div className="relative w-40 h-24 flex-shrink-0 bg-gray-200 rounded overflow-hidden">
+                      <div className="relative w-full sm:w-40 h-40 sm:h-24 flex-shrink-0 bg-gray-200 rounded overflow-hidden">
                         {video.thumbnail_url ? (
                           <Image
                             src={video.thumbnail_url}
                             alt={video.title}
                             fill
-                            sizes="160px"
+                            sizes="(max-width: 640px) 100vw, 160px"
                             className="object-cover"
                           />
                         ) : (
@@ -261,28 +265,31 @@ export default async function MyVideosPage() {
 
                       {/* 비디오 정보 */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-lg mb-1 truncate hover:text-blue-600 transition-colors">
+                        <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1 truncate hover:text-blue-600 transition-colors">
                           {video.title}
                         </h3>
                         
                         {video.description && (
-                          <p className="text-sm text-gray-500 line-clamp-2 mb-2">
+                          <p className="text-sm text-gray-500 line-clamp-3 sm:line-clamp-2 mb-2">
                             {video.description}
                           </p>
                         )}
 
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          {video.language_name && (
+                        {/* 메타 정보: 모바일에서는 설명 하단에 줄바꿈되며 보기 좋게 배치 */}
+                        <div className="mt-1 sm:mt-2 text-xs text-gray-500">
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            {video.language_name && (
+                              <span className="flex items-center gap-1">
+                                🌐 {video.language_name}
+                              </span>
+                            )}
                             <span className="flex items-center gap-1">
-                              🌐 {video.language_name}
+                              📝 {video.transcript_count}개의 스크립트
                             </span>
-                          )}
-                          <span>
-                            📝 {video.transcript_count}개의 스크립트
-                          </span>
-                          <span>
-                            {relativeFromNowKo(video.created_at)}
-                          </span>
+                            <span className="flex items-center gap-1">
+                              {relativeFromNowKo(video.created_at)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

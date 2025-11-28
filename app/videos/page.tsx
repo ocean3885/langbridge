@@ -30,6 +30,18 @@ type AdminVideo = {
   language_name: string | null;
 };
 
+// Supabase rows 타입 (any 제거)
+type VideoRow = {
+  id: string;
+  title: string;
+  youtube_id: string | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  created_at: string;
+  languages: { name_ko: string } | { name_ko: string }[] | null;
+  video_channels: { channel_name: string } | { channel_name: string }[] | null;
+};
+
 export default async function VideosPage() {
   const supabase = await createClient();
   const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
@@ -51,7 +63,7 @@ export default async function VideosPage() {
     );
   }
 
-  const adminVideos: AdminVideo[] = (rows ?? []).map((v: any) => {
+  const adminVideos: AdminVideo[] = (rows ?? []).map((v: VideoRow) => {
     const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
     const channelRel = Array.isArray(v.video_channels) ? v.video_channels[0] : v.video_channels;
     return {
@@ -84,24 +96,24 @@ export default async function VideosPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       {/* 헤더 */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <Video className="w-8 h-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">학습 비디오</h1>
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+          <Video className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">학습 비디오</h1>
         </div>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           업로드된 비디오로 언어 학습을 시작하세요. 각 비디오는 스크립트와 번역이 함께 제공됩니다.
         </p>
       </div>
 
       {/* 비디오 목록 */}
       {adminVideos.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
-          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 sm:p-12 text-center">
+          <Video className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
             아직 업로드된 비디오가 없습니다
           </h3>
-          <p className="text-gray-500">
+          <p className="text-sm sm:text-base text-gray-500">
             곧 학습 비디오가 추가될 예정입니다.
           </p>
         </div>
@@ -110,9 +122,9 @@ export default async function VideosPage() {
           {sortedGroups.map(({ language, vids }) => (
             <section key={language} className="space-y-6">
               {/* 언어별 헤더 */}
-              <div className="flex items-center gap-3 border-b-2 border-blue-500 pb-2">
-                <Globe className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-800">{language}</h2>
+              <div className="flex items-center gap-2 sm:gap-3 border-b-2 border-blue-500 pb-2">
+                <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{language}</h2>
               </div>
               {/* 채널별 섹션 */}
               {Object.entries(
@@ -123,9 +135,9 @@ export default async function VideosPage() {
                 }, {} as Record<string, AdminVideo[]>)
               ).map(([channelName, channelVideos]) => (
                 <div key={channelName} className="space-y-3">
-                  <div className="flex items-center gap-2 pl-3 border-l-4 border-blue-400">
-                    <h3 className="text-xl font-semibold text-gray-700">{channelName}</h3>
-                    <span className="text-sm text-gray-500">({channelVideos.length}개)</span>
+                  <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l-4 border-blue-400">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-700">{channelName}</h3>
+                    <span className="text-xs sm:text-sm text-gray-500">({channelVideos.length}개)</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {channelVideos.map((video) => (
@@ -160,12 +172,12 @@ export default async function VideosPage() {
                         </div>
 
                         {/* 비디오 정보 */}
-                        <div className="p-4">
-                          <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                        <div className="p-3 sm:p-4">
+                          <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
                             {video.title}
                           </h3>
                           
-                          <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center justify-between text-[11px] sm:text-xs text-gray-500">
                             <span>
                               {new Date(video.created_at).toLocaleDateString('ko-KR', {
                                 year: 'numeric',

@@ -57,7 +57,10 @@ export default function VideoLearningClient({
   const [repeatState, setRepeatState] = useState<{ type: 'none' | 'single' | 'range', index1: number | null, index2: number | null }>({ type: 'none', index1: null, index2: null });
   
   // 화면 크기 감지 (모바일 vs 데스크톱)
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+  
+  // 모바일 재생 상태 (전체화면 모드)
+  const [isPlaying, setIsPlaying] = useState(false);
   
   // 편집 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -69,10 +72,10 @@ export default function VideoLearningClient({
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
 
-  // 화면 크기 감지
+  // 화면 크기 감지 (모바일 = 768px 미만, 태블릿/PC = 768px 이상)
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      setIsMobile(window.innerWidth < 768);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -192,9 +195,17 @@ export default function VideoLearningClient({
   };
 
   return (
-    <div className="flex flex-col lg:block lg:container lg:mx-auto lg:px-4 lg:py-8 h-screen lg:h-auto">
-      {/* 데스크톱: 뒤로가기 버튼 */}
-      <div className="flex justify-end mb-2">
+    <div className={`flex flex-col md:block md:container md:mx-auto md:px-4 md:py-8 ${
+      isMobile && isPlaying 
+        ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900' 
+        : 'h-screen md:h-auto'
+    }`}>
+      {/* 모바일 전체 모드: 닫기 버튼 - 제거 (정보 섹션에 통합) */}
+      
+      {/* 태블릿/데스크톱: 뒤로가기 버튼 */}
+      <div className={`flex justify-end mb-2 ${
+        isMobile && isPlaying ? 'hidden' : ''
+      }`}>
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
@@ -206,20 +217,38 @@ export default function VideoLearningClient({
       </div>
 
       {/* 모바일: 비디오 섹션 (고정) */}
-      <div className="lg:hidden flex-shrink-0">
-        {/* 제목과 정보 */}
+      <div className="md:hidden flex-shrink-0">
+        {/* 제목과 정보 - 항상 표시 */}
         <div className="px-4 py-3 bg-white dark:bg-gray-900">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h1 className="text-lg font-bold break-words line-clamp-2 flex-1">{title}</h1>
-            {isAdmin && (
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={handleOpenEditModal}
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
+                  title="비디오 정보 수정"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              )}
+              {/* 전체화면 토글 버튼 */}
               <button
-                onClick={handleOpenEditModal}
-                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
-                title="비디오 정보 수정"
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex-shrink-0"
+                title={isPlaying ? '전체모드 해제' : '전체화면'}
               >
-                <Edit3 className="w-4 h-4" />
+                {isPlaying ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                )}
               </button>
-            )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             {channelName && (
@@ -242,7 +271,7 @@ export default function VideoLearningClient({
         </div>
         
         {/* 비디오 플레이어 - 모바일에서만 렌더링 */}
-        {isMobile && (
+        {isMobile === true && (
           <VideoPlayer
             youtubeId={youtubeId}
             selectedTranscriptIndex={selectedTranscriptIndex}
@@ -253,8 +282,10 @@ export default function VideoLearningClient({
         )}
       </div>
 
-      {/* 모바일: 스크립트 섹션 (스크롤 가능) */}
-      <div className="lg:hidden flex-1 overflow-y-auto px-4 py-4">
+      {/* 모바일: 스크립트 섹션 (스크롬 가능) */}
+      <div className={`md:hidden flex-1 overflow-y-auto px-4 py-4 ${
+        isPlaying ? 'pb-safe' : ''
+      }`}>
         <h2 className="text-lg font-semibold mb-3">스크립트</h2>
         <TranscriptDisplay
           videoId={videoId}
@@ -269,8 +300,8 @@ export default function VideoLearningClient({
         />
       </div>
 
-      {/* 데스크톱: 기존 레이아웃 */}
-      <div className="hidden lg:block">
+      {/* 태블릿/데스크톱: 좌우 분할 레이아웃 */}
+      <div className="hidden md:block">
         {/* 제목과 편집 버튼 행 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold break-words">{title}</h1>
@@ -305,10 +336,10 @@ export default function VideoLearningClient({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 왼쪽: 비디오 플레이어 - 데스크톱에서만 렌더링 */}
-          <div className="lg:sticky lg:top-4 lg:self-start h-fit">
-            {!isMobile && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 왼쪽: 비디오 플레이어 - 태블릿/데스크톱에서만 렌더링 */}
+          <div className="md:sticky md:top-4 md:self-start h-fit">
+            {isMobile === false && (
               <VideoPlayer
                 youtubeId={youtubeId}
                 selectedTranscriptIndex={selectedTranscriptIndex}
@@ -330,7 +361,7 @@ export default function VideoLearningClient({
           </div>
 
           {/* 오른쪽: 스크립트 목록 */}
-          <div className="space-y-4 lg:overflow-y-auto lg:max-h-[calc(100vh-12rem)]">
+          <div className="space-y-4 md:overflow-y-auto md:max-h-[calc(100vh-12rem)]">
             <h2 className="text-xl font-semibold">스크립트</h2>
             <TranscriptDisplay
               videoId={videoId}

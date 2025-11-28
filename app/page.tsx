@@ -38,18 +38,6 @@ type UserVideo = {
   }>;
 };
 
-type AdminVideo = {
-  id: string;
-  title: string;
-  youtube_id: string | null;
-  thumbnail_url: string | null;
-  duration: number | null;
-  created_at: string;
-  channel_id: string | null;
-  language_id: number | null;
-  languages?: { name_ko: string }[] | { name_ko: string } | null;
-};
-
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return '-';
@@ -69,40 +57,11 @@ export default async function HomePage() {
   // 현재 사용자 확인
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 운영자 비디오 조회: videos 테이블에서 특정 운영자 uploader_id로 필터
-  const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
-  const { data: adminVideosRaw, error: adminVideosError } = await supabase
-    .from('videos')
-    .select('id, title, youtube_id, thumbnail_url, duration, created_at, channel_id, language_id, languages(name_ko)')
-    .eq('uploader_id', ADMIN_UPLOADER_ID)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  if (adminVideosError) {
-    console.error('운영자 비디오 조회 오류:', adminVideosError);
-  }
-
-  // 운영자 비디오 결과 정규화
-  const adminVideosRawSafe = (adminVideosRaw ?? []) as AdminVideo[];
-  const adminVideos = adminVideosRawSafe.map((v) => {
-    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
-    return {
-      id: v.id,
-      title: v.title,
-      youtube_id: v.youtube_id ?? null,
-      thumbnail_url: v.thumbnail_url ?? null,
-      duration: v.duration ?? null,
-      created_at: v.created_at,
-      channel_name: null as string | null, // 채널 이름은 별도 조인 필요 시 확장
-      transcript_count: null as number | null,
-      language_name: lang?.name_ko ?? null,
-    };
-  });
 
 const { data: userCountData, error: rpcError } = await supabase
     .rpc('get_user_count'); 
 
-  // 에러 처리: 콘솔에 표시하고 0으로 대체
+  // 에러 처리
   if (rpcError) {
     console.error('RPC 사용자 수 오류:', rpcError.message);
   }
@@ -233,6 +192,50 @@ const { data: userCountData, error: rpcError } = await supabase
     });
   }
 
+  // 학습 비디오 섹션용: 운영자 업로더 영상 조회 (VideosPage 참고)
+  type AdminVideo = {
+    id: string;
+    title: string;
+    youtube_id: string | null;
+    thumbnail_url: string | null;
+    duration: number | null;
+    created_at: string;
+    channel_name: string | null;
+    language_name: string | null;
+  };
+
+  const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
+  const { data: adminRows } = await supabase
+    .from('videos')
+    .select('id, title, youtube_id, thumbnail_url, duration, created_at, languages(name_ko), video_channels(channel_name)')
+    .eq('uploader_id', ADMIN_UPLOADER_ID)
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const learningVideos: AdminVideo[] = (adminRows || []).map((v: {
+    id: string;
+    title: string;
+    youtube_id: string | null;
+    thumbnail_url: string | null;
+    duration: number | null;
+    created_at: string;
+    languages: { name_ko: string } | { name_ko: string }[] | null;
+    video_channels: { channel_name: string } | { channel_name: string }[] | null;
+  }) => {
+    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
+    const channelRel = Array.isArray(v.video_channels) ? v.video_channels[0] : v.video_channels;
+    return {
+      id: v.id,
+      title: v.title,
+      youtube_id: v.youtube_id ?? null,
+      thumbnail_url: v.thumbnail_url ?? null,
+      duration: v.duration ?? null,
+      created_at: v.created_at,
+      channel_name: channelRel?.channel_name ?? null,
+      language_name: lang?.name_ko ?? null,
+    };
+  });
+
   return (
     <div className="space-y-11"> {/* 섹션 간 간격 증가 */}
       
@@ -301,8 +304,8 @@ const { data: userCountData, error: rpcError } = await supabase
         </div>
       </section>
 
-      {/* 학습 비디오 섹션 (운영자 공개 영상) */}
-      {adminVideos.length > 0 && (
+      {/* 학습 비디오 섹션 */}
+      {learningVideos.length > 0 && (
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
@@ -320,7 +323,7 @@ const { data: userCountData, error: rpcError } = await supabase
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adminVideos.map((video) => (
+            {learningVideos.map((video) => (
               <Link
                 key={video.id}
                 href={`/videos/${video.id}`}
@@ -356,7 +359,7 @@ const { data: userCountData, error: rpcError } = await supabase
                   <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
                     {video.title}
                   </h3>
-                  
+
                   {video.channel_name && (
                     <div className="flex items-center gap-1 mb-2">
                       <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
@@ -366,11 +369,6 @@ const { data: userCountData, error: rpcError } = await supabase
                   )}
 
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    {video.transcript_count !== null && (
-                      <span>
-                        {video.transcript_count}개의 스크립트
-                      </span>
-                    )}
                     <span>
                       {new Date(video.created_at).toLocaleDateString('ko-KR', {
                         year: 'numeric',
@@ -563,6 +561,7 @@ const { data: userCountData, error: rpcError } = await supabase
                         <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
                           {video.title}
                         </h3>
+                        {/* 카테고리 배지 제거 요청에 따라 삭제 */}
                         <p className="text-xs text-gray-500">
                           {new Date(video.created_at).toLocaleDateString('ko-KR', {
                             year: 'numeric',
