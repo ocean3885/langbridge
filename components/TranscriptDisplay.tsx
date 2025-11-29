@@ -34,7 +34,7 @@ export default function TranscriptDisplay({
   videoId,
   transcripts,
   currentTime,
-  selectedTranscriptIndex, // eslint-disable-line @typescript-eslint/no-unused-vars
+  selectedTranscriptIndex,
   onSelectTranscript,
   userNotes,
   repeatState,
@@ -45,7 +45,7 @@ export default function TranscriptDisplay({
   const [currentTranscriptId, setCurrentTranscriptId] = useState<string | null>(null);
   const [noteContent, setNoteContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showScrollButton, setShowScrollButton] = useState(false);
+  // 자동 포커스가 동작하므로 별도의 이동 버튼은 제거
   
   // 편집 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -191,52 +191,7 @@ export default function TranscriptDisplay({
     }
   }, [currentPlayingIndex, isVideoPlaying]);
 
-  // 현재 재생 중인 스크립트가 화면에 보이는지 체크
-  useEffect(() => {
-    if (currentPlayingIndex === -1) {
-      setShowScrollButton(false);
-      return;
-    }
-
-    const checkVisibility = () => {
-      const element = transcriptRefs.current[currentPlayingIndex];
-      if (!element) return;
-
-      const rect = element.getBoundingClientRect();
-      const isVisible = (
-        rect.top >= 0 &&
-        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-      );
-
-      setShowScrollButton(!isVisible);
-    };
-
-    checkVisibility();
-    
-    // 스크롤 이벤트 리스너
-    const handleScroll = () => checkVisibility();
-    const container = containerRef.current;
-    window.addEventListener('scroll', handleScroll);
-    container?.addEventListener('scroll', handleScroll);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      container?.removeEventListener('scroll', handleScroll);
-    };
-  }, [currentPlayingIndex]);
-
-  // 현재 재생 중인 스크립트로 스크롤
-  const scrollToCurrentScript = () => {
-    if (currentPlayingIndex === -1) return;
-    
-    const element = transcriptRefs.current[currentPlayingIndex];
-    if (!element) return;
-
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    });
-  };
+  // 이동 버튼/가시성 체크 로직 제거 (자동 중앙 정렬로 충분)
 
   const handleTranscriptClick = (index: number) => {
     // 스크립트 클릭 시 해당 시점으로 이동 (순차 재생)
@@ -350,16 +305,7 @@ export default function TranscriptDisplay({
 
   return (
     <>
-      {/* 스크립트 이동 버튼 */}
-      {showScrollButton && (
-        <button
-          onClick={scrollToCurrentScript}
-          className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all animate-bounce"
-          title="현재 재생 중인 스크립트로 이동"
-        >
-          <span className="hidden sm:inline font-medium">스크립트 이동</span>
-        </button>
-      )}
+      {/* 자동 포커스가 동작하므로 이동 버튼 없음 */}
 
       <div ref={containerRef} className="space-y-2">
         {transcripts.map((transcript, index) => {

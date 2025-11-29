@@ -25,7 +25,6 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
   const supabase = createClient();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -52,51 +51,21 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
       <header className="bg-gray-800 text-white px-4 py-3 shadow-xl sm:sticky sm:top-0 z-50">
         <nav className="container mx-auto">
           <div className="w-full flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {/* 로고 */}
             <div className="flex justify-center sm:justify-start items-center gap-3">
-              <Link
-                href="/"
-                aria-label="홈으로 이동"
-                className="flex items-center flex-shrink-0"
-              >
-                <Image
-                  src="/images/logo4.png"
-                  alt="LangBridge"
-                  width={160}
-                  height={40}
-                  priority
-                  className="h-13 w-auto"
-                />
+              <Link href="/" aria-label="홈으로 이동" className="flex items-center flex-shrink-0 gap-2">
+                <Image src="/images/logo_bg.png" alt="LangBridge 배경 로고" width={32} height={32} priority className="w-8 h-8" />
+                <span className="font-bold tracking-wide text-white">LangBridge</span>
               </Link>
             </div>
+            {/* 우측: 간단한 로그인 버튼 표시 */}
             <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
               <div className="flex items-center gap-2 sm:gap-4">
-                <Link href="/upload" className="hover:text-blue-300 transition duration-150">
-                  생성
-                </Link>
-                <Link href="/videos" className="hover:text-blue-300 transition duration-150">
-                  영상학습
-                </Link>
-                {isAdmin && (
-                  <span className="hover:text-blue-300 transition duration-150">
-                    운영관리
-                  </span>
-                )}
+                <span className="opacity-70">메뉴</span>
               </div>
-              {isLoggedIn ? (
-                <div className="flex items-center gap-2 bg-blue-600 py-2 px-3 sm:px-4 rounded">
-                  <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
-                    {(userEmail ?? 'U')[0].toUpperCase()}
-                  </div>
-                  <span className="hidden sm:inline max-w-[200px] truncate">{userEmail}</span>
-                </div>
-              ) : (
-                <Link
-                  href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
-                  className="bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap"
-                >
-                  로그인
-                </Link>
-              )}
+              <Link href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`} className="bg-blue-600 py-2 px-3 sm:px-4 rounded whitespace-nowrap">
+                로그인
+              </Link>
             </div>
           </div>
         </nav>
@@ -114,39 +83,39 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
             <Link
               href="/"
               aria-label="홈으로 이동"
-              className="flex items-center flex-shrink-0"
+              className="flex items-center flex-shrink-0 gap-2"
             >
               <Image
-                src="/images/logo4.png"
-                alt="LangBridge"
-                width={160}
-                height={40}
+                src="/images/logo_bg.png"
+                alt="LangBridge 배경 로고"
+                width={32}
+                height={32}
                 priority
-                className="h-13 w-auto"
+                className="w-8 h-8"
               />
+              <span className="font-bold text-xl sm:text-2xl tracking-wide text-white">LangBridge</span>
             </Link>
-          </div>
-
-          {/* 2행: 링크/계정 - 모바일 전체폭 justify-between, 데스크톱 우측 정렬 */}
-          <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
-            {/* 왼쪽 링크 그룹 */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* 로고가 홈으로 이동하므로 별도 '홈' 버튼 제거 */}
-              <Link href="/upload" className="hover:text-blue-300 transition duration-150">
-                생성
-              </Link>
-              <Link href="/videos" className="hover:text-blue-300 transition duration-150">
-                영상학습
-              </Link>
-              {isAdmin && (
-                <Link href="/admin" className="hover:text-blue-300 transition duration-150">
-                  운영관리
-                </Link>
-              )}
             </div>
 
-            {/* 오른쪽 계정/로그인 영역 */}
-            {isLoggedIn ? (
+            {/* 2행: 링크/계정 - 모바일 전체폭 justify-between, 데스크톱 우측 정렬 */}
+            <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
+              {/* 왼쪽 링크 그룹 */}
+              <div className="flex items-center gap-2 sm:gap-4">
+                <Link href="/upload" className="hover:text-blue-300 transition duration-150">
+                  생성
+                </Link>
+                <Link href="/videos" className="hover:text-blue-300 transition duration-150">
+                  영상학습
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className="hover:text-blue-300 transition duration-150">
+                    운영관리
+                  </Link>
+                )}
+              </div>
+
+              {/* 오른쪽 계정/로그인 영역 */}
+              {isLoggedIn ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap">
@@ -187,17 +156,17 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
+              ) : (
               <Link
                 href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
                 className="bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap"
               >
                 로그인
               </Link>
-            )}
-          </div>
-        </div>
-      </nav>
+              )}
+            </div>
+              </div>
+          </nav>
     </header>
   );
 }

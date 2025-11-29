@@ -6,7 +6,7 @@ import VideoPlayer from '@/components/VideoPlayer';
 import TranscriptDisplay from '@/components/TranscriptDisplay';
 import { updateVideo } from '@/app/actions/videos';
 import { deleteVideo as deleteVideoAction } from '@/app/actions/video';
-import { Edit3, ArrowLeft } from 'lucide-react';
+import { Edit3, ArrowLeft, Trash2 } from 'lucide-react';
 
 interface TranscriptWithTranslation {
   id: string;
@@ -100,9 +100,10 @@ export default function VideoLearningClient({
       <button
         onClick={onDelete}
         disabled={deleting}
-        className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+        className="p-2 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 disabled:opacity-50"
+        title={deleting ? '삭제 중...' : '영상 삭제'}
       >
-        {deleting ? '삭제 중...' : '영상 삭제'}
+        <Trash2 className="w-5 h-5" />
       </button>
     );
   };
@@ -218,24 +219,45 @@ export default function VideoLearningClient({
 
       {/* 모바일: 비디오 섹션 (고정) */}
       <div className="md:hidden flex-shrink-0">
-        {/* 제목과 정보 - 항상 표시 */}
-        <div className="px-4 py-3 bg-white dark:bg-gray-900">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h1 className="text-lg font-bold break-words line-clamp-2 flex-1">{title}</h1>
-            <div className="flex items-center gap-2">
+        {/* 모바일 일반 모드: 제목 + 메타 + 비디오, 전체모드: 메타(버튼 포함)만 상단 */}
+        <div className="px-4 pt-3 pb-2 bg-white dark:bg-gray-900 flex flex-col gap-2">
+          {/* 제목 (전체모드에서는 숨김) */}
+          {!isPlaying && (
+            <h1 className="text-lg font-bold break-words line-clamp-2">{title}</h1>
+          )}
+          {/* 메타 행 (카테고리/조회수 + 전체화면 토글 + 편집) */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2 text-xs items-center">
+              {categoryName && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                  <span className="font-medium">카테고리:</span>
+                  <span>{categoryName}</span>
+                </div>
+              )}
+              {channelName && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                  <span className="font-medium">채널:</span>
+                  <span>{channelName}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                <span className="font-medium">조회수:</span>
+                <span>{viewCount.toLocaleString()}회</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
               {isAdmin && (
                 <button
                   onClick={handleOpenEditModal}
-                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600"
                   title="비디오 정보 수정"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
               )}
-              {/* 전체화면 토글 버튼 */}
               <button
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex-shrink-0"
+                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                 title={isPlaying ? '전체모드 해제' : '전체화면'}
               >
                 {isPlaying ? (
@@ -250,27 +272,9 @@ export default function VideoLearningClient({
               </button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {channelName && (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-                <span className="font-medium">채널:</span>
-                <span>{channelName}</span>
-              </div>
-            )}
-            {categoryName && (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-                <span className="font-medium">카테고리:</span>
-                <span>{categoryName}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-              <span className="font-medium">조회수:</span>
-              <span>{viewCount.toLocaleString()}회</span>
-            </div>
-          </div>
         </div>
         
-        {/* 비디오 플레이어 - 모바일에서만 렌더링 */}
+        {/* 비디오 플레이어 - 모바일에서만 렌더링 (전체모드에서는 메타 아래) */}
         {isMobile === true && (
           <VideoPlayer
             youtubeId={youtubeId}
@@ -382,7 +386,10 @@ export default function VideoLearningClient({
       {editModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">비디오 정보 수정</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">비디오 정보 수정</h2>
+              <DeleteVideoButton videoId={videoId} />
+            </div>
             
             <div className="space-y-4">
               {/* 제목 */}
@@ -426,7 +433,7 @@ export default function VideoLearningClient({
             </div>
 
             {/* 버튼 */}
-            <div className="flex flex-wrap gap-3 mt-6 justify-between">
+            <div className="flex gap-3 mt-6">
               <button
                 onClick={handleSaveVideo}
                 disabled={isSaving}
@@ -441,7 +448,6 @@ export default function VideoLearningClient({
               >
                 취소
               </button>
-              <DeleteVideoButton videoId={videoId} />
             </div>
           </div>
         </div>

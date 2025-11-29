@@ -94,9 +94,12 @@ export default function VideoPlayer({
       intervalRef.current = setInterval(async () => {
         if (!playerRef.current || !mountedRef.current) return;
         try {
+          // API 호출 전 플레이어 메소드 존재 확인
+          if (typeof playerRef.current.getPlayerState !== 'function') return;
           const state = await playerRef.current.getPlayerState();
           // 재생 중일 때만 업데이트 및 반복
           if (state === 1) { // 1 = PLAYING
+            if (typeof playerRef.current.getCurrentTime !== 'function') return;
             const currentTime = await playerRef.current.getCurrentTime();
             if (onTimeUpdate && mountedRef.current) onTimeUpdate(currentTime);
             if (currentTime >= t.start + t.duration) {
@@ -133,8 +136,10 @@ export default function VideoPlayer({
       intervalRef.current = setInterval(async () => {
         if (!playerRef.current || !mountedRef.current) return;
         try {
+          if (typeof playerRef.current.getPlayerState !== 'function') return;
           const state = await playerRef.current.getPlayerState();
           if (state === 1) { // PLAYING
+            if (typeof playerRef.current.getCurrentTime !== 'function') return;
             const currentTime = await playerRef.current.getCurrentTime();
             if (onTimeUpdate && mountedRef.current) onTimeUpdate(currentTime);
             if (currentTime >= end) {
@@ -165,8 +170,10 @@ export default function VideoPlayer({
       intervalRef.current = setInterval(async () => {
         if (!playerRef.current || !mountedRef.current) return;
         try {
+          if (typeof playerRef.current.getPlayerState !== 'function') return;
           const state = await playerRef.current.getPlayerState();
           if (state === 1) { // PLAYING
+            if (typeof playerRef.current.getCurrentTime !== 'function') return;
             const currentTime = await playerRef.current.getCurrentTime();
             if (onTimeUpdate && mountedRef.current) onTimeUpdate(currentTime);
           }
@@ -189,7 +196,10 @@ export default function VideoPlayer({
       }
     }
     playerRef.current = event.target;
-    setIsReady(true);
+    // DOM에 제대로 부착되었는지 확인
+    if (event.target && typeof event.target.getPlayerState === 'function') {
+      setIsReady(true);
+    }
   };
 
   const onStateChange: YouTubeProps['onStateChange'] = (event) => {
