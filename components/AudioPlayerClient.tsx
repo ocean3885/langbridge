@@ -1,7 +1,7 @@
 "use client"; // 이 컴포넌트는 클라이언트에서 실행
 
 import { useState, useRef, useEffect } from 'react';
-import { Repeat, RotateCw, MessageSquarePlus, Edit2, Trash2 } from 'lucide-react';
+import { Repeat, Repeat1, ListMusic, MessageSquarePlus, Edit2, Trash2 } from 'lucide-react';
 import MemoModal from './MemoModal';
 
 type SyncData = {
@@ -42,7 +42,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
   const isUserScrollingRef = useRef<boolean>(false);
   const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const playerHeightRef = useRef<number>(0);
-  
+
   // 메모 관련 상태
   const [memos, setMemos] = useState<Record<number, Memo>>({}); // line_number를 key로 사용
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -61,7 +61,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
   const handleSentenceClick = (startTime: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     // 반복 재생 중이면 해제
     if (repeatingSentenceIndex !== null) {
       setRepeatingSentenceIndex(null);
@@ -70,9 +70,9 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
         repeatTimeoutRef.current = null;
       }
     }
-    
+
     audio.currentTime = startTime;
-    
+
     // 오디오가 일시정지 상태면 재생 시도 (사용자 클릭이므로 허용됨)
     if (audio.paused) {
       audio.play().catch(() => {
@@ -100,7 +100,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
           repeatTimeoutRef.current = null;
         }
       }
-      
+
       // 오디오가 일시정지 상태면 재생 시도 (사용자 클릭이므로 허용됨)
       if (audio.paused) {
         audio.play().catch(() => {
@@ -113,7 +113,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
   // 반복 재생 토글 핸들러
   const handleRepeatToggle = (e: React.MouseEvent, index: number) => {
     e.stopPropagation(); // 부모 div 클릭 이벤트 방지
-    
+
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -130,7 +130,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
         setIsLoopingAll(false);
         audio.loop = false;
       }
-      
+
       setRepeatingSentenceIndex(index);
       const data = syncData[index];
       audio.currentTime = data.start;
@@ -206,42 +206,13 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       const activeIndex = syncData.findIndex(
         (data) => currentTime >= data.start && currentTime < data.end
       );
-      
+
       // 현재 재생 중인 문장이 있으면 업데이트
       // 없으면 이전 하이라이트 유지 (공백 구간에서도 마지막 문장 표시)
       if (activeIndex !== -1) {
         setCurrentSentenceIndex(activeIndex);
-        
-        // 문장이 변경되었을 때만 스크롤 (사용자 스크롤링 중이 아닐 때)
-        if (activeIndex !== lastSentenceIndexRef.current && !isUserScrollingRef.current) {
-          lastSentenceIndexRef.current = activeIndex;
-          
-          // 현재 재생 중인 문장으로 스크립트 섹션 내에서만 스크롤
-          if (sentenceRefs.current[activeIndex] && scrollContainerRef.current && playerContainerRef.current) {
-            const element = sentenceRefs.current[activeIndex];
-            const container = scrollContainerRef.current;
-            const playerContainer = playerContainerRef.current;
-            
-            // 플레이어의 높이를 동적으로 계산
-            const playerHeight = playerContainer.offsetHeight;
-            playerHeightRef.current = playerHeight;
-            
-            // 컨테이너 내에서의 상대 위치 계산
-            const elementTop = element.offsetTop;
-            const elementHeight = element.offsetHeight;
-            const containerHeight = container.clientHeight;
-            
-            // 요소를 플레이어 바로 아래에 배치 (플레이어 높이에 따라 동적 조정)
-            const bottomPadding = Math.max(80, playerHeight + 20);
-            const targetScrollTop = elementTop - (containerHeight - elementHeight - bottomPadding);
-            
-            // smooth 스크롤
-            container.scrollTo({
-              top: Math.max(0, targetScrollTop),
-              behavior: 'smooth'
-            });
-          }
-        }
+
+
       } else if (syncData.length > 0) {
         // 마지막 문장의 끝 시간을 넘어서면 하이라이트 제거
         const lastSentence = syncData[syncData.length - 1];
@@ -278,12 +249,12 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
     const handleScroll = () => {
       // 사용자가 스크롤 중임을 표시
       isUserScrollingRef.current = true;
-      
+
       // 기존 타임아웃 클리어
       if (userScrollTimeoutRef.current) {
         clearTimeout(userScrollTimeoutRef.current);
       }
-      
+
       // 1초 동안 스크롤이 없으면 다시 자동 스크롤 활성화
       userScrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
@@ -317,15 +288,15 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('error', handleError);
     audio.addEventListener('canplay', handleCanPlay);
-    scrollContainerRef.current?.addEventListener('scroll', handleScroll);
-    
+
+
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('canplay', handleCanPlay);
-      scrollContainerRef.current?.removeEventListener('scroll', handleScroll);
-      
+
+
       // 컴포넌트 언마운트 시 타임아웃 정리
       if (repeatTimeoutRef.current) {
         clearTimeout(repeatTimeoutRef.current);
@@ -337,129 +308,146 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
   }, [syncData, repeatingSentenceIndex]);
 
   return (
-    <div className="mt-6 sm:mt-8 flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="mt-6 sm:mt-8 flex flex-col">
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
           {error}
         </div>
       )}
-      
+
       {/* 플레이어 섹션 - 상단 고정 */}
-      <div ref={playerContainerRef} className="flex-shrink-0 bg-white sticky top-0 z-50 shadow-md">
+      <div ref={playerContainerRef} className="flex-shrink-0 bg-white shadow-md">
         {/* 컨트롤 버튼 */}
         <div className="p-4 sm:p-6 border-b border-gray-200">
+          {/* 현재 재생 중인 문장 표시 영역 */}
+          <div className="mb-4 min-h-[4rem] flex flex-col justify-center items-center text-center p-2 bg-gray-50 rounded-lg">
+            {currentSentenceIndex !== -1 && syncData[currentSentenceIndex] ? (
+              <>
+                <p className="text-lg font-bold text-gray-800 break-words w-full">{syncData[currentSentenceIndex].text}</p>
+                <p className="text-sm text-gray-600 mt-1 break-words w-full">{syncData[currentSentenceIndex].translation}</p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">재생을 시작하세요</p>
+            )}
+          </div>
           <div className="flex justify-between items-center gap-2 mb-4">
             <a
               href="/my-audio"
               className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"
               title="내 오디오 목록으로 이동"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
+              <ListMusic className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="font-medium hidden sm:inline">내 오디오 목록</span>
-              <span className="font-medium sm:hidden">목록</span>
             </a>
-            <button
-              onClick={handleLoopAllToggle}
-              className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${
-                isLoopingAll
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLoopAllToggle}
+                className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${isLoopingAll
                   ? 'bg-purple-500 text-white hover:bg-purple-600 shadow-md'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-              title={isLoopingAll ? '전체 반복 중지' : '전체 반복 재생'}
-            >
-              <RotateCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoopingAll ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
-              <span className="font-medium">{isLoopingAll ? '전체 반복 중' : '전체 반복'}</span>
-            </button>
+                  }`}
+                title={isLoopingAll ? '전체 반복 중지' : '전체 반복 재생'}
+              >
+                <Repeat className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoopingAll ? 'text-purple-100' : ''}`} />
+                <span className="font-medium hidden sm:inline">{isLoopingAll ? '전체 반복 중' : '전체 반복'}</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  if (currentSentenceIndex !== -1) {
+                    handleRepeatToggle(e, currentSentenceIndex);
+                  }
+                }}
+                disabled={currentSentenceIndex === -1}
+                className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${repeatingSentenceIndex !== null && repeatingSentenceIndex === currentSentenceIndex
+                  ? 'bg-green-500 text-white hover:bg-green-600 shadow-md'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                title={
+                  repeatingSentenceIndex !== null && repeatingSentenceIndex === currentSentenceIndex
+                    ? '현재 문장 반복 중지'
+                    : '현재 문장 반복'
+                }
+              >
+                <Repeat1 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium hidden sm:inline">현재 반복</span>
+              </button>
+            </div>
           </div>
-          
+
           <audio ref={audioRef} src={audioUrl} controls className="w-full" preload="metadata" />
         </div>
       </div>
-      
+
       {/* 스크립트 섹션 - 독립적 스크롤 */}
-      <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
+      <div className="" ref={scrollContainerRef}>
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-        {syncData.map((data, index) => {
-          const memo = memos[index];
-          return (
-          <div 
-            key={index}
-            ref={(el) => {
-              if (el) sentenceRefs.current[index] = el;
-            }}
-            className={`p-3 sm:p-4 rounded cursor-pointer transition-all duration-200 ${
-              index === currentSentenceIndex 
-                ? 'bg-blue-100 border-blue-400 border-2 shadow-md' 
-                : 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm border border-transparent'
-            } ${
-              repeatingSentenceIndex === index ? 'ring-2 ring-green-500' : ''
-            }`}
-          >
-            <div 
-              onClick={() => handleSentenceClick(data.start)}
-              className="flex justify-between items-start gap-2"
-              title="클릭하여 이 문장으로 이동"
-            >
-              <div className="flex-1">
-                <p className="text-base sm:text-lg font-medium break-words">{data.text}</p>
-                <p className="text-sm sm:text-base text-gray-600 break-words">{data.translation}</p>
-                <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
-                  {Math.floor(data.start / 60)}:{String(Math.floor(data.start % 60)).padStart(2, '0')} - {Math.floor(data.end / 60)}:{String(Math.floor(data.end % 60)).padStart(2, '0')}
-                </p>
-              </div>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={(e) => handleOpenMemoModal(e, index)}
-                  className={`p-1.5 sm:p-2 rounded-full transition-colors ${
-                    memo
-                      ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+          {syncData.map((data, index) => {
+            const memo = memos[index];
+            return (
+              <div
+                key={index}
+                ref={(el) => {
+                  if (el) sentenceRefs.current[index] = el;
+                }}
+                className={`p-3 sm:p-4 rounded cursor-pointer transition-all duration-200 ${index === currentSentenceIndex
+                  ? 'bg-blue-100 border-blue-400 border-2 shadow-md'
+                  : 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm border border-transparent'
+                  } ${repeatingSentenceIndex === index ? 'ring-2 ring-green-500' : ''
                   }`}
-                  title={memo ? '메모 수정' : '메모 추가'}
+              >
+                <div
+                  onClick={() => handleSentenceClick(data.start)}
+                  className="flex justify-between items-start gap-2"
+                  title="클릭하여 이 문장으로 이동"
                 >
-                  {memo ? (
-                    <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                  ) : (
-                    <MessageSquarePlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  )}
-                </button>
-                <button
-                  onClick={(e) => handleRepeatToggle(e, index)}
-                  className={`p-1.5 sm:p-2 rounded-full transition-colors ${
-                    repeatingSentenceIndex === index
-                      ? 'bg-green-500 text-white hover:bg-green-600'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                  title={repeatingSentenceIndex === index ? '반복 중지' : '이 문장 반복'}
-                >
-                  <Repeat className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-              </div>
-            </div>
-            
-            {/* 메모 표시 */}
-            {memo && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-400 rounded-lg">
-                <div className="flex justify-between items-start gap-2">
                   <div className="flex-1">
-                    <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words">
-                      {memo.memo_text}
+                    <p className="text-base sm:text-lg font-medium break-words">{data.text}</p>
+                    <p className="text-sm sm:text-base text-gray-600 break-words">{data.translation}</p>
+                    <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
+                      {Math.floor(data.start / 60)}:{String(Math.floor(data.start % 60)).padStart(2, '0')} - {Math.floor(data.end / 60)}:{String(Math.floor(data.end % 60)).padStart(2, '0')}
                     </p>
                   </div>
-                  <button
-                    onClick={(e) => handleDeleteMemo(e, index)}
-                    className="p-1 text-red-200 hover:text-red-700 transition-colors"
-                    title="메모 삭제"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={(e) => handleOpenMemoModal(e, index)}
+                      className={`p-1.5 sm:p-2 rounded-full transition-colors ${memo
+                        ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        }`}
+                      title={memo ? '메모 수정' : '메모 추가'}
+                    >
+                      {memo ? (
+                        <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      ) : (
+                        <MessageSquarePlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      )}
+                    </button>
+
+                  </div>
                 </div>
+
+                {/* 메모 표시 */}
+                {memo && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-400 rounded-lg">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words">
+                          {memo.memo_text}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteMemo(e, index)}
+                        className="p-1 text-red-200 hover:text-red-700 transition-colors"
+                        title="메모 삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )})}
+            )
+          })}
         </div>
       </div>
 
