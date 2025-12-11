@@ -30,11 +30,18 @@ interface Props {
 
 export default function AudioPlayerClient({ audioUrl, syncData, contentId, initialMemos }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const sentenceRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const [repeatingSentenceIndex, setRepeatingSentenceIndex] = useState<number | null>(null);
   const [isLoopingAll, setIsLoopingAll] = useState(false);
   const repeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSentenceIndexRef = useRef<number>(-1);
+  const isUserScrollingRef = useRef<boolean>(false);
+  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const playerHeightRef = useRef<number>(0);
   
   // 메모 관련 상태
   const [memos, setMemos] = useState<Record<number, Memo>>({}); // line_number를 key로 사용
@@ -204,11 +211,43 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       // 없으면 이전 하이라이트 유지 (공백 구간에서도 마지막 문장 표시)
       if (activeIndex !== -1) {
         setCurrentSentenceIndex(activeIndex);
+        
+        // 문장이 변경되었을 때만 스크롤 (사용자 스크롤링 중이 아닐 때)
+        if (activeIndex !== lastSentenceIndexRef.current && !isUserScrollingRef.current) {
+          lastSentenceIndexRef.current = activeIndex;
+          
+          // 현재 재생 중인 문장으로 스크립트 섹션 내에서만 스크롤
+          if (sentenceRefs.current[activeIndex] && scrollContainerRef.current && playerContainerRef.current) {
+            const element = sentenceRefs.current[activeIndex];
+            const container = scrollContainerRef.current;
+            const playerContainer = playerContainerRef.current;
+            
+            // 플레이어의 높이를 동적으로 계산
+            const playerHeight = playerContainer.offsetHeight;
+            playerHeightRef.current = playerHeight;
+            
+            // 컨테이너 내에서의 상대 위치 계산
+            const elementTop = element.offsetTop;
+            const elementHeight = element.offsetHeight;
+            const containerHeight = container.clientHeight;
+            
+            // 요소를 플레이어 바로 아래에 배치 (플레이어 높이에 따라 동적 조정)
+            const bottomPadding = Math.max(80, playerHeight + 20);
+            const targetScrollTop = elementTop - (containerHeight - elementHeight - bottomPadding);
+            
+            // smooth 스크롤
+            container.scrollTo({
+              top: Math.max(0, targetScrollTop),
+              behavior: 'smooth'
+            });
+          }
+        }
       } else if (syncData.length > 0) {
         // 마지막 문장의 끝 시간을 넘어서면 하이라이트 제거
         const lastSentence = syncData[syncData.length - 1];
         if (currentTime >= lastSentence.end) {
           setCurrentSentenceIndex(-1);
+          lastSentenceIndexRef.current = -1;
         }
       }
 
@@ -232,7 +271,23 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       } else {
         // 반복 재생이 아니면 하이라이트 제거
         setCurrentSentenceIndex(-1);
+        lastSentenceIndexRef.current = -1;
       }
+    };
+
+    const handleScroll = () => {
+      // 사용자가 스크롤 중임을 표시
+      isUserScrollingRef.current = true;
+      
+      // 기존 타임아웃 클리어
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+      }
+      
+      // 1초 동안 스크롤이 없으면 다시 자동 스크롤 활성화
+      userScrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 1000);
     };
 
     const handleError = (e: Event) => {
@@ -246,74 +301,94 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
     const handleCanPlay = () => {
       console.log('Audio is ready to play');
       setError(null);
-      // 오디오가 로드되면 자동 재생
-      audio.play().catch(err => {
-        console.error('Auto-play failed:', err);
-        // 브라우저 정책상 자동 재생이 차단될 수 있음
-      });
+      // 자동 재생 시도 (실패해도 무시 - 사용자가 play 버튼으로 재생 가능)
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .catch(err => {
+            // 브라우저 정책상 자동 재생이 차단되면 에러 무시
+            // 사용자가 html5 controls의 play 버튼을 클릭하면 재생됨
+            console.log('Auto-play blocked, user must interact first:', err.name);
+          });
+      }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('error', handleError);
     audio.addEventListener('canplay', handleCanPlay);
+    scrollContainerRef.current?.addEventListener('scroll', handleScroll);
     
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('canplay', handleCanPlay);
+      scrollContainerRef.current?.removeEventListener('scroll', handleScroll);
       
-      // 컴포넌트 언마운트 시 반복 타임아웃 정리
+      // 컴포넌트 언마운트 시 타임아웃 정리
       if (repeatTimeoutRef.current) {
         clearTimeout(repeatTimeoutRef.current);
+      }
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
       }
     };
   }, [syncData, repeatingSentenceIndex]);
 
   return (
-    <div className="mt-6 sm:mt-8">
+    <div className="mt-6 sm:mt-8 flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
           {error}
         </div>
       )}
       
-      {/* 컨트롤 버튼 */}
-      <div className="mb-4 flex justify-between items-center gap-2">
-        <a
-          href="/my-audio"
-          className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"
-          title="내 오디오 목록으로 이동"
-        >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-          <span className="font-medium hidden sm:inline">내 오디오 목록</span>
-          <span className="font-medium sm:hidden">목록</span>
-        </a>
-        <button
-          onClick={handleLoopAllToggle}
-          className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${
-            isLoopingAll
-              ? 'bg-purple-500 text-white hover:bg-purple-600 shadow-md'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-          title={isLoopingAll ? '전체 반복 중지' : '전체 반복 재생'}
-        >
-          <RotateCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoopingAll ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
-          <span className="font-medium">{isLoopingAll ? '전체 반복 중' : '전체 반복'}</span>
-        </button>
+      {/* 플레이어 섹션 - 상단 고정 */}
+      <div ref={playerContainerRef} className="flex-shrink-0 bg-white sticky top-0 z-50 shadow-md">
+        {/* 컨트롤 버튼 */}
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center gap-2 mb-4">
+            <a
+              href="/my-audio"
+              className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"
+              title="내 오디오 목록으로 이동"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              <span className="font-medium hidden sm:inline">내 오디오 목록</span>
+              <span className="font-medium sm:hidden">목록</span>
+            </a>
+            <button
+              onClick={handleLoopAllToggle}
+              className={`flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all text-sm sm:text-base ${
+                isLoopingAll
+                  ? 'bg-purple-500 text-white hover:bg-purple-600 shadow-md'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              title={isLoopingAll ? '전체 반복 중지' : '전체 반복 재생'}
+            >
+              <RotateCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoopingAll ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+              <span className="font-medium">{isLoopingAll ? '전체 반복 중' : '전체 반복'}</span>
+            </button>
+          </div>
+          
+          <audio ref={audioRef} src={audioUrl} controls className="w-full" preload="metadata" />
+        </div>
       </div>
       
-      <audio ref={audioRef} src={audioUrl} controls className="w-full" preload="metadata" />
-      
-      <div className="mt-6 space-y-3 sm:space-y-4">
+      {/* 스크립트 섹션 - 독립적 스크롤 */}
+      <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
         {syncData.map((data, index) => {
           const memo = memos[index];
           return (
           <div 
             key={index}
+            ref={(el) => {
+              if (el) sentenceRefs.current[index] = el;
+            }}
             className={`p-3 sm:p-4 rounded cursor-pointer transition-all duration-200 ${
               index === currentSentenceIndex 
                 ? 'bg-blue-100 border-blue-400 border-2 shadow-md' 
@@ -385,6 +460,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
             )}
           </div>
         )})}
+        </div>
       </div>
 
       {/* 메모 모달 */}

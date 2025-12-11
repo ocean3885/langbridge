@@ -238,6 +238,8 @@ const { data: userCountData, error: rpcError } = await supabase
 
   return (
     <div className="space-y-11"> {/* 섹션 간 간격 증가 */}
+
+
       
       {/* 화이트 배경 히어로 섹션 */}
       <section className="bg-white text-center px-4 py-8 sm:py-12 md:py-16 border-b border-gray-100">
@@ -287,6 +289,8 @@ const { data: userCountData, error: rpcError } = await supabase
           <p className="text-sm text-gray-500 pt-4">현재 <span className="font-semibold text-blue-600">{userCount}명</span>의 학습자가 함께하고 있습니다</p>
         </div>
       </section>
+
+      
 
       {/* 최상단 이미지 섹션 */}
       <section className="w-full">
