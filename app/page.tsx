@@ -131,6 +131,7 @@ const { data: userCountData, error: rpcError } = await supabase
       .from('videos')
       .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id, user_categories(name, language_id, languages(name_ko))')
       .eq('uploader_id', user.id)
+      .is('channel_id', null)
       .order('created_at', { ascending: false })
       .limit(10);
 
