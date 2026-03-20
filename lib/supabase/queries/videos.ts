@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
+import { getAllUserNotesForVideoSqlite, getUserNoteForTranscriptSqlite } from '@/lib/sqlite/user-notes';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAllVideosSqlite, getVideoWithTranscriptsSqlite } from '@/lib/sqlite/videos';
 
 export interface TranscriptWithTranslation {
   id: string;
@@ -39,61 +42,18 @@ export async function getVideoWithTranscripts(
   videoId: string
 ): Promise<{ data: VideoWithTranscripts | null; error: string | null }> {
   try {
-    const supabase = await createClient();
+    const { video, transcripts } = await getVideoWithTranscriptsSqlite(videoId);
 
-    // videos + transcripts + translations 조인
-    const { data, error } = await supabase
-      .from('videos')
-      .select(`
-        id,
-        youtube_id,
-        title,
-        description,
-        duration,
-        thumbnail_url,
-        created_at,
-        language_id,
-        category_id,
-        channel_id,
-        view_count,
-        uploader_id,
-        user_categories:category_id ( user_id, name ),
-        video_channels:channel_id ( channel_name ),
-        transcripts (
-          id,
-          video_id,
-          start,
-          duration,
-          text_original,
-          order_index,
-          translations (
-            id,
-            lang,
-            text_translated
-          )
-        )
-      `)
-      .eq('id', videoId)
-      .single();
-
-    if (error) {
-      console.error('getVideoWithTranscripts error:', error);
-      return { data: null, error: error.message };
-    }
-
-    if (!data) {
+    if (!video) {
       return { data: null, error: '영상을 찾을 수 없습니다.' };
     }
 
-    // transcripts를 order_index 순으로 정렬
-    const sortedTranscripts = (data.transcripts || []).sort(
-      (a, b) => a.order_index - b.order_index
-    );
-
     return {
       data: {
-        ...data,
-        transcripts: sortedTranscripts,
+        ...video,
+        user_categories: null,
+        video_channels: null,
+        transcripts,
       } as VideoWithTranscripts,
       error: null,
     };
@@ -128,66 +88,22 @@ export async function getAllVideos(): Promise<{
   error: string | null;
 }> {
   try {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from('videos')
-      .select(`
-        id,
-        youtube_id,
-        title,
-        description,
-        duration,
-        thumbnail_url,
-        created_at,
-        language_id,
-        channel_id,
-        uploader_id,
-        languages (name_ko),
-        video_channels (channel_name),
-        transcripts (count)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('getAllVideos error:', error);
-      return { data: [], error: error.message };
-    }
-
-    // transcript count 추출
-    const videos = (data || []).map((video: {
-      id: string;
-      youtube_id: string;
-      title: string;
-      description: string | null;
-      duration: number | null;
-      thumbnail_url: string | null;
-      created_at: string;
-      language_id: number | null;
-      channel_id: string | null;
-      uploader_id: string | null;
-      languages?: { name_ko: string } | { name_ko: string }[] | null;
-      video_channels?: { channel_name: string } | { channel_name: string }[] | null;
-      transcripts?: { count: number }[];
-    }) => {
-      const languageData = Array.isArray(video.languages) ? video.languages[0] : video.languages;
-      const channelData = Array.isArray(video.video_channels) ? video.video_channels[0] : video.video_channels;
-      return {
-        id: video.id,
-        youtube_id: video.youtube_id,
-        title: video.title,
-        description: video.description,
-        duration: video.duration,
-        thumbnail_url: video.thumbnail_url,
-        created_at: video.created_at,
-        language_id: video.language_id,
-        language_name: languageData?.name_ko || null,
-        channel_id: video.channel_id,
-        channel_name: channelData?.channel_name || null,
-        uploader_id: video.uploader_id,
-        transcript_count: video.transcripts?.[0]?.count || 0,
-      };
-    });
+    const sqliteVideos = await getAllVideosSqlite();
+    const videos = sqliteVideos.map((video) => ({
+      id: video.id,
+      youtube_id: video.youtube_id,
+      title: video.title,
+      description: video.description,
+      duration: video.duration,
+      thumbnail_url: video.thumbnail_url,
+      created_at: video.created_at,
+      language_id: video.language_id,
+      language_name: null,
+      channel_id: video.channel_id,
+      channel_name: null,
+      uploader_id: video.uploader_id,
+      transcript_count: video.transcript_count,
+    }));
 
     return { data: videos, error: null };
   } catch (error) {
@@ -209,24 +125,12 @@ export async function getUserNoteForTranscript(
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { data: null, error: '로그인이 필요합니다.' };
     }
 
-    const { data, error } = await supabase
-      .from('user_notes')
-      .select('id, content')
-      .eq('user_id', user.id)
-      .eq('video_id', videoId)
-      .eq('transcript_id', transcriptId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('getUserNoteForTranscript error:', error);
-      return { data: null, error: error.message };
-    }
-
+    const data = await getUserNoteForTranscriptSqlite(user.id, videoId, transcriptId);
     return { data, error: null };
   } catch (error) {
     console.error('getUserNoteForTranscript exception:', error);
@@ -246,33 +150,12 @@ export async function getAllUserNotesForVideo(
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { data: {}, error: null }; // 로그인 안 된 경우 빈 객체 반환
     }
 
-    const { data, error } = await supabase
-      .from('user_notes')
-      .select('id, transcript_id, content')
-      .eq('user_id', user.id)
-      .eq('video_id', videoId);
-
-    if (error) {
-      console.error('getAllUserNotesForVideo error:', error);
-      return { data: {}, error: error.message };
-    }
-
-    // transcript_id를 키로 하는 객체로 변환
-    const notesMap: Record<string, { id: string; content: string }> = {};
-    (data || []).forEach((note) => {
-      if (note.transcript_id) {
-        notesMap[note.transcript_id] = {
-          id: note.id,
-          content: note.content,
-        };
-      }
-    });
-
+    const notesMap = await getAllUserNotesForVideoSqlite(user.id, videoId);
     return { data: notesMap, error: null };
   } catch (error) {
     console.error('getAllUserNotesForVideo exception:', error);

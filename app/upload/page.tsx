@@ -1,12 +1,15 @@
 // langbridge/app/upload/page.tsx
 import { createClient } from '@/lib/supabase/server';
+import { listSqliteCategories } from '@/lib/sqlite/categories';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 import UploadTabs from './UploadTabs';
 
 export default async function UploadPage() {
   const supabase = await createClient();
   
-  // 사용자 인증 확인
-  const { data: { user } } = await supabase.auth.getUser();
+  // 사용자 인증 확인 (Supabase 세션 또는 SQLite 세션 쿠키)
+  const user = await getAppUserFromServer(supabase);
   
   // 로그인하지 않은 사용자는 로그인 페이지로 리다이렉트
   if (!user) {
@@ -14,43 +17,16 @@ export default async function UploadPage() {
     redirect('/auth/login?redirectTo=/upload');
   }
   
-  // 카테고리 목록 가져오기 (오디오용 - lang_categories)
-  const { data: audioCategories, error: categoryError } = await supabase
-    .from('lang_categories')
-    .select('*')
-    .eq('user_id', user!.id)
-    .order('name', { ascending: true });
+  let audioCategories = await listSqliteCategories('lang_categories', user.id);
+  let videoCategories = await listSqliteCategories('user_categories', user.id);
 
-  if (categoryError) {
-    console.error('오디오 카테고리 로드 오류:', categoryError);
-  }
-
-  // 비디오용 카테고리 가져오기 (user_categories)
-  const { data: videoCategories, error: videoCategoryError } = await supabase
-    .from('user_categories')
-    .select('id, name, language_id, user_id, created_at')
-    .eq('user_id', user!.id)
-    .order('name', { ascending: true });
-
-  if (videoCategoryError) {
-    console.error('비디오 카테고리 로드 오류:', videoCategoryError);
-  }
-
-  // 언어 목록 가져오기
-  const { data: languages, error: languagesError } = await supabase
-    .from('languages')
-    .select('id, name_ko, code')
-    .order('name_ko', { ascending: true });
-
-  if (languagesError) {
-    console.error('언어 로드 오류:', languagesError);
-  }
+  const languages = await listSqliteLanguages();
 
   return (
     <UploadTabs
       audioCategories={audioCategories || []}
       videoCategories={videoCategories || []}
-      initialLanguages={languages || []}
+      initialLanguages={languages}
     />
   );
 }

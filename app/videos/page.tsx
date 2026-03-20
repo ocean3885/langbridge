@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Video, Clock, Globe } from 'lucide-react';
 import Image from 'next/image';
+import { listVideosSqlite } from '@/lib/sqlite/videos';
 
 // 동적 렌더링 강제
 export const dynamic = 'force-dynamic';
@@ -30,53 +31,24 @@ type AdminVideo = {
   language_name: string | null;
 };
 
-// Supabase rows 타입 (any 제거)
-type VideoRow = {
-  id: string;
-  title: string;
-  youtube_id: string | null;
-  thumbnail_url: string | null;
-  duration: number | null;
-  created_at: string;
-  languages: { name_ko: string } | { name_ko: string }[] | null;
-  video_channels: { channel_name: string } | { channel_name: string }[] | null;
-};
-
 export default async function VideosPage() {
-  const supabase = await createClient();
+  await createClient();
   const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
-  const { data: rows, error } = await supabase
-    .from('videos')
-    .select('id, title, youtube_id, thumbnail_url, duration, created_at, language_id, languages(name_ko), video_channels(channel_name)')
-    .eq('uploader_id', ADMIN_UPLOADER_ID)
-    .order('created_at', { ascending: false })
-    .limit(60);
-
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600 font-semibold">비디오를 불러오는 중 오류가 발생했습니다.</p>
-          <p className="text-sm text-red-500 mt-2">{String(error.message ?? error)}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const adminVideos: AdminVideo[] = (rows ?? []).map((v: VideoRow) => {
-    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
-    const channelRel = Array.isArray(v.video_channels) ? v.video_channels[0] : v.video_channels;
-    return {
-      id: v.id,
-      title: v.title,
-      youtube_id: v.youtube_id ?? null,
-      thumbnail_url: v.thumbnail_url ?? null,
-      duration: v.duration ?? null,
-      created_at: v.created_at,
-      channel_name: channelRel?.channel_name ?? null,
-      language_name: lang?.name_ko ?? null,
-    };
+  const rows = await listVideosSqlite({
+    uploaderId: ADMIN_UPLOADER_ID,
+    limit: 60,
   });
+
+  const adminVideos: AdminVideo[] = rows.map((v) => ({
+    id: v.id,
+    title: v.title,
+    youtube_id: v.youtube_id ?? null,
+    thumbnail_url: v.thumbnail_url ?? null,
+    duration: v.duration ?? null,
+    created_at: v.created_at,
+    channel_name: null,
+    language_name: null,
+  }));
 
   // 언어별 그룹화 (채널은 아직 없음)
   const groupedByLanguage = adminVideos.reduce((acc, video) => {

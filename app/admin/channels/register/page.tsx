@@ -1,21 +1,19 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import AdminSidebar from '../../AdminSidebar';
 import RegisterChannelForm from './RegisterChannelForm';
 
 export default async function RegisterChannelPage() {
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/channels/register');
   }
 
-  const admin = createAdminClient();
-  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-    user_id: user.id
-  });
+  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
 
   if (!isSuperAdmin) {
     redirect('/');

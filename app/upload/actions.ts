@@ -1,7 +1,10 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { upsertAudioContentSqlite } from '@/lib/sqlite/audio-content';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { randomUUID } from 'crypto';
 import { redirect } from 'next/navigation';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -115,7 +118,7 @@ export async function processFileAction(formData: FormData) {
   const supabase = await createClient();
 
   // 인증 확인
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   if (!user) return redirect('/auth');
 
   const title = formData.get('title') as string;
@@ -224,24 +227,20 @@ export async function processFileAction(formData: FormData) {
 
     if (upErr) throw upErr;
 
-    // DB 저장
-    const { data: audioObj, error: dbErr } = await supabase
-      .from('lang_audio_content')
-      .insert({
-        user_id: user.id,
-        title,
-        category_id: categoryId ? parseInt(categoryId) : null,
-        original_text: sentencePairs.map(s => s.text).join('\n'),
-        translated_text: sentencePairs.map(s => s.translation).join('\n'),
-        sync_data,
-        audio_file_path: storagePath,
-      })
-      .select('id')
-      .single();
+    const audioId = randomUUID();
 
-    if (dbErr) throw dbErr;
+    await upsertAudioContentSqlite({
+      id: audioId,
+      userId: user.id,
+      title,
+      categoryId: categoryId ? parseInt(categoryId) : null,
+      originalText: sentencePairs.map(s => s.text).join('\n'),
+      translatedText: sentencePairs.map(s => s.translation).join('\n'),
+      syncData: sync_data,
+      audioFilePath: storagePath,
+    });
 
-    return redirect(`/player/${audioObj.id}`);
+    return redirect(`/player/${audioId}`);
 
   } catch (err) {
     // NEXT_REDIRECT는 의도된 흐름 제어이므로 그대로 다시 던져 리다이렉트가 동작하게 합니다.

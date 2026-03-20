@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { getAllVideos } from '@/lib/supabase/queries/videos';
+import { listSqliteChannels } from '@/lib/sqlite/channels';
 import { Plus, Tag } from 'lucide-react';
 import AdminSidebar from '../AdminSidebar';
 import VideoCard from './VideoCard';
@@ -11,17 +13,14 @@ export default async function AdminVideosPage() {
   const supabase = await createClient();
   
   // 인증 확인
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/videos');
   }
   
   // 운영자 확인
-  const admin = createAdminClient();
-  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-    user_id: user.id
-  });
+  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
   
   if (!isSuperAdmin) {
     redirect('/');
@@ -29,11 +28,7 @@ export default async function AdminVideosPage() {
 
   const { data: videos, error } = await getAllVideos();
 
-  // 채널 목록 조회
-  const { data: channels } = await supabase
-    .from('video_channels')
-    .select('id, channel_name, channel_url, language_id')
-    .order('channel_name', { ascending: true });
+  const channels = await listSqliteChannels();
 
   if (error) {
     return (
@@ -120,7 +115,7 @@ export default async function AdminVideosPage() {
                       <VideoCard 
                         key={video.id} 
                         video={video} 
-                        channels={channels || []}
+                          channels={channels}
                       />
                     ))}
                   </div>

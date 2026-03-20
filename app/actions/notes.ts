@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { deleteUserNoteSqlite, upsertUserNoteSqlite } from '@/lib/sqlite/user-notes';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 
 export interface SaveNoteInput {
@@ -24,56 +26,20 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
   try {
     const supabase = await createClient();
 
-    // 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 기존 메모 확인
-    const { data: existingNote } = await supabase
-      .from('user_notes')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('video_id', input.videoId)
-      .eq('transcript_id', input.transcriptId)
-      .maybeSingle();
+    const noteId = await upsertUserNoteSqlite({
+      userId: user.id,
+      videoId: input.videoId,
+      transcriptId: input.transcriptId,
+      content: input.content,
+    });
 
-    if (existingNote) {
-      // UPDATE
-      const { error: updateError } = await supabase
-        .from('user_notes')
-        .update({ content: input.content })
-        .eq('id', existingNote.id);
-
-      if (updateError) {
-        console.error('Update note error:', updateError);
-        return { success: false, error: updateError.message };
-      }
-
-      revalidatePath(`/videos/${input.videoId}`);
-      return { success: true, noteId: existingNote.id };
-    } else {
-      // INSERT
-      const { data: newNote, error: insertError } = await supabase
-        .from('user_notes')
-        .insert({
-          user_id: user.id,
-          video_id: input.videoId,
-          transcript_id: input.transcriptId,
-          content: input.content,
-        })
-        .select('id')
-        .single();
-
-      if (insertError) {
-        console.error('Insert note error:', insertError);
-        return { success: false, error: insertError.message };
-      }
-
-      revalidatePath(`/videos/${input.videoId}`);
-      return { success: true, noteId: newNote.id };
-    }
+    revalidatePath(`/videos/${input.videoId}`);
+    return { success: true, noteId };
   } catch (error) {
     console.error('Save note error:', error);
     return {
@@ -90,23 +56,12 @@ export async function deleteNote(noteId: string, videoId: string): Promise<SaveN
   try {
     const supabase = await createClient();
 
-    // 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 삭제 (RLS가 본인 메모만 삭제 가능하도록 보장)
-    const { error: deleteError } = await supabase
-      .from('user_notes')
-      .delete()
-      .eq('id', noteId)
-      .eq('user_id', user.id);
-
-    if (deleteError) {
-      console.error('Delete note error:', deleteError);
-      return { success: false, error: deleteError.message };
-    }
+    await deleteUserNoteSqlite(noteId, user.id);
 
     revalidatePath(`/videos/${videoId}`);
     return { success: true };

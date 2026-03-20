@@ -1,36 +1,38 @@
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromRequest } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { createWordSqlite, deleteWordSqlite, hasWordUsageSqlite, listWordsSqlite, updateWordSqlite } from '@/lib/sqlite/words';
 import { NextRequest, NextResponse } from 'next/server';
 
+function withLanguage<T extends { language_id: number }>(
+  row: T,
+  languageMap: Map<number, { id: number; name_en: string | null; name_ko: string; code: string }>
+) {
+  return {
+    ...row,
+    languages: languageMap.get(row.language_id) ?? null,
+  };
+}
+
 // 단어 목록 조회
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromRequest(request, supabase);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
-      .from('words')
-      .select(`
-        *,
-        languages:language_id (
-          id,
-          name_en,
-          name_ko,
-          code
-        )
-      `)
-      .order('id', { ascending: false });
+    const [words, languages] = await Promise.all([
+      listWordsSqlite(),
+      listSqliteLanguages(),
+    ]);
+    const languageMap = new Map(
+      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+    );
 
-    if (error) {
-      console.error('단어 조회 오류:', error);
-      return NextResponse.json({ error: '단어 조회에 실패했습니다.' }, { status: 500 });
-    }
-
-    return NextResponse.json(data || []);
+    return NextResponse.json(words.map((row) => withLanguage(row, languageMap)));
   } catch (error) {
     console.error('API 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
@@ -41,17 +43,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromRequest(request, supabase);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
     // 운영자 확인
-    const admin = createAdminClient();
-    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-      user_id: user.id
-    });
+    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
 
     if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
@@ -63,32 +61,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('words')
-      .insert({ 
-        language_id, 
-        text, 
-        meaning_ko, 
-        level, 
-        part_of_speech: part_of_speech || null 
-      })
-      .select(`
-        *,
-        languages:language_id (
-          id,
-          name_en,
-          name_ko,
-          code
-        )
-      `)
-      .single();
+    const created = await createWordSqlite({
+      languageId: Number(language_id),
+      text,
+      meaningKo: meaning_ko,
+      level,
+      partOfSpeech: part_of_speech || null,
+    });
+    const languages = await listSqliteLanguages();
+    const languageMap = new Map(
+      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+    );
 
-    if (error) {
-      console.error('단어 추가 오류:', error);
-      return NextResponse.json({ error: '단어 추가에 실패했습니다.' }, { status: 500 });
-    }
-
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(withLanguage(created, languageMap), { status: 201 });
   } catch (error) {
     console.error('API 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
@@ -99,17 +84,13 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromRequest(request, supabase);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
     // 운영자 확인
-    const admin = createAdminClient();
-    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-      user_id: user.id
-    });
+    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
 
     if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
@@ -121,33 +102,25 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('words')
-      .update({ 
-        language_id, 
-        text, 
-        meaning_ko, 
-        level, 
-        part_of_speech: part_of_speech || null 
-      })
-      .eq('id', id)
-      .select(`
-        *,
-        languages:language_id (
-          id,
-          name_en,
-          name_ko,
-          code
-        )
-      `)
-      .single();
+    const updated = await updateWordSqlite({
+      id: Number(id),
+      languageId: Number(language_id),
+      text,
+      meaningKo: meaning_ko,
+      level,
+      partOfSpeech: part_of_speech || null,
+    });
 
-    if (error) {
-      console.error('단어 수정 오류:', error);
-      return NextResponse.json({ error: '단어 수정에 실패했습니다.' }, { status: 500 });
+    if (!updated) {
+      return NextResponse.json({ error: '단어를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    return NextResponse.json(data);
+    const languages = await listSqliteLanguages();
+    const languageMap = new Map(
+      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+    );
+
+    return NextResponse.json(withLanguage(updated, languageMap));
   } catch (error) {
     console.error('API 오류:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
@@ -158,17 +131,13 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromRequest(request, supabase);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
     // 운영자 확인
-    const admin = createAdminClient();
-    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-      user_id: user.id
-    });
+    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
 
     if (!isSuperAdmin) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
@@ -181,43 +150,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '단어 ID를 입력해주세요.' }, { status: 400 });
     }
 
-    // 관련 동사 활용 확인
-    const { data: usedConjugations } = await supabase
-      .from('verb_conjugations')
-      .select('id')
-      .eq('word_id', parseInt(id))
-      .limit(1);
-
-    if (usedConjugations && usedConjugations.length > 0) {
+    const wordId = parseInt(id);
+    const usage = await hasWordUsageSqlite(wordId);
+    if (usage.used) {
       return NextResponse.json(
-        { error: '이 단어의 동사 활용이 있어 삭제할 수 없습니다.' },
+        { error: `${usage.reason} 삭제할 수 없습니다.` },
         { status: 400 }
       );
     }
 
-    // 관련 단어-문장 매핑 확인
-    const { data: usedMappings } = await supabase
-      .from('word_sentence_map')
-      .select('word_id')
-      .eq('word_id', parseInt(id))
-      .limit(1);
-
-    if (usedMappings && usedMappings.length > 0) {
-      return NextResponse.json(
-        { error: '이 단어를 사용하는 문장 매핑이 있어 삭제할 수 없습니다.' },
-        { status: 400 }
-      );
-    }
-
-    const { error } = await supabase
-      .from('words')
-      .delete()
-      .eq('id', parseInt(id));
-
-    if (error) {
-      console.error('단어 삭제 오류:', error);
-      return NextResponse.json({ error: '단어 삭제에 실패했습니다.' }, { status: 500 });
-    }
+    await deleteWordSqlite(wordId);
 
     return NextResponse.json({ message: '단어가 삭제되었습니다.' });
   } catch (error) {

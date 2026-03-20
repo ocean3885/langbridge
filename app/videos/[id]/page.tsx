@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import { getVideoWithTranscripts, getAllUserNotesForVideo } from '@/lib/supabase/queries/videos';
 import VideoLearningClient from '@/components/VideoLearningClient';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { incrementVideoViewCountSqlite } from '@/lib/sqlite/videos';
 
 interface VideoPageProps {
   params: Promise<{
@@ -28,17 +30,15 @@ export default async function VideoPage({ params }: VideoPageProps) {
   
   // 조회수 증가
   try {
-    await supabase.rpc('increment_video_view_count', { video_id: id });
+    await incrementVideoViewCountSqlite(id);
   } catch (err) {
     console.error('Failed to increment view count:', err);
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   let isAdmin = false;
   if (user) {
-    const admin = createAdminClient();
-    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', { user_id: user.id });
-    isAdmin = Boolean(isSuperAdmin);
+    isAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
   }
 
   // 업로더(소유자) 여부 확인: uploader_id로 직접 확인

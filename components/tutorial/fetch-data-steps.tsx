@@ -1,138 +1,72 @@
 import { TutorialStep } from "./tutorial-step";
 import { CodeBlock } from "./code-block";
 
-const create = `create table notes (
-  id bigserial primary key,
-  title text
-);
-
-insert into notes(title)
-values
-  ('Today I created a Supabase project.'),
-  ('I added some data and queried it from Next.js.'),
-  ('It was awesome!');
+const env = `# .env.local
+SQLITE_DB_PATH=.data/langbridge.sqlite
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 `.trim();
 
-const rls = `alter table notes enable row level security;
-create policy "Allow public read access" on notes
-for select
-using (true);`.trim();
-
-const server = `import { createClient } from '@/lib/supabase/server'
+const server = `import { getSqliteDb } from '@/lib/sqlite/db'
 
 export default async function Page() {
-  const supabase = await createClient()
-  const { data: notes } = await supabase.from('notes').select()
+  const db = await getSqliteDb()
+  const rows = await db.all('SELECT id, name FROM languages ORDER BY name_ko ASC LIMIT 20')
 
-  return <pre>{JSON.stringify(notes, null, 2)}</pre>
+  return <pre>{JSON.stringify(rows, null, 2)}</pre>
 }
 `.trim();
 
 const client = `'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 
 export default function Page() {
-  const [notes, setNotes] = useState<any[] | null>(null)
-  const supabase = createClient()
+  const [me, setMe] = useState<any | null>(null)
 
   useEffect(() => {
     const getData = async () => {
-      const { data } = await supabase.from('notes').select()
-      setNotes(data)
+      const res = await fetch('/api/me')
+      const data = await res.json()
+      setMe(data)
     }
     getData()
   }, [])
 
-  return <pre>{JSON.stringify(notes, null, 2)}</pre>
+  return <pre>{JSON.stringify(me, null, 2)}</pre>
 }
 `.trim();
 
 export function FetchDataSteps() {
   return (
     <ol className="flex flex-col gap-6">
-      <TutorialStep title="Create some tables and insert some data">
+      <TutorialStep title="Set environment variables">
         <p>
-          Head over to the{" "}
-          <a
-            href="https://supabase.com/dashboard/project/_/editor"
-            className="font-bold hover:underline text-foreground/80"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Table Editor
-          </a>{" "}
-          for your Supabase project to create a table and insert some example
-          data. If you&apos;re stuck for creativity, you can copy and paste the
-          following into the{" "}
-          <a
-            href="https://supabase.com/dashboard/project/_/sql/new"
-            className="font-bold hover:underline text-foreground/80"
-            target="_blank"
-            rel="noreferrer"
-          >
-            SQL Editor
-          </a>{" "}
-          and click RUN!
+          LangBridge는 앱 데이터 저장에 SQLite를 사용하고, 미디어 파일 업로드에만
+          Supabase Storage를 사용합니다. 먼저 환경 변수를 설정하세요.
         </p>
-        <CodeBlock code={create} />
+        <CodeBlock code={env} />
       </TutorialStep>
 
-      <TutorialStep title="Enable Row Level Security (RLS)">
+      <TutorialStep title="Query SQLite data from Next.js (Server Component)">
         <p>
-          Supabase enables Row Level Security (RLS) by default. To query data
-          from your <code>notes</code> table, you need to add a policy. You can
-          do this in the{" "}
-          <a
-            href="https://supabase.com/dashboard/project/_/editor"
-            className="font-bold hover:underline text-foreground/80"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Table Editor
-          </a>{" "}
-          or via the{" "}
-          <a
-            href="https://supabase.com/dashboard/project/_/sql/new"
-            className="font-bold hover:underline text-foreground/80"
-            target="_blank"
-            rel="noreferrer"
-          >
-            SQL Editor
-          </a>
-          .
+          서버 컴포넌트에서는 SQLite 헬퍼를 직접 사용해 데이터를 읽을 수 있습니다.
         </p>
-        <p>
-          For example, you can run the following SQL to allow public read
-          access:
-        </p>
-        <CodeBlock code={rls} />
-        <p>
-          You can learn more about RLS in the{" "}
-          <a
-            href="https://supabase.com/docs/guides/auth/row-level-security"
-            className="font-bold hover:underline text-foreground/80"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Supabase docs
-          </a>
-          .
-        </p>
+        <CodeBlock code={server} />
       </TutorialStep>
 
-      <TutorialStep title="Query Supabase data from Next.js">
+      <TutorialStep title="Fetch app user state from client">
         <p>
-          To create a Supabase client and query data from an Async Server
-          Component, create a new page.tsx file at{" "}
+          클라이언트 컴포넌트에서는 <code>/api/me</code>를 통해 현재 사용자 상태를
+          조회할 수 있습니다.
+        </p>
+        <p>
+          예시 페이지를{" "}
           <span className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-xs font-medium text-secondary-foreground border">
             /app/notes/page.tsx
           </span>{" "}
-          and add the following.
+          에 만들고 다음 코드를 사용하세요.
         </p>
-        <CodeBlock code={server} />
-        <p>Alternatively, you can use a Client Component.</p>
         <CodeBlock code={client} />
       </TutorialStep>
 

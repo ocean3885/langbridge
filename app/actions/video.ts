@@ -1,7 +1,9 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
+import { deleteVideoSqlite, insertVideoWithTranscriptsSqlite, updateVideoChannelSqlite } from '@/lib/sqlite/videos';
 
 /**
  * YouTube URL에서 video ID 추출
@@ -107,8 +109,8 @@ export async function registerVideo(
     const supabase = await createClient();
 
     // 1. 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
@@ -124,72 +126,25 @@ export async function registerVideo(
       return { success: false, error: '유효한 스크립트 데이터가 없습니다.' };
     }
 
-    // 2. videos 테이블에 삽입
-    const { data: video, error: videoError } = await supabase
-      .from('videos')
-      .insert({
-        youtube_id: youtubeId,
-        title: input.title,
-        description: input.description || null,
-        duration: input.duration || null,
-        language_id: input.languageId ?? null,
-        category_id: input.categoryId ?? null,
-        channel_id: input.channelId ?? null,
-        thumbnail_url: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
-      })
-      .select('id')
-      .single();
-
-    if (videoError || !video) {
-      console.error('Video insert error:', videoError);
-      return { success: false, error: '영상 정보 저장 실패: ' + videoError?.message };
-    }
-
-    const videoId = video.id;
-
-    // 6. transcripts 테이블에 일괄 삽입
-    const transcriptRows = transcripts.map((t) => ({
-      video_id: videoId,
-      start: t.start,
-      duration: t.duration,
-      text_original: t.textOriginal,
-      order_index: t.orderIndex,
-    }));
-
-    const { data: insertedTranscripts, error: transcriptError } = await supabase
-      .from('transcripts')
-      .insert(transcriptRows)
-      .select('id, order_index');
-
-    if (transcriptError || !insertedTranscripts) {
-      console.error('Transcript insert error:', transcriptError);
-      // 롤백: video 삭제
-      await supabase.from('videos').delete().eq('id', videoId);
-      return { success: false, error: '스크립트 저장 실패: ' + transcriptError?.message };
-    }
-
-    // 7. translations 테이블에 일괄 삽입
-    const translationRows = insertedTranscripts.map((transcript) => {
-      const originalTranscript = transcripts.find(
-        (t) => t.orderIndex === transcript.order_index
-      );
-      return {
-        transcript_id: transcript.id,
+    const videoId = await insertVideoWithTranscriptsSqlite({
+      youtubeId,
+      title: input.title,
+      description: input.description || null,
+      duration: input.duration || null,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+      languageId: input.languageId ?? null,
+      categoryId: input.categoryId ?? null,
+      channelId: input.channelId ?? null,
+      uploaderId: user.id,
+      transcripts: transcripts.map((t) => ({
+        start: t.start,
+        duration: t.duration,
+        textOriginal: t.textOriginal,
+        orderIndex: t.orderIndex,
+        textTranslated: t.textTranslated,
         lang: input.lang || 'ko',
-        text_translated: originalTranscript!.textTranslated,
-      };
+      })),
     });
-
-    const { error: translationError } = await supabase
-      .from('translations')
-      .insert(translationRows);
-
-    if (translationError) {
-      console.error('Translation insert error:', translationError);
-      // 롤백: video 삭제 (CASCADE로 transcripts도 삭제됨)
-      await supabase.from('videos').delete().eq('id', videoId);
-      return { success: false, error: '번역 저장 실패: ' + translationError.message };
-    }
 
     // 8. 성공
     revalidatePath('/admin/videos');
@@ -212,21 +167,12 @@ export async function deleteVideo(videoId: string): Promise<{ success: boolean; 
     const supabase = await createClient();
 
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 영상 삭제 (CASCADE로 transcripts, translations도 자동 삭제)
-    const { error: deleteError } = await supabase
-      .from('videos')
-      .delete()
-      .eq('id', videoId);
-
-    if (deleteError) {
-      console.error('Delete video error:', deleteError);
-      return { success: false, error: deleteError.message };
-    }
+    await deleteVideoSqlite(videoId);
 
     revalidatePath('/admin/videos');
     return { success: true };
@@ -251,21 +197,12 @@ export async function updateVideoChannel(
     const supabase = await createClient();
 
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 영상의 채널 업데이트
-    const { error: updateError } = await supabase
-      .from('videos')
-      .update({ channel_id: channelId })
-      .eq('id', videoId);
-
-    if (updateError) {
-      console.error('Update video channel error:', updateError);
-      return { success: false, error: updateError.message };
-    }
+    await updateVideoChannelSqlite(videoId, channelId);
 
     revalidatePath('/admin/videos');
     return { success: true };

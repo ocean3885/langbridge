@@ -31,12 +31,16 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error.message);
-        alert('로그아웃 중 오류가 발생했습니다: ' + error.message);
-        return;
+      const sqliteLogoutRes = await fetch('/api/auth/sqlite-logout', {
+        method: 'POST',
+      });
+
+      if (!sqliteLogoutRes.ok) {
+        const body = await sqliteLogoutRes.json().catch(() => ({}));
+        throw new Error(body?.error || 'SQLite 로그아웃 처리 실패');
       }
+
+      await supabase.auth.signOut();
       // 강제 새로고침으로 상태 초기화
       window.location.href = '/';
     } catch (err) {

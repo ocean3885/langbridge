@@ -1,7 +1,8 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -75,17 +76,13 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
     const supabase = await createClient();
 
     // 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
     // 운영자 확인
-    const admin = createAdminClient();
-    const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-      user_id: user.id
-    });
-
+    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
     if (!isSuperAdmin) {
       return { success: false, error: '권한이 없습니다.' };
     }

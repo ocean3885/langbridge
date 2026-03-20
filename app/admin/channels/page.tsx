@@ -2,40 +2,26 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { listSqliteChannelsWithVideoCount } from '@/lib/sqlite/channels';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import AdminSidebar from '../AdminSidebar';
 import { Plus, Edit, ImageIcon } from 'lucide-react';
 
 export default async function AdminChannelsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const admin = createAdminClient();
-  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-    user_id: user.id
-  });
+  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
   if (!isSuperAdmin) redirect('/');
 
-  const { data: channels, error } = await supabase
-    .from('video_channels')
-    .select(`
-      id, 
-      channel_name, 
-      channel_url, 
-      channel_description, 
-      thumbnail_url, 
-      language_id,
-      created_at,
-      languages:language_id (
-        name_ko,
-        name_en
-      ),
-      videos:videos(count)
-    `)
-    .order('created_at', { ascending: false });
-
-  console.log('Channels data:', JSON.stringify(channels?.slice(0, 1), null, 2));
+  const channels = await listSqliteChannelsWithVideoCount();
+  const languages = await listSqliteLanguages();
+  const languageMap = new Map<number, { name_ko: string; name_en: string | null }>(
+    languages.map((language) => [language.id, { name_ko: language.name_ko, name_en: language.name_en }])
+  );
 
   return (
     <>
@@ -56,23 +42,16 @@ export default async function AdminChannelsPage() {
             </Link>
           </div>
 
-          {error && (
-            <div className="text-red-600 mb-4">채널 목록을 불러오는데 실패했습니다: {error.message}</div>
-          )}
-
-          {!channels || channels.length === 0 ? (
+          {channels.length === 0 ? (
             <div className="text-center py-12 text-gray-500">등록된 채널이 없습니다. 새 채널을 추가해보세요.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {channels.map((ch) => {
-                const languageData = ch.languages && !Array.isArray(ch.languages)
-                  ? ch.languages as { name_ko: string; name_en: string }
-                  : null;
+                const languageData = ch.language_id ? languageMap.get(ch.language_id) ?? null : null;
                 const languageName = languageData 
-                  ? `${languageData.name_ko} (${languageData.name_en})`
+                  ? `${languageData.name_ko}${languageData.name_en ? ` (${languageData.name_en})` : ''}`
                   : '언어 미지정';
-                
-                const videoCount = Array.isArray(ch.videos) ? ch.videos.length : 0;
+                const videoCount = ch.video_count;
 
                 return (
                   <div key={ch.id} className="bg-white border border-gray-200 rounded-lg hover:shadow-lg transition-shadow p-5">

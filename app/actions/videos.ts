@@ -1,7 +1,9 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
+import { updateVideoSqlite } from '@/lib/sqlite/videos';
 
 export interface UpdateVideoInput {
   videoId: string;
@@ -16,26 +18,18 @@ export async function updateVideo(input: UpdateVideoInput) {
     const supabase = await createClient();
 
     // 사용자 인증 확인
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 비디오 정보 업데이트
-    const { error: updateError } = await supabase
-      .from('videos')
-      .update({
-        title: input.title,
-        language_id: input.languageId,
-        category_id: input.categoryId ?? null,
-        description: input.description ?? null,
-      })
-      .eq('id', input.videoId);
-
-    if (updateError) {
-      console.error('updateVideo error:', updateError);
-      return { success: false, error: updateError.message };
-    }
+    await updateVideoSqlite({
+      videoId: input.videoId,
+      title: input.title,
+      languageId: input.languageId,
+      categoryId: input.categoryId ?? null,
+      description: input.description ?? null,
+    });
 
     // 캐시 무효화
     revalidatePath(`/videos/${input.videoId}`);

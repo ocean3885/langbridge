@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { insertSqliteChannel, updateSqliteChannel } from '@/lib/sqlite/channels';
 import { revalidatePath } from 'next/cache';
 
 export interface RegisterChannelInput {
@@ -15,25 +17,18 @@ export async function registerChannel(input: RegisterChannelInput) {
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const { error: insertError } = await supabase
-      .from('video_channels')
-      .insert({
-        channel_name: input.channelName,
-        channel_url: input.channelUrl ?? null,
-        channel_description: input.channelDescription ?? null,
-        thumbnail_url: input.thumbnailUrl ?? null,
-        language_id: input.languageId ?? null,
-      });
-
-    if (insertError) {
-      console.error('registerChannel error:', insertError);
-      return { success: false, error: insertError.message };
-    }
+    await insertSqliteChannel({
+      channelName: input.channelName,
+      channelUrl: input.channelUrl ?? null,
+      channelDescription: input.channelDescription ?? null,
+      thumbnailUrl: input.thumbnailUrl ?? null,
+      languageId: input.languageId ?? null,
+    });
 
     revalidatePath('/admin/channels');
     return { success: true };
@@ -47,25 +42,22 @@ export async function updateChannel(channelId: string, input: RegisterChannelInp
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAppUserFromServer(supabase);
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const { error: updateError } = await supabase
-      .from('video_channels')
-      .update({
-        channel_name: input.channelName,
-        channel_url: input.channelUrl ?? null,
-        channel_description: input.channelDescription ?? null,
-        thumbnail_url: input.thumbnailUrl ?? null,
-        language_id: input.languageId ?? null,
-      })
-      .eq('id', channelId);
+    const updated = await updateSqliteChannel({
+      channelId,
+      channelName: input.channelName,
+      channelUrl: input.channelUrl ?? null,
+      channelDescription: input.channelDescription ?? null,
+      thumbnailUrl: input.thumbnailUrl ?? null,
+      languageId: input.languageId ?? null,
+    });
 
-    if (updateError) {
-      console.error('updateChannel error:', updateError);
-      return { success: false, error: updateError.message };
+    if (!updated) {
+      return { success: false, error: '채널을 찾을 수 없습니다.' };
     }
 
     revalidatePath('/admin/channels');

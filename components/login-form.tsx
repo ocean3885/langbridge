@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 export function LoginForm({
@@ -24,26 +23,26 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/protected';
+  const redirectTo = searchParams.get('redirectTo') || '/';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/sqlite-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
-      if (error) throw error;
-      
-      console.log('Login successful, redirecting to:', redirectTo);
-      
-      // 로그인 성공 후 즉시 리다이렉트 (window.location 사용으로 확실한 페이지 전환)
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || '로그인에 실패했습니다.');
+      }
+
       window.location.href = redirectTo;
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");

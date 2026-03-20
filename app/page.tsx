@@ -1,4 +1,9 @@
 import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { listVideosSqlite } from '@/lib/sqlite/videos';
+import { listSqliteCategories } from '@/lib/sqlite/categories';
+import { listAudioContentByUserSqlite } from '@/lib/sqlite/audio-content';
+import { countAuthUsersSqlite } from '@/lib/sqlite/auth-users';
 import Link from 'next/link';
 import { FolderOpen, Video, Clock } from 'lucide-react';
 import AudioCard from '@/components/AudioCard';
@@ -55,60 +60,34 @@ export default async function HomePage() {
   const supabase = await createClient();
 
   // 현재 사용자 확인
-  const { data: { user } } = await supabase.auth.getUser();
-
-
-const { data: userCountData, error: rpcError } = await supabase
-    .rpc('get_user_count'); 
-
-  // 에러 처리
-  if (rpcError) {
-    console.error('RPC 사용자 수 오류:', rpcError.message);
-  }
-
-  // 최종 카운트
-  const userCount = rpcError ? 0 : userCountData ?? 0;
+  const user = await getAppUserFromServer(supabase);
+  const userCount = await countAuthUsersSqlite();
 
   // 로그인한 사용자 소유 오디오 목록 가져오기 (최신 60개)
   let userGroupedCategories: { id: number | null; name: string; languageName: string; audioList: UserAudio[] }[] = [];
   let userGroupedVideoCategories: { id: number | null; name: string; languageName: string; videoList: UserVideo[] }[] = [];
   if (user) {
-    const { data: userAudios, error: userAudioError } = await supabase
-      .from('lang_audio_content')
-      .select('id, title, created_at, category_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(60);
-
-    if (userAudioError) {
-      console.error('내 오디오 조회 오류:', userAudioError);
-    }
-
-    const categoryIds = Array.from(new Set((userAudios || []).map(a => a.category_id).filter(id => id !== null))) as number[];
-  const categoryMap: Record<number, { name: string; languageName: string }> = {};
-    if (categoryIds.length > 0) {
-      const { data: catRows, error: catErr } = await supabase
-        .from('lang_categories')
-        .select('id, name, language_id, languages(name_ko)')
-        .in('id', categoryIds);
-      if (catErr) {
-        console.error('내 오디오 카테고리 이름 조회 오류:', catErr);
-      }
-      (catRows || []).forEach((c) => { 
-        const languageData = Array.isArray(c.languages) ? c.languages[0] : c.languages;
-        categoryMap[c.id] = {
-          name: c.name,
-          languageName: languageData?.name_ko || '언어 미지정'
-        };
-      });
-    }
+    const userAudios = await listAudioContentByUserSqlite(user.id, 60);
+    const sqliteAudioCategories = await listSqliteCategories('lang_categories', user.id);
+    const categoryMap: Record<number, { name: string; languageName: string }> = {};
+    sqliteAudioCategories.forEach((category) => {
+      categoryMap[category.id] = {
+        name: category.name,
+        languageName: category.language_id ? `언어 ${category.language_id}` : '언어 미지정',
+      };
+    });
 
     // 그룹화
     const groups: Record<string, UserAudio[]> = {};
-    (userAudios || []).forEach(a => {
+    userAudios.forEach(a => {
       const key = a.category_id === null ? 'uncategorized' : String(a.category_id);
       if (!groups[key]) groups[key] = [];
-      groups[key].push(a);
+      groups[key].push({
+        id: a.id,
+        title: a.title,
+        created_at: a.created_at,
+        category_id: a.category_id,
+      });
     });
 
     userGroupedCategories = Object.entries(groups).map(([key, list]) => {
@@ -126,64 +105,42 @@ const { data: userCountData, error: rpcError } = await supabase
       return a.name.localeCompare(b.name, 'ko');
     });
 
-    // 사용자 소유 비디오 목록 가져오기 (최신 10개)
-    const { data: userVideos, error: userVideoError } = await supabase
-      .from('videos')
-      .select('id, title, youtube_id, thumbnail_url, duration, created_at, category_id, user_categories(name, language_id, languages(name_ko))')
-      .eq('uploader_id', user.id)
-      .is('channel_id', null)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (userVideoError) {
-      console.error('내 영상 조회 오류:', userVideoError);
-    }
-
-    const videoCategoryIds = Array.from(new Set((userVideos || []).map(v => v.category_id).filter(id => id !== null))) as number[];
-    const videoCategoryMap: Record<number, { name: string; languageName: string }> = {};
-    if (videoCategoryIds.length > 0) {
-      const { data: catRows, error: catErr } = await supabase
-        .from('user_categories')
-        .select('id, name, language_id, languages(name_ko)')
-        .eq('user_id', user.id)
-        .in('id', videoCategoryIds);
-      if (catErr) {
-        console.error('내 영상 카테고리 이름 조회 오류:', catErr);
-      }
-      (catRows || []).forEach((c) => { 
-        const languageData = Array.isArray(c.languages) ? c.languages[0] : c.languages;
-        videoCategoryMap[c.id] = {
-          name: c.name,
-          languageName: languageData?.name_ko || '언어 미지정'
-        };
-      });
+    const userVideos = await listVideosSqlite({
+      uploaderId: user.id,
+      channelId: null,
+      limit: 10,
+    });
+    const sqliteVideoCategories = await listSqliteCategories('user_categories', user.id);
+    const videoCategoryMap: Record<string, { name: string; languageName: string }> = {};
+    for (const category of sqliteVideoCategories) {
+      videoCategoryMap[String(category.id)] = {
+        name: category.name,
+        languageName: '언어 미지정',
+      };
     }
 
     // 비디오 그룹화
     const videoGroups: Record<string, UserVideo[]> = {};
-    (userVideos || []).forEach(v => {
+    userVideos.forEach(v => {
       const key = v.category_id === null ? 'uncategorized' : String(v.category_id);
       if (!videoGroups[key]) videoGroups[key] = [];
-      videoGroups[key].push(v);
+      videoGroups[key].push({
+        id: v.id,
+        title: v.title,
+        youtube_id: v.youtube_id,
+        thumbnail_url: v.thumbnail_url,
+        duration: v.duration,
+        created_at: v.created_at,
+        category_id: (v.category_id as unknown as number | null),
+      });
     });
 
     userGroupedVideoCategories = Object.entries(videoGroups).map(([key, list]) => {
       const catId = key === 'uncategorized' ? null : Number(key);
-      // 관계에서 직접 이름/언어를 우선 추출
-      const catRelRaw = list[0]?.user_categories;
-      let catObj: CategoryRel = null;
-      if (Array.isArray(catRelRaw)) {
-        catObj = (catRelRaw[0] as CategoryRel) ?? null;
-      } else {
-        catObj = (catRelRaw as CategoryRel) ?? null;
-      }
-      const relatedName = catObj?.name ?? null;
-      const langData = catObj?.languages ?? null;
-      const relatedLangName = Array.isArray(langData) ? langData[0]?.name_ko : (langData as { name_ko?: string } | null)?.name_ko || '';
       return {
         id: catId,
-        name: catId === null ? '미분류' : (relatedName || videoCategoryMap[catId]?.name || '알 수 없는 카테고리'),
-        languageName: catId === null ? '' : (relatedLangName || videoCategoryMap[catId]?.languageName || ''),
+        name: catId === null ? '미분류' : (videoCategoryMap[String(catId)]?.name || '알 수 없는 카테고리'),
+        languageName: catId === null ? '' : (videoCategoryMap[String(catId)]?.languageName || ''),
         videoList: list
       };
     }).sort((a, b) => {
@@ -206,25 +163,12 @@ const { data: userCountData, error: rpcError } = await supabase
   };
 
   const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
-  const { data: adminRows } = await supabase
-    .from('videos')
-    .select('id, title, youtube_id, thumbnail_url, duration, created_at, languages(name_ko), video_channels(channel_name)')
-    .eq('uploader_id', ADMIN_UPLOADER_ID)
-    .order('created_at', { ascending: false })
-    .limit(6);
+  const adminRows = await listVideosSqlite({
+    uploaderId: ADMIN_UPLOADER_ID,
+    limit: 6,
+  });
 
-  const learningVideos: AdminVideo[] = (adminRows || []).map((v: {
-    id: string;
-    title: string;
-    youtube_id: string | null;
-    thumbnail_url: string | null;
-    duration: number | null;
-    created_at: string;
-    languages: { name_ko: string } | { name_ko: string }[] | null;
-    video_channels: { channel_name: string } | { channel_name: string }[] | null;
-  }) => {
-    const lang = Array.isArray(v.languages) ? v.languages[0] : v.languages;
-    const channelRel = Array.isArray(v.video_channels) ? v.video_channels[0] : v.video_channels;
+  const learningVideos: AdminVideo[] = adminRows.map((v) => {
     return {
       id: v.id,
       title: v.title,
@@ -232,8 +176,8 @@ const { data: userCountData, error: rpcError } = await supabase
       thumbnail_url: v.thumbnail_url ?? null,
       duration: v.duration ?? null,
       created_at: v.created_at,
-      channel_name: channelRel?.channel_name ?? null,
-      language_name: lang?.name_ko ?? null,
+      channel_name: null,
+      language_name: null,
     };
   });
 

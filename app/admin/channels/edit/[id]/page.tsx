@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { getSqliteChannelById } from '@/lib/sqlite/channels';
 import AdminSidebar from '@/app/admin/AdminSidebar';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -14,23 +16,15 @@ export default async function EditChannelPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
   
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const admin = createAdminClient();
-  const { data: isSuperAdmin } = await admin.rpc('get_user_is_super_admin', {
-    user_id: user.id
-  });
+  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
   if (!isSuperAdmin) redirect('/');
 
-  // 채널 정보 조회
-  const { data: channel, error } = await supabase
-    .from('video_channels')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const channel = await getSqliteChannelById(id);
 
-  if (error || !channel) {
+  if (!channel) {
     return (
       <>
         <AdminSidebar userEmail={user.email ?? ''} />

@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
+import { getUserProfileByIdSqlite, upsertUserProfileSqlite } from '@/lib/sqlite/user-profiles';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 
 // 프로필 페이지 (향후 사용자 설정 추가 예정)
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
 
   if (!user) {
     return (
@@ -16,6 +18,18 @@ export default async function ProfilePage() {
       </div>
     );
   }
+
+  if (user.source === 'supabase') {
+    await upsertUserProfileSqlite({
+      id: user.id,
+      email: user.email ?? null,
+      createdAt: user.createdAt ?? null,
+    });
+  }
+
+  const sqliteProfile = await getUserProfileByIdSqlite(user.id);
+  const displayEmail = sqliteProfile?.email ?? user.email;
+  const displayCreatedAt = sqliteProfile?.created_at ?? user.createdAt;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -28,7 +42,7 @@ export default async function ProfilePage() {
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm font-medium text-gray-500">이메일</p>
-            <p className="text-lg">{user.email}</p>
+            <p className="text-lg">{displayEmail}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">사용자 ID</p>
@@ -37,7 +51,7 @@ export default async function ProfilePage() {
           <div>
             <p className="text-sm font-medium text-gray-500">가입일</p>
             <p className="text-sm text-gray-600">
-              {user.created_at ? new Date(user.created_at).toLocaleString('ko-KR') : '알 수 없음'}
+              {displayCreatedAt ? new Date(displayCreatedAt).toLocaleString('ko-KR') : '알 수 없음'}
             </p>
           </div>
         </CardContent>

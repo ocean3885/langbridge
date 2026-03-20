@@ -13,7 +13,7 @@ type SyncData = {
 
 type Memo = {
   id: number;
-  content_id: number;
+  content_id: string | number;
   line_number: number;
   user_id: string;
   memo_text: string;
@@ -24,7 +24,7 @@ type Memo = {
 interface Props {
   audioUrl: string;
   syncData: SyncData[];
-  contentId: number;
+  contentId: string | number;
   initialMemos: Memo[];
 }
 

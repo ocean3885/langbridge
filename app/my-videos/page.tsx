@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { listVideosSqlite } from '@/lib/sqlite/videos';
+import { listSqliteCategories } from '@/lib/sqlite/categories';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
@@ -52,7 +55,7 @@ function relativeFromNowKo(iso: string | null): string {
 
 export default async function MyVideosPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAppUserFromServer(supabase);
 
   if (!user) {
     return (
@@ -66,83 +69,21 @@ export default async function MyVideosPage() {
     );
   }
 
-  // 사용자의 모든 비디오 조회
-  const { data: videos, error } = await supabase
-    .from('videos')
-    .select(`
-      id,
-      youtube_id,
-      title,
-      description,
-      duration,
-      thumbnail_url,
-      created_at,
-      category_id,
-      user_categories:category_id (
-        name,
-        language_id,
-        languages(name_ko)
-      ),
-      languages:language_id (
-        name_ko
-      )
-    `)
-    .eq('uploader_id', user.id)
-    .order('created_at', { ascending: false });
+  const videos = await listVideosSqlite({ uploaderId: user.id });
 
-  if (error) {
-    console.error('비디오 조회 오류:', error);
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600 font-semibold">비디오를 불러오는 중 오류가 발생했습니다.</p>
-          <p className="text-sm text-red-500 mt-2">{error.message}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 보조: 카테고리 맵 조회 (RLS로 관계가 비어올 수 있어 ID 기준으로 보강)
-  const catIds = Array.from(new Set((videos || []).map(v => v.category_id).filter(Boolean))) as string[];
+  const categoryRows = await listSqliteCategories('user_categories', user.id);
   const categoryMap: Record<string, { name: string; languageName: string }> = {};
-  if (catIds.length > 0) {
-    const { data: catRows, error: catErr } = await supabase
-      .from('user_categories')
-      .select('id, name, language_id, languages(name_ko)')
-      .eq('user_id', user.id)
-      .in('id', catIds);
-    if (catErr) {
-      console.error('내 영상 카테고리 이름 조회 오류 (my-videos):', catErr);
-    }
-    (catRows || []).forEach((c) => {
-      const lang = Array.isArray(c.languages) ? c.languages[0] : c.languages;
-      const nameKo = (lang && (lang as { name_ko?: string }).name_ko) || '';
-      categoryMap[String(c.id as string)] = {
-        name: c.name as string,
-        languageName: nameKo
-      };
-    });
+  for (const category of categoryRows) {
+    categoryMap[String(category.id)] = {
+      name: category.name,
+      languageName: '',
+    };
   }
 
   // 데이터 변환 및 트랜스크립트 카운트 조회
   const videoList: VideoItem[] = [];
   
-  for (const video of (videos || [])) {
-    // 1. user_categories가 존재하고 배열이며, 요소가 하나 이상 있을 때 첫 번째 요소(객체)를 가져옵니다.
-    const categoryObject = (Array.isArray(video.user_categories) && video.user_categories.length > 0)
-        ? video.user_categories[0]
-        : null;
-    // 2. languages가 존재하고 배열이며, 요소가 하나 이상 있을 때 첫 번째 요소(객체)를 가져옵니다.
-    const languageObject = (Array.isArray(video.languages) && video.languages.length > 0)
-        ? video.languages[0]
-        : null;
-
-    // 트랜스크립트 개수 조회
-    const { count: transcriptCount } = await supabase
-      .from('transcripts')
-      .select('id', { count: 'exact', head: true })
-      .eq('video_id', video.id);
-
+  for (const video of videos) {
     videoList.push({
       id: video.id,
       youtube_id: video.youtube_id,
@@ -152,9 +93,9 @@ export default async function MyVideosPage() {
       thumbnail_url: video.thumbnail_url,
       created_at: video.created_at,
       category_id: video.category_id,
-      category_name: categoryObject?.name || categoryMap[String(video.category_id || '')]?.name || null,
-      language_name: languageObject?.name_ko || categoryMap[String(video.category_id || '')]?.languageName || null,
-      transcript_count: transcriptCount || 0,
+      category_name: categoryMap[String(video.category_id || '')]?.name || null,
+      language_name: categoryMap[String(video.category_id || '')]?.languageName || null,
+      transcript_count: video.transcript_count || 0,
     });
   }
 

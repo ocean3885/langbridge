@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { updateTranscriptSqlite } from '@/lib/sqlite/videos';
 import { revalidatePath } from 'next/cache';
 
 export interface UpdateTranscriptInput {
@@ -25,39 +27,18 @@ export async function updateTranscript(input: UpdateTranscriptInput): Promise<Up
     const supabase = await createClient();
 
     // 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUserFromServer(supabase);
+    if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    // 트랜스크립트 업데이트
-    const { error: updateError } = await supabase
-      .from('transcripts')
-      .update({
-        start: input.start,
-        duration: input.duration,
-        text_original: input.textOriginal,
-      })
-      .eq('id', input.transcriptId);
-
-    if (updateError) {
-      console.error('Update transcript error:', updateError);
-      return { success: false, error: updateError.message };
-    }
-
-    // 번역 업데이트 (첫 번째 번역만 업데이트)
-    const { error: translationError } = await supabase
-      .from('translations')
-      .update({
-        text_translated: input.textTranslated,
-      })
-      .eq('transcript_id', input.transcriptId)
-      .limit(1);
-
-    if (translationError) {
-      console.error('Update translation error:', translationError);
-      return { success: false, error: translationError.message };
-    }
+    await updateTranscriptSqlite({
+      transcriptId: input.transcriptId,
+      start: input.start,
+      duration: input.duration,
+      textOriginal: input.textOriginal,
+      textTranslated: input.textTranslated,
+    });
 
     revalidatePath(`/videos/${input.videoId}`);
     return { success: true };

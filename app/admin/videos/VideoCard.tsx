@@ -11,7 +11,7 @@ interface Channel {
   id: string;
   channel_name: string;
   channel_url: string | null;
-  language_id: number;
+  language_id: number | null;
 }
 
 interface VideoCardProps {
