@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { listSqliteLanguagesByEnglishName } from '@/lib/sqlite/languages';
@@ -21,10 +20,8 @@ function safeParseMappingDetails(raw: string | null): Record<string, unknown> | 
 }
 
 export default async function SentencesPage() {
-  const supabase = await createClient();
-  
   // 인증 확인
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/sentences');

@@ -2,9 +2,81 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+type GeneratedPair = {
+  original: string;
+  translation: string;
+};
+
+function stripCodeFence(input: string): string {
+  return input
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+}
+
+function parseJsonPairs(text: string, limit: number): GeneratedPair[] {
+  const normalized = stripCodeFence(text);
+  const parsed = JSON.parse(normalized) as unknown;
+  if (!Array.isArray(parsed)) return [];
+
+  const pairs: GeneratedPair[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue;
+    const original = (item as { original?: unknown }).original;
+    const translation = (item as { translation?: unknown }).translation;
+
+    if (typeof original === 'string' && typeof translation === 'string') {
+      const o = original.trim();
+      const t = translation.trim();
+      if (o && t) {
+        pairs.push({ original: o, translation: t });
+      }
+    }
+
+    if (pairs.length >= limit) break;
+  }
+
+  return pairs;
+}
+
+function parseLinePairs(text: string, limit: number): GeneratedPair[] {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const pairs: GeneratedPair[] = [];
+
+  for (const line of lines) {
+    const noBullet = line.replace(/^[-*•\d.)\s]+/, '').trim();
+
+    const separators = ['|', ' - ', ' — ', '\t'];
+    let original = '';
+    let translation = '';
+
+    for (const separator of separators) {
+      if (!noBullet.includes(separator)) continue;
+      const [left, ...rest] = noBullet.split(separator);
+      if (left && rest.length > 0) {
+        original = left.trim();
+        translation = rest.join(separator).trim();
+        break;
+      }
+    }
+
+    if (!original || !translation) continue;
+
+    pairs.push({ original, translation });
+    if (pairs.length >= limit) break;
+  }
+
+  return pairs;
+}
+
 export async function generateSentencesAction(formData: FormData) {
   const keyword = formData.get('keyword') as string;
-  const count = parseInt(formData.get('count') as string) || 5;
+  const requestedCount = parseInt(formData.get('count') as string) || 5;
+  const count = Math.max(1, Math.min(20, requestedCount));
   const languageCode = formData.get('language_code') as string || 'es-ES';
 
   if (!keyword || !keyword.trim()) {
@@ -43,43 +115,43 @@ Requirements:
 - Sentences should be at beginner to intermediate level
 - Each sentence must contain the keyword "${keyword}"
 - For EACH sentence, provide the ${targetLang} sentence AND its Korean translation
-- Format: [${targetLang} sentence]|[Korean translation]
-- Return ONLY the sentences in this format, one pair per line
-- Do NOT include any numbering, explanations, or extra text
+- Return ONLY a JSON array
+- Each item must be: {"original":"...","translation":"..."}
+- Do NOT include markdown code fences
+- Do NOT include numbering, explanations, or extra text
 
-Example output format:
-[${targetLang} sentence with keyword]|[한국어 번역]
-[${targetLang} sentence with keyword]|[한국어 번역]
-[${targetLang} sentence with keyword]|[한국어 번역]`;
+Output example:
+[{"original":"...","translation":"..."}]`;
 
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    
-    // 문장을 파싱하여 원문과 번역을 분리
-    const lines = text
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s && s.includes('|'))
-      .slice(0, count);
 
-    if (lines.length === 0) {
-      throw new Error('문장 생성에 실패했습니다. 다시 시도해주세요.');
+    let pairs = parseJsonPairs(text, count);
+    if (pairs.length === 0) {
+      pairs = parseLinePairs(text, count);
+    }
+
+    if (pairs.length === 0) {
+      console.error('Gemini 응답 파싱 실패:', {
+        preview: text.slice(0, 300),
+      });
+      throw new Error('문장 생성 결과를 해석하지 못했습니다. 다시 시도해주세요.');
     }
 
     // 원문과 번역을 번갈아 배치
     const sentences: string[] = [];
-    for (const line of lines) {
-      const [original, translation] = line.split('|').map(s => s.trim());
-      if (original && translation) {
-        sentences.push(original);
-        sentences.push(translation);
-      }
+    for (const pair of pairs) {
+      sentences.push(pair.original);
+      sentences.push(pair.translation);
     }
 
     return { sentences };
   } catch (error) {
     console.error('Gemini API 오류:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error('AI 문장 생성 중 오류가 발생했습니다.');
   }
 }

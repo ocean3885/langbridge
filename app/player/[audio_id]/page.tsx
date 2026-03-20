@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getStorageBucket } from '@/lib/supabase/storage';
 import AudioPlayerClient from '@/components/AudioPlayerClient'; // 클라이언트 컴포넌트
 import Link from 'next/link';
 import { Calendar, FolderOpen } from 'lucide-react';
@@ -21,12 +22,13 @@ type RelatedAudio = {
 
 // Next.js 16: params는 Promise이므로 await 필요
 export default async function PlayerPage({ params }: { params: Promise<{ audio_id: string }> }) {
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
+  const storageBucket = getStorageBucket();
   const { audio_id } = await params;
   const audioId = String(audio_id);
 
   // 현재 로그인 유저 확인
-  const appUser = await getAppUserFromServer(supabase);
+  const appUser = await getAppUserFromServer();
   const sessionUserId = appUser?.id ?? null;
 
   const audioContent = await findAudioContentByIdSqlite(audioId);
@@ -54,9 +56,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ audio_i
   }
 
   // Storage에서 오디오 파일의 signed URL 가져오기 (1시간 유효)
-  const { data: signedUrlData, error: urlError } = await supabase
+  const { data: signedUrlData, error: urlError } = await adminClient
     .storage
-    .from('kdryuls_automaking')
+    .from(storageBucket)
     .createSignedUrl(audioContent.audio_file_path, 3600); // 3600초 = 1시간
   
   if (urlError) {
@@ -85,8 +87,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ audio_i
 
   const updateTitle = async (formData: FormData) => {
     'use server';
-    const supa = await createClient();
-    const authUser = await getAppUserFromServer(supa);
+    const authUser = await getAppUserFromServer();
     const uid = authUser?.id;
     if (!uid) return { ok: false, message: '로그인이 필요합니다.' };
 

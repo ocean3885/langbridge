@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { getAllUserNotesForVideoSqlite, getUserNoteForTranscriptSqlite } from '@/lib/sqlite/user-notes';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { getAllVideosSqlite, getVideoWithTranscriptsSqlite } from '@/lib/sqlite/videos';
@@ -123,9 +122,7 @@ export async function getUserNoteForTranscript(
   transcriptId: string
 ): Promise<{ data: { id: string; content: string } | null; error: string | null }> {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { data: null, error: '로그인이 필요합니다.' };
     }
@@ -148,9 +145,7 @@ export async function getAllUserNotesForVideo(
   videoId: string
 ): Promise<{ data: Record<string, { id: string; content: string }>; error: string | null }> {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { data: {}, error: null }; // 로그인 안 된 경우 빈 객체 반환
     }

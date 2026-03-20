@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
-import { getUserProfileByIdSqlite, upsertUserProfileSqlite } from '@/lib/sqlite/user-profiles';
+import { getUserProfileByIdSqlite } from '@/lib/sqlite/user-profiles';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listAudioContentByUserSqlite } from '@/lib/sqlite/audio-content';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -9,18 +8,9 @@ import { ArrowLeft } from 'lucide-react';
 
 // 특정 유저의 오디오 목록 페이지
 export default async function UserAudiosPage({ params }: { params: Promise<{ user_id: string }> }) {
-  const supabase = await createClient();
   const { user_id } = await params;
 
-  const currentUser = await getAppUserFromServer(supabase);
-
-  if (currentUser?.id === user_id && currentUser.source === 'supabase') {
-    await upsertUserProfileSqlite({
-      id: currentUser.id,
-      email: currentUser.email ?? null,
-      createdAt: currentUser.createdAt ?? null,
-    });
-  }
+  const currentUser = await getAppUserFromServer();
 
   const sqliteProfile = await getUserProfileByIdSqlite(user_id);
   const userEmail = sqliteProfile?.email || (currentUser?.id === user_id ? (currentUser.email ?? '알 수 없는 사용자') : '알 수 없는 사용자');

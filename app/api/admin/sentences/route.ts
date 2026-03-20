@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getStorageBucket } from '@/lib/supabase/storage';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import {
@@ -26,8 +26,7 @@ function withLanguage<T extends { language_id: number }>(
 // 문장 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -50,8 +49,7 @@ export async function GET(request: NextRequest) {
 // 문장 추가
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -91,8 +89,7 @@ export async function POST(request: NextRequest) {
 // 문장 수정
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -128,8 +125,9 @@ export async function PUT(request: NextRequest) {
     if (oldSentence?.audio_path && oldSentence.audio_path !== audio_path) {
       try {
         const adminClient = createAdminClient();
+        const storageBucket = getStorageBucket();
         const { error: storageError } = await adminClient.storage
-          .from('kdryuls_automaking')
+          .from(storageBucket)
           .remove([oldSentence.audio_path]);
 
         if (storageError) {
@@ -155,8 +153,7 @@ export async function PUT(request: NextRequest) {
 // 문장 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -195,8 +192,9 @@ export async function DELETE(request: NextRequest) {
     if (sentence?.audio_path) {
       try {
         const adminClient = createAdminClient();
+        const storageBucket = getStorageBucket();
         const { error: storageError } = await adminClient.storage
-          .from('kdryuls_automaking')
+          .from(storageBucket)
           .remove([sentence.audio_path]);
 
         if (storageError) {

@@ -1,6 +1,5 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { deleteUserNoteSqlite, upsertUserNoteSqlite } from '@/lib/sqlite/user-notes';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
@@ -24,9 +23,7 @@ export interface SaveNoteResult {
  */
 export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
@@ -54,9 +51,7 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
  */
 export async function deleteNote(noteId: string, videoId: string): Promise<SaveNoteResult> {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }

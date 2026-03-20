@@ -1,6 +1,5 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 import { deleteVideoSqlite, insertVideoWithTranscriptsSqlite, updateVideoChannelSqlite } from '@/lib/sqlite/videos';
@@ -106,10 +105,8 @@ export async function registerVideo(
   input: RegisterVideoInput
 ): Promise<RegisterVideoResult> {
   try {
-    const supabase = await createClient();
-
     // 1. 사용자 인증 확인
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
@@ -164,10 +161,8 @@ export async function registerVideo(
  */
 export async function deleteVideo(videoId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-
     // 사용자 인증 확인
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
@@ -194,10 +189,8 @@ export async function updateVideoChannel(
   channelId: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-
     // 사용자 인증 확인
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }

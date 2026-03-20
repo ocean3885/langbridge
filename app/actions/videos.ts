@@ -1,6 +1,5 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 import { updateVideoSqlite } from '@/lib/sqlite/videos';
@@ -15,10 +14,8 @@ export interface UpdateVideoInput {
 
 export async function updateVideo(input: UpdateVideoInput) {
   try {
-    const supabase = await createClient();
-
     // 사용자 인증 확인
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }

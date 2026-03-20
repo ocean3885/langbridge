@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -10,8 +9,7 @@ import {
 
 // GET: 특정 content_id의 모든 메모 조회
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const user = await getAppUserFromRequest(request, supabase);
+  const user = await getAppUserFromRequest(request);
   
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,8 +28,7 @@ export async function GET(request: NextRequest) {
 
 // POST: 새 메모 생성
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const user = await getAppUserFromRequest(request, supabase);
+  const user = await getAppUserFromRequest(request);
   
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -59,8 +56,7 @@ export async function POST(request: NextRequest) {
 
 // PUT: 메모 수정
 export async function PUT(request: NextRequest) {
-  const supabase = await createClient();
-  const user = await getAppUserFromRequest(request, supabase);
+  const user = await getAppUserFromRequest(request);
   
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -90,8 +86,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE: 메모 삭제
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient();
-  const user = await getAppUserFromRequest(request, supabase);
+  const user = await getAppUserFromRequest(request);
   
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,6 +1,5 @@
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { insertSqliteChannel, updateSqliteChannel } from '@/lib/sqlite/channels';
 import { revalidatePath } from 'next/cache';
@@ -15,9 +14,7 @@ export interface RegisterChannelInput {
 
 export async function registerChannel(input: RegisterChannelInput) {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
@@ -40,9 +37,7 @@ export async function registerChannel(input: RegisterChannelInput) {
 
 export async function updateChannel(channelId: string, input: RegisterChannelInput) {
   try {
-    const supabase = await createClient();
-
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }

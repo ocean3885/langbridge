@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { Button } from "../ui/button";
-import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./logout-button";
 import { getAppUserFromServer } from "@/lib/auth/app-user";
 
 export async function AuthButton() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   const email = user?.email ?? null;
 
   return user ? (

@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -54,8 +53,7 @@ function relativeFromNowKo(iso: string | null): string {
 }
 
 export default async function MyVideosPage() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
 
   if (!user) {
     return (

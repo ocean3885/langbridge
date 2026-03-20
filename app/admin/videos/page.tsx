@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { getAllVideos } from '@/lib/supabase/queries/videos';
@@ -10,10 +9,8 @@ import AdminSidebar from '../AdminSidebar';
 import VideoCard from './VideoCard';
 
 export default async function AdminVideosPage() {
-  const supabase = await createClient();
-  
   // 인증 확인
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/videos');

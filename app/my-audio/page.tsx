@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getStorageBucket } from '@/lib/supabase/storage';
 import {
   deleteAudioContentByIdForUserSqlite,
   findAudioContentByIdSqlite,
@@ -76,8 +76,7 @@ async function bulkDeleteAction(formData: FormData) {
     return;
   }
 
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) {
     console.log('🔴 사용자 인증 실패');
     redirect('/auth/login');
@@ -113,7 +112,7 @@ async function bulkDeleteAction(formData: FormData) {
       console.log(`🔴 스토리지 삭제 시도: ${target.audio_file_path}`);
 
       const { data: storageData, error: storageError } = await serviceSupabase.storage
-        .from('kdryuls_automaking')
+        .from(getStorageBucket())
         .remove([target.audio_file_path]);
       
       if (storageError) {
@@ -146,8 +145,7 @@ async function renameCategoryAction(formData: FormData) {
   const newName = nameRaw.trim();
   if (!newName || Number.isNaN(categoryId)) return;
 
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) {
     redirect('/auth/login');
   }
@@ -193,8 +191,7 @@ async function changeCategoryAction(formData: FormData) {
     const num = Number(categoryIdRaw);
     categoryId = Number.isNaN(num) ? null : num;
   }
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) {
     redirect('/auth/login');
   }
@@ -213,8 +210,7 @@ async function recordStudyAction(formData: FormData) {
   const idRaw = formData.get('id');
   if (!idRaw || typeof idRaw !== 'string') return;
 
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) return;
 
   const nowIso = new Date().toISOString();
@@ -227,8 +223,7 @@ async function recordStudyAction(formData: FormData) {
 }
 // 나의 오디오 리스트 페이지 (서버 컴포넌트)
 export default async function MyAudioPage() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
 
   if (!user) {
     // 비로그인 상태면 로그인 페이지로 유도

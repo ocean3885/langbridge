@@ -1,7 +1,8 @@
 "use server";
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getStorageBucket, isBucketNotFoundError } from '@/lib/supabase/storage';
 import { upsertAudioContentSqlite } from '@/lib/sqlite/audio-content';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { randomUUID } from 'crypto';
@@ -115,10 +116,11 @@ async function getDurationMs(filePath: string) {
 // 3. 메인 액션
 // ------------------------------
 export async function processFileAction(formData: FormData) {
-  const supabase = await createClient();
+  const storageBucket = getStorageBucket();
+  const adminClient = createAdminClient();
 
   // 인증 확인
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) return redirect('/auth');
 
   const title = formData.get('title') as string;
@@ -218,14 +220,31 @@ export async function processFileAction(formData: FormData) {
     const finalBuf = await fs.readFile(finalAudioPath);
     const storagePath = `public/${user.id}/${Date.now()}-final.mp3`;
 
-    const { error: upErr } = await supabase.storage
-      .from('kdryuls_automaking')
+    const { error: upErr } = await adminClient.storage
+      .from(storageBucket)
       .upload(storagePath, finalBuf, {
         contentType: 'audio/mpeg',
         upsert: false
       });
 
-    if (upErr) throw upErr;
+    if (upErr) {
+      if (isBucketNotFoundError(upErr)) {
+        throw new Error(
+          `Supabase Storage 버킷(${storageBucket})을 찾을 수 없습니다. .env.local의 SUPABASE_STORAGE_BUCKET 값을 확인하거나 해당 버킷을 생성해주세요.`
+        );
+      }
+      const maybeStorageError = upErr as { statusCode?: string | number; message?: string };
+      if (
+        String(maybeStorageError.statusCode) === '403' ||
+        (typeof maybeStorageError.message === 'string' &&
+          maybeStorageError.message.includes('row-level security policy'))
+      ) {
+        throw new Error(
+          'Storage 업로드 권한이 없습니다. .env.local의 SUPABASE_SERVICE_ROLE_KEY를 확인하고 서버를 재시작해주세요.'
+        );
+      }
+      throw upErr;
+    }
 
     const audioId = randomUUID();
 

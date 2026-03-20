@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Video, Clock, Globe } from 'lucide-react';
 import Image from 'next/image';
@@ -32,7 +31,6 @@ type AdminVideo = {
 };
 
 export default async function VideosPage() {
-  await createClient();
   const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
   const rows = await listVideosSqlite({
     uploaderId: ADMIN_UPLOADER_ID,

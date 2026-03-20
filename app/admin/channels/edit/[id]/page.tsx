@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { getSqliteChannelById } from '@/lib/sqlite/channels';
@@ -14,9 +13,7 @@ interface PageProps {
 
 export default async function EditChannelPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
   const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });

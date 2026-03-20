@@ -1,15 +1,12 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import AdminDashboard from './AdminDashboard';
 import AdminSidebar from './AdminSidebar';
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  
   // 인증 확인
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin');

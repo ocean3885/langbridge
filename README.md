@@ -32,6 +32,7 @@ YouTube 동영상을 활용한 언어 학습 플랫폼
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_STORAGE_BUCKET=your_storage_bucket_name
 SQLITE_DB_PATH=.data/langbridge.sqlite
 SUPER_ADMIN_USER_IDS=comma,separated,user_ids
 SUPER_ADMIN_EMAILS=comma,separated,emails@example.com
@@ -40,7 +41,9 @@ SUPER_ADMIN_EMAILS=comma,separated,emails@example.com
 ### DB 구성
 
 - 미디어 업로드/파일 관리는 기존처럼 Supabase Storage 버킷 사용
+- Storage 버킷명은 `.env.local`의 `SUPABASE_STORAGE_BUCKET` 값만 사용
 - 사용자/콘텐츠/관리자 데이터는 SQLite 파일 DB 사용
+- 인증(Auth)은 SQLite 세션 쿠키(`lb_user_id`) 사용
 - 운영자 권한은 SQLite `super_admin_users` 또는 환경변수(`SUPER_ADMIN_USER_IDS`, `SUPER_ADMIN_EMAILS`)로 관리
 - SQLite DB 파일은 기본값으로 `.data/langbridge.sqlite`에 생성됨
 - 현재 로그인 사용자 확인은 `GET /api/me`로 조회 가능 (Supabase 세션 + SQLite 세션 쿠키 통합)

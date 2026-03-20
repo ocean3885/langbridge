@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'; // 서버 클라이언트 임포트
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -57,10 +56,8 @@ function formatDuration(seconds: number | null): string {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient();
-
   // 현재 사용자 확인
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   const userCount = await countAuthUsersSqlite();
 
   // 로그인한 사용자 소유 오디오 목록 가져오기 (최신 60개)

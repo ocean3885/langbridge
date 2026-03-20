@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getStorageBucket } from '@/lib/supabase/storage';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { promises as fs } from 'fs';
@@ -74,9 +75,10 @@ interface GenerateSentenceAudioParams {
 export async function generateSentenceAudio({ text, languageCode, sentenceId }: GenerateSentenceAudioParams) {
   try {
     const supabase = await createClient();
+    const storageBucket = getStorageBucket();
 
     // 인증 확인
-    const user = await getAppUserFromServer(supabase);
+    const user = await getAppUserFromServer();
     if (!user) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
@@ -108,7 +110,7 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
       const storagePath = `sentences/${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('kdryuls_automaking')
+        .from(storageBucket)
         .upload(storagePath, finalBuf, {
           contentType: 'audio/mpeg',
           upsert: false,

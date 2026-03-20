@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { listSqliteChannelsWithVideoCount } from '@/lib/sqlite/channels';
@@ -10,8 +9,7 @@ import AdminSidebar from '../AdminSidebar';
 import { Plus, Edit, ImageIcon } from 'lucide-react';
 
 export default async function AdminChannelsPage() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
   const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });

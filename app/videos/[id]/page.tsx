@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getVideoWithTranscripts, getAllUserNotesForVideo } from '@/lib/supabase/queries/videos';
 import VideoLearningClient from '@/components/VideoLearningClient';
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { incrementVideoViewCountSqlite } from '@/lib/sqlite/videos';
@@ -26,8 +25,6 @@ export default async function VideoPage({ params }: VideoPageProps) {
   const { data: userNotes } = await getAllUserNotesForVideo(id);
 
   // 사용자가 운영자인지 확인
-  const supabase = await createClient();
-  
   // 조회수 증가
   try {
     await incrementVideoViewCountSqlite(id);
@@ -35,7 +32,7 @@ export default async function VideoPage({ params }: VideoPageProps) {
     console.error('Failed to increment view count:', err);
   }
 
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
   let isAdmin = false;
   if (user) {
     isAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });

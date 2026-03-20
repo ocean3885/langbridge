@@ -1,11 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
 import HeaderClient from '@/components/HeaderClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 
 export default async function Header() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
 
   const isLoggedIn = !!user;
   const userEmail = user?.email ?? null;

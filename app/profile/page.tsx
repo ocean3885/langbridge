@@ -1,13 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
-import { getUserProfileByIdSqlite, upsertUserProfileSqlite } from '@/lib/sqlite/user-profiles';
+import { getUserProfileByIdSqlite } from '@/lib/sqlite/user-profiles';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 
 // 프로필 페이지 (향후 사용자 설정 추가 예정)
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const user = await getAppUserFromServer(supabase);
+  const user = await getAppUserFromServer();
 
   if (!user) {
     return (
@@ -17,14 +15,6 @@ export default async function ProfilePage() {
         <Link href="/auth/login" className="text-blue-600 hover:underline">로그인 페이지로 이동</Link>
       </div>
     );
-  }
-
-  if (user.source === 'supabase') {
-    await upsertUserProfileSqlite({
-      id: user.id,
-      email: user.email ?? null,
-      createdAt: user.createdAt ?? null,
-    });
   }
 
   const sqliteProfile = await getUserProfileByIdSqlite(user.id);

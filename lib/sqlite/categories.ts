@@ -86,6 +86,52 @@ export async function upsertSqliteCategory(input: {
   );
 }
 
+export async function createSqliteCategory(input: {
+  table: CategoryTable;
+  userId: string;
+  name: string;
+  languageId: number | null;
+}): Promise<SqliteCategory> {
+  const db = await getSqliteDb();
+  const row = await db.get<{ next_id: number }>(
+    `
+      SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+      FROM ${tableName(input.table)}
+    `
+  );
+
+  const nextId = row?.next_id ?? 1;
+
+  await db.run(
+    `
+      INSERT INTO ${tableName(input.table)}
+        (id, name, language_id, user_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `,
+    nextId,
+    input.name.trim(),
+    input.languageId,
+    input.userId
+  );
+
+  const created = await db.get<SqliteCategory>(
+    `
+      SELECT id, name, language_id, user_id, created_at, updated_at
+      FROM ${tableName(input.table)}
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `,
+    nextId,
+    input.userId
+  );
+
+  if (!created) {
+    throw new Error('카테고리 생성 후 조회에 실패했습니다.');
+  }
+
+  return created;
+}
+
 export async function updateSqliteCategory(input: {
   table: CategoryTable;
   id: number;

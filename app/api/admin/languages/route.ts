@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import {
@@ -14,8 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // 언어 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -31,8 +29,7 @@ export async function GET(request: NextRequest) {
 // 언어 추가
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -73,8 +70,7 @@ export async function POST(request: NextRequest) {
 // 언어 수정
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
@@ -123,8 +119,7 @@ export async function PUT(request: NextRequest) {
 // 언어 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getAppUserFromRequest(request, supabase);
+    const user = await getAppUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
