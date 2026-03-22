@@ -1,23 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { registerVideo } from '@/app/actions/video';
+import { registerEduVideo } from '@/app/actions/edu-video';
+import CategoryManageModal from '@/components/CategoryManageModal';
 
 export default function RegisterVideoForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
   const [formData, setFormData] = useState({
     youtubeUrl: '',
     title: '',
     description: '',
-    transcriptText: '',
-    lang: 'ko',
     videoLanguageId: '', // 영상 언어 (languages 테이블 id)
+    categoryId: '',
     channelId: '', // 영상 채널 (video_channels.id)
-    transcriptFile: null as File | null,
   });
   const [languages, setLanguages] = useState<{ id: number; name_ko: string; name_en: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string; language_id: number | null }[]>([]);
   const [channels, setChannels] = useState<{ id: string; channel_name: string; channel_url?: string | null; language_id?: number | null }[]>([]);
 
   // 영상 언어 목록 불러오기 (관리자 전용 API 재활용)
@@ -26,6 +28,13 @@ export default function RegisterVideoForm() {
       .then(r => r.json())
       .then(setLanguages)
       .catch(err => console.error('언어 목록 로드 오류:', err));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/edu-video-categories')
+      .then(r => r.json())
+      .then(setCategories)
+      .catch(err => console.error('카테고리 목록 로드 오류:', err));
   }, []);
 
   // 채널 목록 불러오기
@@ -41,20 +50,12 @@ export default function RegisterVideoForm() {
     setIsSubmitting(true);
 
     try {
-      // If a CSV file is provided, parse it to the server expected transcriptText format
-      let transcriptText = formData.transcriptText;
-      if (formData.transcriptFile) {
-        transcriptText = await parseCsvToTranscriptText(formData.transcriptFile);
-      }
-
-      const result = await registerVideo({
+      const result = await registerEduVideo({
         youtubeUrl: formData.youtubeUrl,
         title: formData.title,
         description: formData.description || undefined,
-        // duration 제거: 자동 처리 또는 null 저장
-        transcriptText: transcriptText,
-        lang: formData.lang || 'ko',
         languageId: formData.videoLanguageId ? Number(formData.videoLanguageId) : null,
+        categoryId: formData.categoryId || null,
         channelId: formData.channelId || null,
       });
 
@@ -79,67 +80,28 @@ export default function RegisterVideoForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // CSV parsing helpers
-  function parseCsvLine(line: string): string[] {
-    const result: string[] = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-      if (ch === ',' && !inQuotes) {
-        result.push(cur);
-        cur = '';
-      } else {
-        cur += ch;
-      }
+  async function handleCategoryChanged() {
+    try {
+      const response = await fetch('/api/edu-video-categories');
+      if (!response.ok) return;
+      const data = await response.json();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('교육 영상 카테고리 목록 새로고침 실패:', error);
     }
-    result.push(cur);
-    return result.map(s => s.trim());
   }
 
-  function timeToSeconds(timeStr: string): number {
-    // Accepts H:MM:SS, MM:SS, SS or H:MM:SS.sss
-    const parts = timeStr.trim().split(':').map(s => parseFloat(s));
-    if (parts.length === 3) {
-      const [h, m, s] = parts; return h * 3600 + m * 60 + s;
-    } else if (parts.length === 2) {
-      const [m, s] = parts; return m * 60 + s;
-    } else if (parts.length === 1) {
-      return parts[0];
-    }
-    // fallback
-    return 0;
-  }
+  const filteredCategories = categories.filter((category) => {
+    if (!formData.videoLanguageId) return true;
+    return category.language_id === Number(formData.videoLanguageId);
+  });
 
-  async function parseCsvToTranscriptText(file: File): Promise<string> {
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const rows = lines.map(line => parseCsvLine(line)).filter(fields => fields.length >= 3);
-    if (rows.length === 0) throw new Error('CSV 파일에 유효한 데이터가 없습니다.');
-
-    // Calculate start times and end times
-    const starts = rows.map(r => timeToSeconds(r[0]));
-    const parts = rows.map((r, i) => {
-      const start = starts[i];
-      const nextStart = starts[i+1];
-      const end = nextStart && nextStart > start ? nextStart - 0.01 : start + 3;
-      const original = r[1];
-      const translated = r[2];
-      return `${start.toFixed(2)} ${end.toFixed(2)} ${original} | ${translated}`;
-    });
-
-    return parts.join('\n');
-  }
   return (
     <div className="min-h-screen bg-gray-50 ml-64 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">영상 등록</h1>
-          <p className="text-gray-600 mt-2">YouTube 영상과 스크립트를 등록합니다.</p>
+          <p className="text-gray-600 mt-2">학습용 YouTube 영상을 edu_videos 테이블에 등록합니다.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
@@ -240,43 +202,32 @@ export default function RegisterVideoForm() {
           </select>
         </div>
 
-        {/* 번역 언어 (translations.lang) */}
         <div>
-          <label htmlFor="lang" className="block text-sm font-medium mb-2">
-            번역 언어 (저장될 번역 컬럼)
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="categoryId" className="block text-sm font-medium">
+              교육 영상 카테고리
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowManageModal(true)}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              카테고리 관리
+            </button>
+          </div>
           <select
-            id="lang"
-            name="lang"
-            value={formData.lang}
+            id="categoryId"
+            name="categoryId"
+            value={formData.categoryId}
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
           >
-            <option value="ko">한국어</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-            <option value="zh">中文</option>
+            <option value="">카테고리 미지정</option>
+            {filteredCategories.map((category) => (
+              <option key={category.id} value={String(category.id)}>{category.name}</option>
+            ))}
           </select>
-        </div>
-
-        {/* 스크립트 CSV 파일 */}
-        <div>
-          <label htmlFor="transcriptCsv" className="block text-sm font-medium mb-2">
-            스크립트 CSV 파일 *
-          </label>
-          <input
-            id="transcriptCsv"
-            name="transcriptCsv"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setFormData(prev => ({ ...prev, transcriptFile: e.target.files?.[0] ?? null }))}
-            required
-            className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            CSV 파일 형식: 문장시작 타임스탬프,원문 문장,한글 해석
-            <br />예: 0:00:10,good afternoon everyone,여러분 좋은 오후입니다.
-          </p>
         </div>
 
         {/* 제출 버튼 */}
@@ -299,17 +250,19 @@ export default function RegisterVideoForm() {
         </div>
       </form>
 
-        {/* 도움말 */}
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <h3 className="font-semibold mb-2">💡 스크립트 CSV 형식 안내</h3>
-          <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
-            <li>• CSV 형식: 문장시작 타임스탬프,원문 문장,한글 해석</li>
-            <li>• 타임스탬프 예시: 0:00:10 (H:MM:SS 또는 MM:SS 가능)</li>
-            <li>• 각 행의 시작 시간은 다음 행의 시작 시간이 끝 시간이 됩니다 (마지막 행은 +3초)</li>
-            <li>• 텍스트에 쉼표가 포함되면 ""로 감싸세요 (CSV 규칙 준수)</li>
-            <li>• 빈 줄은 자동으로 무시됩니다</li>
-          </ul>
-        </div>
+      <CategoryManageModal
+        isOpen={showManageModal}
+        onClose={() => setShowManageModal(false)}
+        onCategoryChanged={handleCategoryChanged}
+        initialCategories={categories}
+        initialLanguages={languages.map((language) => ({
+          id: language.id,
+          name_ko: language.name_ko,
+          code: language.name_en ?? '',
+        }))}
+        apiEndpoint="/api/edu-video-categories"
+        contentType="교육 영상"
+      />
       </div>
     </div>
   );

@@ -9,6 +9,116 @@ function getSqliteDbPath(): string {
   return process.env.SQLITE_DB_PATH || path.join(process.cwd(), '.data', 'langbridge.sqlite');
 }
 
+async function ensureColumnExists(
+  db: Database,
+  tableName: string,
+  columnName: string,
+  columnDefinition: string
+): Promise<void> {
+  const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(${tableName})`);
+  const exists = columns.some((column) => column.name === columnName);
+  if (!exists) {
+    await db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+  }
+}
+
+async function migrateEduVideoCategories(db: Database): Promise<void> {
+  const legacyAssignments = await db.all<Array<{
+    video_id: string;
+    category_id: string;
+    source_name: string;
+    source_language_id: number | null;
+    source_user_id: string;
+  }>>(
+    `
+      SELECT
+        ev.id AS video_id,
+        ev.category_id AS category_id,
+        uc.name AS source_name,
+        uc.language_id AS source_language_id,
+        uc.user_id AS source_user_id
+      FROM edu_videos ev
+      INNER JOIN user_categories uc
+        ON uc.id = CAST(ev.category_id AS INTEGER)
+       AND uc.user_id = ev.uploader_id
+      WHERE ev.category_id IS NOT NULL
+        AND TRIM(ev.category_id) <> ''
+    `
+  );
+
+  if (legacyAssignments.length === 0) {
+    return;
+  }
+
+  await db.exec('BEGIN');
+
+  try {
+    for (const assignment of legacyAssignments) {
+      const existingCategory = await db.get<{ id: number }>(
+        `
+          SELECT id
+          FROM edu_video_categories
+          WHERE user_id = ?
+            AND name = ?
+            AND language_id IS ?
+          LIMIT 1
+        `,
+        assignment.source_user_id,
+        assignment.source_name,
+        assignment.source_language_id
+      );
+
+      let targetCategoryId = existingCategory?.id;
+
+      if (typeof targetCategoryId !== 'number') {
+        const nextIdRow = await db.get<{ next_id: number }>(
+          `
+            SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+            FROM edu_video_categories
+          `
+        );
+
+        targetCategoryId = nextIdRow?.next_id ?? 1;
+
+        await db.run(
+          `
+            INSERT INTO edu_video_categories (
+              id,
+              name,
+              language_id,
+              user_id,
+              created_at,
+              updated_at
+            )
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `,
+          targetCategoryId,
+          assignment.source_name,
+          assignment.source_language_id,
+          assignment.source_user_id
+        );
+      }
+
+      if (assignment.category_id !== String(targetCategoryId)) {
+        await db.run(
+          `
+            UPDATE edu_videos
+            SET category_id = ?
+            WHERE id = ?
+          `,
+          String(targetCategoryId),
+          assignment.video_id
+        );
+      }
+    }
+
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 async function initializeSchema(db: Database): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_notes (
@@ -46,11 +156,23 @@ async function initializeSchema(db: Database): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS edu_video_categories (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      language_id INTEGER,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_lang_categories_user
       ON lang_categories(user_id);
 
     CREATE INDEX IF NOT EXISTS idx_user_categories_user
       ON user_categories(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_edu_video_categories_user
+      ON edu_video_categories(user_id);
 
     CREATE TABLE IF NOT EXISTS user_profiles (
       id TEXT PRIMARY KEY,
@@ -91,6 +213,44 @@ async function initializeSchema(db: Database): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_videos_created_at
       ON videos(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS edu_videos (
+      id TEXT PRIMARY KEY,
+      youtube_url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      thumbnail_url TEXT,
+      duration_seconds INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      language_id INTEGER,
+      category_id TEXT,
+      channel_id TEXT,
+      view_count INTEGER NOT NULL DEFAULT 0,
+      uploader_id TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_edu_videos_created_at
+      ON edu_videos(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS video_learning_progress (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      last_studied_at TEXT,
+      total_study_seconds INTEGER NOT NULL DEFAULT 0,
+      study_session_count INTEGER NOT NULL DEFAULT 0,
+      last_position_seconds REAL,
+      summary_memo TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, video_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_video_learning_progress_user_last_studied
+      ON video_learning_progress(user_id, last_studied_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_video_learning_progress_video
+      ON video_learning_progress(video_id);
 
     CREATE TABLE IF NOT EXISTS transcripts (
       id TEXT PRIMARY KEY,
@@ -244,6 +404,9 @@ async function initializeSchema(db: Database): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_super_admin_users_email
       ON super_admin_users(email);
   `);
+
+  await ensureColumnExists(db, 'edu_videos', 'duration_seconds', 'INTEGER');
+  await migrateEduVideoCategories(db);
 }
 
 export async function getSqliteDb(): Promise<Database> {

@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Save, Loader2 } from 'lucide-react';
-import { updateVideoChannel } from '@/app/actions/video';
+import { Play, Save, Loader2, Pencil } from 'lucide-react';
+import { updateEduVideoPlacement } from '@/app/actions/edu-video';
 import DeleteVideoButton from './DeleteVideoButton';
 
 interface Channel {
@@ -20,19 +20,26 @@ interface VideoCardProps {
     title: string;
     description: string | null;
     thumbnail_url: string | null;
-    duration: number | null;
-    transcript_count?: number;
     channel_id: string | null;
+    category_id: string | null;
+    created_at?: string;
   };
   channels: Channel[];
+  categories: Array<{
+    id: number;
+    name: string;
+  }>;
 }
 
-export default function VideoCard({ video, channels }: VideoCardProps) {
+export default function VideoCard({ video, channels, categories }: VideoCardProps) {
   const [selectedChannelId, setSelectedChannelId] = useState<string>(video.channel_id || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(video.category_id || '');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const hasChanges = selectedChannelId !== (video.channel_id || '');
+  const hasChanges =
+    selectedChannelId !== (video.channel_id || '') ||
+    selectedCategoryId !== (video.category_id || '');
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -40,15 +47,16 @@ export default function VideoCard({ video, channels }: VideoCardProps) {
     setIsSaving(true);
     setMessage(null);
 
-    const result = await updateVideoChannel(
-      video.id, 
-      selectedChannelId === '' ? null : selectedChannelId
-    );
+    const result = await updateEduVideoPlacement({
+      videoId: video.id,
+      channelId: selectedChannelId || null,
+      categoryId: selectedCategoryId || null,
+    });
 
     setIsSaving(false);
 
     if (result.success) {
-      setMessage({ type: 'success', text: '채널이 저장되었습니다.' });
+      setMessage({ type: 'success', text: '채널과 카테고리가 저장되었습니다.' });
       setTimeout(() => setMessage(null), 3000);
     } else {
       setMessage({ type: 'error', text: result.error || '저장에 실패했습니다.' });
@@ -82,11 +90,11 @@ export default function VideoCard({ video, channels }: VideoCardProps) {
           </p>
         )}
         <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-          <span>스크립트: {video.transcript_count || 0}개</span>
-          {video.duration && <span>{Math.floor(video.duration / 60)}분</span>}
+          <span>교육 영상</span>
+          {video.created_at && <span>{new Date(video.created_at).toLocaleDateString('ko-KR')}</span>}
         </div>
 
-        {/* 채널 선택 */}
+        {/* 채널/카테고리 선택 */}
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             채널
@@ -98,7 +106,7 @@ export default function VideoCard({ video, channels }: VideoCardProps) {
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isSaving}
             >
-              <option value="">채널 미지정</option>
+                <option value="">채널 미지정</option>
               {channels.map((channel) => (
                 <option key={channel.id} value={channel.id}>
                   {channel.channel_name}
@@ -124,8 +132,34 @@ export default function VideoCard({ video, channels }: VideoCardProps) {
           )}
         </div>
 
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            카테고리
+          </label>
+          <select
+            value={selectedCategoryId}
+            onChange={(e) => setSelectedCategoryId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isSaving}
+          >
+            <option value="">카테고리 미지정</option>
+            {categories.map((category) => (
+              <option key={category.id} value={String(category.id)}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* 액션 버튼 */}
         <div className="flex gap-2">
+          <Link
+            href={`/admin/videos/${video.id}/edit`}
+            className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-center text-sm font-medium inline-flex items-center justify-center"
+            title="영상 수정"
+          >
+            <Pencil className="w-4 h-4" />
+          </Link>
           <Link
             href={`/videos/${video.id}`}
             className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center text-sm font-medium"

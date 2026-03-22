@@ -35,6 +35,7 @@ interface VideoLearningClientProps {
   transcripts: TranscriptWithTranslation[];
   userNotes: Record<string, { id: string; content: string }>;
   isAdmin: boolean;
+  enlargeTranscriptTextOnDesktop?: boolean;
 }
 
 export default function VideoLearningClient({
@@ -50,6 +51,7 @@ export default function VideoLearningClient({
   transcripts,
   userNotes,
   isAdmin,
+  enlargeTranscriptTextOnDesktop = false,
 }: VideoLearningClientProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedTranscriptIndex, setSelectedTranscriptIndex] = useState<number | null>(null);
@@ -301,6 +303,7 @@ export default function VideoLearningClient({
           repeatState={repeatState}
           onRepeat={handleRepeat}
           isAdmin={isAdmin}
+          enlargeTextOnDesktop={enlargeTranscriptTextOnDesktop}
         />
       </div>
 
@@ -377,6 +380,7 @@ export default function VideoLearningClient({
               repeatState={repeatState}
               onRepeat={handleRepeat}
               isAdmin={isAdmin}
+              enlargeTextOnDesktop={enlargeTranscriptTextOnDesktop}
             />
           </div>
         </div>

@@ -6,6 +6,9 @@ import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
 interface VideoPlayerProps {
   youtubeId: string;
   selectedTranscriptIndex: number | null;
+  seekToSeconds?: number | null;
+  seekRequestToken?: number;
+  onDurationReady?: (durationSeconds: number) => void;
   transcripts: {
     start: number;
     duration: number;
@@ -17,6 +20,9 @@ interface VideoPlayerProps {
 export default function VideoPlayer({
   youtubeId,
   selectedTranscriptIndex,
+  seekToSeconds = null,
+  seekRequestToken = 0,
+  onDurationReady,
   transcripts,
   onTimeUpdate,
   repeatState,
@@ -26,6 +32,22 @@ export default function VideoPlayer({
   const [isReady, setIsReady] = useState(false);
   const lastStateRef = useRef<{ type: string; index1: number | null; index2: number | null } | null>(null);
   const mountedRef = useRef(true);
+  const reportedDurationRef = useRef(false);
+
+  const reportDurationIfAvailable = useCallback(async () => {
+    if (!playerRef.current || reportedDurationRef.current || !onDurationReady) return;
+
+    try {
+      if (typeof playerRef.current.getDuration !== 'function') return;
+      const duration = await playerRef.current.getDuration();
+      if (duration > 0) {
+        reportedDurationRef.current = true;
+        onDurationReady(duration);
+      }
+    } catch {
+      // ignore
+    }
+  }, [onDurationReady]);
 
   // interval 정리 함수
   const clearExistingInterval = useCallback(() => {
@@ -40,6 +62,7 @@ export default function VideoPlayer({
     setIsReady(false);
     clearExistingInterval();
     lastStateRef.current = null;
+    reportedDurationRef.current = false;
     if (playerRef.current) {
       try {
         playerRef.current.destroy();
@@ -186,6 +209,18 @@ export default function VideoPlayer({
     return clearExistingInterval;
   }, [isReady, selectedTranscriptIndex, transcripts, onTimeUpdate, repeatState, clearExistingInterval]);
 
+  useEffect(() => {
+    if (!isReady || !playerRef.current || !mountedRef.current) return;
+    if (seekToSeconds === null || seekToSeconds < 0) return;
+
+    try {
+      playerRef.current.seekTo(seekToSeconds, true);
+      playerRef.current.playVideo();
+    } catch {
+      // ignore
+    }
+  }, [isReady, seekRequestToken]);
+
   const onReady: YouTubeProps['onReady'] = (event) => {
     // 기존 플레이어가 있으면 먼저 정리
     if (playerRef.current && playerRef.current !== event.target) {
@@ -199,10 +234,14 @@ export default function VideoPlayer({
     // DOM에 제대로 부착되었는지 확인
     if (event.target && typeof event.target.getPlayerState === 'function') {
       setIsReady(true);
+      window.setTimeout(() => {
+        void reportDurationIfAvailable();
+      }, 300);
     }
   };
 
   const onStateChange: YouTubeProps['onStateChange'] = (event) => {
+    void reportDurationIfAvailable();
     // 플레이어 상태 변경 시 추가 검증
     if (!mountedRef.current) {
       try {

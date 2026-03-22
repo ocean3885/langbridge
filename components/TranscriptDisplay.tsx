@@ -28,6 +28,7 @@ interface TranscriptDisplayProps {
   repeatState: { type: 'none' | 'single' | 'range', index1: number | null, index2: number | null };
   onRepeat: (index: number) => void;
   isAdmin: boolean;
+  enlargeTextOnDesktop?: boolean;
 }
 
 export default function TranscriptDisplay({
@@ -40,6 +41,7 @@ export default function TranscriptDisplay({
   repeatState,
   onRepeat,
   isAdmin,
+  enlargeTextOnDesktop = false,
 }: TranscriptDisplayProps) {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [currentTranscriptId, setCurrentTranscriptId] = useState<string | null>(null);
@@ -303,6 +305,13 @@ export default function TranscriptDisplay({
     }
   };
 
+  const originalTextClass = enlargeTextOnDesktop
+    ? 'text-sm sm:text-base md:text-[1.05rem]'
+    : 'text-sm sm:text-base';
+  const translatedTextClass = enlargeTextOnDesktop
+    ? 'text-sm md:text-[0.95rem]'
+    : 'text-sm';
+
   return (
     <>
       {/* 자동 포커스가 동작하므로 이동 버튼 없음 */}
@@ -334,11 +343,11 @@ export default function TranscriptDisplay({
                   <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     {formatTime(transcript.start)}
                   </div>
-                  <div className="text-sm sm:text-base font-medium mb-2">
+                  <div className={`${originalTextClass} font-medium mb-2`}>
                     {transcript.text_original}
                   </div>
                   {translation && (
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                    <div className={`${translatedTextClass} text-gray-600 dark:text-gray-300`}>
                       {translation.text_translated}
                     </div>
                   )}

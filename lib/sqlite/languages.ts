@@ -130,6 +130,7 @@ export async function hasLanguageUsageSqlite(languageId: number): Promise<{ used
     { table: 'videos', label: '영상' },
     { table: 'lang_categories', label: '오디오 카테고리' },
     { table: 'user_categories', label: '비디오 카테고리' },
+    { table: 'edu_video_categories', label: '교육 영상 카테고리' },
     { table: 'video_channels', label: '채널' },
   ];
 

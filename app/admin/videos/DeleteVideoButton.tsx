@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { deleteVideo } from '@/app/actions/video';
+import { deleteEduVideo } from '@/app/actions/edu-video';
 import { Trash2 } from 'lucide-react';
 
 interface DeleteVideoButtonProps {
@@ -15,13 +15,13 @@ export default function DeleteVideoButton({ videoId, videoTitle }: DeleteVideoBu
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm(`"${videoTitle}" 영상을 삭제하시겠습니까?\n\n관련된 모든 스크립트와 번역이 함께 삭제됩니다.`)) {
+    if (!confirm(`"${videoTitle}" 영상을 삭제하시겠습니까?`)) {
       return;
     }
 
     setIsDeleting(true);
     try {
-      const result = await deleteVideo(videoId);
+      const result = await deleteEduVideo(videoId);
       if (result.success) {
         router.refresh();
       } else {

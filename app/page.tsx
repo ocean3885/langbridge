@@ -1,8 +1,10 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
+import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 import { listAudioContentByUserSqlite } from '@/lib/sqlite/audio-content';
 import { countAuthUsersSqlite } from '@/lib/sqlite/auth-users';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import Link from 'next/link';
 import { FolderOpen, Video, Clock } from 'lucide-react';
 import AudioCard from '@/components/AudioCard';
@@ -66,11 +68,15 @@ export default async function HomePage() {
   if (user) {
     const userAudios = await listAudioContentByUserSqlite(user.id, 60);
     const sqliteAudioCategories = await listSqliteCategories('lang_categories', user.id);
+    const sqliteLanguages = await listSqliteLanguages();
+    const languageNameMap = new Map(sqliteLanguages.map((language) => [language.id, language.name_ko]));
     const categoryMap: Record<number, { name: string; languageName: string }> = {};
     sqliteAudioCategories.forEach((category) => {
       categoryMap[category.id] = {
         name: category.name,
-        languageName: category.language_id ? `언어 ${category.language_id}` : '언어 미지정',
+        languageName: category.language_id
+          ? (languageNameMap.get(category.language_id) ?? '언어 미지정')
+          : '언어 미지정',
       };
     });
 
@@ -112,7 +118,9 @@ export default async function HomePage() {
     for (const category of sqliteVideoCategories) {
       videoCategoryMap[String(category.id)] = {
         name: category.name,
-        languageName: '언어 미지정',
+        languageName: category.language_id
+          ? (languageNameMap.get(category.language_id) ?? '언어 미지정')
+          : '언어 미지정',
       };
     }
 
@@ -151,30 +159,35 @@ export default async function HomePage() {
   type AdminVideo = {
     id: string;
     title: string;
-    youtube_id: string | null;
+    youtube_url: string | null;
     thumbnail_url: string | null;
-    duration: number | null;
     created_at: string;
     channel_name: string | null;
     language_name: string | null;
   };
 
-  const ADMIN_UPLOADER_ID = '07721211-a878-47d0-9501-ca9b282f5db9';
-  const adminRows = await listVideosSqlite({
-    uploaderId: ADMIN_UPLOADER_ID,
-    limit: 6,
-  });
+  const adminRows = (await listEduVideosSqlite())
+    .sort((a, b) => {
+      const aHasChannel = Boolean(a.channel_name?.trim());
+      const bHasChannel = Boolean(b.channel_name?.trim());
+
+      if (aHasChannel !== bHasChannel) {
+        return aHasChannel ? -1 : 1;
+      }
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })
+    .slice(0, 6);
 
   const learningVideos: AdminVideo[] = adminRows.map((v) => {
     return {
       id: v.id,
       title: v.title,
-      youtube_id: v.youtube_id ?? null,
+      youtube_url: v.youtube_url ?? null,
       thumbnail_url: v.thumbnail_url ?? null,
-      duration: v.duration ?? null,
       created_at: v.created_at,
-      channel_name: null,
-      language_name: null,
+      channel_name: v.channel_name ?? null,
+      language_name: v.language_name ?? null,
     };
   });
 
@@ -188,7 +201,7 @@ export default async function HomePage() {
         <div className="space-y-10 max-w-6xl mx-auto">
           <div className="space-y-3">
             <p className="text-lg sm:text-2xl font-medium text-gray-700">원어문장을 TTS 오디오로 변환하고 반복 학습으로 실력을 쌓으세요</p>
-            <p className="text-base sm:text-xl font-semibold text-cyan-700">📹 NEW! 영상 스크립트 반복 학습으로 실전 회화를 마스터하세요</p>
+            <p className="text-base sm:text-xl font-semibold text-cyan-700">📹 NEW! 엄선된 교육 영상을 보며 실전 회화 감각을 넓혀보세요</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6 pt-2">
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -204,7 +217,7 @@ export default async function HomePage() {
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
               <div className="text-4xl mb-3">🎬</div>
               <h3 className="text-lg font-bold text-gray-800 mb-2">영상 학습 <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full ml-1">NEW</span></h3>
-              <p className="text-sm text-gray-600">실제 영상 콘텐츠로 스크립트 반복 학습하세요</p>
+              <p className="text-sm text-gray-600">엄선된 교육 영상으로 표현과 주제를 자연스럽게 익히세요</p>
             </div>
           </div>
           
@@ -288,14 +301,6 @@ export default async function HomePage() {
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Video className="w-16 h-16 text-gray-400" />
-                    </div>
-                  )}
-                  
-                  {/* 시간 배지 */}
-                  {video.duration !== null && (
-                    <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{formatDuration(video.duration)}</span>
                     </div>
                   )}
                 </div>
@@ -428,10 +433,10 @@ export default async function HomePage() {
         </div>
         {!user && (
           <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-4">
-            <h3 className="text-xl font-bold text-gray-800">영상 스크립트 반복 학습으로 실전 회화를 마스터하세요</h3>
+            <h3 className="text-xl font-bold text-gray-800">엄선된 교육 영상으로 실전 표현을 넓혀보세요</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
-              YouTube 영상과 스크립트를 업로드하면 자막 싱크와 함께 문장별 반복 학습이 가능합니다.<br/>
-              가입 후 영상을 등록하고 효과적인 영상 기반 언어 학습을 시작해보세요.
+              공개 학습 비디오에서는 주제별 교육 영상을 바로 재생하며 표현과 맥락을 익힐 수 있습니다.<br/>
+              가입 후에는 개인 영상 업로드와 별도로 나만의 학습 콘텐츠도 함께 관리할 수 있습니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/sign-up" className="px-6 py-3 rounded-lg bg-cyan-600 text-white font-semibold shadow hover:bg-cyan-700 transition">무료로 가입하기</Link>
@@ -444,13 +449,13 @@ export default async function HomePage() {
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-bold text-gray-800">첫 영상을 등록하여 영상 학습을 시작해보세요</h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
-                YouTube 영상과 스크립트를 업로드하면 영상과 함께 문장별 반복 학습이 가능합니다.
+                YouTube 영상을 등록해 나만의 영상 컬렉션을 만들고, 공개 학습 비디오와 함께 활용해보세요.
               </p>
             </div>
             <ul className="text-left mx-auto max-w-2xl space-y-2 text-sm sm:text-base">
               <li className="flex items-start gap-2"><span className="mt-0.5">🎬</span><span>YouTube URL과 스크립트 CSV 파일 업로드</span></li>
-              <li className="flex items-start gap-2"><span className="mt-0.5">📝</span><span>영상과 싱크된 자막으로 학습</span></li>
-              <li className="flex items-start gap-2"><span className="mt-0.5">🔁</span><span>문장별 반복 재생으로 집중 학습</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">📝</span><span>카테고리와 언어를 지정해 체계적으로 정리</span></li>
+              <li className="flex items-start gap-2"><span className="mt-0.5">🔁</span><span>공개 학습 비디오와 함께 다양한 주제를 병행 학습</span></li>
               <li className="flex items-start gap-2"><span className="mt-0.5">📁</span><span>카테고리로 체계적으로 관리</span></li>
             </ul>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -479,7 +484,7 @@ export default async function HomePage() {
                   {category.videoList.map(video => (
                     <Link
                       key={video.id}
-                      href={`/videos/${video.id}`}
+                      href={`/my-videos/${video.id}`}
                       className="group bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden"
                     >
                       <div className="relative w-full aspect-video bg-gray-200">

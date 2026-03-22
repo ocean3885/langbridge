@@ -10,6 +10,10 @@ function parseCsvEnv(value: string | undefined): Set<string> {
   );
 }
 
+export function getConfiguredSuperAdminUserIds(): string[] {
+  return Array.from(parseCsvEnv(process.env.SUPER_ADMIN_USER_IDS));
+}
+
 async function upsertSuperAdminUser(input: { userId: string; email: string | null }): Promise<void> {
   const db = await getSqliteDb();
   await db.run(
@@ -49,7 +53,7 @@ export async function isSuperAdminSqlite(input: {
     return true;
   }
 
-  const envAdminIds = parseCsvEnv(process.env.SUPER_ADMIN_USER_IDS);
+  const envAdminIds = new Set(getConfiguredSuperAdminUserIds());
   const envAdminEmails = parseCsvEnv(process.env.SUPER_ADMIN_EMAILS);
 
   const matchedById = envAdminIds.has(input.userId.toLowerCase());

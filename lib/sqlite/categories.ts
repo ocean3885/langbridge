@@ -1,6 +1,6 @@
 import { getSqliteDb } from '@/lib/sqlite/db';
 
-type CategoryTable = 'lang_categories' | 'user_categories';
+type CategoryTable = 'lang_categories' | 'user_categories' | 'edu_video_categories';
 
 export type SqliteCategory = {
   id: number;

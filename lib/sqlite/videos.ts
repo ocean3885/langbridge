@@ -14,6 +14,8 @@ export type SqliteVideo = {
   channel_id: string | null;
   view_count: number;
   uploader_id: string | null;
+  channel_name?: string | null;
+  language_name?: string | null;
 };
 
 export type SqliteTranscript = {
@@ -224,14 +226,26 @@ export async function getAllVideosSqlite(): Promise<Array<SqliteVideo & { transc
 
 export async function listVideosSqlite(input?: {
   uploaderId?: string;
+  uploaderIds?: string[];
   channelId?: string | null;
+  hasChannel?: boolean;
   limit?: number;
 }): Promise<Array<SqliteVideo & { transcript_count: number }>> {
   const db = await getSqliteDb();
   const where: string[] = [];
   const params: Array<string | number | null> = [];
 
-  if (input?.uploaderId) {
+  if (input?.uploaderIds && input.uploaderIds.length > 0) {
+    const normalizedUploaderIds = input.uploaderIds
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (normalizedUploaderIds.length > 0) {
+      const placeholders = normalizedUploaderIds.map(() => '?').join(',');
+      where.push(`LOWER(uploader_id) IN (${placeholders})`);
+      params.push(...normalizedUploaderIds);
+    }
+  } else if (input?.uploaderId) {
     where.push('uploader_id = ?');
     params.push(input.uploaderId);
   }
@@ -245,16 +259,24 @@ export async function listVideosSqlite(input?: {
     }
   }
 
+  if (input?.hasChannel) {
+    where.push("channel_id IS NOT NULL AND TRIM(channel_id) <> ''");
+  }
+
   const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
   const limitClause = input?.limit ? `LIMIT ${Math.max(1, Math.floor(input.limit))}` : '';
 
   const videos = await db.all<SqliteVideo[]>(
     `
-      SELECT id, youtube_id, title, description, duration, thumbnail_url,
-             created_at, language_id, category_id, channel_id, view_count, uploader_id
-      FROM videos
+      SELECT v.id, v.youtube_id, v.title, v.description, v.duration, v.thumbnail_url,
+             v.created_at, v.language_id, v.category_id, v.channel_id, v.view_count, v.uploader_id,
+             vc.channel_name AS channel_name,
+             l.name_ko AS language_name
+      FROM videos v
+      LEFT JOIN video_channels vc ON vc.id = v.channel_id
+      LEFT JOIN languages l ON l.id = COALESCE(v.language_id, vc.language_id)
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY v.created_at DESC
       ${limitClause}
     `,
     ...params

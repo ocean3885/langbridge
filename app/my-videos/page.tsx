@@ -1,6 +1,7 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
@@ -70,11 +71,15 @@ export default async function MyVideosPage() {
   const videos = await listVideosSqlite({ uploaderId: user.id });
 
   const categoryRows = await listSqliteCategories('user_categories', user.id);
+  const languageRows = await listSqliteLanguages();
+  const languageNameMap = new Map(languageRows.map((language) => [language.id, language.name_ko]));
   const categoryMap: Record<string, { name: string; languageName: string }> = {};
   for (const category of categoryRows) {
     categoryMap[String(category.id)] = {
       name: category.name,
-      languageName: '',
+      languageName: category.language_id
+        ? (languageNameMap.get(category.language_id) ?? '언어 미지정')
+        : '언어 미지정',
     };
   }
 
@@ -173,7 +178,7 @@ export default async function MyVideosPage() {
                 {categoryData.videos.map((video) => (
                   <Link
                     key={video.id}
-                    href={`/videos/${video.id}`}
+                    href={`/my-videos/${video.id}`}
                     className="block bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-200 hover:border-blue-300"
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4">

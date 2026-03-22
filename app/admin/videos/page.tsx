@@ -2,10 +2,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
-import { getAllVideos } from '@/lib/supabase/queries/videos';
 import { listSqliteChannels } from '@/lib/sqlite/channels';
+import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
+import { listSqliteCategories } from '@/lib/sqlite/categories';
+import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { Plus, Tag } from 'lucide-react';
 import AdminSidebar from '../AdminSidebar';
+import EduVideoCategoryManageButton from './EduVideoCategoryManageButton';
 import VideoCard from './VideoCard';
 
 export default async function AdminVideosPage() {
@@ -23,22 +26,12 @@ export default async function AdminVideosPage() {
     redirect('/');
   }
 
-  const { data: videos, error } = await getAllVideos();
-
-  const channels = await listSqliteChannels();
-
-  if (error) {
-    return (
-      <>
-        <AdminSidebar userEmail={user.email ?? ''} />
-        <div className="min-h-screen bg-gray-50 ml-64 p-8">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-red-600">영상 목록을 불러오는데 실패했습니다: {error}</div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const videos = await listEduVideosSqlite({ hasChannel: true });
+  const [channels, categories, languages] = await Promise.all([
+    listSqliteChannels(),
+    listSqliteCategories('edu_video_categories', user.id),
+    listSqliteLanguages(),
+  ]);
 
   // 언어별 그룹핑
   const groupedByLanguage = videos.reduce((acc, video) => {
@@ -72,20 +65,30 @@ export default async function AdminVideosPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">영상 관리</h1>
-              <p className="text-gray-600 mt-2">YouTube 영상 학습 콘텐츠를 관리합니다.</p>
+              <p className="text-gray-600 mt-2">edu_videos 학습 영상을 관리합니다.</p>
             </div>
-            <Link
-              href="/admin/videos/register"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              영상 등록
-            </Link>
+            <div className="flex items-center gap-3">
+              <EduVideoCategoryManageButton
+                initialCategories={categories}
+                initialLanguages={languages.map((language) => ({
+                  id: language.id,
+                  name_ko: language.name_ko,
+                  code: language.code,
+                }))}
+              />
+              <Link
+                href="/admin/videos/register"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4" />
+                영상 등록
+              </Link>
+            </div>
           </div>
 
       {videos.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          등록된 영상이 없습니다. 새로운 영상을 등록해보세요.
+          등록된 edu_videos 영상이 없습니다.
         </div>
       ) : (
         <div className="space-y-8">
@@ -112,7 +115,8 @@ export default async function AdminVideosPage() {
                       <VideoCard 
                         key={video.id} 
                         video={video} 
-                          channels={channels}
+                        channels={channels}
+                        categories={categories}
                       />
                     ))}
                   </div>
