@@ -14,9 +14,9 @@ export type SqliteEduVideo = {
   channel_id: string | null;
   view_count: number;
   uploader_id: string | null;
-  channel_name?: string | null;
-  language_name?: string | null;
-  category_name?: string | null;
+  channel_name: string | null;
+  language_name: string | null;
+  category_name: string | null;
 };
 
 export function extractYoutubeIdFromUrl(url: string): string | null {
