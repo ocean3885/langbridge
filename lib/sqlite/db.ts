@@ -1,16 +1,53 @@
 import path from 'path';
 import { mkdir } from 'fs/promises';
-import sqlite3 from 'sqlite3';
-import { Database, open } from 'sqlite';
+import BetterSqlite3 from 'better-sqlite3';
 
-let dbPromise: Promise<Database> | null = null;
+type SqliteBinding = string | number | bigint | Buffer | Uint8Array | null;
+
+export type SqliteRunResult = {
+  changes: number;
+  lastID: number;
+};
+
+export interface SqliteDb {
+  all<T = unknown[]>(sql: string, ...params: SqliteBinding[]): Promise<T>;
+  get<T = unknown>(sql: string, ...params: SqliteBinding[]): Promise<T | undefined>;
+  run(sql: string, ...params: SqliteBinding[]): Promise<SqliteRunResult>;
+  exec(sql: string): Promise<void>;
+}
+
+class BetterSqliteDbAdapter implements SqliteDb {
+  constructor(private readonly db: BetterSqlite3.Database) {}
+
+  async all<T = unknown[]>(sql: string, ...params: SqliteBinding[]): Promise<T> {
+    return this.db.prepare(sql).all(...params) as T;
+  }
+
+  async get<T = unknown>(sql: string, ...params: SqliteBinding[]): Promise<T | undefined> {
+    return this.db.prepare(sql).get(...params) as T | undefined;
+  }
+
+  async run(sql: string, ...params: SqliteBinding[]): Promise<SqliteRunResult> {
+    const result = this.db.prepare(sql).run(...params);
+    return {
+      changes: result.changes,
+      lastID: Number(result.lastInsertRowid),
+    };
+  }
+
+  async exec(sql: string): Promise<void> {
+    this.db.exec(sql);
+  }
+}
+
+let dbPromise: Promise<SqliteDb> | null = null;
 
 function getSqliteDbPath(): string {
   return process.env.SQLITE_DB_PATH || path.join(process.cwd(), '.data', 'langbridge.sqlite');
 }
 
 async function ensureColumnExists(
-  db: Database,
+  db: SqliteDb,
   tableName: string,
   columnName: string,
   columnDefinition: string
@@ -22,7 +59,7 @@ async function ensureColumnExists(
   }
 }
 
-async function migrateEduVideoCategories(db: Database): Promise<void> {
+async function migrateEduVideoCategories(db: SqliteDb): Promise<void> {
   const legacyAssignments = await db.all<Array<{
     video_id: string;
     category_id: string;
@@ -119,7 +156,7 @@ async function migrateEduVideoCategories(db: Database): Promise<void> {
   }
 }
 
-async function initializeSchema(db: Database): Promise<void> {
+async function initializeSchema(db: SqliteDb): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_notes (
       id TEXT PRIMARY KEY,
@@ -409,16 +446,14 @@ async function initializeSchema(db: Database): Promise<void> {
   await migrateEduVideoCategories(db);
 }
 
-export async function getSqliteDb(): Promise<Database> {
+export async function getSqliteDb(): Promise<SqliteDb> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const dbPath = getSqliteDbPath();
       await mkdir(path.dirname(dbPath), { recursive: true });
 
-      const db = await open({
-        filename: dbPath,
-        driver: sqlite3.Database,
-      });
+      const rawDb = new BetterSqlite3(dbPath);
+      const db = new BetterSqliteDbAdapter(rawDb);
 
       await initializeSchema(db);
       return db;

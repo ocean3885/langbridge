@@ -16,6 +16,7 @@
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@types/youtube-player": "^5.5.11",
+    "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "execa": "^9.6.0",
@@ -26,12 +27,11 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-youtube": "^10.1.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
