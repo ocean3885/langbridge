@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['sqlite3'],
   images: {
     remotePatterns: [
       {
@@ -23,7 +22,6 @@ const nextConfig: NextConfig = {
         '*.app.github.dev',
         'animated-meme-x7v6wv5vqxj3pwx6-3000.app.github.dev',
         'lang.ai.kr',
-        '52.79.212.162:3000'
       ]
     }
   }
