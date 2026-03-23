@@ -44,3 +44,10 @@ next-env.d.ts
 # deployment
 google-credentials.json
 *-credentials.json
+
+# sqlite
+*.db
+*.sqlite
+*.sqlite3
+*-wal
+*-shm
