@@ -20,9 +20,10 @@ interface Language {
 interface Props {
   initialCategories: Category[];
   initialLanguages: Language[];
+  canSelectVisibility: boolean;
 }
 
-export default function VideoUploadFormWrapper({ initialCategories, initialLanguages }: Props) {
+export default function VideoUploadFormWrapper({ initialCategories, initialLanguages, canSelectVisibility }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [languages] = useState<Language[]>(initialLanguages);
   const [showManageModal, setShowManageModal] = useState(false);
@@ -55,6 +56,7 @@ export default function VideoUploadFormWrapper({ initialCategories, initialLangu
       <VideoUploadForm
         languages={languages}
         categories={categories}
+        canSelectVisibility={canSelectVisibility}
       />
 
       <CategoryManageModal

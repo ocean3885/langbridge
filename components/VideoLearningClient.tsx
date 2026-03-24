@@ -5,8 +5,19 @@ import { useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/VideoPlayer';
 import TranscriptDisplay from '@/components/TranscriptDisplay';
 import { updateVideo } from '@/app/actions/videos';
-import { deleteVideo as deleteVideoAction } from '@/app/actions/video';
+import { deleteVideo as deleteVideoAction, updateVideoDuration } from '@/app/actions/video';
+import type { VideoVisibility } from '@/lib/sqlite/videos';
 import { Edit3, ArrowLeft, Trash2 } from 'lucide-react';
+
+const VIDEO_VISIBILITY_OPTIONS: Array<{ value: VideoVisibility; label: string }> = [
+  { value: 'public', label: '공개' },
+  { value: 'private', label: '비공개' },
+  { value: 'members_only', label: '회원 공개' },
+];
+
+function getVisibilityLabel(visibility: VideoVisibility): string {
+  return VIDEO_VISIBILITY_OPTIONS.find((option) => option.value === visibility)?.label ?? visibility;
+}
 
 interface TranscriptWithTranslation {
   id: string;
@@ -27,6 +38,8 @@ interface VideoLearningClientProps {
   youtubeId: string;
   title: string;
   description: string | null;
+  visibility: VideoVisibility;
+  canEditVisibility: boolean;
   categoryId: string | null;
   categoryName: string | null;
   channelName: string | null;
@@ -43,6 +56,8 @@ export default function VideoLearningClient({
   youtubeId,
   title,
   description,
+  visibility,
+  canEditVisibility,
   categoryId,
   categoryName,
   channelName,
@@ -55,6 +70,7 @@ export default function VideoLearningClient({
 }: VideoLearningClientProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedTranscriptIndex, setSelectedTranscriptIndex] = useState<number | null>(null);
+  const [durationSyncRequested, setDurationSyncRequested] = useState(false);
   // 반복 상태: none | single | range
   const [repeatState, setRepeatState] = useState<{ type: 'none' | 'single' | 'range', index1: number | null, index2: number | null }>({ type: 'none', index1: null, index2: null });
   
@@ -68,6 +84,7 @@ export default function VideoLearningClient({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState<string>(description || '');
+  const [editVisibility, setEditVisibility] = useState<VideoVisibility>(visibility);
   const [editLanguageId, setEditLanguageId] = useState<number | null>(languageId);
   const [editCategoryId, setEditCategoryId] = useState<string | null>(categoryId);
   const [categories, setCategories] = useState<{ id: string; name: string; language_id: number | null }[]>([]);
@@ -134,6 +151,18 @@ export default function VideoLearningClient({
     setCurrentTime(time);
   }, []);
 
+  const handleDurationReady = useCallback(async (durationSeconds: number) => {
+    if (durationSyncRequested) {
+      return;
+    }
+
+    setDurationSyncRequested(true);
+    await updateVideoDuration({
+      videoId,
+      durationSeconds,
+    });
+  }, [durationSyncRequested, videoId]);
+
   // 스크립트 클릭: 반복 해제 및 해당 문장부터 순차 재생
   const handleSelectTranscript = useCallback((index: number | null) => {
     setSelectedTranscriptIndex(index);
@@ -165,6 +194,7 @@ export default function VideoLearningClient({
   const handleOpenEditModal = () => {
     setEditTitle(title);
     setEditDescription(description || '');
+    setEditVisibility(visibility);
     setEditLanguageId(languageId);
     setEditCategoryId(categoryId);
     setEditModalOpen(true);
@@ -182,6 +212,7 @@ export default function VideoLearningClient({
     const result = await updateVideo({
       videoId,
       title: editTitle.trim(),
+      visibility: editVisibility,
       languageId: editLanguageId,
       categoryId: (editCategoryId === '' || editCategoryId === null) ? null : editCategoryId,
       description: editDescription.trim() || null,
@@ -281,6 +312,7 @@ export default function VideoLearningClient({
           <VideoPlayer
             youtubeId={youtubeId}
             selectedTranscriptIndex={selectedTranscriptIndex}
+            onDurationReady={handleDurationReady}
             transcripts={transcripts}
             onTimeUpdate={handleTimeUpdate}
             repeatState={repeatState}
@@ -350,6 +382,7 @@ export default function VideoLearningClient({
               <VideoPlayer
                 youtubeId={youtubeId}
                 selectedTranscriptIndex={selectedTranscriptIndex}
+                onDurationReady={handleDurationReady}
                 transcripts={transcripts}
                 onTimeUpdate={handleTimeUpdate}
                 repeatState={repeatState}
@@ -419,6 +452,21 @@ export default function VideoLearningClient({
                   placeholder="영상 설명을 입력하세요"
                 />
               </div>
+
+              {canEditVisibility ? (
+                <div>
+                  <label className="block text-sm font-semibold mb-2">공개 범위</label>
+                  <select
+                    value={editVisibility}
+                    onChange={(e) => setEditVisibility(e.target.value as VideoVisibility)}
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  >
+                    {VIDEO_VISIBILITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               {/* 카테고리 */}
               <div>

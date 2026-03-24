@@ -1,8 +1,9 @@
 'use server';
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { revalidatePath } from 'next/cache';
-import { updateVideoSqlite } from '@/lib/sqlite/videos';
+import { type VideoVisibility, updateVideoSqlite } from '@/lib/sqlite/videos';
 
 export interface UpdateVideoInput {
   videoId: string;
@@ -10,6 +11,7 @@ export interface UpdateVideoInput {
   languageId: number | null;
   categoryId?: string | null;
   description?: string | null;
+  visibility: VideoVisibility;
 }
 
 export async function updateVideo(input: UpdateVideoInput) {
@@ -20,12 +22,18 @@ export async function updateVideo(input: UpdateVideoInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
+    const isSuperAdmin = await isSuperAdminSqlite({
+      userId: user.id,
+      email: user.email ?? null,
+    });
+
     await updateVideoSqlite({
       videoId: input.videoId,
       title: input.title,
       languageId: input.languageId,
       categoryId: input.categoryId ?? null,
       description: input.description ?? null,
+      visibility: isSuperAdmin ? input.visibility : 'private',
     });
 
     // 캐시 무효화

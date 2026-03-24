@@ -2,12 +2,19 @@ import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { listVideosByUserCategorySqlite } from '@/lib/sqlite/user-category-videos';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
 
 // 동적 렌더링 강제
 export const dynamic = 'force-dynamic';
+
+interface MyVideosPageProps {
+  searchParams?: Promise<{
+    learningCategoryId?: string;
+  }>;
+}
 
 type VideoItem = {
   id: string;
@@ -53,7 +60,7 @@ function relativeFromNowKo(iso: string | null): string {
   return `${years}년 전`;
 }
 
-export default async function MyVideosPage() {
+export default async function MyVideosPage({ searchParams }: MyVideosPageProps) {
   const user = await getAppUserFromServer();
 
   if (!user) {
@@ -68,9 +75,16 @@ export default async function MyVideosPage() {
     );
   }
 
-  const videos = await listVideosSqlite({ uploaderId: user.id });
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const requestedLearningCategoryId = resolvedSearchParams?.learningCategoryId;
+  const selectedLearningCategoryId = requestedLearningCategoryId ? Number(requestedLearningCategoryId) : null;
+  const shouldFilterByLearningCategory =
+    selectedLearningCategoryId !== null && Number.isFinite(selectedLearningCategoryId);
 
   const categoryRows = await listSqliteCategories('user_categories', user.id);
+  const selectedLearningCategory = shouldFilterByLearningCategory
+    ? categoryRows.find((category) => category.id === selectedLearningCategoryId) ?? null
+    : null;
   const languageRows = await listSqliteLanguages();
   const languageNameMap = new Map(languageRows.map((language) => [language.id, language.name_ko]));
   const categoryMap: Record<string, { name: string; languageName: string }> = {};
@@ -85,21 +99,46 @@ export default async function MyVideosPage() {
 
   // 데이터 변환 및 트랜스크립트 카운트 조회
   const videoList: VideoItem[] = [];
-  
-  for (const video of videos) {
-    videoList.push({
-      id: video.id,
-      youtube_id: video.youtube_id,
-      title: video.title,
-      description: video.description,
-      duration: video.duration,
-      thumbnail_url: video.thumbnail_url,
-      created_at: video.created_at,
-      category_id: video.category_id,
-      category_name: categoryMap[String(video.category_id || '')]?.name || null,
-      language_name: categoryMap[String(video.category_id || '')]?.languageName || null,
-      transcript_count: video.transcript_count || 0,
+
+  if (shouldFilterByLearningCategory && selectedLearningCategory) {
+    const videos = await listVideosByUserCategorySqlite({
+      userId: user.id,
+      categoryId: selectedLearningCategory.id,
     });
+
+    for (const video of videos) {
+      videoList.push({
+        id: video.video_id,
+        youtube_id: video.youtube_id,
+        title: video.title,
+        description: video.description,
+        duration: video.duration,
+        thumbnail_url: video.thumbnail_url,
+        created_at: video.created_at,
+        category_id: video.video_category_id,
+        category_name: categoryMap[String(video.video_category_id || '')]?.name || null,
+        language_name: categoryMap[String(video.video_category_id || '')]?.languageName || null,
+        transcript_count: video.transcript_count || 0,
+      });
+    }
+  } else {
+    const videos = await listVideosSqlite({ uploaderId: user.id });
+  
+    for (const video of videos) {
+      videoList.push({
+        id: video.id,
+        youtube_id: video.youtube_id,
+        title: video.title,
+        description: video.description,
+        duration: video.duration,
+        thumbnail_url: video.thumbnail_url,
+        created_at: video.created_at,
+        category_id: video.category_id,
+        category_name: categoryMap[String(video.category_id || '')]?.name || null,
+        language_name: categoryMap[String(video.category_id || '')]?.languageName || null,
+        transcript_count: video.transcript_count || 0,
+      });
+    }
   }
 
   // 카테고리별로 그룹화
@@ -144,12 +183,43 @@ export default async function MyVideosPage() {
         </div>
       </div>
 
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-gray-700 mr-1">학습 카테고리 필터:</span>
+          <Link
+            href="/my-videos"
+            className={`rounded-full px-3 py-1 text-sm border transition-colors ${
+              !shouldFilterByLearningCategory
+                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                : 'border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-700'
+            }`}
+          >
+            전체
+          </Link>
+          {categoryRows.map((category) => (
+            <Link
+              key={category.id}
+              href={`/my-videos?learningCategoryId=${category.id}`}
+              className={`rounded-full px-3 py-1 text-sm border transition-colors ${
+                selectedLearningCategory?.id === category.id
+                  ? 'border-blue-600 bg-blue-50 text-blue-700'
+                  : 'border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-700'
+              }`}
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* 비디오 목록 */}
       {videoList.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
           <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            아직 등록된 영상이 없습니다
+            {shouldFilterByLearningCategory && selectedLearningCategory
+              ? `${selectedLearningCategory.name} 카테고리에 등록된 영상이 없습니다`
+              : '아직 등록된 영상이 없습니다'}
           </h3>
           <p className="text-gray-500 mb-4">
             첫 영상을 등록하여 학습을 시작해보세요.

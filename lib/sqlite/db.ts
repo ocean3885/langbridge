@@ -238,6 +238,7 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
       youtube_id TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
+      visibility TEXT NOT NULL DEFAULT 'private',
       duration INTEGER,
       thumbnail_url TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -250,6 +251,97 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_videos_created_at
       ON videos(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS user_category_videos (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      category_id INTEGER NOT NULL,
+      video_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, category_id, video_id),
+      FOREIGN KEY (category_id) REFERENCES user_categories(id) ON DELETE CASCADE,
+      FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_category_videos_user_category
+      ON user_category_videos(user_id, category_id, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_user_category_videos_user_video
+      ON user_category_videos(user_id, video_id);
+
+    CREATE INDEX IF NOT EXISTS idx_user_category_videos_video
+      ON user_category_videos(video_id);
+
+    CREATE TRIGGER IF NOT EXISTS trg_user_category_videos_validate_insert
+    BEFORE INSERT ON user_category_videos
+    FOR EACH ROW
+    BEGIN
+      SELECT CASE
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM user_categories uc
+          WHERE uc.id = NEW.category_id
+            AND uc.user_id = NEW.user_id
+        )
+        THEN RAISE(ABORT, 'category does not belong to user')
+      END;
+
+      SELECT CASE
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM videos v
+          WHERE v.id = NEW.video_id
+            AND (v.visibility = 'public' OR v.uploader_id = NEW.user_id)
+        )
+        THEN RAISE(ABORT, 'video not accessible for this user')
+      END;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_user_category_videos_validate_update
+    BEFORE UPDATE OF user_id, category_id, video_id ON user_category_videos
+    FOR EACH ROW
+    BEGIN
+      SELECT CASE
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM user_categories uc
+          WHERE uc.id = NEW.category_id
+            AND uc.user_id = NEW.user_id
+        )
+        THEN RAISE(ABORT, 'category does not belong to user')
+      END;
+
+      SELECT CASE
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM videos v
+          WHERE v.id = NEW.video_id
+            AND (v.visibility = 'public' OR v.uploader_id = NEW.user_id)
+        )
+        THEN RAISE(ABORT, 'video not accessible for this user')
+      END;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_user_category_videos_touch_updated_at
+    AFTER UPDATE ON user_category_videos
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE user_category_videos
+      SET updated_at = CURRENT_TIMESTAMP
+      WHERE id = NEW.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_user_category_videos_prune_on_private
+    AFTER UPDATE OF visibility ON videos
+    FOR EACH ROW
+    WHEN NEW.visibility = 'private'
+    BEGIN
+      DELETE FROM user_category_videos
+      WHERE video_id = NEW.id
+        AND user_id <> COALESCE(NEW.uploader_id, '');
+    END;
 
     CREATE TABLE IF NOT EXISTS edu_videos (
       id TEXT PRIMARY KEY,
@@ -442,6 +534,14 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
       ON super_admin_users(email);
   `);
 
+  await ensureColumnExists(db, 'videos', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
+  await db.run(
+    `
+      UPDATE videos
+      SET visibility = 'private'
+      WHERE visibility IS NULL OR TRIM(visibility) = ''
+    `
+  );
   await ensureColumnExists(db, 'edu_videos', 'duration_seconds', 'INTEGER');
   await migrateEduVideoCategories(db);
 }
@@ -453,6 +553,7 @@ export async function getSqliteDb(): Promise<SqliteDb> {
       await mkdir(path.dirname(dbPath), { recursive: true });
 
       const rawDb = new BetterSqlite3(dbPath);
+      rawDb.pragma('foreign_keys = ON');
       const db = new BetterSqliteDbAdapter(rawDb);
 
       await initializeSchema(db);

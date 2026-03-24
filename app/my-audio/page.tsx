@@ -9,6 +9,7 @@ import {
   updateAudioCategoryForIdsSqlite,
 } from '@/lib/sqlite/audio-content';
 import { listSqliteCategories, updateSqliteCategory } from '@/lib/sqlite/categories';
+import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -269,7 +270,7 @@ export default async function MyAudioPage() {
     const catId = key === 'uncategorized' ? null : Number(key);
     return {
       id: catId,
-      name: catId === null ? '미분류' : (categoryMap[catId]?.name || '알 수 없는 카테고리'),
+      name: catId === null ? DEFAULT_LEARNING_CATEGORY_NAME : (categoryMap[catId]?.name || '알 수 없는 카테고리'),
       languageName: catId === null ? '' : (categoryMap[catId]?.languageName || ''),
       audioList: list
     };

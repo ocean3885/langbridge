@@ -1,8 +1,49 @@
 'use server';
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { revalidatePath } from 'next/cache';
-import { deleteVideoSqlite, insertVideoWithTranscriptsSqlite, updateVideoChannelSqlite } from '@/lib/sqlite/videos';
+import { createSqliteCategory, findSqliteCategoryByName } from '@/lib/sqlite/categories';
+import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
+import {
+  type VideoVisibility,
+  deleteVideoSqlite,
+  insertVideoWithTranscriptsSqlite,
+  updateVideoChannelSqlite,
+  updateVideoDurationSqlite,
+} from '@/lib/sqlite/videos';
+
+async function resolveLearningCategoryId(input: {
+  userId: string;
+  rawCategoryId: string | null | undefined;
+}): Promise<number> {
+  if (input.rawCategoryId) {
+    const parsed = Number(input.rawCategoryId);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  const existing = await findSqliteCategoryByName({
+    table: 'user_categories',
+    userId: input.userId,
+    name: DEFAULT_LEARNING_CATEGORY_NAME,
+    languageId: null,
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  const created = await createSqliteCategory({
+    table: 'user_categories',
+    userId: input.userId,
+    name: DEFAULT_LEARNING_CATEGORY_NAME,
+    languageId: null,
+  });
+
+  return created.id;
+}
 
 /**
  * YouTube URL에서 video ID 추출
@@ -80,6 +121,7 @@ export interface RegisterVideoInput {
   youtubeUrl: string;
   title: string;
   description?: string;
+  visibility?: VideoVisibility;
   // duration은 더 이상 수동 입력하지 않음 (YouTube 메타데이터/추후 자동 처리용)
   duration?: number; // 유지: 향후 자동 수집 시 사용, 현재는 undefined 전달
   transcriptText: string;
@@ -111,6 +153,11 @@ export async function registerVideo(
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
+    const isSuperAdmin = await isSuperAdminSqlite({
+      userId: user.id,
+      email: user.email ?? null,
+    });
+
     // 2. YouTube ID 추출
     const youtubeId = extractYoutubeId(input.youtubeUrl);
     if (!youtubeId) {
@@ -123,14 +170,21 @@ export async function registerVideo(
       return { success: false, error: '유효한 스크립트 데이터가 없습니다.' };
     }
 
+    const learningCategoryId = await resolveLearningCategoryId({
+      userId: user.id,
+      rawCategoryId: input.categoryId ?? null,
+    });
+
     const videoId = await insertVideoWithTranscriptsSqlite({
       youtubeId,
       title: input.title,
       description: input.description || null,
+      visibility: isSuperAdmin ? (input.visibility ?? 'private') : 'private',
       duration: input.duration || null,
-      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
       languageId: input.languageId ?? null,
       categoryId: input.categoryId ?? null,
+      learningCategoryId,
       channelId: input.channelId ?? null,
       uploaderId: user.id,
       transcripts: transcripts.map((t) => ({
@@ -205,6 +259,30 @@ export async function updateVideoChannel(
     return { 
       success: false, 
       error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.' 
+    };
+  }
+}
+
+export async function updateVideoDuration(input: {
+  videoId: string;
+  durationSeconds: number;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getAppUserFromServer();
+    if (!user) {
+      return { success: false, error: '로그인이 필요합니다.' };
+    }
+
+    await updateVideoDurationSqlite(input.videoId, input.durationSeconds);
+
+    revalidatePath('/my-videos');
+    revalidatePath(`/my-videos/${input.videoId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Update video duration error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
     };
   }
 }

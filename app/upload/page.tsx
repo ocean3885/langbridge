@@ -2,6 +2,7 @@
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { redirect } from 'next/navigation';
 import UploadTabs from './UploadTabs';
 
@@ -18,12 +19,14 @@ export default async function UploadPage() {
   let videoCategories = await listSqliteCategories('user_categories', user.id);
 
   const languages = await listSqliteLanguages();
+  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
 
   return (
     <UploadTabs
       audioCategories={audioCategories || []}
       videoCategories={videoCategories || []}
       initialLanguages={languages}
+      canSelectVideoVisibility={isSuperAdmin}
     />
   );
 }

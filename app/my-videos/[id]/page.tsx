@@ -30,8 +30,10 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
 
   const user = await getAppUserFromServer();
   let isAdmin = false;
+  let canEditVisibility = false;
   if (user) {
-    isAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    canEditVisibility = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    isAdmin = canEditVisibility;
   }
 
   const isOwner = Boolean(user && video.uploader_id && user.id === video.uploader_id);
@@ -45,6 +47,8 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
       youtubeId={video.youtube_id}
       title={video.title}
       description={video.description}
+      visibility={video.visibility}
+      canEditVisibility={canEditVisibility}
       categoryId={video.category_id ?? null}
       categoryName={categoryData?.name || null}
       channelName={channelData?.channel_name || null}

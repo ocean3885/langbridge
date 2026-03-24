@@ -45,7 +45,7 @@ export async function registerEduVideo(
       youtubeUrl: input.youtubeUrl,
       title: input.title,
       description: input.description || null,
-      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
       languageId: input.languageId ?? null,
       categoryId: input.categoryId ?? null,
       channelId: input.channelId ?? null,
@@ -164,7 +164,7 @@ export async function updateEduVideo(input: {
       languageId: input.languageId ?? null,
       categoryId: input.categoryId ?? null,
       channelId: input.channelId ?? null,
-      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
     });
 
     revalidatePath('/admin/videos');

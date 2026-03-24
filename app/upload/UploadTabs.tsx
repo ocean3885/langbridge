@@ -13,12 +13,14 @@ interface UploadTabsProps {
   audioCategories: Array<{ id: number; name: string; language_id: number | null }>;
   videoCategories: Array<{ id: number; name: string; language_id: number | null }>;
   initialLanguages: Array<{ id: number; name_ko: string; code: string }>;
+  canSelectVideoVisibility: boolean;
 }
 
 export default function UploadTabs({ 
   audioCategories,
   videoCategories,
-  initialLanguages
+  initialLanguages,
+  canSelectVideoVisibility,
 }: UploadTabsProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -108,6 +110,7 @@ export default function UploadTabs({
             <VideoUploadFormWrapper
               initialCategories={videoCategories}
               initialLanguages={initialLanguages}
+              canSelectVisibility={canSelectVideoVisibility}
             />
           </div>
         )}

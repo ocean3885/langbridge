@@ -21,6 +21,7 @@ export interface VideoWithTranscripts {
   youtube_id: string;
   title: string;
   description: string | null;
+  visibility: 'public' | 'private' | 'members_only';
   duration: number | null;
   thumbnail_url: string | null;
   created_at: string;
@@ -74,6 +75,7 @@ export async function getAllVideos(): Promise<{
     youtube_id: string;
     title: string;
     description: string | null;
+    visibility: 'public' | 'private' | 'members_only';
     duration: number | null;
     thumbnail_url: string | null;
     created_at: string;
@@ -93,6 +95,7 @@ export async function getAllVideos(): Promise<{
       youtube_id: video.youtube_id,
       title: video.title,
       description: video.description,
+      visibility: video.visibility,
       duration: video.duration,
       thumbnail_url: video.thumbnail_url,
       created_at: video.created_at,

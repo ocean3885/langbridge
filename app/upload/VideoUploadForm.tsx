@@ -1,29 +1,184 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import YouTube, { YouTubePlayer, YouTubeProps } from 'react-youtube';
 import { registerVideo } from '@/app/actions/video';
+
+const VIDEO_VISIBILITY_OPTIONS = [
+  { value: 'public', label: '공개' },
+  { value: 'private', label: '비공개' },
+  { value: 'members_only', label: '회원 공개' },
+] as const;
 
 interface VideoUploadFormProps {
   languages: Array<{ id: number; name_ko: string; code: string }>;
   categories: Array<{ id: number | string; name: string; language_id?: number | null }>;
+  canSelectVisibility: boolean;
 }
 
-export default function VideoUploadForm({ languages, categories }: VideoUploadFormProps) {
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function DurationLoader({
+  youtubeId,
+  onReady,
+  onError,
+}: {
+  youtubeId: string;
+  onReady: (durationSeconds: number) => void;
+  onError: () => void;
+}) {
+  const playerRef = useRef<YouTubePlayer | null>(null);
+  const reportedRef = useRef(false);
+  const errorReportedRef = useRef(false);
+
+  useEffect(() => {
+    reportedRef.current = false;
+    errorReportedRef.current = false;
+
+    const intervalId = window.setInterval(() => {
+      void reportDuration();
+    }, 500);
+
+    const timeoutId = window.setTimeout(() => {
+      if (!reportedRef.current && !errorReportedRef.current) {
+        errorReportedRef.current = true;
+        onError();
+      }
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {
+          // ignore
+        }
+        playerRef.current = null;
+      }
+    };
+  }, [youtubeId]);
+
+  const reportDuration = async () => {
+    if (!playerRef.current || reportedRef.current) {
+      return;
+    }
+
+    try {
+      const duration = await playerRef.current.getDuration();
+      if (duration > 0) {
+        reportedRef.current = true;
+        onReady(Math.floor(duration));
+      }
+    } catch {
+      if (!errorReportedRef.current) {
+        errorReportedRef.current = true;
+        onError();
+      }
+    }
+  };
+
+  const handleReady: YouTubeProps['onReady'] = (event) => {
+    playerRef.current = event.target;
+    window.setTimeout(() => {
+      void reportDuration();
+    }, 300);
+  };
+
+  const handleStateChange: YouTubeProps['onStateChange'] = () => {
+    void reportDuration();
+  };
+
+  const handleError: YouTubeProps['onError'] = () => {
+    if (!errorReportedRef.current) {
+      errorReportedRef.current = true;
+      onError();
+    }
+  };
+
+  return (
+    <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-px w-px overflow-hidden">
+      <YouTube
+        key={youtubeId}
+        videoId={youtubeId}
+        opts={{
+          width: '1',
+          height: '1',
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1,
+          },
+        }}
+        onReady={handleReady}
+        onStateChange={handleStateChange}
+        onError={handleError}
+      />
+    </div>
+  );
+}
+
+export default function VideoUploadForm({ languages, categories, canSelectVisibility }: VideoUploadFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
+  const [durationStatus, setDurationStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [formData, setFormData] = useState({
     youtubeUrl: '',
     title: '',
     description: '',
+    visibility: 'private' as 'public' | 'private' | 'members_only',
     lang: 'ko',
     videoLanguageId: '',
     categoryId: '',
     transcriptFile: null as File | null,
   });
+  const youtubeId = extractYoutubeId(formData.youtubeUrl);
+
+  useEffect(() => {
+    if (!formData.youtubeUrl.trim()) {
+      setDurationSeconds(null);
+      setDurationStatus('idle');
+      return;
+    }
+
+    if (!youtubeId) {
+      setDurationSeconds(null);
+      setDurationStatus('idle');
+      return;
+    }
+
+    setDurationSeconds(null);
+    setDurationStatus('loading');
+  }, [formData.youtubeUrl, youtubeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (youtubeId && durationStatus === 'loading') {
+      alert('영상 길이를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -40,6 +195,8 @@ export default function VideoUploadForm({ languages, categories }: VideoUploadFo
         youtubeUrl: formData.youtubeUrl,
         title: formData.title,
         description: formData.description || undefined,
+        visibility: formData.visibility,
+        duration: durationSeconds ?? undefined,
         transcriptText: transcriptText,
         lang: formData.lang || 'ko',
         languageId: formData.videoLanguageId ? Number(formData.videoLanguageId) : null,
@@ -185,6 +342,17 @@ export default function VideoUploadForm({ languages, categories }: VideoUploadFo
         <p className="text-sm text-gray-500 mt-1">
           YouTube 영상 URL을 입력하세요
         </p>
+            {youtubeId && durationStatus === 'loading' && (
+              <p className="text-sm text-blue-600 mt-1">영상 길이를 불러오는 중입니다.</p>
+            )}
+            {youtubeId && durationStatus === 'ready' && durationSeconds !== null && (
+              <p className="text-sm text-green-600 mt-1">영상 길이: {Math.floor(durationSeconds / 60)}분 {durationSeconds % 60}초</p>
+            )}
+            {youtubeId && durationStatus === 'error' && (
+              <p className="text-sm text-amber-600 mt-1">
+                영상 길이를 자동으로 가져오지 못했습니다. 이번 등록은 길이 없이 저장됩니다.
+              </p>
+            )}
       </div>
 
       {/* 제목 */}
@@ -219,6 +387,25 @@ export default function VideoUploadForm({ languages, categories }: VideoUploadFo
           className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none"
         />
       </div>
+
+      {canSelectVisibility ? (
+        <div>
+          <label htmlFor="visibility" className="block text-sm font-medium mb-2">
+            공개 범위
+          </label>
+          <select
+            id="visibility"
+            name="visibility"
+            value={formData.visibility}
+            onChange={handleChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          >
+            {VIDEO_VISIBILITY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       {/* 카테고리 */}
       <div>
@@ -304,12 +491,26 @@ export default function VideoUploadForm({ languages, categories }: VideoUploadFo
       <div className="flex gap-4">
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || durationStatus === 'loading'}
           className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
         >
           {isSubmitting ? '등록 중...' : '영상 등록'}
         </button>
       </div>
+
+      {youtubeId && durationStatus !== 'idle' && (
+        <DurationLoader
+          youtubeId={youtubeId}
+          onReady={(duration) => {
+            setDurationSeconds(duration);
+            setDurationStatus('ready');
+          }}
+          onError={() => {
+            setDurationSeconds(null);
+            setDurationStatus('error');
+          }}
+        />
+      )}
 
       {/* 도움말 */}
       <div className="mt-6 p-4 bg-blue-50 rounded-lg">

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 
 type Category = {
   id: number;
@@ -115,7 +116,7 @@ export default function CategoryChangeModal({ isOpen, onClose, onConfirm, select
                 onChange={() => setSelectedCategoryId(null)}
                 className="w-4 h-4"
               />
-              <span className="text-sm">미분류</span>
+              <span className="text-sm">{DEFAULT_LEARNING_CATEGORY_NAME}</span>
             </label>
             {categories.map(cat => (
               <label

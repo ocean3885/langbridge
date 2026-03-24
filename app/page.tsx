@@ -1,4 +1,5 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -97,7 +98,7 @@ export default async function HomePage() {
       const catId = key === 'uncategorized' ? null : Number(key);
       return {
         id: catId,
-          name: catId === null ? '미분류' : (categoryMap[catId]?.name || '알 수 없는 카테고리'),
+          name: catId === null ? DEFAULT_LEARNING_CATEGORY_NAME : (categoryMap[catId]?.name || '알 수 없는 카테고리'),
           languageName: catId === null ? '' : (categoryMap[catId]?.languageName || ''),
         audioList: list
       };
@@ -144,7 +145,7 @@ export default async function HomePage() {
       const catId = key === 'uncategorized' ? null : Number(key);
       return {
         id: catId,
-        name: catId === null ? '미분류' : (videoCategoryMap[String(catId)]?.name || '알 수 없는 카테고리'),
+        name: catId === null ? DEFAULT_LEARNING_CATEGORY_NAME : (videoCategoryMap[String(catId)]?.name || '알 수 없는 카테고리'),
         languageName: catId === null ? '' : (videoCategoryMap[String(catId)]?.languageName || ''),
         videoList: list
       };

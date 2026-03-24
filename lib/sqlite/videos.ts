@@ -1,11 +1,14 @@
 import { randomUUID } from 'crypto';
 import { getSqliteDb } from '@/lib/sqlite/db';
 
+export type VideoVisibility = 'public' | 'private' | 'members_only';
+
 export type SqliteVideo = {
   id: string;
   youtube_id: string;
   title: string;
   description: string | null;
+  visibility: VideoVisibility;
   duration: number | null;
   thumbnail_url: string | null;
   created_at: string;
@@ -38,10 +41,12 @@ export async function insertVideoWithTranscriptsSqlite(input: {
   youtubeId: string;
   title: string;
   description?: string | null;
+  visibility?: VideoVisibility;
   duration?: number | null;
   thumbnailUrl?: string | null;
   languageId?: number | null;
   categoryId?: string | null;
+  learningCategoryId?: number | null;
   channelId?: string | null;
   uploaderId?: string | null;
   transcripts: Array<{ start: number; duration: number; textOriginal: string; orderIndex: number; textTranslated: string; lang: string }>;
@@ -54,15 +59,16 @@ export async function insertVideoWithTranscriptsSqlite(input: {
     await db.run(
       `
         INSERT INTO videos (
-          id, youtube_id, title, description, duration, thumbnail_url,
+          id, youtube_id, title, description, visibility, duration, thumbnail_url,
           language_id, category_id, channel_id, uploader_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       videoId,
       input.youtubeId,
       input.title,
       input.description ?? null,
+      input.visibility ?? 'private',
       input.duration ?? null,
       input.thumbnailUrl ?? null,
       input.languageId ?? null,
@@ -95,6 +101,28 @@ export async function insertVideoWithTranscriptsSqlite(input: {
         transcriptId,
         item.lang,
         item.textTranslated
+      );
+    }
+
+    if (typeof input.learningCategoryId === 'number' && input.uploaderId) {
+      await db.run(
+        `
+          INSERT INTO user_category_videos (
+            id,
+            user_id,
+            category_id,
+            video_id,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(user_id, category_id, video_id) DO UPDATE SET
+            updated_at = CURRENT_TIMESTAMP
+        `,
+        randomUUID(),
+        input.uploaderId,
+        input.learningCategoryId,
+        videoId
       );
     }
 
@@ -133,6 +161,20 @@ export async function incrementVideoViewCountSqlite(videoId: string): Promise<vo
   await db.run(`UPDATE videos SET view_count = COALESCE(view_count, 0) + 1 WHERE id = ?`, videoId);
 }
 
+export async function updateVideoDurationSqlite(videoId: string, durationSeconds: number): Promise<void> {
+  const db = await getSqliteDb();
+  await db.run(
+    `
+      UPDATE videos
+      SET duration = ?
+      WHERE id = ?
+        AND (duration IS NULL OR duration <= 0)
+    `,
+    Math.max(0, Math.floor(durationSeconds)),
+    videoId
+  );
+}
+
 export async function getVideoWithTranscriptsSqlite(videoId: string): Promise<{
   video: SqliteVideo | null;
   transcripts: Array<SqliteTranscript & { translations: SqliteTranslation[] }>;
@@ -140,7 +182,7 @@ export async function getVideoWithTranscriptsSqlite(videoId: string): Promise<{
   const db = await getSqliteDb();
   const video = await db.get<SqliteVideo>(
     `
-      SELECT id, youtube_id, title, description, duration, thumbnail_url,
+      SELECT id, youtube_id, title, description, visibility, duration, thumbnail_url,
              created_at, language_id, category_id, channel_id, view_count, uploader_id
       FROM videos
       WHERE id = ?
@@ -198,7 +240,7 @@ export async function getAllVideosSqlite(): Promise<Array<SqliteVideo & { transc
   const db = await getSqliteDb();
   const videos = await db.all<SqliteVideo[]>(
     `
-      SELECT id, youtube_id, title, description, duration, thumbnail_url,
+      SELECT id, youtube_id, title, description, visibility, duration, thumbnail_url,
              created_at, language_id, category_id, channel_id, view_count, uploader_id
       FROM videos
       ORDER BY created_at DESC
@@ -268,7 +310,7 @@ export async function listVideosSqlite(input?: {
 
   const videos = await db.all<SqliteVideo[]>(
     `
-      SELECT v.id, v.youtube_id, v.title, v.description, v.duration, v.thumbnail_url,
+      SELECT v.id, v.youtube_id, v.title, v.description, v.visibility, v.duration, v.thumbnail_url,
              v.created_at, v.language_id, v.category_id, v.channel_id, v.view_count, v.uploader_id,
              vc.channel_name AS channel_name,
              l.name_ko AS language_name
@@ -311,6 +353,7 @@ export async function updateVideoSqlite(input: {
   languageId: number | null;
   categoryId?: string | null;
   description?: string | null;
+  visibility: VideoVisibility;
 }): Promise<void> {
   const db = await getSqliteDb();
   await db.run(
@@ -319,13 +362,15 @@ export async function updateVideoSqlite(input: {
       SET title = ?,
           language_id = ?,
           category_id = ?,
-          description = ?
+          description = ?,
+          visibility = ?
       WHERE id = ?
     `,
     input.title,
     input.languageId,
     input.categoryId ?? null,
     input.description ?? null,
+    input.visibility,
     input.videoId
   );
 }

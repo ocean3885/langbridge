@@ -1,0 +1,1 @@
+export const DEFAULT_LEARNING_CATEGORY_NAME = '미분류';
