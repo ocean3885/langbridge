@@ -35,6 +35,9 @@ ssh $REMOTE_USER@$SERVER_IP << EOF
   # If existing posts still point thumbnailUrl to original images,
   # run this once to generate thumbnail files and update the DB.
   # npm run backfill:thumbnails
+
+  # 브라우저 리스트 DB 업데이트 (추가된 부분)
+  npx update-browserslist-db@latest -y
   
   echo "Building application..."
   npm run build

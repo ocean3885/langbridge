@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { recordCorrectAnswer, recordWrongAnswer, updateScriptContent, deleteScriptProgress } from '@/app/actions/script-progress';
-import { ArrowLeft, ChevronLeft, RotateCcw, SkipForward, Check, X, Trophy, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, RotateCcw, SkipForward, Check, X, Trophy, Pencil, Trash2, Star } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -49,6 +49,8 @@ function tokenize(sentence: string): string[] {
   return sentence.split(/\s+/).filter(Boolean);
 }
 
+const MAX_SCRAMBLE = 10;
+
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function WordScrambleClient({ videoId, videoTitle, languageName, scripts: initialScripts, isReviewMode }: Props) {
@@ -57,6 +59,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedWords, setSelectedWords] = useState<WordToken[]>([]);
   const [availableWords, setAvailableWords] = useState<WordToken[]>([]);
+  const [hintSlots, setHintSlots] = useState<Map<number, WordToken>>(new Map());
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
@@ -73,6 +76,9 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
   // 삭제 상태
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const scriptsRef = useRef(scripts);
+  scriptsRef.current = scripts;
+
   const currentScript = scripts[currentIndex];
   const total = scripts.length;
   const progressPercent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
@@ -80,19 +86,57 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
   // 원문 단어 배열 (정답)
   const correctWords = useMemo(() => tokenize(currentScript?.customContent ?? ''), [currentScript]);
 
+  // 힌트 포함 슬롯 배열 (10+ 단어 문장용)
+  const answerSlots = useMemo(() => {
+    if (hintSlots.size === 0) return null;
+    let userIdx = 0;
+    return correctWords.map((_, slotIdx) => {
+      if (hintSlots.has(slotIdx)) {
+        return { type: 'hint' as const, word: hintSlots.get(slotIdx)!, slotIdx };
+      }
+      const word = userIdx < selectedWords.length ? selectedWords[userIdx] : null;
+      userIdx++;
+      return { type: word ? ('user' as const) : ('empty' as const), word, slotIdx };
+    });
+  }, [hintSlots, correctWords, selectedWords]);
+
   // 새 문장 세팅
   const initQuestion = useCallback(
     (index: number) => {
-      const script = scripts[index];
+      const script = scriptsRef.current[index];
       if (!script) return;
       const words = tokenize(script.customContent);
       const tokens: WordToken[] = words.map((w, i) => ({ id: i, text: w }));
-      setSelectedWords([]);
-      setAvailableWords(shuffleArray(tokens));
+
+      if (tokens.length > MAX_SCRAMBLE) {
+        // 10개 초과: 랜덤 10개만 배열 대상, 나머지는 힌트로 고정
+        const indices = tokens.map((_, i) => i);
+        const shuffledIndices = shuffleArray(indices);
+        const scrambleSet = new Set(shuffledIndices.slice(0, MAX_SCRAMBLE));
+
+        const hints = new Map<number, WordToken>();
+        const scrambleTokens: WordToken[] = [];
+        tokens.forEach((token, i) => {
+          if (scrambleSet.has(i)) {
+            scrambleTokens.push(token);
+          } else {
+            hints.set(i, token);
+          }
+        });
+
+        setHintSlots(hints);
+        setSelectedWords([]);
+        setAvailableWords(shuffleArray(scrambleTokens));
+      } else {
+        setHintSlots(new Map());
+        setSelectedWords([]);
+        setAvailableWords(shuffleArray(tokens));
+      }
+
       setResult(null);
       startTimeRef.current = Date.now();
     },
-    [scripts],
+    [],
   );
 
   // 첫 렌더 + currentIndex 변경 시 초기화
@@ -140,28 +184,58 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
     if (isChecking || !currentScript) return;
     setIsChecking(true);
 
-    const userAnswer = selectedWords.map((w) => w.text).join(' ');
+    // 힌트 슬롯 포함 전체 문장 재구성
+    const fullAnswer: string[] = [];
+    let userIdx = 0;
+    for (let i = 0; i < correctWords.length; i++) {
+      if (hintSlots.has(i)) {
+        fullAnswer.push(hintSlots.get(i)!.text);
+      } else if (userIdx < selectedWords.length) {
+        fullAnswer.push(selectedWords[userIdx].text);
+        userIdx++;
+      }
+    }
+    const userAnswer = fullAnswer.join(' ');
     const correctAnswer = correctWords.join(' ');
     const isCorrect = userAnswer === correctAnswer;
 
-    // TPW 계산 (단어당 소요 시간)
+    // TPW 계산 (배열 대상 단어 수 기준)
     const elapsedMs = Date.now() - startTimeRef.current;
-    const tpw = correctWords.length > 0 ? elapsedMs / 1000 / correctWords.length : null;
+    const scrambleCount = correctWords.length - hintSlots.size;
+    const tpw = scrambleCount > 0 ? elapsedMs / 1000 / scrambleCount : null;
 
     setResult(isCorrect ? 'correct' : 'wrong');
 
     try {
       if (isCorrect) {
-        await recordCorrectAnswer(currentScript.id, tpw);
+        const res = await recordCorrectAnswer(currentScript.id, tpw);
+        if (res.success) {
+          setScripts((prev) =>
+            prev.map((s) =>
+              s.id === currentScript.id
+                ? { ...s, consecutiveCorrect: res.data.consecutive_correct, status: res.data.status }
+                : s
+            )
+          );
+        }
       } else {
-        await recordWrongAnswer(currentScript.id);
+        const res = await recordWrongAnswer(currentScript.id);
+        if (res.success) {
+          setScripts((prev) =>
+            prev.map((s) =>
+              s.id === currentScript.id
+                ? { ...s, consecutiveCorrect: 0, status: 'learning' }
+                : s
+            )
+          );
+        }
       }
     } catch (err) {
       console.error('Failed to record answer:', err);
     }
 
     setIsChecking(false);
-  }, [isChecking, currentScript, selectedWords, correctWords]);
+  }, [isChecking, currentScript, selectedWords, correctWords, hintSlots]);
 
   const goNext = useCallback(() => {
     setResult(null);
@@ -297,8 +371,22 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         />
       </div>
 
-      {/* 수정 / 삭제 */}
-      <div className="flex justify-end gap-1 -mb-4">
+      {/* 별 + 수정 / 삭제 */}
+      <div className="flex items-center justify-between -mb-4">
+        {/* 연속 정답 별 표시 */}
+        <div className="flex gap-0.5">
+          {[0, 1, 2].map((i) => (
+            <Star
+              key={i}
+              className={`w-4 h-4 transition-colors ${
+                i < Math.min(currentScript.consecutiveCorrect, 3)
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'fill-none text-gray-300 dark:text-gray-600'
+              }`}
+            />
+          ))}
+        </div>
+        <div className="flex gap-1">
         <button
           onClick={openEditModal}
           disabled={isChecking}
@@ -315,6 +403,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+        </div>
       </div>
 
       {/* Question: 번역문 */}
@@ -333,27 +422,69 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
               : 'border-muted-foreground/30'
         }`}
       >
-        <AnimatePresence mode="popLayout">
-          {selectedWords.map((word) => (
-            <motion.button
-              key={`sel-${word.id}`}
-              layout
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              onClick={() => !isChecking && deselectWord(word)}
-              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
-              disabled={isChecking}
-            >
-              {word.text}
-            </motion.button>
-          ))}
-        </AnimatePresence>
-        {selectedWords.length === 0 && (
-          <p className="text-muted-foreground text-sm w-full text-center py-4">
-            아래에서 단어를 선택하세요
-          </p>
+        {answerSlots ? (
+          /* 10+ 단어: 슬롯 기반 렌더링 (힌트 + 사용자 배치 + 빈칸) */
+          answerSlots.map((slot) => {
+            if (slot.type === 'hint') {
+              return (
+                <span
+                  key={`hint-${slot.slotIdx}`}
+                  className="px-3 py-1.5 border border-dashed border-muted-foreground/40 rounded-lg text-sm font-medium text-muted-foreground/60 bg-muted/30"
+                >
+                  {slot.word!.text}
+                </span>
+              );
+            }
+            if (slot.type === 'user') {
+              return (
+                <motion.button
+                  key={`sel-${slot.word!.id}`}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  onClick={() => !isChecking && deselectWord(slot.word!)}
+                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                  disabled={isChecking}
+                >
+                  {slot.word!.text}
+                </motion.button>
+              );
+            }
+            return (
+              <span
+                key={`empty-${slot.slotIdx}`}
+                className="px-3 py-1.5 border border-dashed border-muted-foreground/20 rounded-lg text-sm min-w-[40px] h-[34px]"
+              />
+            );
+          })
+        ) : (
+          /* 10개 이하: 기존 방식 */
+          <>
+            <AnimatePresence mode="popLayout">
+              {selectedWords.map((word) => (
+                <motion.button
+                  key={`sel-${word.id}`}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  onClick={() => !isChecking && deselectWord(word)}
+                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                  disabled={isChecking}
+                >
+                  {word.text}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+            {selectedWords.length === 0 && (
+              <p className="text-muted-foreground text-sm w-full text-center py-4">
+                아래에서 단어를 선택하세요
+              </p>
+            )}
+          </>
         )}
       </div>
 

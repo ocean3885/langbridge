@@ -3,6 +3,7 @@
 import { randomUUID } from 'crypto';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { getSqliteDb } from '@/lib/sqlite/db';
+import { refreshVideoProgress } from '@/lib/sqlite/video-progress';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -18,6 +19,17 @@ export type ScriptProgressRow = {
   best_tpw: number | null;
   is_deleted: number; // 0 or 1
   order_index: number;
+  total_attempts: number;
+  correct_count: number;
+  wrong_count: number;
+  best_consecutive_correct: number;
+  last_answer_at: string | null;
+  last_answer_correct: number | null; // 0 or 1
+  first_mastered_at: string | null;
+  mastered_count: number;
+  total_tpw: number;
+  tpw_sample_count: number;
+  avg_tpw: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -191,6 +203,7 @@ export async function deleteScriptProgress(progressId: string): Promise<ActionRe
 /**
  * 정답 시: consecutive_correct +1, 3회 달성 시 status='mastered'
  * best_tpw 갱신 (기존보다 낮을 때만)
+ * 집계 컬럼 & attempts 히스토리 동시 기록
  */
 export async function recordCorrectAnswer(
   progressId: string,
@@ -212,23 +225,66 @@ export async function recordCorrectAnswer(
   const newStatus = newConsecutive >= 3 ? 'mastered' : row.status;
   const newBestTpw =
     tpw !== null && (row.best_tpw === null || tpw < row.best_tpw) ? tpw : row.best_tpw;
+  const newBestConsecutive = Math.max(row.best_consecutive_correct, newConsecutive);
+  const newTotalAttempts = row.total_attempts + 1;
+  const newCorrectCount = row.correct_count + 1;
+  const newTotalTpw = tpw !== null ? row.total_tpw + tpw : row.total_tpw;
+  const newTpwSampleCount = tpw !== null ? row.tpw_sample_count + 1 : row.tpw_sample_count;
+  const newAvgTpw = newTpwSampleCount > 0 ? newTotalTpw / newTpwSampleCount : null;
+  const isFirstMastered = newStatus === 'mastered' && row.status !== 'mastered';
+  const newFirstMasteredAt = isFirstMastered && !row.first_mastered_at
+    ? new Date().toISOString()
+    : row.first_mastered_at;
+  const newMasteredCount = isFirstMastered ? row.mastered_count + 1 : row.mastered_count;
+
+  // attempts 히스토리 기록
+  await db.run(
+    `INSERT INTO script_progress_attempts (id, progress_id, user_id, video_id, script_id, attempt_no, is_correct, tpw)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+    randomUUID(),
+    progressId,
+    user.id,
+    row.video_id,
+    row.script_id,
+    newTotalAttempts,
+    tpw,
+  );
 
   await db.run(
     `UPDATE script_progress
-     SET consecutive_correct = ?, status = ?, best_tpw = ?, updated_at = CURRENT_TIMESTAMP
+     SET consecutive_correct = ?, status = ?, best_tpw = ?,
+         total_attempts = ?, correct_count = ?,
+         best_consecutive_correct = ?,
+         last_answer_at = CURRENT_TIMESTAMP, last_answer_correct = 1,
+         first_mastered_at = COALESCE(first_mastered_at, ?),
+         mastered_count = ?,
+         total_tpw = ?, tpw_sample_count = ?, avg_tpw = ?,
+         updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND user_id = ?`,
     newConsecutive,
     newStatus,
     newBestTpw,
+    newTotalAttempts,
+    newCorrectCount,
+    newBestConsecutive,
+    newFirstMasteredAt,
+    newMasteredCount,
+    newTotalTpw,
+    newTpwSampleCount,
+    newAvgTpw,
     progressId,
     user.id,
   );
+
+  // video_progress 집계 갱신
+  await refreshVideoProgress(user.id, row.video_id, progressId);
 
   return { success: true, data: { status: newStatus, consecutive_correct: newConsecutive } };
 }
 
 /**
  * 오답 시: consecutive_correct=0, status='learning'
+ * 집계 컬럼 & attempts 히스토리 동시 기록
  */
 export async function recordWrongAnswer(
   progressId: string,
@@ -237,14 +293,45 @@ export async function recordWrongAnswer(
   if (!user) return { success: false, error: '로그인이 필요합니다.' };
 
   const db = await getSqliteDb();
-  const { changes } = await db.run(
-    `UPDATE script_progress
-     SET consecutive_correct = 0, status = 'learning', updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND user_id = ?`,
+
+  const row = await db.get<ScriptProgressRow>(
+    `SELECT * FROM script_progress WHERE id = ? AND user_id = ?`,
     progressId,
     user.id,
   );
-  if (changes === 0) return { success: false, error: '데이터를 찾을 수 없습니다.' };
+  if (!row) return { success: false, error: '데이터를 찾을 수 없습니다.' };
+
+  const newTotalAttempts = row.total_attempts + 1;
+  const newWrongCount = row.wrong_count + 1;
+
+  // attempts 히스토리 기록
+  await db.run(
+    `INSERT INTO script_progress_attempts (id, progress_id, user_id, video_id, script_id, attempt_no, is_correct, tpw)
+     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)`,
+    randomUUID(),
+    progressId,
+    user.id,
+    row.video_id,
+    row.script_id,
+    newTotalAttempts,
+  );
+
+  await db.run(
+    `UPDATE script_progress
+     SET consecutive_correct = 0, status = 'learning',
+         total_attempts = ?, wrong_count = ?,
+         last_answer_at = CURRENT_TIMESTAMP, last_answer_correct = 0,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND user_id = ?`,
+    newTotalAttempts,
+    newWrongCount,
+    progressId,
+    user.id,
+  );
+
+  // video_progress 집계 갱신
+  await refreshVideoProgress(user.id, row.video_id, progressId);
+
   return { success: true, data: { status: 'learning', consecutive_correct: 0 } };
 }
 
