@@ -156,6 +156,88 @@ async function migrateEduVideoCategories(db: SqliteDb): Promise<void> {
   }
 }
 
+async function ensureUserNotesForeignKeys(db: SqliteDb): Promise<void> {
+  const foreignKeys = await db.all<
+    Array<{ table: string; from: string; on_delete: string }>
+  >(`PRAGMA foreign_key_list(user_notes)`);
+
+  const hasVideoCascade = foreignKeys.some(
+    (foreignKey) =>
+      foreignKey.table === 'videos' &&
+      foreignKey.from === 'video_id' &&
+      foreignKey.on_delete.toUpperCase() === 'CASCADE'
+  );
+  const hasTranscriptCascade = foreignKeys.some(
+    (foreignKey) =>
+      foreignKey.table === 'transcripts' &&
+      foreignKey.from === 'transcript_id' &&
+      foreignKey.on_delete.toUpperCase() === 'CASCADE'
+  );
+
+  if (hasVideoCascade && hasTranscriptCascade) {
+    return;
+  }
+
+  await db.exec('BEGIN');
+
+  try {
+    await db.exec(`
+      DROP TABLE IF EXISTS user_notes__new;
+
+      CREATE TABLE user_notes__new (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        video_id TEXT NOT NULL,
+        transcript_id TEXT,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, video_id, transcript_id),
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+        FOREIGN KEY (transcript_id) REFERENCES transcripts(id) ON DELETE CASCADE
+      );
+
+      INSERT OR IGNORE INTO user_notes__new (
+        id,
+        user_id,
+        video_id,
+        transcript_id,
+        content,
+        created_at,
+        updated_at
+      )
+      SELECT
+        un.id,
+        un.user_id,
+        un.video_id,
+        un.transcript_id,
+        un.content,
+        un.created_at,
+        un.updated_at
+      FROM user_notes un
+      INNER JOIN videos v
+        ON v.id = un.video_id
+      LEFT JOIN transcripts t
+        ON t.id = un.transcript_id
+      WHERE un.transcript_id IS NULL OR t.id IS NOT NULL;
+
+      DROP TABLE user_notes;
+      ALTER TABLE user_notes__new RENAME TO user_notes;
+
+      CREATE INDEX IF NOT EXISTS idx_user_notes_user_video
+        ON user_notes(user_id, video_id);
+
+      CREATE INDEX IF NOT EXISTS idx_user_notes_transcript
+        ON user_notes(transcript_id);
+    `);
+
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 async function initializeSchema(db: SqliteDb): Promise<void> {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_notes (
@@ -166,7 +248,9 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, video_id, transcript_id)
+      UNIQUE(user_id, video_id, transcript_id),
+      FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+      FOREIGN KEY (transcript_id) REFERENCES transcripts(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_notes_user_video
@@ -532,6 +616,28 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_super_admin_users_email
       ON super_admin_users(email);
+
+    CREATE TABLE IF NOT EXISTS script_progress (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      script_id TEXT,
+      custom_content TEXT NOT NULL,
+      custom_translation TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'learning',
+      consecutive_correct INTEGER NOT NULL DEFAULT 0,
+      best_tpw REAL,
+      is_deleted INTEGER NOT NULL DEFAULT 0,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_script_progress_user_video
+      ON script_progress(user_id, video_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_script_progress_user_script
+      ON script_progress(user_id, script_id);
   `);
 
   await ensureColumnExists(db, 'videos', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
@@ -543,6 +649,7 @@ async function initializeSchema(db: SqliteDb): Promise<void> {
     `
   );
   await ensureColumnExists(db, 'edu_videos', 'duration_seconds', 'INTEGER');
+  await ensureUserNotesForeignKeys(db);
   await migrateEduVideoCategories(db);
 }
 

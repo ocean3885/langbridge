@@ -54,6 +54,7 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
       channelName={channelData?.channel_name || null}
       viewCount={video.view_count}
       languageId={video.language_id}
+      duration={video.duration ?? null}
       transcripts={video.transcripts}
       userNotes={userNotes}
       isAdmin={isAdmin || isOwner}

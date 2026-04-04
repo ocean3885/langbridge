@@ -278,20 +278,20 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
                       </div>
 
                       {/* 비디오 정보 */}
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1 truncate hover:text-blue-600 transition-colors">
                           {video.title}
                         </h3>
                         
                         {video.description && (
-                          <p className="text-sm text-gray-500 line-clamp-3 sm:line-clamp-2 mb-2">
+                          <p className="text-sm text-gray-500 line-clamp-3 sm:line-clamp-2 mb-2 break-words">
                             {video.description}
                           </p>
                         )}
 
                         {/* 메타 정보: 모바일에서는 설명 하단에 줄바꿈되며 보기 좋게 배치 */}
                         <div className="mt-1 sm:mt-2 text-xs text-gray-500">
-                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 overflow-hidden">
                             {video.language_name && (
                               <span className="flex items-center gap-1">
                                 🌐 {video.language_name}

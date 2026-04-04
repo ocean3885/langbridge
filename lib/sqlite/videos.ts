@@ -182,10 +182,12 @@ export async function getVideoWithTranscriptsSqlite(videoId: string): Promise<{
   const db = await getSqliteDb();
   const video = await db.get<SqliteVideo>(
     `
-      SELECT id, youtube_id, title, description, visibility, duration, thumbnail_url,
-             created_at, language_id, category_id, channel_id, view_count, uploader_id
-      FROM videos
-      WHERE id = ?
+      SELECT v.id, v.youtube_id, v.title, v.description, v.visibility, v.duration, v.thumbnail_url,
+             v.created_at, v.language_id, v.category_id, v.channel_id, v.view_count, v.uploader_id,
+             l.name_ko AS language_name
+      FROM videos v
+      LEFT JOIN languages l ON l.id = v.language_id
+      WHERE v.id = ?
       LIMIT 1
     `,
     videoId

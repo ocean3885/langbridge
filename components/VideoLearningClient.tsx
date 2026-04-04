@@ -45,6 +45,7 @@ interface VideoLearningClientProps {
   channelName: string | null;
   viewCount: number;
   languageId: number | null;
+  duration: number | null;
   transcripts: TranscriptWithTranslation[];
   userNotes: Record<string, { id: string; content: string }>;
   isAdmin: boolean;
@@ -63,6 +64,7 @@ export default function VideoLearningClient({
   channelName,
   viewCount,
   languageId,
+  duration: existingDuration,
   transcripts,
   userNotes,
   isAdmin,
@@ -152,7 +154,7 @@ export default function VideoLearningClient({
   }, []);
 
   const handleDurationReady = useCallback(async (durationSeconds: number) => {
-    if (durationSyncRequested) {
+    if (durationSyncRequested || existingDuration) {
       return;
     }
 
@@ -161,7 +163,7 @@ export default function VideoLearningClient({
       videoId,
       durationSeconds,
     });
-  }, [durationSyncRequested, videoId]);
+  }, [durationSyncRequested, existingDuration, videoId]);
 
   // 스크립트 클릭: 반복 해제 및 해당 문장부터 순차 재생
   const handleSelectTranscript = useCallback((index: number | null) => {
@@ -236,17 +238,17 @@ export default function VideoLearningClient({
     }`}>
       {/* 모바일 전체 모드: 닫기 버튼 - 제거 (정보 섹션에 통합) */}
       
-      {/* 태블릿/데스크톱: 뒤로가기 버튼 */}
+      {/* 태블릿/데스크톱: 목록으로 버튼 */}
       <div className={`flex justify-end mb-2 ${
         isMobile && isPlaying ? 'hidden' : ''
       }`}>
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/my-videos')}
           className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
-          title="뒤로가기"
+          title="목록으로"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">뒤로가기</span>
+          <span className="text-sm font-medium">목록으로</span>
         </button>
       </div>
 
@@ -324,6 +326,23 @@ export default function VideoLearningClient({
       <div className={`md:hidden flex-1 overflow-y-auto px-4 py-4 ${
         isPlaying ? 'pb-safe' : ''
       }`}>
+        {/* 모바일 단어 배열 학습 버튼 */}
+        {!isPlaying && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => router.push(`/my-videos/${videoId}/word-scramble`)}
+            className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
+          >
+            🔤 단어 배열 학습
+          </button>
+          <button
+            onClick={() => router.push(`/my-videos/${videoId}/word-scramble?mode=review`)}
+            className="flex-1 px-3 py-2 bg-secondary text-secondary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
+          >
+            🔁 복습 모드
+          </button>
+        </div>
+        )}
         <h2 className="text-lg font-semibold mb-3">스크립트</h2>
         <TranscriptDisplay
           videoId={videoId}
@@ -397,6 +416,21 @@ export default function VideoLearningClient({
                 <li>• R 버튼을 클릭하면 해당 문장이 반복재생 됩니다</li>
                 <li>• R 버튼이 클릭된 두 문장 사이의 구간은 구간반복재생 됩니다</li>
               </ul>
+            </div>
+            {/* 단어 배열 학습 버튼 */}
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => router.push(`/my-videos/${videoId}/word-scramble`)}
+                className="flex-1 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                🔤 단어 배열 학습
+              </button>
+              <button
+                onClick={() => router.push(`/my-videos/${videoId}/word-scramble?mode=review`)}
+                className="flex-1 px-4 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                🔁 복습 모드
+              </button>
             </div>
           </div>
 

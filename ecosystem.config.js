@@ -3,14 +3,14 @@ module.exports = {
     name: 'langbridge',
     script: 'npm',
     args: 'start',
-    cwd: '/home/ubuntu/langbridge',
+    cwd: '/var/www/langbridge',
     instances: 1,
     autorestart: true,
     watch: false,
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 3010
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',
