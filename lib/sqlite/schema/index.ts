@@ -6,6 +6,7 @@ import { createEduVideosTables } from './edu-videos.sql';
 import { createLearningTables } from './learning.sql';
 import { createAudioTables } from './audio.sql';
 import { createLanguagesTables } from './languages.sql';
+import { createBoardTables } from './board.sql';
 import { runMigrations } from './migrations';
 
 export async function initializeSchema(db: SqliteDb): Promise<void> {
@@ -17,6 +18,7 @@ export async function initializeSchema(db: SqliteDb): Promise<void> {
   await createLearningTables(db);    // script_progress, script_progress_attempts, video_progress
   await createAudioTables(db);       // lang_audio_content, lang_audio_memos
   await createLanguagesTables(db);   // languages, words, sentences, word_sentence_map, verb_conjugations
+  await createBoardTables(db);       // board_posts
 
   // 2. 마이그레이션 (컬럼 추가, FK 보정, 레거시 데이터 변환)
   await runMigrations(db);

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { recordCorrectAnswer, recordWrongAnswer, updateScriptContent, deleteScriptProgress } from '@/app/actions/script-progress';
-import { ArrowLeft, ChevronLeft, RotateCcw, SkipForward, Check, X, Trophy, Pencil, Trash2, Star } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, RotateCcw, SkipForward, Check, X, Trophy, Pencil, Trash2, Star, Info } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -19,6 +19,14 @@ interface ScriptItem {
   consecutiveCorrect: number;
   bestTpw: number | null;
   orderIndex: number;
+  totalAttempts: number;
+  correctCount: number;
+  wrongCount: number;
+  bestConsecutiveCorrect: number;
+  lastAnswerAt: string | null;
+  firstMasteredAt: string | null;
+  masteredCount: number;
+  avgTpw: number | null;
 }
 
 interface Props {
@@ -53,18 +61,59 @@ const MAX_SCRAMBLE = 10;
 
 // ─── Component ───────────────────────────────────────────────────────
 
+const STORAGE_KEY_PREFIX = 'word-scramble-progress';
+function getStorageKey(videoId: string, isReviewMode: boolean) {
+  return `${STORAGE_KEY_PREFIX}-${videoId}-${isReviewMode ? 'review' : 'learn'}`;
+}
+
 export default function WordScrambleClient({ videoId, videoTitle, languageName, scripts: initialScripts, isReviewMode }: Props) {
   const router = useRouter();
   const [scripts, setScripts] = useState<ScriptItem[]>(initialScripts);
-  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // localStorage에서 이전 진행 상태 복원
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const saved = localStorage.getItem(getStorageKey(videoId, isReviewMode));
+      if (saved) {
+        const { currentIndex: idx } = JSON.parse(saved);
+        if (typeof idx === 'number' && idx >= 0 && idx < initialScripts.length) return idx;
+      }
+    } catch {}
+    return 0;
+  });
   const [selectedWords, setSelectedWords] = useState<WordToken[]>([]);
   const [availableWords, setAvailableWords] = useState<WordToken[]>([]);
   const [hintSlots, setHintSlots] = useState<Map<number, WordToken>>(new Map());
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const saved = localStorage.getItem(getStorageKey(videoId, isReviewMode));
+      if (saved) {
+        const { completedCount: cc } = JSON.parse(saved);
+        if (typeof cc === 'number' && cc >= 0 && cc <= initialScripts.length) return cc;
+      }
+    } catch {}
+    return 0;
+  });
   const [isFinished, setIsFinished] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
+
+  // currentIndex / completedCount 변경 시 localStorage에 저장
+  useEffect(() => {
+    if (isFinished) {
+      try { localStorage.removeItem(getStorageKey(videoId, isReviewMode)); } catch {}
+      return;
+    }
+    try {
+      localStorage.setItem(
+        getStorageKey(videoId, isReviewMode),
+        JSON.stringify({ currentIndex, completedCount }),
+      );
+    } catch {}
+  }, [currentIndex, completedCount, isFinished, videoId, isReviewMode]);
 
   // 수정 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -75,6 +124,9 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
 
   // 삭제 상태
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // 학습 히스토리 모달
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   const scriptsRef = useRef(scripts);
   scriptsRef.current = scripts;
@@ -148,12 +200,18 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
 
   const selectWord = useCallback((word: WordToken) => {
     setAvailableWords((prev) => prev.filter((w) => w.id !== word.id));
-    setSelectedWords((prev) => [...prev, word]);
+    setSelectedWords((prev) => {
+      if (prev.some((w) => w.id === word.id)) return prev;
+      return [...prev, word];
+    });
   }, []);
 
   const deselectWord = useCallback((word: WordToken) => {
     setSelectedWords((prev) => prev.filter((w) => w.id !== word.id));
-    setAvailableWords((prev) => [...prev, word]);
+    setAvailableWords((prev) => {
+      if (prev.some((w) => w.id === word.id)) return prev;
+      return [...prev, word];
+    });
   }, []);
 
   const resetQuestion = useCallback(() => {
@@ -323,8 +381,11 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
   if (isFinished) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-        <Trophy className="w-16 h-16 text-yellow-500" />
-        <h2 className="text-2xl font-bold">학습 완료!</h2>
+        <div className="relative">
+          <div className="absolute inset-0 blur-2xl opacity-30 bg-gradient-to-r from-yellow-400 via-amber-300 to-orange-400 rounded-full" />
+          <Trophy className="w-16 h-16 text-yellow-500 relative" />
+        </div>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-blue-500 bg-clip-text text-transparent">학습 완료!</h2>
         <p className="text-muted-foreground">
           {isReviewMode ? '복습' : '학습'} {total}개 문장을 모두 마쳤습니다.
         </p>
@@ -332,7 +393,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
           <Button variant="outline" onClick={() => router.push(`/my-videos/${videoId}`)}>
             영상으로 돌아가기
           </Button>
-          <Button onClick={() => window.location.reload()}>다시 학습하기</Button>
+          <Button className="bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0" onClick={() => window.location.reload()}>다시 학습하기</Button>
         </div>
       </div>
     );
@@ -353,7 +414,10 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         <div className="flex-1 min-w-0">
           <h1 className="text-sm font-medium text-muted-foreground truncate">{videoTitle}</h1>
           <p className="text-xs text-muted-foreground">
-            {isReviewMode ? '복습 모드' : '학습 모드'} · {currentIndex + 1} / {total}
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold mr-1.5 ${isReviewMode ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'}`}>
+              {isReviewMode ? '복습' : '학습'}
+            </span>
+            {currentIndex + 1} / {total}
           </p>
           {isReviewMode && (
             <p className="text-xs text-muted-foreground/70 mt-0.5">연속 3회 정답으로 마스터한 문장들입니다</p>
@@ -364,7 +428,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
       {/* Progress Bar */}
       <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
         <motion.div
-          className="h-full bg-primary rounded-full"
+          className="h-full rounded-full bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-400"
           initial={{ width: 0 }}
           animate={{ width: `${progressPercent}%` }}
           transition={{ duration: 0.3 }}
@@ -388,6 +452,13 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         </div>
         <div className="flex gap-1">
         <button
+          onClick={() => setInfoModalOpen(true)}
+          className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title="학습 히스토리"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+        <button
           onClick={openEditModal}
           disabled={isChecking}
           className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
@@ -407,8 +478,8 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
       </div>
 
       {/* Question: 번역문 */}
-      <div className="bg-card border rounded-xl p-6 text-center">
-        <p className="text-xs text-muted-foreground mb-2">이 문장을 {languageName ?? '외국어'}로 배열하세요</p>
+      <div className="bg-gradient-to-br from-violet-50 to-blue-50 dark:from-violet-950/20 dark:to-blue-950/20 border border-violet-200/60 dark:border-violet-800/30 rounded-xl p-6 text-center">
+        <p className="text-xs text-violet-500 dark:text-violet-400 font-medium mb-2">이 문장을 {languageName ?? '외국어'}로 배열하세요</p>
         <p className="text-xl font-semibold leading-relaxed">{currentScript.customTranslation}</p>
       </div>
 
@@ -445,7 +516,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   onClick={() => !isChecking && deselectWord(slot.word!)}
-                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg text-sm font-medium shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
                   disabled={isChecking}
                 >
                   {slot.word!.text}
@@ -472,7 +543,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   onClick={() => !isChecking && deselectWord(word)}
-                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg text-sm font-medium shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
                   disabled={isChecking}
                 >
                   {word.text}
@@ -513,7 +584,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
       </AnimatePresence>
 
       {/* Word Bank */}
-      <div className="bg-secondary/50 rounded-xl p-4 flex flex-wrap gap-2 min-h-[60px] justify-center">
+      <div className="bg-slate-100/70 dark:bg-slate-800/30 rounded-xl p-4 flex flex-wrap gap-2 min-h-[60px] justify-center">
         <AnimatePresence mode="popLayout">
           {availableWords.map((word) => (
             <motion.button
@@ -524,7 +595,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               onClick={() => !isChecking && selectWord(word)}
-              className="px-3 py-1.5 bg-background border rounded-lg text-sm font-medium shadow-sm hover:bg-accent transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium shadow-sm hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-violet-100 dark:hover:shadow-none transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isChecking}
             >
               {word.text}
@@ -547,14 +618,14 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         </div>
 
         {result ? (
-          <Button onClick={goNext} className="min-w-[120px]">
+          <Button onClick={goNext} className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0">
             다음 문장
           </Button>
         ) : (
           <Button
             onClick={checkAnswer}
             disabled={selectedWords.length === 0 || isChecking}
-            className="min-w-[120px]"
+            className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0"
           >
             {isChecking ? '확인 중...' : '정답 확인'}
           </Button>
@@ -619,6 +690,101 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
               </Button>
               <Button onClick={handleEditSave} disabled={editSaving || !editContent.trim()}>
                 {editSaving ? '저장 중...' : '저장'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 학습 히스토리 모달 */}
+      {infoModalOpen && currentScript && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-sm bg-card p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">학습 히스토리</h2>
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed break-words">
+              {currentScript.customContent}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{currentScript.totalAttempts}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">총 시도</p>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {currentScript.totalAttempts > 0
+                    ? `${Math.round((currentScript.correctCount / currentScript.totalAttempts) * 100)}%`
+                    : '-'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">정답률</p>
+              </div>
+              <div className="bg-violet-50 dark:bg-violet-950/20 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">{currentScript.bestConsecutiveCorrect}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">최고 연속 정답</p>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{currentScript.masteredCount}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">마스터 횟수</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">현재 상태</span>
+                <span className={`font-medium ${currentScript.status === 'mastered' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                  {currentScript.status === 'mastered' ? '마스터' : '학습 중'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">정답 / 오답</span>
+                <span className="font-medium">
+                  <span className="text-emerald-600">{currentScript.correctCount}</span>
+                  {' / '}
+                  <span className="text-red-500">{currentScript.wrongCount}</span>
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">현재 연속 정답</span>
+                <span className="font-medium">{currentScript.consecutiveCorrect}회</span>
+              </div>
+              {currentScript.avgTpw !== null && (
+                <div className="flex justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">평균 속도 (TPW)</span>
+                  <span className="font-medium">{currentScript.avgTpw.toFixed(1)}초/단어</span>
+                </div>
+              )}
+              {currentScript.bestTpw !== null && (
+                <div className="flex justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">최고 속도 (TPW)</span>
+                  <span className="font-medium">{currentScript.bestTpw.toFixed(1)}초/단어</span>
+                </div>
+              )}
+              {currentScript.lastAnswerAt && (
+                <div className="flex justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">마지막 학습</span>
+                  <span className="font-medium">{new Date(currentScript.lastAnswerAt).toLocaleDateString('ko-KR')}</span>
+                </div>
+              )}
+              {currentScript.firstMasteredAt && (
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">첫 마스터</span>
+                  <span className="font-medium">{new Date(currentScript.firstMasteredAt).toLocaleDateString('ko-KR')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <Button className="w-full" variant="outline" onClick={() => setInfoModalOpen(false)}>
+                닫기
               </Button>
             </div>
           </Card>

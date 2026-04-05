@@ -3,6 +3,8 @@ import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { listVideosByUserCategorySqlite } from '@/lib/sqlite/user-category-videos';
+import { listVideoProgressForVideos, type SqliteVideoProgress } from '@/lib/sqlite/video-progress';
+import { formatDuration } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
@@ -30,19 +32,6 @@ type VideoItem = {
   transcript_count: number;
 };
 
-// 초를 MM:SS 또는 H:MM:SS 형식으로 변환
-function formatDuration(seconds: number | null): string {
-  if (seconds === null) return '-';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
-
 // 상대 시간 표시
 function relativeFromNowKo(iso: string | null): string {
   if (!iso) return '-';
@@ -66,7 +55,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-4">내 영상 목록</h1>
+        <h1 className="text-3xl font-bold mb-4">내 학습 영상</h1>
         <p className="mb-4">로그인이 필요합니다.</p>
         <Link href="/auth/login" className="text-blue-600 hover:underline">
           로그인 페이지로 이동
@@ -141,6 +130,14 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
     }
   }
 
+  // 학습 진행 데이터 조회
+  const videoIds = videoList.map((v) => v.id);
+  const progressRows = await listVideoProgressForVideos(user.id, videoIds);
+  const progressMap = new Map<string, SqliteVideoProgress>();
+  for (const row of progressRows) {
+    progressMap.set(row.video_id, row);
+  }
+
   // 카테고리별로 그룹화
   const groupedByCategory = videoList.reduce((acc, video) => {
     const categoryKey = video.category_name || '카테고리 미지정';
@@ -166,7 +163,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-3">
             <Video className="w-8 h-8 text-blue-600" />
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">내 영상 목록</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">내 학습 영상</h1>
           </div>
           <p className="text-sm sm:text-base text-gray-600">
             카테고리별로 정리된 영상 목록입니다.
@@ -278,11 +275,56 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
                       </div>
 
                       {/* 비디오 정보 */}
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1 truncate hover:text-blue-600 transition-colors">
-                          {video.title}
-                        </h3>
-                        
+                      <div className="w-full sm:w-auto flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold text-gray-900 text-base sm:text-lg truncate hover:text-blue-600 transition-colors">
+                            {video.title}
+                          </h3>
+                          {(() => {
+                            const p = progressMap.get(video.id);
+                            if (!p) return null;
+                            const pct = p.mastery_pct;
+                            const label = pct >= 100 ? '완료' : `${pct}%`;
+                            const color =
+                              pct >= 100
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : pct > 0
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+                            return (
+                              <span className={`flex-shrink-0 text-[10px] sm:text-xs font-semibold px-1.5 py-0.5 rounded ${color}`}>
+                                {label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+
+                        {/* 학습 진행 바 */}
+                        {(() => {
+                          const p = progressMap.get(video.id);
+                          if (!p || p.total_scripts === 0) return null;
+                          const pct = p.mastery_pct;
+                          const barColor =
+                            pct >= 100
+                              ? 'bg-emerald-500'
+                              : pct > 0
+                                ? 'bg-blue-500'
+                                : 'bg-gray-300';
+                          return (
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${barColor}`}
+                                  style={{ width: `${Math.min(pct, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-500 flex-shrink-0 tabular-nums">
+                                {p.mastered_scripts}/{p.total_scripts}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
                         {video.description && (
                           <p className="text-sm text-gray-500 line-clamp-3 sm:line-clamp-2 mb-2 break-words">
                             {video.description}
@@ -301,7 +343,14 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
                               📝 {video.transcript_count}개의 스크립트
                             </span>
                             <span className="flex items-center gap-1">
-                              {relativeFromNowKo(video.created_at)}
+                              {(() => {
+                                const p = progressMap.get(video.id);
+                                const lastStudied = p?.last_studied_at;
+                                if (lastStudied) {
+                                  return `📖 ${relativeFromNowKo(lastStudied)} 학습`;
+                                }
+                                return relativeFromNowKo(video.created_at);
+                              })()}
                             </span>
                           </div>
                         </div>

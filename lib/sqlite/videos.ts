@@ -273,6 +273,7 @@ export async function listVideosSqlite(input?: {
   uploaderIds?: string[];
   channelId?: string | null;
   hasChannel?: boolean;
+  visibility?: VideoVisibility;
   limit?: number;
 }): Promise<Array<SqliteVideo & { transcript_count: number }>> {
   const db = await getSqliteDb();
@@ -305,6 +306,11 @@ export async function listVideosSqlite(input?: {
 
   if (input?.hasChannel) {
     where.push("channel_id IS NOT NULL AND TRIM(channel_id) <> ''");
+  }
+
+  if (input?.visibility) {
+    where.push('v.visibility = ?');
+    params.push(input.visibility);
   }
 
   const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';

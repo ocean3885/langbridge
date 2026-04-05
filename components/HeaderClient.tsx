@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, AudioLines, LogOut, Video } from 'lucide-react';
+import { User as UserIcon, AudioLines, LogOut, Video, BookOpen, Globe, MessageSquare } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -108,8 +108,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                 <Link href="/upload" className="hover:text-blue-300 transition duration-150">
                   생성
                 </Link>
-                <Link href="/videos" className="hover:text-blue-300 transition duration-150">
-                  영상학습
+                <Link href="/board" className="hover:text-blue-300 transition duration-150">
+                  게시판
                 </Link>
                 {isAdmin && (
                   <Link href="/admin" className="hover:text-blue-300 transition duration-150">
@@ -133,9 +133,15 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                   <DropdownMenuLabel>내 계정</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/my-audio" className="flex items-center gap-2 cursor-pointer">
-                      <AudioLines className="w-4 h-4" />
-                      <span>내 오디오</span>
+                    <Link href="/lb-audio" className="flex items-center gap-2 cursor-pointer">
+                      <BookOpen className="w-4 h-4" />
+                      <span>LB 문장</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/lb-videos" className="flex items-center gap-2 cursor-pointer">
+                      <Globe className="w-4 h-4" />
+                      <span>LB 영상</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

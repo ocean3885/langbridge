@@ -27,6 +27,7 @@ export default async function UploadPage() {
       videoCategories={videoCategories || []}
       initialLanguages={languages}
       canSelectVideoVisibility={isSuperAdmin}
+      isAdmin={isSuperAdmin}
     />
   );
 }

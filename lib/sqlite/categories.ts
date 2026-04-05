@@ -28,6 +28,17 @@ export async function listSqliteCategories(table: CategoryTable, userId: string)
   );
 }
 
+export async function listAllSqliteCategories(table: CategoryTable): Promise<SqliteCategory[]> {
+  const db = await getSqliteDb();
+  return db.all<SqliteCategory[]>(
+    `
+      SELECT id, name, language_id, user_id, created_at, updated_at
+      FROM ${tableName(table)}
+      ORDER BY name ASC
+    `
+  );
+}
+
 export async function findSqliteCategoryByName(input: {
   table: CategoryTable;
   userId: string;

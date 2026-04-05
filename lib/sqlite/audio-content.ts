@@ -42,6 +42,31 @@ export async function listAudioContentByUserSqlite(userId: string, limit = 100):
   );
 }
 
+export async function listAllAudioContentSqlite(limit = 100): Promise<SqliteAudioContent[]> {
+  const db = await getSqliteDb();
+  return db.all<SqliteAudioContent[]>(
+    `
+      SELECT
+        id,
+        user_id,
+        title,
+        category_id,
+        original_text,
+        translated_text,
+        sync_data,
+        audio_file_path,
+        study_count,
+        last_studied_at,
+        created_at,
+        updated_at
+      FROM lang_audio_content
+      ORDER BY created_at DESC
+      LIMIT ?
+    `,
+    limit
+  );
+}
+
 export async function findAudioContentByIdSqlite(id: string): Promise<SqliteAudioContent | null> {
   const db = await getSqliteDb();
   const row = await db.get<SqliteAudioContent>(

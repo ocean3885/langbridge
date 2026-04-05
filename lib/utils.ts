@@ -13,3 +13,16 @@ export const hasEnvVars =
 // 현재 활성 학습 언어 (추후 다국어 확장을 위해 상수화)
 export const ACTIVE_LANGUAGE = 'es-ES';
 export const ACTIVE_LANGUAGE_LABEL = 'Spanish / 스페인어';
+
+// 초를 MM:SS 또는 H:MM:SS 형식으로 변환
+export function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '-';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}

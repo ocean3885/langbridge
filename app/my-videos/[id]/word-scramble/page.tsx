@@ -68,6 +68,14 @@ export default async function WordScramblePage({ params, searchParams }: Props) 
         consecutiveCorrect: s.consecutive_correct,
         bestTpw: s.best_tpw,
         orderIndex: s.order_index,
+        totalAttempts: s.total_attempts,
+        correctCount: s.correct_count,
+        wrongCount: s.wrong_count,
+        bestConsecutiveCorrect: s.best_consecutive_correct,
+        lastAnswerAt: s.last_answer_at,
+        firstMasteredAt: s.first_mastered_at,
+        masteredCount: s.mastered_count,
+        avgTpw: s.avg_tpw,
       }))}
       isReviewMode={reviewMode}
     />

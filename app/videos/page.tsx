@@ -211,7 +211,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
       <div className="mb-6 sm:mb-8">
         <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
           <Video className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">학습 비디오</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">어학 강의 영상</h1>
         </div>
         <p className="text-sm sm:text-base text-gray-600">
           최근 업로드된 교육용 비디오를 둘러보고, 원하는 채널만 골라서 학습하세요.

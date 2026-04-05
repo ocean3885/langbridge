@@ -14,6 +14,7 @@ interface UploadTabsProps {
   videoCategories: Array<{ id: number; name: string; language_id: number | null }>;
   initialLanguages: Array<{ id: number; name_ko: string; code: string }>;
   canSelectVideoVisibility: boolean;
+  isAdmin: boolean;
 }
 
 export default function UploadTabs({ 
@@ -21,11 +22,14 @@ export default function UploadTabs({
   videoCategories,
   initialLanguages,
   canSelectVideoVisibility,
+  isAdmin,
 }: UploadTabsProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams.get('tab') as TabType | null;
-  const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'audio');
+  const [activeTab, setActiveTab] = useState<TabType>(
+    isAdmin ? (tabParam || 'audio') : 'video'
+  );
 
   useEffect(() => {
     if (tabParam && (tabParam === 'audio' || tabParam === 'video')) {
@@ -45,35 +49,44 @@ export default function UploadTabs({
         <h1 className="text-3xl font-bold mb-4">콘텐츠 생성</h1>
         
         {/* 탭 버튼 */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => handleTabChange('audio')}
-            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-              activeTab === 'audio'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <AudioLines className="w-5 h-5" />
-            오디오 생성
-          </button>
-          <button
-            onClick={() => handleTabChange('video')}
-            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-              activeTab === 'video'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Video className="w-5 h-5" />
-            영상 등록
-          </button>
-        </div>
+        {isAdmin ? (
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => handleTabChange('audio')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'audio'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <AudioLines className="w-5 h-5" />
+              오디오 생성
+            </button>
+            <button
+              onClick={() => handleTabChange('video')}
+              className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'video'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Video className="w-5 h-5" />
+              영상 등록
+            </button>
+          </div>
+        ) : (
+          <div className="border-b border-gray-200">
+            <div className="flex items-center gap-2 px-6 py-3 text-blue-600 border-b-2 border-blue-600 font-medium w-fit">
+              <Video className="w-5 h-5" />
+              영상 등록
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 탭 컨텐츠 */}
       <div className="mt-6">
-        {activeTab === 'audio' && (
+        {activeTab === 'audio' && isAdmin && (
           <div>
             {/* 안내 메시지 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
