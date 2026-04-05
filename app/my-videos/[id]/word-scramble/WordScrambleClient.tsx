@@ -510,11 +510,10 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
               return (
                 <motion.button
                   key={`sel-${slot.word!.id}`}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  initial={{ scale: 0.85 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.85, opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
                   onClick={() => !isChecking && deselectWord(slot.word!)}
                   className="px-3 py-1.5 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg text-sm font-medium shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
                   disabled={isChecking}
@@ -533,15 +532,14 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
         ) : (
           /* 10개 이하: 기존 방식 */
           <>
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {selectedWords.map((word) => (
                 <motion.button
                   key={`sel-${word.id}`}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  initial={{ scale: 0.85 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.85, opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
                   onClick={() => !isChecking && deselectWord(word)}
                   className="px-3 py-1.5 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-lg text-sm font-medium shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
                   disabled={isChecking}
@@ -585,15 +583,14 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
 
       {/* Word Bank */}
       <div className="bg-slate-100/70 dark:bg-slate-800/30 rounded-xl p-4 flex flex-wrap gap-2 min-h-[60px] justify-center">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {availableWords.map((word) => (
             <motion.button
               key={`avail-${word.id}`}
-              layout
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              initial={{ scale: 0.85 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => !isChecking && selectWord(word)}
               className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium shadow-sm hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-violet-100 dark:hover:shadow-none transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isChecking}

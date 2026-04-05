@@ -4,6 +4,12 @@ import { Inter } from 'next/font/google';
 import Header from '@/components/Header'; 
 import Footer from '@/components/Footer'; 
 import './globals.css'; 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'LangBridge - 언어 학습 플랫폼',
+  description: '문장 배열, 영상 스크립트, 반복 학습으로 외국어를 효과적으로 익히는 언어 학습 플랫폼',
+};
 
 // 폰트 설정
 const inter = Inter({ subsets: ['latin'] });
