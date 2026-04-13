@@ -87,64 +87,70 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
 
       {/* 로그인 + 데이터 있음 */}
       {isLoggedIn && categories.length > 0 && (
-        <div className="space-y-10">
-          {categories.map(category => (
-            <section key={category.id ?? 'uncategorized'} className="space-y-4 pl-4 sm:pl-6">
-              <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
-                <FolderOpen className="w-4 h-4 text-cyan-500" />
-                <h3 className="text-base font-semibold text-gray-700">
-                  {category.name}
-                  {category.languageName && (
-                    <span className="ml-2 text-xs font-medium text-cyan-600">({category.languageName})</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {(() => {
+            const flatVideos = categories.flatMap(category => 
+              category.videoList.map(video => ({
+                ...video,
+                categoryName: category.name,
+                languageName: category.languageName
+              }))
+            ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            return flatVideos.map(video => (
+              <Link
+                key={video.id}
+                href={`/my-videos/${video.id}`}
+                className="group bg-white rounded-lg shadow border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+              >
+                <div className="relative w-full aspect-video bg-gray-200">
+                  {video.thumbnail_url ? (
+                    <Image
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center w-full h-full">
+                      <Video className="w-10 h-10 text-gray-400" />
+                    </div>
                   )}
-                </h3>
-                <span className="text-xs text-gray-400">({category.videoList.length}개)</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {category.videoList.map(video => (
-                  <Link
-                    key={video.id}
-                    href={`/my-videos/${video.id}`}
-                    className="group bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="relative w-full aspect-video bg-gray-200">
-                      {video.thumbnail_url ? (
-                        <Image
-                          src={video.thumbnail_url}
-                          alt={video.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center w-full h-full">
-                          <Video className="w-10 h-10 text-gray-400" />
-                        </div>
-                      )}
-                      {video.duration !== null && (
-                        <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatDuration(video.duration)}</span>
-                        </div>
-                      )}
+                  {video.duration !== null && (
+                    <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{formatDuration(video.duration)}</span>
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
-                        {video.title}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {new Date(video.created_at).toLocaleDateString('ko-KR', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
+                  )}
+                </div>
+                <div className="p-4 flex flex-col flex-grow">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                    {video.languageName && (
+                      <span className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-[11px] font-semibold border border-cyan-100">
+                        {video.languageName}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
+                      {video.categoryName}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
+                    {video.title}
+                  </h3>
+                  <div className="mt-auto pt-2">
+                    <p className="text-xs text-gray-500">
+                      {new Date(video.created_at).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ));
+          })()}
         </div>
       )}
     </div>
