@@ -23,9 +23,25 @@ export default async function HomePage() {
   let videoCategories: VideoCategory[] = [];
 
   if (user) {
-    // ── 비디오 ────────────────────────────────────────
-    const userVideos = await listVideosSqlite({ uploaderId: user.id, channelId: null, limit: 10 });
-    const sqliteVideoCategories = await listSqliteCategories('user_categories', user.id);
+    // ── 비디오 ─────────────────────────────────────────
+    const { listAllUserCategoryVideosSqlite } = await import('@/lib/sqlite/user-category-videos-all');
+    // uploaderId 기반 영상(최신 10개) + 전체 매핑 정보
+    const [userUploads, sqliteVideoCategories, allMyMappings] = await Promise.all([
+      listVideosSqlite({ uploaderId: user.id, limit: 20 }), // 업로드 영상 넉넉히
+      listSqliteCategories('user_categories', user.id),
+      listAllUserCategoryVideosSqlite(user.id),
+    ]);
+
+    // 매핑된 모든 영상들의 세부 정보 가져오기 (업로드하지 않은 저장된 영상 포함)
+    const mappedVideoIds = allMyMappings.map(m => m.video_id);
+    const missingVideoIds = mappedVideoIds.filter(id => !userUploads.some(v => v.id === id));
+    
+    let allRelevantVideos = [...userUploads];
+    if (missingVideoIds.length > 0) {
+      const savedVideoDetails = await listVideosSqlite({ videoIds: missingVideoIds });
+      allRelevantVideos = [...allRelevantVideos, ...savedVideoDetails];
+    }
+
     const videoCategoryMap: Record<string, { name: string; languageName: string }> = {};
     for (const c of sqliteVideoCategories) {
       videoCategoryMap[String(c.id)] = {
@@ -34,9 +50,37 @@ export default async function HomePage() {
       };
     }
 
+    // 매핑 테이블 기반으로 비디오 그룹화
     const videoGroups: Record<string, UserVideo[]> = {};
-    userVideos.forEach((v) => {
-      const key = v.category_id === null ? 'uncategorized' : String(v.category_id);
+    const processedVideoIdsPerCategory = new Set<string>(); // 한 카테고리 내 중복 방지용
+
+    // 1. 매핑 정보를 순회하며 비디오 분류
+    allMyMappings.forEach((m) => {
+      const v = allRelevantVideos.find(rv => rv.id === m.video_id);
+      if (!v) return;
+
+      const key = String(m.category_id);
+      if (!videoGroups[key]) videoGroups[key] = [];
+      
+      videoGroups[key].push({
+        id: v.id,
+        title: v.title,
+        youtube_id: v.youtube_id,
+        thumbnail_url: v.thumbnail_url,
+        duration: v.duration,
+        created_at: v.created_at,
+        category_id: m.category_id,
+      });
+      processedVideoIdsPerCategory.add(`${m.category_id}-${v.id}`);
+    });
+
+    // 2. 매핑되지 않은 본인 업로드 영상들 처리 (미분류)
+    userUploads.forEach((v) => {
+      // 어떤 카테고리에도 매핑되지 않은 경우만 미분류로 추가
+      const isMapped = allMyMappings.some(m => m.video_id === v.id);
+      if (isMapped) return;
+
+      const key = 'uncategorized';
       if (!videoGroups[key]) videoGroups[key] = [];
       videoGroups[key].push({
         id: v.id,
@@ -45,7 +89,7 @@ export default async function HomePage() {
         thumbnail_url: v.thumbnail_url,
         duration: v.duration,
         created_at: v.created_at,
-        category_id: v.category_id as unknown as number | null,
+        category_id: null,
       });
     });
 

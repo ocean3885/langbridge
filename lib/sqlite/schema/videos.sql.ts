@@ -12,7 +12,6 @@ export async function createVideosTables(db: SqliteDb): Promise<void> {
       thumbnail_url TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       language_id INTEGER,
-      category_id TEXT,
       channel_id TEXT,
       view_count INTEGER NOT NULL DEFAULT 0,
       uploader_id TEXT

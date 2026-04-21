@@ -24,8 +24,16 @@ type VideoItem = {
   myCategories: { id: number; name: string }[];
 };
 
-export default async function LBVideosPage() {
+interface LBVideosPageProps {
+  searchParams?: Promise<{
+    filter?: string;
+  }>;
+}
+
+export default async function LBVideosPage({ searchParams }: LBVideosPageProps) {
   const user = await getAppUserFromServer();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const currentFilter = resolvedSearchParams?.filter || 'all';
 
   // 1. 데이터 병렬 로드
   const [allPublicVideos, allMyCategories, allMyMappings] = await Promise.all([
@@ -41,7 +49,7 @@ export default async function LBVideosPage() {
     mappingMap[m.video_id].push({ id: m.category_id, name: m.category_name });
   });
 
-  const videoList: VideoItem[] = allPublicVideos.map((v: any) => ({
+  let videoList: VideoItem[] = allPublicVideos.map((v: any) => ({
     id: v.id,
     youtube_id: v.youtube_id,
     title: v.title,
@@ -55,6 +63,19 @@ export default async function LBVideosPage() {
     myCategories: mappingMap[v.id] || [],
   })).sort((a: VideoItem, b: VideoItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // 필터링 적용
+  if (currentFilter === 'saved') {
+    videoList = videoList.filter(v => v.myCategories.length > 0);
+  } else if (currentFilter === 'new') {
+    videoList = videoList.filter(v => v.myCategories.length === 0);
+  }
+
+  const filters = [
+    { id: 'all', label: '전체' },
+    { id: 'saved', label: '학습 중' },
+    { id: 'new', label: '학습 대기' },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       {/* 헤더 */}
@@ -66,6 +87,26 @@ export default async function LBVideosPage() {
         <p className="text-lg text-gray-600">
           다양한 학습 영상을 둘러보고 마음에 드는 영상은 내 카테고리에 담아 정교하게 관리해보세요.
         </p>
+      </div>
+
+      {/* 필터 섹션 */}
+      <div className="flex flex-wrap items-center gap-2 mb-8">
+        {filters.map((f) => (
+          <Link
+            key={f.id}
+            href={`/lb-videos${f.id === 'all' ? '' : `?filter=${f.id}`}`}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              currentFilter === f.id
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-200 hover:bg-emerald-50'
+            }`}
+          >
+            {f.label}
+          </Link>
+        ))}
+        <div className="ml-auto text-xs text-gray-400 font-medium">
+          총 <span className="text-emerald-600 font-bold">{videoList.length}</span>개의 영상
+        </div>
       </div>
 
       {/* 비디오 그리드 목록 (분류 없음) */}
@@ -83,7 +124,7 @@ export default async function LBVideosPage() {
               className="group flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden"
             >
               {/* 이미지 영역 */}
-              <Link href={`/my-videos/${video.id}`} className="relative aspect-video overflow-hidden">
+              <Link href={`/lb-videos/${video.id}`} className="relative aspect-video overflow-hidden">
                 {video.thumbnail_url ? (
                   <Image
                     src={video.thumbnail_url}
@@ -114,19 +155,17 @@ export default async function LBVideosPage() {
                       {video.language_name}
                     </span>
                   )}
-                  {video.myCategories.length > 0 ? (
+                  {video.myCategories.length > 0 && (
                     video.myCategories.map((cat) => (
                       <span key={cat.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-full border border-emerald-100">
                         <Tag className="w-3 h-3" />
                         {cat.name}
                       </span>
                     ))
-                  ) : (
-                    <span className="text-[11px] text-gray-400 italic">아직 내 리스트에 없음</span>
                   )}
                 </div>
 
-                <Link href={`/my-videos/${video.id}`} className="block mb-3">
+                <Link href={`/lb-videos/${video.id}`} className="block mb-3">
                   <h3 className="font-bold text-gray-900 leading-tight line-clamp-2 min-h-[3rem] group-hover:text-emerald-600 transition-colors">
                     {video.title}
                   </h3>

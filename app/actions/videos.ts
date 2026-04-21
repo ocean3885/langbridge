@@ -31,7 +31,6 @@ export async function updateVideo(input: UpdateVideoInput) {
       videoId: input.videoId,
       title: input.title,
       languageId: input.languageId,
-      categoryId: input.categoryId ?? null,
       description: input.description ?? null,
       visibility: isSuperAdmin ? input.visibility : 'private',
     });

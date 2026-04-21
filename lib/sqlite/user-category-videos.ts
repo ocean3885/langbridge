@@ -24,7 +24,6 @@ export type SqliteCategoryVideoListItem = {
   visibility: 'public' | 'private' | 'members_only';
   uploader_id: string | null;
   duration: number | null;
-  video_category_id: string | null;
   transcript_count: number;
 };
 
@@ -126,7 +125,6 @@ export async function listVideosByUserCategorySqlite(input: {
         v.visibility,
         v.uploader_id,
         v.duration,
-        v.category_id AS video_category_id,
         (
           SELECT COUNT(*)
           FROM transcripts t

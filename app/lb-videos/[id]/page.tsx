@@ -9,13 +9,13 @@ import { listUserCategoriesForVideoSqlite } from '@/lib/sqlite/user-category-vid
 import { getVideoProgress } from '@/lib/sqlite/video-progress';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 
-interface MyVideoPageProps {
+interface LBVideoDetailsPageProps {
   params: Promise<{
     id: string;
   }>;
 }
 
-export default async function MyVideoPage({ params }: MyVideoPageProps) {
+export default async function LBVideoDetailsPage({ params }: LBVideoDetailsPageProps) {
   const { id } = await params;
 
   const { video, transcripts } = await getVideoWithTranscriptsSqlite(id);
@@ -82,7 +82,7 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
       userNotes={userNotes}
       isAdmin={isAdmin || isOwner}
       progress={progress || undefined}
-      backUrl="/my-videos"
+      backUrl="/lb-videos"
       allCategories={allCategories}
       selectedCategoryIds={selectedCategoryIds}
       enlargeTranscriptTextOnDesktop

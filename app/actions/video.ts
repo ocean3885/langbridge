@@ -127,7 +127,7 @@ export interface RegisterVideoInput {
   transcriptText: string;
   lang?: string; // 번역 언어 코드 (기본값: 'ko')
   languageId?: number | null; // 영상 자체의 언어 (videos.language_id)
-  categoryId?: string | null; // 영상 카테고리 (user_categories.id, UUID)
+  categoryId?: string | null; // 영상 카테고리 (화면에서 넘어오는 값, user_categories.id)
   channelId?: string | null; // 영상 채널 (video_channels.id, UUID)
 }
 
@@ -183,7 +183,6 @@ export async function registerVideo(
       duration: input.duration || null,
       thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
       languageId: input.languageId ?? null,
-      categoryId: input.categoryId ?? null,
       learningCategoryId,
       channelId: input.channelId ?? null,
       uploaderId: user.id,

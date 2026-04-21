@@ -26,3 +26,22 @@ export function formatDuration(seconds: number | null): string {
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
+
+/**
+ * ISO 날짜 문자열을 받아 '오늘', '3일 전', '2달 전' 등 한국어 상대 시간으로 변환합니다.
+ */
+export function relativeFromNowKo(iso: string | null): string {
+  if (!iso) return '-';
+  const past = new Date(iso);
+  if (isNaN(past.getTime())) return '-';
+  const now = new Date();
+  const diffMs = now.getTime() - past.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor(diffMs / dayMs);
+  if (diffDays <= 0) return '오늘';
+  if (diffDays < 30) return `${diffDays}일 전`;
+  const months = Math.floor(diffDays / 30);
+  if (months < 12) return `${months}달 전`;
+  const years = Math.floor(months / 12);
+  return `${years}년 전`;
+}

@@ -7,7 +7,9 @@ import TranscriptDisplay from '@/components/TranscriptDisplay';
 import { updateVideo } from '@/app/actions/videos';
 import { deleteVideo as deleteVideoAction, updateVideoDuration } from '@/app/actions/video';
 import type { VideoVisibility } from '@/lib/sqlite/videos';
-import { Edit3, ArrowLeft, Trash2 } from 'lucide-react';
+import type { SqliteVideoProgress } from '@/lib/sqlite/video-progress';
+import { Edit3, ArrowLeft, Trash2, Settings2, FolderTree, Plus } from 'lucide-react';
+import CategoryManagerModal from '@/components/CategoryManagerModal';
 
 const VIDEO_VISIBILITY_OPTIONS: Array<{ value: VideoVisibility; label: string }> = [
   { value: 'public', label: '공개' },
@@ -40,7 +42,7 @@ interface VideoLearningClientProps {
   description: string | null;
   visibility: VideoVisibility;
   canEditVisibility: boolean;
-  categoryId: string | null;
+  categoryId: number | null;
   categoryName: string | null;
   channelName: string | null;
   viewCount: number;
@@ -49,6 +51,10 @@ interface VideoLearningClientProps {
   transcripts: TranscriptWithTranslation[];
   userNotes: Record<string, { id: string; content: string }>;
   isAdmin: boolean;
+  progress?: SqliteVideoProgress;
+  backUrl?: string;
+  allCategories: { id: number; name: string; language_id: number | null }[];
+  selectedCategoryIds: number[];
   enlargeTranscriptTextOnDesktop?: boolean;
 }
 
@@ -68,6 +74,10 @@ export default function VideoLearningClient({
   transcripts,
   userNotes,
   isAdmin,
+  progress,
+  backUrl = '/my-videos',
+  allCategories: initialCategories,
+  selectedCategoryIds,
   enlargeTranscriptTextOnDesktop = false,
 }: VideoLearningClientProps) {
   const [currentTime, setCurrentTime] = useState(0);
@@ -88,9 +98,13 @@ export default function VideoLearningClient({
   const [editDescription, setEditDescription] = useState<string>(description || '');
   const [editVisibility, setEditVisibility] = useState<VideoVisibility>(visibility);
   const [editLanguageId, setEditLanguageId] = useState<number | null>(languageId);
-  const [editCategoryId, setEditCategoryId] = useState<string | null>(categoryId);
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(categoryId);
   const [categories, setCategories] = useState<{ id: string; name: string; language_id: number | null }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 카테고리 관리 모달
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  
   const router = useRouter();
 
   // 화면 크기 감지 (모바일 = 768px 미만, 태블릿/PC = 768px 이상)
@@ -112,7 +126,7 @@ export default function VideoLearningClient({
       setDeleting(false);
       if (res.success) {
         alert('영상이 삭제되었습니다.');
-        router.push('/my-videos');
+        router.push(backUrl);
       } else {
         alert(`삭제 실패: ${res.error}`);
       }
@@ -141,8 +155,8 @@ export default function VideoLearningClient({
 
   // 카테고리 변경 시 카테고리의 언어로 자동 변경
   useEffect(() => {
-    if (editCategoryId !== null && editCategoryId !== '' && categories.length > 0) {
-      const cat = categories.find(c => String(c.id) === String(editCategoryId));
+    if (editCategoryId !== null && categories.length > 0) {
+      const cat = categories.find(c => Number(c.id) === Number(editCategoryId));
       if (cat) {
         setEditLanguageId(cat.language_id ?? null);
       }
@@ -216,7 +230,7 @@ export default function VideoLearningClient({
       title: editTitle.trim(),
       visibility: editVisibility,
       languageId: editLanguageId,
-      categoryId: (editCategoryId === '' || editCategoryId === null) ? null : editCategoryId,
+      categoryId: editCategoryId === null ? null : String(editCategoryId),
       description: editDescription.trim() || null,
     });
 
@@ -243,7 +257,7 @@ export default function VideoLearningClient({
         isMobile && isPlaying ? 'hidden' : ''
       }`}>
         <button
-          onClick={() => router.push('/my-videos')}
+          onClick={() => router.push(backUrl)}
           className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
           title="목록으로"
         >
@@ -262,9 +276,9 @@ export default function VideoLearningClient({
           )}
           {/* 메타 행 (카테고리/조회수 + 전체화면 토글 + 편집) */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-2 text-xs items-center">
+            <div className="flex flex-wrap gap-1.5 text-xs items-center">
               {categoryName && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                <div className="flex items-center px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-bold">
                   <span>{categoryName}</span>
                 </div>
               )}
@@ -280,6 +294,13 @@ export default function VideoLearningClient({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="p-1 text-emerald-600 dark:text-emerald-400 rounded-lg transition-all active:scale-95"
+                title="카테고리 관리/담기"
+              >
+                <FolderTree className="w-5 h-5" />
+              </button>
               {isAdmin && (
                 <button
                   onClick={handleOpenEditModal}
@@ -339,6 +360,23 @@ export default function VideoLearningClient({
         </div>
       )}
 
+      {/* 모바일: 학습 현황 */}
+      {!isPlaying && progress && progress.total_attempts > 0 && (
+        <div className="md:hidden px-4 py-2 border-b bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center text-[10px]">
+          <div className="flex gap-3 text-gray-500 dark:text-gray-400">
+            <span>시도 <span className="font-bold text-gray-900 dark:text-gray-100">{progress.total_attempts}</span></span>
+            <span>정답 <span className="font-bold text-green-600">{progress.total_correct}</span></span>
+            <span>오답 <span className="font-bold text-red-500">{progress.total_wrong}</span></span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-400 uppercase tracking-tighter font-bold">성공률</span>
+            <span className="text-blue-600 font-bold text-xs">
+              {progress.total_attempts > 0 ? Math.round((progress.total_correct / progress.total_attempts) * 100) : 0}%
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 모바일: 스크립트 섹션 (스크롤 가능) */}
       <div className={`md:hidden flex-1 overflow-y-auto px-4 py-4 ${
         isPlaying ? 'pb-safe' : ''
@@ -375,22 +413,33 @@ export default function VideoLearningClient({
         </div>
 
         {/* 채널, 카테고리, 조회수 정보 */}
-        <div className="flex flex-wrap gap-3 mb-4 text-sm">
-          {channelName && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-              <span className="font-medium">채널:</span>
-              <span>{channelName}</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap gap-3 text-sm items-center">
+            {categoryName && (
+              <div className="flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-bold">
+                <span>{categoryName}</span>
+              </div>
+            )}
+            {channelName && (
+              <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                <span className="font-medium">채널:</span>
+                <span>{channelName}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+              <span className="font-medium">조회수:</span>
+              <span>{viewCount.toLocaleString()}회</span>
             </div>
-          )}
-          {categoryName && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-              <span>{categoryName}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-            <span className="font-medium">조회수:</span>
-            <span>{viewCount.toLocaleString()}회</span>
           </div>
+
+          <button 
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all font-bold text-sm shadow-sm active:scale-95"
+            title="카테고리 관리 및 영상 담기"
+          >
+            <FolderTree className="w-4 h-4" />
+            <span>카테고리 관리</span>
+          </button>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -431,6 +480,32 @@ export default function VideoLearningClient({
                 🔁 복습 모드
               </button>
             </div>
+
+            {/* 데스크톱: 학습 현황 */}
+            {progress && progress.total_attempts > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">학습 현황</h4>
+                  <span className="text-xs font-bold text-blue-600">
+                    성공률 {progress.total_attempts > 0 ? Math.round((progress.total_correct / progress.total_attempts) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-white dark:bg-gray-700 p-2 rounded-lg shadow-sm border border-gray-50 dark:border-gray-600">
+                    <p className="text-[10px] text-gray-400 mb-0.5">총 시도</p>
+                    <p className="text-sm font-bold">{progress.total_attempts}</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-700 p-2 rounded-lg shadow-sm border border-gray-50 dark:border-gray-600">
+                    <p className="text-[10px] text-green-500/70 mb-0.5">정답</p>
+                    <p className="text-sm font-bold text-green-600">{progress.total_correct}</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-700 p-2 rounded-lg shadow-sm border border-gray-50 dark:border-gray-600">
+                    <p className="text-[10px] text-red-400 mb-0.5">오답</p>
+                    <p className="text-sm font-bold text-red-500">{progress.total_wrong}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 오른쪽: 스크립트 목록 */}
@@ -506,7 +581,7 @@ export default function VideoLearningClient({
                 <label className="block text-sm font-semibold mb-2">카테고리</label>
                 <select
                   value={editCategoryId ?? ''}
-                  onChange={(e) => setEditCategoryId(e.target.value === '' ? null : e.target.value)}
+                  onChange={(e) => setEditCategoryId(e.target.value === '' ? null : Number(e.target.value))}
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 >
                   <option value="">카테고리 선택 없음</option>
@@ -537,6 +612,15 @@ export default function VideoLearningClient({
           </div>
         </div>
       )}
+
+      <CategoryManagerModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        videoId={videoId}
+        initialCategories={initialCategories}
+        selectedCategoryIds={selectedCategoryIds}
+        languageId={languageId}
+      />
     </div>
   );
 }

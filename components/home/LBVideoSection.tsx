@@ -42,7 +42,7 @@ export default function LBVideoSection({ videos }: LBVideoSectionProps) {
         {videos.map((video) => (
           <Link
             key={video.id}
-            href={`/my-videos/${video.id}`}
+            href={`/lb-videos/${video.id}`}
             className="group bg-white rounded-lg shadow border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
           >
             <div className="relative w-full aspect-video bg-gray-200">
