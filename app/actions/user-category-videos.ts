@@ -31,6 +31,7 @@ export async function addVideoToLearningCategory(input: AddVideoToLearningCatego
     revalidatePath(`/my-videos/${input.videoId}`);
     revalidatePath('/videos');
     revalidatePath(`/videos/${input.videoId}`);
+    revalidatePath('/lb-videos');
     return { success: true, mapping };
   } catch (error) {
     console.error('addVideoToLearningCategory exception:', error);
@@ -63,6 +64,7 @@ export async function removeVideoFromLearningCategory(input: RemoveVideoFromLear
     revalidatePath(`/my-videos/${input.videoId}`);
     revalidatePath('/videos');
     revalidatePath(`/videos/${input.videoId}`);
+    revalidatePath('/lb-videos');
     return { success: true };
   } catch (error) {
     console.error('removeVideoFromLearningCategory exception:', error);

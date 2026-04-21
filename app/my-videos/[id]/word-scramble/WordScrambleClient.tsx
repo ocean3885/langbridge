@@ -603,7 +603,7 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
 
       {/* Actions */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex gap-1">
+        <div className="flex-1 flex justify-start gap-1">
           <Button variant="ghost" size="sm" onClick={goPrev} disabled={isChecking || currentIndex === 0}>
             <ChevronLeft className="w-4 h-4 sm:mr-1" />
             <span className="hidden sm:inline">이전</span>
@@ -614,24 +614,28 @@ export default function WordScrambleClient({ videoId, videoTitle, languageName, 
           </Button>
         </div>
 
-        {result ? (
-          <Button onClick={goNext} className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0">
-            다음 문장
-          </Button>
-        ) : (
-          <Button
-            onClick={checkAnswer}
-            disabled={selectedWords.length === 0 || isChecking}
-            className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0"
-          >
-            {isChecking ? '확인 중...' : '정답 확인'}
-          </Button>
-        )}
+        <div className="flex justify-center">
+          {result ? (
+            <Button onClick={goNext} className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0">
+              다음 문장
+            </Button>
+          ) : (
+            <Button
+              onClick={checkAnswer}
+              disabled={selectedWords.length === 0 || isChecking}
+              className="min-w-[120px] bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white border-0"
+            >
+              {isChecking ? '확인 중...' : '정답 확인'}
+            </Button>
+          )}
+        </div>
 
-        <Button variant="ghost" size="sm" onClick={skipQuestion} disabled={isChecking}>
-          건너뛰기
-          <SkipForward className="w-4 h-4 ml-1" />
-        </Button>
+        <div className="flex-1 flex justify-end">
+          <Button variant="ghost" size="sm" onClick={skipQuestion} disabled={isChecking}>
+            건너뛰기
+            <SkipForward className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
       </div>
 
       {/* 수정 모달 */}

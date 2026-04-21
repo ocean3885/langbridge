@@ -36,8 +36,39 @@ export async function updateVideo(input: UpdateVideoInput) {
       visibility: isSuperAdmin ? input.visibility : 'private',
     });
 
+    // my-videos 페이지는 이제 user_category_videos 테이블을 최우선으로 바라보므로
+    // 수정 모달에서 변경된 카테고리를 이 테이블에도 동기화해야 합니다. (단일 매핑 교체)
+    if (input.categoryId !== undefined) {
+      const { getSqliteDb } = await import('@/lib/sqlite/db');
+      const { randomUUID } = await import('crypto');
+      const db = await getSqliteDb();
+
+      // 기존 나의 매핑 모두 제거 (모달은 단일 선택이므로)
+      await db.run(
+        `DELETE FROM user_category_videos WHERE user_id = ? AND video_id = ?`,
+        user.id,
+        input.videoId
+      );
+
+      // 새 카테고리 선택 시 추가
+      if (input.categoryId !== null) {
+        await db.run(
+          `
+            INSERT INTO user_category_videos (id, user_id, category_id, video_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `,
+          randomUUID(),
+          user.id,
+          Number(input.categoryId),
+          input.videoId
+        );
+      }
+    }
+
     // 캐시 무효화
     revalidatePath(`/videos/${input.videoId}`);
+    revalidatePath(`/my-videos/${input.videoId}`);
+    revalidatePath('/my-videos');
     revalidatePath('/videos');
     revalidatePath('/');
 

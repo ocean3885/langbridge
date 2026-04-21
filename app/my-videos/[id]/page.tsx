@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
-import { getVideoWithTranscripts, getAllUserNotesForVideo } from '@/lib/supabase/queries/videos';
+import { getVideoWithTranscriptsSqlite } from '@/lib/sqlite/videos';
+import { getAllUserNotesForVideo } from '@/lib/supabase/queries/videos';
 import VideoLearningClient from '@/components/VideoLearningClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 import { incrementVideoViewCountSqlite } from '@/lib/sqlite/videos';
+import { listUserCategoriesForVideoSqlite } from '@/lib/sqlite/user-category-videos';
 
 interface MyVideoPageProps {
   params: Promise<{
@@ -14,9 +16,9 @@ interface MyVideoPageProps {
 export default async function MyVideoPage({ params }: MyVideoPageProps) {
   const { id } = await params;
 
-  const { data: video, error } = await getVideoWithTranscripts(id);
+  const { video, transcripts } = await getVideoWithTranscriptsSqlite(id);
 
-  if (error || !video) {
+  if (!video) {
     notFound();
   }
 
@@ -38,8 +40,17 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
 
   const isOwner = Boolean(user && video.uploader_id && user.id === video.uploader_id);
 
-  const channelData = Array.isArray(video.video_channels) ? video.video_channels[0] : video.video_channels;
-  const categoryData = Array.isArray(video.user_categories) ? video.user_categories[0] : video.user_categories;
+  // 카테고리 정보는 user_category_videos 기반으로 가져옵니다 (Supabase 참조 방식 탈피)
+  let primaryCategoryName: string | null = null;
+  if (user) {
+    const categories = await listUserCategoriesForVideoSqlite({
+      userId: user.id,
+      videoId: id,
+    });
+    if (categories && categories.length > 0) {
+      primaryCategoryName = categories[0].category_name;
+    }
+  }
 
   return (
     <VideoLearningClient
@@ -50,12 +61,12 @@ export default async function MyVideoPage({ params }: MyVideoPageProps) {
       visibility={video.visibility}
       canEditVisibility={canEditVisibility}
       categoryId={video.category_id ?? null}
-      categoryName={categoryData?.name || null}
-      channelName={channelData?.channel_name || null}
+      categoryName={primaryCategoryName}
+      channelName={video.channel_name || null}
       viewCount={video.view_count}
       languageId={video.language_id}
       duration={video.duration ?? null}
-      transcripts={video.transcripts}
+      transcripts={transcripts}
       userNotes={userNotes}
       isAdmin={isAdmin || isOwner}
       enlargeTranscriptTextOnDesktop

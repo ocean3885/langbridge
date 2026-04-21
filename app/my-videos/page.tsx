@@ -3,11 +3,13 @@ import { listVideosSqlite } from '@/lib/sqlite/videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { listVideosByUserCategorySqlite } from '@/lib/sqlite/user-category-videos';
+import { listAllUserCategoryVideosSqlite } from '@/lib/sqlite/user-category-videos-all';
 import { listVideoProgressForVideos, type SqliteVideoProgress } from '@/lib/sqlite/video-progress';
 import { formatDuration } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Video, Clock, Plus, FolderOpen } from 'lucide-react';
+import { Video, Clock, Plus, FolderOpen, Tag } from 'lucide-react';
+import CategoryManageButton from './CategoryManageButton';
 
 // 동적 렌더링 강제
 export const dynamic = 'force-dynamic';
@@ -86,8 +88,20 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
     };
   }
 
-  // 데이터 변환 및 트랜스크립트 카운트 조회
+  // 2. 실제로 영상이 존재하는 카테고리 ID들 추출 (필터 바 노출용)
+  const [myUploadedVideos, mySavedMappings] = await Promise.all([
+    listVideosSqlite({ uploaderId: user.id }),
+    listAllUserCategoryVideosSqlite(user.id)
+  ]);
+
+  const activeCategoryIds = new Set([
+    ...myUploadedVideos.map((v: any) => v.category_id).filter((id): id is string => id !== null).map((id: string) => Number(id)),
+    ...mySavedMappings.map((m: any) => m.category_id)
+  ]);
+
+  // 3. 비디오 데이터 로드 및 변환
   const videoList: VideoItem[] = [];
+  const addedSet = new Set<string>(); // "category_id:video_id" 조합 기록용
 
   if (shouldFilterByLearningCategory && selectedLearningCategory) {
     const videos = await listVideosByUserCategorySqlite({
@@ -96,37 +110,82 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
     });
 
     for (const video of videos) {
-      videoList.push({
-        id: video.video_id,
-        youtube_id: video.youtube_id,
-        title: video.title,
-        description: video.description,
-        duration: video.duration,
-        thumbnail_url: video.thumbnail_url,
-        created_at: video.created_at,
-        category_id: video.video_category_id,
-        category_name: categoryMap[String(video.video_category_id || '')]?.name || null,
-        language_name: categoryMap[String(video.video_category_id || '')]?.languageName || null,
-        transcript_count: video.transcript_count || 0,
-      });
+      const uniqueKey = `${video.category_id}:${video.video_id}`;
+      if (!addedSet.has(uniqueKey)) {
+        addedSet.add(uniqueKey);
+        videoList.push({
+          id: video.video_id,
+          youtube_id: video.youtube_id,
+          title: video.title,
+          description: video.description,
+          duration: video.duration,
+          thumbnail_url: video.thumbnail_url,
+          created_at: video.created_at,
+          category_id: String(video.category_id),
+          category_name: categoryMap[String(video.category_id)]?.name || null,
+          language_name: categoryMap[String(video.category_id)]?.languageName || null,
+          transcript_count: video.transcript_count || 0,
+        });
+      }
     }
   } else {
-    const videos = await listVideosSqlite({ uploaderId: user.id });
-  
-    for (const video of videos) {
-      videoList.push({
-        id: video.id,
-        youtube_id: video.youtube_id,
-        title: video.title,
-        description: video.description,
-        duration: video.duration,
-        thumbnail_url: video.thumbnail_url,
-        created_at: video.created_at,
-        category_id: video.category_id,
-        category_name: categoryMap[String(video.category_id || '')]?.name || null,
-        language_name: categoryMap[String(video.category_id || '')]?.languageName || null,
-        transcript_count: video.transcript_count || 0,
-      });
+    // 1. 모든 담긴 영상의 상세 정보를 가져옴
+    const categoryVideoPromises = Array.from(activeCategoryIds).map((catId) =>
+      listVideosByUserCategorySqlite({ userId: user.id, categoryId: catId })
+    );
+    const categoryVideosArrays = await Promise.all(categoryVideoPromises);
+
+    for (const videos of categoryVideosArrays) {
+      for (const video of videos) {
+        const uniqueKey = `${video.category_id}:${video.video_id}`;
+        if (!addedSet.has(uniqueKey)) {
+          addedSet.add(uniqueKey);
+          videoList.push({
+            id: video.video_id,
+            youtube_id: video.youtube_id,
+            title: video.title,
+            description: video.description,
+            duration: video.duration,
+            thumbnail_url: video.thumbnail_url,
+            created_at: video.created_at,
+            category_id: String(video.category_id),
+            category_name: categoryMap[String(video.category_id)]?.name || null,
+            language_name: categoryMap[String(video.category_id)]?.languageName || null,
+            transcript_count: video.transcript_count || 0,
+          });
+        }
+      }
+    }
+
+    // 2. 혹시나 'user_category_videos'에 매핑되지 않은 업로드 영상들 (카테고리 미지정이거나, old data)
+    // 원본 videos.category_id가 남아있어 사용자가 변경한 카테고리와 겹쳐 두 번 나오는 것을 방지하기 위해,
+    // 이미 user_category_videos를 통해 하나라도 매핑 정보가 있다면 폴백(원본 카테고리)을 무시합니다.
+    const mappedVideoIds = new Set(mySavedMappings.map((m: any) => m.video_id));
+
+    for (const v of myUploadedVideos) {
+      // 이미 내가 관리하는 카테고리에 하나이상 담겨있다면 기존 원본 카테고리로 중복 표시하지 않음
+      if (mappedVideoIds.has(v.id)) continue;
+
+      // 사용자가 카테고리를 통제할 수 있도록, 매핑 테이블(user_category_videos)에 없으면 
+      // 무조건 '카테고리 미지정'으로 처리하여 과거의 고정된 카테고리에 얽매이지 않게 합니다.
+      const uniqueKey = `null:${v.id}`;
+
+      if (!addedSet.has(uniqueKey)) {
+        addedSet.add(uniqueKey);
+        videoList.push({
+          id: v.id,
+          youtube_id: v.youtube_id,
+          title: v.title,
+          description: v.description,
+          duration: v.duration,
+          thumbnail_url: v.thumbnail_url,
+          created_at: v.created_at,
+          category_id: null,
+          category_name: null,
+          language_name: null,
+          transcript_count: v.transcript_count || 0,
+        });
+      }
     }
   }
 
@@ -138,23 +197,8 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
     progressMap.set(row.video_id, row);
   }
 
-  // 카테고리별로 그룹화
-  const groupedByCategory = videoList.reduce((acc, video) => {
-    const categoryKey = video.category_name || '카테고리 미지정';
-    const categoryId = video.category_id ?? null;
-    
-    if (!acc[categoryKey]) {
-      acc[categoryKey] = { id: categoryId, videos: [] };
-    }
-    acc[categoryKey].videos.push(video);
-    return acc;
-  }, {} as Record<string, { id: string | null; videos: VideoItem[] }>);
-
-  const sortedGroups = Object.entries(groupedByCategory).sort((a, b) => {
-    if (a[0] === '카테고리 미지정') return 1;
-    if (b[0] === '카테고리 미지정') return -1;
-    return a[0].localeCompare(b[0], 'ko');
-  });
+  // 비디오 최신순 정렬 (플랫 리스트용)
+  const sortedVideos = videoList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -170,13 +214,10 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
           </p>
         </div>
         <div className="sm:flex-shrink-0">
-          <Link
-            href="/upload?tab=video"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            영상 생성
-          </Link>
+          <CategoryManageButton
+            initialCategories={categoryRows as any}
+            initialLanguages={languageRows as any}
+          />
         </div>
       </div>
 
@@ -185,27 +226,25 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
           <span className="text-sm font-medium text-gray-700 mr-1">학습 카테고리 필터:</span>
           <Link
             href="/my-videos"
-            className={`rounded-full px-3 py-1 text-sm border transition-colors ${
-              !shouldFilterByLearningCategory
+            className={`rounded-full px-3 py-1 text-sm border transition-colors ${!shouldFilterByLearningCategory
                 ? 'border-blue-600 bg-blue-50 text-blue-700'
                 : 'border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-700'
-            }`}
+              }`}
           >
             전체
           </Link>
           {categoryRows.map((category) => (
-            <Link
-              key={category.id}
-              href={`/my-videos?learningCategoryId=${category.id}`}
-              className={`rounded-full px-3 py-1 text-sm border transition-colors ${
-                selectedLearningCategory?.id === category.id
-                  ? 'border-blue-600 bg-blue-50 text-blue-700'
-                  : 'border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-700'
-              }`}
-            >
-              {category.name}
-            </Link>
-          ))}
+              <Link
+                key={category.id}
+                href={`/my-videos?learningCategoryId=${category.id}`}
+                className={`rounded-full px-3 py-1 text-sm border transition-colors ${selectedLearningCategory?.id === category.id
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-700'
+                  }`}
+              >
+                {category.name}
+              </Link>
+            ))}
         </div>
       </div>
 
@@ -223,34 +262,23 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
           </p>
           <Link
             href="/upload?tab=video"
-            className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
           >
             <Plus className="w-5 h-5" />
-            영상 생성
+            영상 등록
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          {sortedGroups.map(([categoryName, categoryData]) => (
-            <section key={categoryName} className="space-y-4">
-              {/* 카테고리 헤더 */}
-              <div className="flex items-center gap-3 border-b-2 border-blue-500 pb-2">
-                <FolderOpen className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-800">{categoryName}</h2>
-                <span className="text-sm text-gray-500">({categoryData.videos.length}개)</span>
-              </div>
-
-              {/* 비디오 리스트 */}
-              <div className="space-y-3">
-                {categoryData.videos.map((video) => (
-                  <Link
-                    key={video.id}
-                    href={`/my-videos/${video.id}`}
-                    className="block bg-white rounded-lg shadow hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-200 hover:border-blue-300"
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4">
-                      {/* 썸네일 */}
-                      <div className="relative w-full sm:w-40 h-40 sm:h-24 flex-shrink-0 bg-gray-200 rounded overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {sortedVideos.map((video) => (
+            <Link
+              key={video.category_id ? `${video.category_id}_${video.id}` : `null_${video.id}`}
+              href={`/my-videos/${video.id}`}
+              className="group flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden"
+            >
+              <div className="flex flex-col h-full">
+                {/* 썸네일 */}
+                <div className="relative w-full aspect-video flex-shrink-0 bg-gray-100 rounded-t-2xl overflow-hidden">
                         {video.thumbnail_url ? (
                           <Image
                             src={video.thumbnail_url}
@@ -264,7 +292,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
                             <Video className="w-10 h-10 text-gray-400" />
                           </div>
                         )}
-                        
+
                         {/* 시간 배지 */}
                         {video.duration !== null && (
                           <div className="absolute bottom-1 right-1 bg-black/75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
@@ -274,92 +302,75 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
                         )}
                       </div>
 
-                      {/* 비디오 정보 */}
-                      <div className="w-full sm:w-auto flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 text-base sm:text-lg truncate hover:text-blue-600 transition-colors">
-                            {video.title}
-                          </h3>
-                          {(() => {
-                            const p = progressMap.get(video.id);
-                            if (!p) return null;
-                            const pct = p.mastery_pct;
-                            const label = pct >= 100 ? '완료' : `${pct}%`;
-                            const color =
-                              pct >= 100
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : pct > 0
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-                            return (
-                              <span className={`flex-shrink-0 text-[10px] sm:text-xs font-semibold px-1.5 py-0.5 rounded ${color}`}>
-                                {label}
-                              </span>
-                            );
-                          })()}
+                {/* 비디오 정보 */}
+                <div className="p-4 flex flex-col flex-grow">
+                  {/* 카테고리 배지 */}
+                  <div className="flex items-center mb-2">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full border ${
+                      video.category_name 
+                        ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                        : 'bg-gray-50 text-gray-500 border-gray-200'
+                    }`}>
+                      <Tag className="w-3 h-3" />
+                      {video.category_name || '미지정'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="font-bold text-gray-900 text-base line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {video.title}
+                    </h3>
+                  </div>
+
+                  {/* 학습 진행 바 (수치) */}
+                  {(() => {
+                    const p = progressMap.get(video.id);
+                    if (!p || p.total_scripts === 0) return null;
+                    const pct = p.mastery_pct;
+                    const barColor =
+                      pct >= 100
+                        ? 'bg-emerald-500'
+                        : pct > 0
+                          ? 'bg-blue-500'
+                          : 'bg-gray-300';
+                    return (
+                      <div className="flex flex-col gap-1 mb-3 mt-auto">
+                        <div className="flex items-center justify-between text-[10px] font-semibold">
+                          <span className={pct >= 100 ? 'text-emerald-600' : pct > 0 ? 'text-blue-600' : 'text-gray-500'}>
+                            {pct >= 100 ? '학습 완료' : `${pct}% 진행`}
+                          </span>
+                          <span className="text-gray-500 tabular-nums">
+                            {p.mastered_scripts} / {p.total_scripts}
+                          </span>
                         </div>
-
-                        {/* 학습 진행 바 */}
-                        {(() => {
-                          const p = progressMap.get(video.id);
-                          if (!p || p.total_scripts === 0) return null;
-                          const pct = p.mastery_pct;
-                          const barColor =
-                            pct >= 100
-                              ? 'bg-emerald-500'
-                              : pct > 0
-                                ? 'bg-blue-500'
-                                : 'bg-gray-300';
-                          return (
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${barColor}`}
-                                  style={{ width: `${Math.min(pct, 100)}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-500 flex-shrink-0 tabular-nums">
-                                {p.mastered_scripts}/{p.total_scripts}
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                        {video.description && (
-                          <p className="text-sm text-gray-500 line-clamp-3 sm:line-clamp-2 mb-2 break-words">
-                            {video.description}
-                          </p>
-                        )}
-
-                        {/* 메타 정보: 모바일에서는 설명 하단에 줄바꿈되며 보기 좋게 배치 */}
-                        <div className="mt-1 sm:mt-2 text-xs text-gray-500">
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 overflow-hidden">
-                            {video.language_name && (
-                              <span className="flex items-center gap-1">
-                                🌐 {video.language_name}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              📝 {video.transcript_count}개의 스크립트
-                            </span>
-                            <span className="flex items-center gap-1">
-                              {(() => {
-                                const p = progressMap.get(video.id);
-                                const lastStudied = p?.last_studied_at;
-                                if (lastStudied) {
-                                  return `📖 ${relativeFromNowKo(lastStudied)} 학습`;
-                                }
-                                return relativeFromNowKo(video.created_at);
-                              })()}
-                            </span>
-                          </div>
+                        <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${barColor}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
                         </div>
                       </div>
+                    );
+                  })()}
+
+                  <div className="mt-auto pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex flex-wrap gap-2 items-center justify-between">
+                    <div className="flex gap-2 items-center">
+                      {video.language_name && <span>🌐 {video.language_name}</span>}
+                      <span>📝 {video.transcript_count}문장</span>
                     </div>
-                  </Link>
-                ))}
+                    <span>
+                      {(() => {
+                        const p = progressMap.get(video.id);
+                        const lastStudied = p?.last_studied_at;
+                        if (lastStudied) {
+                          return `📖 ${relativeFromNowKo(lastStudied)}`;
+                        }
+                        return relativeFromNowKo(video.created_at);
+                      })()}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </section>
+            </Link>
           ))}
         </div>
       )}

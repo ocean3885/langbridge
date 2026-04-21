@@ -265,7 +265,6 @@ export default function VideoLearningClient({
             <div className="flex flex-wrap gap-2 text-xs items-center">
               {categoryName && (
                 <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-                  <span className="font-medium">카테고리:</span>
                   <span>{categoryName}</span>
                 </div>
               )}
@@ -385,7 +384,6 @@ export default function VideoLearningClient({
           )}
           {categoryName && (
             <div className="flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-              <span className="font-medium">카테고리:</span>
               <span>{categoryName}</span>
             </div>
           )}
