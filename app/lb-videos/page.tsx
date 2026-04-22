@@ -5,7 +5,7 @@ import { listAllUserCategoryVideosSqlite, type SqliteUserVideoMapping } from '@/
 import { formatDuration } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Video, Clock, Globe, Plus, Tag } from 'lucide-react';
+import { Video, Globe, Tag } from 'lucide-react';
 import CategoryAddButton from './CategoryAddButton';
 import Pagination from '@/components/common/Pagination';
 

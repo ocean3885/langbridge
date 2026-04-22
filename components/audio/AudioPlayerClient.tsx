@@ -41,7 +41,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
   const lastSentenceIndexRef = useRef<number>(-1);
   const isUserScrollingRef = useRef<boolean>(false);
   const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const playerHeightRef = useRef<number>(0);
+  // playerHeightRef removed
 
   // 메모 관련 상태
   const [memos, setMemos] = useState<Record<number, Memo>>({}); // line_number를 key로 사용
@@ -246,20 +246,7 @@ export default function AudioPlayerClient({ audioUrl, syncData, contentId, initi
       }
     };
 
-    const handleScroll = () => {
-      // 사용자가 스크롤 중임을 표시
-      isUserScrollingRef.current = true;
-
-      // 기존 타임아웃 클리어
-      if (userScrollTimeoutRef.current) {
-        clearTimeout(userScrollTimeoutRef.current);
-      }
-
-      // 1초 동안 스크롤이 없으면 다시 자동 스크롤 활성화
-      userScrollTimeoutRef.current = setTimeout(() => {
-        isUserScrollingRef.current = false;
-      }, 1000);
-    };
+  // handleScroll removed
 
     const handleError = (e: Event) => {
       console.error('Audio playback error:', e);

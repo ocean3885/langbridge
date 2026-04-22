@@ -104,8 +104,11 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
             {/* 2행: 링크/계정 - 모바일 전체폭 justify-between, 데스크톱 우측 정렬 */}
             <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
               {/* 왼쪽 링크 그룹 */}
-              <div className="flex items-center gap-2 sm:gap-4">
-                <Link href="/upload" className="hover:text-blue-300 transition duration-150">
+              <div className="flex items-center gap-3 sm:gap-4 font-medium">
+                <Link href="/my-videos" className="hover:text-amber-300 transition-colors duration-150 whitespace-nowrap">
+                  학습
+                </Link>
+                <Link href="/upload" className="hover:text-blue-300 transition-colors duration-150 whitespace-nowrap">
                   생성
                 </Link>
                 <Link href="/board" className="hover:text-blue-300 transition duration-150">

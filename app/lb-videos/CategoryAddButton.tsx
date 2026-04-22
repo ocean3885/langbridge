@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Plus, Check, Loader2 } from 'lucide-react';
 import { addVideoToLearningCategory, removeVideoFromLearningCategory } from '@/app/actions/user-category-videos';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import CategoryManagerModal from '@/components/common/CategoryManagerModal';
 
 interface Category {
   id: number;
   name: string;
+  language_id?: number | null;
 }
 
 interface CategoryAddButtonProps {
@@ -19,6 +20,7 @@ interface CategoryAddButtonProps {
 
 export default function CategoryAddButton({ videoId, allCategories, selectedCategoryIds }: CategoryAddButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -95,7 +97,15 @@ export default function CategoryAddButton({ videoId, allCategories, selectedCate
             {allCategories.length === 0 ? (
               <div className="px-4 py-3 text-center">
                 <p className="text-xs text-gray-500 italic">생성된 카테고리가 없습니다.</p>
-                <Link href="/categories" className="text-[10px] text-emerald-600 hover:underline mt-1 block">카테고리 만들러 가기</Link>
+                <button 
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsManagerOpen(true);
+                  }} 
+                  className="text-[10px] text-emerald-600 font-bold hover:underline mt-2 inline-block"
+                >
+                  카테고리 만들기
+                </button>
               </div>
             ) : (
               allCategories.map((cat) => {
@@ -126,6 +136,17 @@ export default function CategoryAddButton({ videoId, allCategories, selectedCate
             )}
           </div>
         </div>
+      )}
+
+      {isManagerOpen && (
+        <CategoryManagerModal
+          videoId={videoId}
+          isOpen={isManagerOpen}
+          onClose={() => setIsManagerOpen(false)}
+          initialCategories={allCategories as any}
+          selectedCategoryIds={selectedCategoryIds}
+          languageId={null}
+        />
       )}
     </div>
   );

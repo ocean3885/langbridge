@@ -15,8 +15,8 @@ export default async function UploadPage() {
     redirect('/auth/login?redirectTo=/upload');
   }
 
-  let audioCategories = await listSqliteCategories('lang_categories', user.id);
-  let videoCategories = await listSqliteCategories('user_categories', user.id);
+  const audioCategories = await listSqliteCategories('lang_categories', user.id);
+  const videoCategories = await listSqliteCategories('user_categories', user.id);
 
   const languages = await listSqliteLanguages();
   const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });

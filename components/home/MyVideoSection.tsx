@@ -34,8 +34,8 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
           <h2 className="text-2xl font-bold text-gray-900">내 학습 영상</h2>
         </div>
         {isLoggedIn && categories.length > 0 && (
-          <Link 
-            href="/my-videos" 
+          <Link
+            href="/my-videos"
             className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
           >
             전체 보기
@@ -51,7 +51,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
         <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-4">
           <h3 className="text-xl font-bold text-gray-800">엄선된 교육 영상으로 실전 표현을 넓혀보세요</h3>
           <p className="text-sm text-gray-600 leading-relaxed">
-            공개 어학 강의 영상에서는 주제별 교육 영상을 바로 재생하며 표현과 맥락을 익힐 수 있습니다.<br/>
+            공개 어학 강의 영상에서는 주제별 교육 영상을 바로 재생하며 표현과 맥락을 익힐 수 있습니다.<br />
             가입 후에는 개인 영상 업로드와 별도로 나만의 학습 콘텐츠도 함께 관리할 수 있습니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -67,7 +67,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
           <div className="space-y-2">
             <h3 className="text-xl sm:text-2xl font-bold text-gray-800">첫 영상을 등록하여 영상 학습을 시작해보세요</h3>
             <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
-              YouTube 영상을 등록해 나만의 영상 컴렉션을 만들고, 공개 어학 강의 영상과 함께 활용해보세요.
+              YouTube 영상을 등록해 나만의 영상 컬렉션을 만들고, 공개 어학 강의 영상과 함께 활용해보세요.
             </p>
           </div>
           <ul className="text-left mx-auto max-w-2xl space-y-2 text-sm sm:text-base">
@@ -81,7 +81,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
               지금 영상 등록
             </Link>
           </div>
-          <p className="text-xs text-gray-500">영상은 언제든 삭제할 수 있어요. 실전 회화 학습을 시작해보세요!</p>
+          <p className="text-xs text-gray-500">영상은 언제든 삭제할 수 있어요. 실전 어학 학습을 시작해보세요!</p>
         </div>
       )}
 
@@ -89,7 +89,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
       {isLoggedIn && categories.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {(() => {
-            const flatVideos = categories.flatMap(category => 
+            const flatVideos = categories.flatMap(category =>
               category.videoList.map(video => ({
                 ...video,
                 categoryName: category.name,
