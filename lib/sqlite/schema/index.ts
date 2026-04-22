@@ -15,7 +15,7 @@ export async function initializeSchema(db: SqliteDb): Promise<void> {
   await createVideosTables(db);      // videos, video_channels, transcripts, translations
   await createCategoriesTables(db);  // lang/user/edu_video categories, user_category_videos + triggers
   await createEduVideosTables(db);   // edu_videos, video_learning_progress
-  await createLearningTables(db);    // script_progress, script_progress_attempts, video_progress
+  await createLearningTables(db);    // script_progress, video_progress
   await createAudioTables(db);       // lang_audio_content, lang_audio_memos
   await createLanguagesTables(db);   // languages, words, sentences, word_sentence_map, verb_conjugations
   await createBoardTables(db);       // board_posts

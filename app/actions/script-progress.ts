@@ -237,19 +237,6 @@ export async function recordCorrectAnswer(
     : row.first_mastered_at;
   const newMasteredCount = isFirstMastered ? row.mastered_count + 1 : row.mastered_count;
 
-  // attempts 히스토리 기록
-  await db.run(
-    `INSERT INTO script_progress_attempts (id, progress_id, user_id, video_id, script_id, attempt_no, is_correct, tpw)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-    randomUUID(),
-    progressId,
-    user.id,
-    row.video_id,
-    row.script_id,
-    newTotalAttempts,
-    tpw,
-  );
-
   await db.run(
     `UPDATE script_progress
      SET consecutive_correct = ?, status = ?, best_tpw = ?,
@@ -303,18 +290,6 @@ export async function recordWrongAnswer(
 
   const newTotalAttempts = row.total_attempts + 1;
   const newWrongCount = row.wrong_count + 1;
-
-  // attempts 히스토리 기록
-  await db.run(
-    `INSERT INTO script_progress_attempts (id, progress_id, user_id, video_id, script_id, attempt_no, is_correct, tpw)
-     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)`,
-    randomUUID(),
-    progressId,
-    user.id,
-    row.video_id,
-    row.script_id,
-    newTotalAttempts,
-  );
 
   await db.run(
     `UPDATE script_progress
