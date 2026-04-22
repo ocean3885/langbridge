@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { updateEduVideo } from '@/app/actions/edu-video';
-import CategoryManageModal from '@/components/CategoryManageModal';
+import CategoryManageModal from '@/components/common/CategoryManageModal';
 
 interface EditEduVideoFormProps {
   video: {

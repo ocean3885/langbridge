@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Video, Clock, Globe, Plus, Tag } from 'lucide-react';
 import CategoryAddButton from './CategoryAddButton';
+import Pagination from '@/components/common/Pagination';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ type VideoItem = {
 interface LBVideosPageProps {
   searchParams?: Promise<{
     filter?: string;
+    page?: string;
   }>;
 }
 
@@ -34,6 +36,8 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
   const user = await getAppUserFromServer();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const currentFilter = resolvedSearchParams?.filter || 'all';
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
+  const ITEMS_PER_PAGE = 12;
 
   // 1. 데이터 병렬 로드
   const [allPublicVideos, allMyCategories, allMyMappings] = await Promise.all([
@@ -75,6 +79,9 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
     { id: 'saved', label: '학습 중' },
     { id: 'new', label: '학습 대기' },
   ];
+
+  const totalPages = Math.ceil(videoList.length / ITEMS_PER_PAGE);
+  const paginatedVideos = videoList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -118,7 +125,7 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {videoList.map((video) => (
+          {paginatedVideos.map((video) => (
             <div
               key={video.id}
               className="group flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden"
@@ -190,6 +197,15 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
             </div>
           ))}
         </div>
+      )}
+      
+      {totalPages > 1 && (
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          baseUrl="/lb-videos" 
+          queryParams={currentFilter !== 'all' ? { filter: currentFilter } : undefined} 
+        />
       )}
     </div>
   );

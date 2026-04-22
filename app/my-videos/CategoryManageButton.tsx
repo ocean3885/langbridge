@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Settings } from 'lucide-react';
-import CategoryManageModal from '@/components/CategoryManageModal';
+import CategoryManageModal from '@/components/common/CategoryManageModal';
 import { useRouter } from 'next/navigation';
 
 interface Category {

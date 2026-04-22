@@ -1,11 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
-import AudioPlayerClient from '@/components/AudioPlayerClient'; // 클라이언트 컴포넌트
+import AudioPlayerClient from '@/components/audio/AudioPlayerClient'; // 클라이언트 컴포넌트
 import Link from 'next/link';
 import { Calendar, FolderOpen } from 'lucide-react';
-import TitleEditorClient from '@/components/TitleEditorClient';
+import TitleEditorClient from '@/components/common/TitleEditorClient';
 import { revalidatePath } from 'next/cache';
-import BackButton from '@/components/BackButton';
+import BackButton from '@/components/common/BackButton';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import {
   findAudioContentByIdSqlite,

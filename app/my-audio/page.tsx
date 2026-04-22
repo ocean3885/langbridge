@@ -13,7 +13,7 @@ import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import MyAudioPageClient from '../../components/MyAudioPageClient';
+import MyAudioPageClient from '../../components/audio/MyAudioPageClient';
 
 type AudioWithCategory = {
   id: string;

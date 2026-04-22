@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import CategoryChangeModal from './CategoryChangeModal';
+import CategoryChangeModal from '@/components/common/CategoryChangeModal';
 
 type AudioItem = {
   id: string; // UUID

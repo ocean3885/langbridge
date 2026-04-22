@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FolderOpen, Pencil, Check, X, Settings } from 'lucide-react';
 import MyAudioList from './MyAudioList';
-import CategoryManageModal from './CategoryManageModal';
+import CategoryManageModal from '@/components/common/CategoryManageModal';
 
 type AudioWithCategory = {
   id: string;

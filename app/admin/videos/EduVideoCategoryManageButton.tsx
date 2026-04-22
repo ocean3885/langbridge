@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Settings } from 'lucide-react';
-import CategoryManageModal from '@/components/CategoryManageModal';
+import CategoryManageModal from '@/components/common/CategoryManageModal';
 
 interface Category {
   id: number;

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { FolderOpen, BookOpen } from 'lucide-react';
-import AudioCard from '@/components/AudioCard';
+import AudioCard from '@/components/audio/AudioCard';
 
 export interface LBAudio {
   id: string;

@@ -5,7 +5,7 @@ import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import Link from 'next/link';
 import { BookOpen, FolderOpen } from 'lucide-react';
-import AudioCard from '@/components/AudioCard';
+import AudioCard from '@/components/audio/AudioCard';
 
 export const dynamic = 'force-dynamic';
 

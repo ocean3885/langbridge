@@ -11,6 +11,7 @@ import CategoryManageButton from './CategoryManageButton';
 import CategoryFilter from './CategoryFilter';
 import VideoCard from './VideoCard';
 import EmptyVideoState from './EmptyVideoState';
+import Pagination from '@/components/common/Pagination';
 import type { VideoItem } from './types';
 
 // 동적 렌더링 강제
@@ -19,6 +20,7 @@ export const dynamic = 'force-dynamic';
 interface MyVideosPageProps {
   searchParams?: Promise<{
     learningCategoryId?: string;
+    page?: string;
   }>;
 }
 
@@ -40,6 +42,9 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedLearningCategoryId = resolvedSearchParams?.learningCategoryId;
   const selectedLearningCategoryId = requestedLearningCategoryId ? Number(requestedLearningCategoryId) : null;
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
+  const ITEMS_PER_PAGE = 12;
+
   const shouldFilterByLearningCategory =
     selectedLearningCategoryId !== null && Number.isFinite(selectedLearningCategoryId);
 
@@ -157,6 +162,9 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   }
 
   const sortedVideos = videoList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  
+  const totalPages = Math.ceil(sortedVideos.length / ITEMS_PER_PAGE);
+  const paginatedVideos = sortedVideos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -185,7 +193,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
         <EmptyVideoState categoryName={selectedLearningCategory?.name} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {sortedVideos.map((video) => (
+          {paginatedVideos.map((video) => (
             <VideoCard
               key={video.id}
               video={video}
@@ -193,6 +201,15 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
             />
           ))}
         </div>
+      )}
+
+      {totalPages > 1 && (
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          baseUrl="/my-videos" 
+          queryParams={shouldFilterByLearningCategory ? { learningCategoryId: String(selectedLearningCategoryId) } : undefined} 
+        />
       )}
     </div>
   );

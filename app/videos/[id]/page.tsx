@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import EduVideoLearningClient from '@/components/EduVideoLearningClient';
+import EduVideoLearningClient from '@/components/edu-video/EduVideoLearningClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { extractYoutubeIdFromUrl, getEduVideoByIdSqlite, incrementEduVideoViewCountSqlite } from '@/lib/sqlite/edu-videos';
 import { getVideoLearningProgressSqlite } from '@/lib/sqlite/video-learning-progress';

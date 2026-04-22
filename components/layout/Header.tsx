@@ -1,4 +1,4 @@
-import HeaderClient from '@/components/HeaderClient';
+import HeaderClient from '@/components/layout/HeaderClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
 

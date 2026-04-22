@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import UploadForm from './UploadForm';
-import CategoryManageModal from '@/components/CategoryManageModal';
+import CategoryManageModal from '@/components/common/CategoryManageModal';
 
 interface Category {
   id: number;
