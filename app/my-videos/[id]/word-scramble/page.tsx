@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { getVideoWithTranscriptsSqlite } from '@/lib/sqlite/videos';
+import { getVideoWithTranscripts } from '@/lib/supabase/services/videos';
 import { initScriptProgress } from '@/app/actions/script-progress';
 import WordScrambleClient from './WordScrambleClient';
 
@@ -16,7 +16,7 @@ export default async function WordScramblePage({ params, searchParams }: Props) 
   const user = await getAppUserFromServer();
   if (!user) redirect('/auth/login');
 
-  const { video } = await getVideoWithTranscriptsSqlite(videoId);
+  const { video } = await getVideoWithTranscripts(videoId);
   if (!video) notFound();
 
   // 학습 시작 – script_progress 초기화 (이미 있으면 기존 데이터 반환)

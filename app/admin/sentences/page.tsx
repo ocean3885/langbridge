@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listSqliteLanguagesByEnglishName } from '@/lib/sqlite/languages';
 import { listSentencesSqlite } from '@/lib/sqlite/sentences';
 import SentencesManager from './SentencesManager';
@@ -28,9 +28,9 @@ export default async function SentencesPage() {
   }
   
   // 운영자 확인
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   
-  if (!isSuperAdmin) {
+  if (!isAdminUser) {
     redirect('/');
   }
   

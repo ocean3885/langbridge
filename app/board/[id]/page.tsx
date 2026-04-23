@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
-import { getBoardPostSqlite, incrementBoardPostViewSqlite } from '@/lib/sqlite/board';
+import { getBoardPost, incrementBoardPostView } from '@/lib/supabase/services/board';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import BoardDetailClient from './BoardDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -18,16 +18,16 @@ export default async function BoardDetailPage({ params }: BoardDetailPageProps) 
     notFound();
   }
 
-  const post = await getBoardPostSqlite(postId);
+  const post = await getBoardPost(postId);
   if (!post) {
     notFound();
   }
 
-  await incrementBoardPostViewSqlite(postId);
+  await incrementBoardPostView(postId);
 
   const user = await getAppUserFromServer();
   const isAdmin = user
-    ? await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null })
+    ? await isSuperAdmin({ userId: user.id, email: user.email ?? null })
     : false;
   const canDelete = Boolean(user && (user.id === post.user_id || isAdmin));
 

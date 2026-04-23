@@ -9,6 +9,7 @@ interface Category {
   id: number;
   name: string;
   language_id?: number | null;
+  content_count?: number;
 }
 
 interface Language {

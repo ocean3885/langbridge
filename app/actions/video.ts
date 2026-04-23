@@ -1,49 +1,17 @@
 'use server';
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { revalidatePath } from 'next/cache';
-import { createSqliteCategory, findSqliteCategoryByName } from '@/lib/sqlite/categories';
+import { resolveLearningCategoryId } from '@/lib/supabase/services/categories';
 import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import {
   type VideoVisibility,
-  deleteVideoSqlite,
-  insertVideoWithTranscriptsSqlite,
-  updateVideoChannelSqlite,
-  updateVideoDurationSqlite,
-} from '@/lib/sqlite/videos';
-
-async function resolveLearningCategoryId(input: {
-  userId: string;
-  rawCategoryId: string | null | undefined;
-}): Promise<number> {
-  if (input.rawCategoryId) {
-    const parsed = Number(input.rawCategoryId);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  const existing = await findSqliteCategoryByName({
-    table: 'user_categories',
-    userId: input.userId,
-    name: DEFAULT_LEARNING_CATEGORY_NAME,
-    languageId: null,
-  });
-
-  if (existing) {
-    return existing.id;
-  }
-
-  const created = await createSqliteCategory({
-    table: 'user_categories',
-    userId: input.userId,
-    name: DEFAULT_LEARNING_CATEGORY_NAME,
-    languageId: null,
-  });
-
-  return created.id;
-}
+  deleteVideo as deleteVideoService,
+  insertVideoWithTranscripts,
+  updateVideoChannel as updateVideoChannelService,
+  updateVideoDuration as updateVideoDurationService,
+} from '@/lib/supabase/services/videos';
 
 /**
  * YouTube URL에서 video ID 추출
@@ -122,8 +90,7 @@ export interface RegisterVideoInput {
   title: string;
   description?: string;
   visibility?: VideoVisibility;
-  // duration은 더 이상 수동 입력하지 않음 (YouTube 메타데이터/추후 자동 처리용)
-  duration?: number; // 유지: 향후 자동 수집 시 사용, 현재는 undefined 전달
+  duration?: number;
   transcriptText: string;
   lang?: string; // 번역 언어 코드 (기본값: 'ko')
   languageId?: number | null; // 영상 자체의 언어 (videos.language_id)
@@ -139,9 +106,6 @@ export interface RegisterVideoResult {
 
 /**
  * 영상 등록 Server Action
- * - YouTube 영상 메타데이터 저장
- * - 스크립트 텍스트 파싱 후 transcripts, translations 테이블에 일괄 삽입
- * - 트랜잭션 처리로 원자성 보장
  */
 export async function registerVideo(
   input: RegisterVideoInput
@@ -153,7 +117,7 @@ export async function registerVideo(
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const isSuperAdmin = await isSuperAdminSqlite({
+    const isAdminUser = await isSuperAdmin({
       userId: user.id,
       email: user.email ?? null,
     });
@@ -173,13 +137,14 @@ export async function registerVideo(
     const learningCategoryId = await resolveLearningCategoryId({
       userId: user.id,
       rawCategoryId: input.categoryId ?? null,
+      defaultCategoryName: DEFAULT_LEARNING_CATEGORY_NAME,
     });
 
-    const videoId = await insertVideoWithTranscriptsSqlite({
+    const videoId = await insertVideoWithTranscripts({
       youtubeId,
       title: input.title,
       description: input.description || null,
-      visibility: isSuperAdmin ? (input.visibility ?? 'private') : 'private',
+      visibility: isAdminUser ? (input.visibility ?? 'private') : 'private',
       duration: input.duration || null,
       thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
       languageId: input.languageId ?? null,
@@ -198,6 +163,8 @@ export async function registerVideo(
 
     // 8. 성공
     revalidatePath('/admin/videos');
+    revalidatePath('/videos');
+    revalidatePath('/my-videos');
     return { success: true, videoId };
 
   } catch (error) {
@@ -220,9 +187,11 @@ export async function deleteVideo(videoId: string): Promise<{ success: boolean; 
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await deleteVideoSqlite(videoId);
+    await deleteVideoService(videoId);
 
     revalidatePath('/admin/videos');
+    revalidatePath('/videos');
+    revalidatePath('/my-videos');
     return { success: true };
 
   } catch (error) {
@@ -248,7 +217,7 @@ export async function updateVideoChannel(
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await updateVideoChannelSqlite(videoId, channelId);
+    await updateVideoChannelService(videoId, channelId);
 
     revalidatePath('/admin/videos');
     return { success: true };
@@ -272,7 +241,7 @@ export async function updateVideoDuration(input: {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await updateVideoDurationSqlite(input.videoId, input.durationSeconds);
+    await updateVideoDurationService(input.videoId, input.durationSeconds);
 
     revalidatePath('/my-videos');
     revalidatePath(`/my-videos/${input.videoId}`);

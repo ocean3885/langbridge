@@ -1,11 +1,11 @@
 'use server';
 
 import { 
-  createSqliteCategory, 
-  updateSqliteCategory, 
-  deleteSqliteCategory,
-  listSqliteCategories
-} from '@/lib/sqlite/categories';
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  listCategories
+} from '@/lib/supabase/services/categories';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 
@@ -17,7 +17,7 @@ export async function createUserCategoryAction(input: {
   if (!user) return { success: false, error: '로그인이 필요합니다.' };
 
   try {
-    const category = await createSqliteCategory({
+    const category = await createCategory({
       table: 'user_categories',
       userId: user.id,
       name: input.name,
@@ -39,7 +39,7 @@ export async function updateUserCategoryAction(input: {
   if (!user) return { success: false, error: '로그인이 필요합니다.' };
 
   try {
-    await updateSqliteCategory({
+    await updateCategory({
       table: 'user_categories',
       id: input.id,
       userId: user.id,
@@ -58,7 +58,7 @@ export async function deleteUserCategoryAction(id: number) {
   if (!user) return { success: false, error: '로그인이 필요합니다.' };
 
   try {
-    await deleteSqliteCategory({
+    await deleteCategory({
       table: 'user_categories',
       id,
       userId: user.id
@@ -74,5 +74,5 @@ export async function deleteUserCategoryAction(id: number) {
 export async function listUserCategoriesAction() {
   const user = await getAppUserFromServer();
   if (!user) return [];
-  return listSqliteCategories('user_categories', user.id);
+  return listCategories('user_categories', user.id);
 }

@@ -1,13 +1,13 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import {
-  createSqliteLanguage,
-  deleteSqliteLanguage,
-  findSqliteLanguageByCode,
-  hasLanguageUsageSqlite,
-  listSqliteLanguagesByEnglishName,
-  updateSqliteLanguage,
-} from '@/lib/sqlite/languages';
+  createLanguage,
+  deleteLanguage,
+  findLanguageByCode,
+  hasLanguageUsage,
+  listLanguagesByEnglishName,
+  updateLanguage,
+} from '@/lib/supabase/services/languages';
 import { NextRequest, NextResponse } from 'next/server';
 
 // 언어 목록 조회
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    const data = await listSqliteLanguagesByEnglishName();
+    const data = await listLanguagesByEnglishName();
     return NextResponse.json(data);
   } catch (error) {
     console.error('API 오류:', error);
@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -48,13 +48,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 중복 코드 확인
-    const existing = await findSqliteLanguageByCode({ code });
+    const existing = await findLanguageByCode({ code });
 
     if (existing) {
       return NextResponse.json({ error: '이미 존재하는 언어 코드입니다.' }, { status: 400 });
     }
 
-    const data = await createSqliteLanguage({
+    const data = await createLanguage({
       nameEn: name_en,
       nameKo: name_ko,
       code,
@@ -76,9 +76,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 중복 코드 확인 (자신 제외)
-    const existing = await findSqliteLanguageByCode({
+    const existing = await findLanguageByCode({
       code,
       excludeId: Number(id),
     });
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '이미 존재하는 언어 코드입니다.' }, { status: 400 });
     }
 
-    const data = await updateSqliteLanguage({
+    const data = await updateLanguage({
       id: Number(id),
       nameEn: name_en,
       nameKo: name_ko,
@@ -125,9 +125,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -139,7 +139,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const languageId = parseInt(id);
-    const usage = await hasLanguageUsageSqlite(languageId);
+    const usage = await hasLanguageUsage(languageId);
     if (usage.used) {
       return NextResponse.json(
         { error: `이 언어를 사용하는 ${usage.reason} 있어 삭제할 수 없습니다.` },
@@ -147,7 +147,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await deleteSqliteLanguage(languageId);
+    await deleteLanguage(languageId);
 
     return NextResponse.json({ message: '언어가 삭제되었습니다.' });
   } catch (error) {

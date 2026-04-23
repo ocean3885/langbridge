@@ -15,7 +15,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { 
   addVideoToLearningCategory, 
-  removeVideoFromLearningCategory 
+  removeVideoFromLearningCategory,
+  removeVideoFromMyLearning
 } from '@/app/actions/user-category-videos';
 import { 
   createUserCategoryAction, 
@@ -27,6 +28,7 @@ interface Category {
   id: number;
   name: string;
   language_id: number | null;
+  video_count?: number;
 }
 
 interface CategoryManagerModalProps {
@@ -130,7 +132,17 @@ export default function CategoryManagerModal({
   };
 
   const handleDeleteCategory = async (id: number) => {
-    if (!confirm('정말 삭제하시겠습니까? 이 카테고리에 담긴 모든 영상 연결이 해제됩니다.')) return;
+    const cat = categories.find(c => c.id === id);
+    const count = cat?.video_count || 0;
+    
+    let confirmMsg = '정말 삭제하시겠습니까?';
+    if (count > 0) {
+      confirmMsg = `이 카테고리에 ${count}개의 영상이 담겨 있습니다. 삭제 시 모든 연결이 해제됩니다. 정말 삭제하시겠습니까?`;
+    } else {
+      confirmMsg = '정말 삭제하시겠습니까? 이 카테고리에 담긴 모든 영상 연결이 해제됩니다.';
+    }
+
+    if (!confirm(confirmMsg)) return;
     setGlobalLoading(true);
     try {
       const res = await deleteUserCategoryAction(id);
@@ -141,6 +153,26 @@ export default function CategoryManagerModal({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  const handleRemoveFromLearning = async () => {
+    if (!confirm('정말 이 영상을 학습 목록에서 삭제하시겠습니까?\n모든 학습 이력과 데이터가 영구적으로 삭제되며 복구할 수 없습니다.')) return;
+    
+    setGlobalLoading(true);
+    try {
+      const res = await removeVideoFromMyLearning(videoId);
+      if (res.success) {
+        onClose();
+        router.refresh();
+      } else {
+        alert(res.error || '삭제 실패');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('삭제 도중 오류가 발생했습니다.');
     } finally {
       setGlobalLoading(false);
     }
@@ -186,9 +218,11 @@ export default function CategoryManagerModal({
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-emerald-500 text-white shadow-lg ring-4 ring-emerald-100 dark:ring-emerald-900/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isSelected ? <Check className="w-5 h-5" /> : <div className="w-2 h-2 rounded-full bg-current opacity-30" />}
                       </div>
-                      <span className={`font-bold truncate ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                        {cat.name}
-                      </span>
+                      <div className="flex flex-col truncate">
+                        <span className={`font-bold truncate ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {cat.name}
+                        </span>
+                      </div>
                     </button>
 
                     <div className="flex gap-1">
@@ -261,8 +295,17 @@ export default function CategoryManagerModal({
         )}
 
         {/* 푸터 */}
-        <div className="p-4 px-6 border-t dark:border-gray-800 text-[11px] text-gray-400 text-center font-medium bg-gray-50/30 dark:bg-gray-800/20">
-          카테고리를 클릭하면 해당 영상이 이동 또는 담깁니다.
+        <div className="p-4 px-6 border-t dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex flex-col gap-3">
+          <button
+            onClick={handleRemoveFromLearning}
+            disabled={globalLoading}
+            className="w-full py-2.5 text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all border border-red-100 dark:border-red-900/30"
+          >
+            학습 목록에서 이 영상 삭제 (이력 포함)
+          </button>
+          <div className="text-[11px] text-gray-400 text-center font-medium">
+            카테고리를 클릭하면 해당 영상이 이동 또는 담깁니다.
+          </div>
         </div>
       </div>
     </div>

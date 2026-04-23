@@ -1,7 +1,7 @@
 'use server';
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { updateTranscriptSqlite } from '@/lib/sqlite/videos';
+import { updateTranscript as updateSupabaseTranscript } from '@/lib/supabase/services/videos';
 import { revalidatePath } from 'next/cache';
 
 export interface UpdateTranscriptInput {
@@ -29,7 +29,7 @@ export async function updateTranscript(input: UpdateTranscriptInput): Promise<Up
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await updateTranscriptSqlite({
+    await updateSupabaseTranscript({
       transcriptId: input.transcriptId,
       start: input.start,
       duration: input.duration,
@@ -38,6 +38,8 @@ export async function updateTranscript(input: UpdateTranscriptInput): Promise<Up
     });
 
     revalidatePath(`/videos/${input.videoId}`);
+    revalidatePath(`/my-videos/${input.videoId}`);
+    revalidatePath(`/lb-videos/${input.videoId}`);
     return { success: true };
   } catch (error) {
     console.error('Update transcript error:', error);

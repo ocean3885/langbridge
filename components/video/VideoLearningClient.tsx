@@ -6,8 +6,8 @@ import VideoPlayer from '@/components/video/VideoPlayer';
 import TranscriptDisplay from '@/components/common/TranscriptDisplay';
 import { updateVideoDuration } from '@/app/actions/video';
 import EditVideoModal from './EditVideoModal';
-import type { VideoVisibility } from '@/lib/sqlite/videos';
-import type { SqliteVideoProgress } from '@/lib/sqlite/video-progress';
+import type { VideoVisibility } from '@/lib/supabase/services/videos';
+import type { SupabaseVideoProgress as SqliteVideoProgress } from '@/lib/supabase/services/video-progress';
 import { Edit3, ArrowLeft, Trash2, Settings2, FolderTree, Plus } from 'lucide-react';
 import CategoryManagerModal from '@/components/common/CategoryManagerModal';
 

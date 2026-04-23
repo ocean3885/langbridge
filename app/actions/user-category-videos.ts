@@ -3,11 +3,40 @@
 import { revalidatePath } from 'next/cache';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import {
-  addUserCategoryVideoSqlite,
-  listUserCategoriesForVideoSqlite,
-  listVideosByUserCategorySqlite,
-  removeUserCategoryVideoSqlite,
-} from '@/lib/sqlite/user-category-videos';
+  addVideoToUserCategory,
+  listUserCategoriesForVideo,
+  listVideosByUserCategory,
+  removeVideoFromUserCategory,
+} from '@/lib/supabase/services/videos';
+import { deleteVideoLearningData } from '@/lib/supabase/services/video-progress';
+
+// ... existing code ...
+
+export async function removeVideoFromMyLearning(videoId: string) {
+  try {
+    const user = await getAppUserFromServer();
+    if (!user) {
+      return { success: false, error: '로그인이 필요합니다.' };
+    }
+
+    await deleteVideoLearningData(user.id, videoId);
+
+    revalidatePath('/my-videos');
+    revalidatePath(`/my-videos/${videoId}`);
+    revalidatePath('/videos');
+    revalidatePath(`/videos/${videoId}`);
+    revalidatePath('/lb-videos');
+    revalidatePath('/');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('removeVideoFromMyLearning exception:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+    };
+  }
+}
 
 export interface AddVideoToLearningCategoryInput {
   categoryId: number;
@@ -21,7 +50,7 @@ export async function addVideoToLearningCategory(input: AddVideoToLearningCatego
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const mapping = await addUserCategoryVideoSqlite({
+    await addVideoToUserCategory({
       userId: user.id,
       categoryId: input.categoryId,
       videoId: input.videoId,
@@ -32,7 +61,7 @@ export async function addVideoToLearningCategory(input: AddVideoToLearningCatego
     revalidatePath('/videos');
     revalidatePath(`/videos/${input.videoId}`);
     revalidatePath('/lb-videos');
-    return { success: true, mapping };
+    return { success: true };
   } catch (error) {
     console.error('addVideoToLearningCategory exception:', error);
     return {
@@ -54,7 +83,7 @@ export async function removeVideoFromLearningCategory(input: RemoveVideoFromLear
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await removeUserCategoryVideoSqlite({
+    await removeVideoFromUserCategory({
       userId: user.id,
       categoryId: input.categoryId,
       videoId: input.videoId,
@@ -82,7 +111,7 @@ export async function listLearningCategoryVideos(categoryId: number) {
       return { success: false, error: '로그인이 필요합니다.', videos: [] as const };
     }
 
-    const videos = await listVideosByUserCategorySqlite({
+    const videos = await listVideosByUserCategory({
       userId: user.id,
       categoryId,
     });
@@ -105,7 +134,7 @@ export async function listLearningCategoriesForVideo(videoId: string) {
       return { success: false, error: '로그인이 필요합니다.', categories: [] as const };
     }
 
-    const categories = await listUserCategoriesForVideoSqlite({
+    const categories = await listUserCategoriesForVideo({
       userId: user.id,
       videoId,
     });

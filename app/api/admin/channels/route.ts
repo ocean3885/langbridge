@@ -1,5 +1,5 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listSqliteChannels } from '@/lib/sqlite/channels';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-    if (!isSuperAdmin) {
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 

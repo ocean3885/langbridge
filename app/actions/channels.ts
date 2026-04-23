@@ -1,7 +1,7 @@
 "use server";
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { insertSqliteChannel, updateSqliteChannel } from '@/lib/sqlite/channels';
+import { insertVideoChannel, updateVideoChannel } from '@/lib/supabase/services/video-channels';
 import { revalidatePath } from 'next/cache';
 
 export interface RegisterChannelInput {
@@ -19,7 +19,7 @@ export async function registerChannel(input: RegisterChannelInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await insertSqliteChannel({
+    await insertVideoChannel({
       channelName: input.channelName,
       channelUrl: input.channelUrl ?? null,
       channelDescription: input.channelDescription ?? null,
@@ -42,7 +42,7 @@ export async function updateChannel(channelId: string, input: RegisterChannelInp
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const updated = await updateSqliteChannel({
+    const updated = await updateVideoChannel({
       channelId,
       channelName: input.channelName,
       channelUrl: input.channelUrl ?? null,

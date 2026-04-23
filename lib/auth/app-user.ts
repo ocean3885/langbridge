@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
-import { getUserProfileByIdSqlite } from '@/lib/sqlite/user-profiles';
+import { getUserProfileById } from '@/lib/supabase/services/user-profiles';
 
 const SESSION_COOKIE = 'lb_user_id';
 
@@ -8,36 +8,38 @@ export type AppUser = {
   id: string;
   email: string | null;
   createdAt: string | null;
-  source: 'sqlite';
+  source: 'supabase';
 };
 
-export async function getAppUserFromServer(_supabase?: unknown): Promise<AppUser | null> {
-
+export async function getAppUserFromServer(): Promise<AppUser | null> {
   const cookieStore = await cookies();
-  const sqliteUserId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sqliteUserId) return null;
+  const userId = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!userId) return null;
 
-  const profile = await getUserProfileByIdSqlite(sqliteUserId);
+  const profile = await getUserProfileById(userId);
+  if (!profile) return null;
+
   return {
-    id: sqliteUserId,
-    email: profile?.email ?? null,
-    createdAt: profile?.created_at ?? null,
-    source: 'sqlite',
+    id: userId,
+    email: profile.email,
+    createdAt: profile.created_at,
+    source: 'supabase',
   };
 }
 
 export async function getAppUserFromRequest(
-  request: NextRequest,
-  _supabase?: unknown
+  request: NextRequest
 ): Promise<AppUser | null> {
-  const sqliteUserId = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!sqliteUserId) return null;
+  const userId = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!userId) return null;
 
-  const profile = await getUserProfileByIdSqlite(sqliteUserId);
+  const profile = await getUserProfileById(userId);
+  if (!profile) return null;
+
   return {
-    id: sqliteUserId,
-    email: profile?.email ?? null,
-    createdAt: profile?.created_at ?? null,
-    source: 'sqlite',
+    id: userId,
+    email: profile.email,
+    createdAt: profile.created_at,
+    source: 'supabase',
   };
 }

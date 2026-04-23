@@ -1,7 +1,6 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { listVideosSqlite } from '@/lib/sqlite/videos';
-import { listSqliteCategories } from '@/lib/sqlite/categories';
-import { listAllUserCategoryVideosSqlite, type SqliteUserVideoMapping } from '@/lib/sqlite/user-category-videos-all';
+import { listVideos, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
+import { listCategories } from '@/lib/supabase/services/categories';
 import { formatDuration } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -41,19 +40,19 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
 
   // 1. 데이터 병렬 로드
   const [allPublicVideos, allMyCategories, allMyMappings] = await Promise.all([
-    listVideosSqlite({ visibility: 'public' }),
-    user ? listSqliteCategories('user_categories', user.id) : Promise.resolve([]),
-    user ? listAllUserCategoryVideosSqlite(user.id) : Promise.resolve([]),
+    listVideos({ visibility: 'public' }),
+    user ? listCategories('user_categories', user.id) : Promise.resolve([]),
+    user ? listAllUserCategoryVideos(user.id) : Promise.resolve([]),
   ]);
 
   // 2. 비디오별 카테고리 매핑 생성
   const mappingMap: Record<string, { id: number; name: string }[]> = {};
-  allMyMappings.forEach((m: SqliteUserVideoMapping) => {
+  allMyMappings.forEach((m) => {
     if (!mappingMap[m.video_id]) mappingMap[m.video_id] = [];
     mappingMap[m.video_id].push({ id: m.category_id, name: m.category_name });
   });
 
-  let videoList: VideoItem[] = allPublicVideos.map((v: any) => ({
+  let videoList: VideoItem[] = allPublicVideos.map((v) => ({
     id: v.id,
     youtube_id: v.youtube_id,
     title: v.title,
@@ -65,7 +64,7 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
     language_name: v.language_name ?? null,
     transcript_count: v.transcript_count || 0,
     myCategories: mappingMap[v.id] || [],
-  })).sort((a: VideoItem, b: VideoItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // 필터링 적용
   if (currentFilter === 'saved') {
@@ -116,7 +115,7 @@ export default async function LBVideosPage({ searchParams }: LBVideosPageProps) 
         </div>
       </div>
 
-      {/* 비디오 그리드 목록 (분류 없음) */}
+      {/* 비디오 그리드 목록 */}
       {videoList.length === 0 ? (
         <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-20 text-center">
           <Video className="w-20 h-20 text-gray-300 mx-auto mb-6" />

@@ -1,1 +1,1 @@
-export const DEFAULT_LEARNING_CATEGORY_NAME = '미분류';
+export const DEFAULT_LEARNING_CATEGORY_NAME = '학습일반';

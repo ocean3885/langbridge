@@ -1,13 +1,12 @@
 import { notFound } from 'next/navigation';
-import { getVideoWithTranscriptsSqlite } from '@/lib/sqlite/videos';
-import { getAllUserNotesForVideoSqlite } from '@/lib/sqlite/user-notes';
+import { getVideoWithTranscripts, incrementVideoViewCount, listUserCategoriesForVideo } from '@/lib/supabase/services/videos';
+import { getAllUserNotesForVideo } from '@/lib/supabase/services/user-notes';
 import VideoLearningClient from '@/components/video/VideoLearningClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
-import { incrementVideoViewCountSqlite } from '@/lib/sqlite/videos';
-import { listUserCategoriesForVideoSqlite } from '@/lib/sqlite/user-category-videos';
-import { getVideoProgress } from '@/lib/sqlite/video-progress';
-import { listSqliteCategories } from '@/lib/sqlite/categories';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { getVideoLearningProgress } from '@/lib/supabase/services/video-learning-progress';
+import { getVideoProgress } from '@/lib/supabase/services/video-progress';
+import { listCategories, listUserCategoriesWithCount } from '@/lib/supabase/services/categories';
 
 interface SharedVideoDetailsProps {
   id: string;
@@ -15,7 +14,7 @@ interface SharedVideoDetailsProps {
 }
 
 export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDetailsProps) {
-  const { video, transcripts } = await getVideoWithTranscriptsSqlite(id);
+  const { video, transcripts } = await getVideoWithTranscripts(id);
 
   if (!video) {
     notFound();
@@ -25,11 +24,11 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
   
   let userNotes: Record<string, { id: string; content: string }> = {};
   if (user) {
-    userNotes = await getAllUserNotesForVideoSqlite(user.id, id);
+    userNotes = await getAllUserNotesForVideo(user.id, id);
   }
 
   try {
-    await incrementVideoViewCountSqlite(id);
+    await incrementVideoViewCount(id);
   } catch (err) {
     console.error('Failed to increment view count:', err);
   }
@@ -37,8 +36,9 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
   let isAdmin = false;
   let canEditVisibility = false;
   if (user) {
-    canEditVisibility = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-    isAdmin = canEditVisibility;
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+    canEditVisibility = isAdminUser;
+    isAdmin = isAdminUser;
   }
 
   const isOwner = Boolean(user && video.uploader_id && user.id === video.uploader_id);
@@ -51,8 +51,8 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
   
   if (user) {
     const [catList, mappings] = await Promise.all([
-      listSqliteCategories('user_categories', user.id),
-      listUserCategoriesForVideoSqlite({ userId: user.id, videoId: id })
+      listUserCategoriesWithCount(user.id),
+      listUserCategoriesForVideo({ userId: user.id, videoId: id })
     ]);
     allCategories = catList;
     selectedCategoryIds = mappings.map(m => m.category_id);

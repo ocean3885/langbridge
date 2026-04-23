@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { getBoardPostSqlite, deleteBoardPostSqlite } from '@/lib/sqlite/board';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { getBoardPost, deleteBoardPost } from '@/lib/supabase/services/board';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
 
@@ -20,12 +20,12 @@ export async function DELETE(
     return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
   }
 
-  const post = await getBoardPostSqlite(postId);
+  const post = await getBoardPost(postId);
   if (!post) {
     return NextResponse.json({ error: '게시글을 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const isAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdmin = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   if (post.user_id !== user.id && !isAdmin) {
     return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
   }
@@ -41,6 +41,6 @@ export async function DELETE(
     }
   }
 
-  await deleteBoardPostSqlite(postId);
+  await deleteBoardPost(postId);
   return NextResponse.json({ success: true });
 }

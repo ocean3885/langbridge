@@ -8,9 +8,10 @@ import type { SqliteVideoProgress } from '@/lib/sqlite/video-progress';
 interface VideoCardProps {
   video: VideoItem;
   progress?: SqliteVideoProgress;
+  priority?: boolean;
 }
 
-export default function VideoCard({ video, progress }: VideoCardProps) {
+export default function VideoCard({ video, progress, priority = false }: VideoCardProps) {
   return (
     <Link
       href={`/my-videos/${video.id}`}
@@ -26,6 +27,7 @@ export default function VideoCard({ video, progress }: VideoCardProps) {
               fill
               sizes="(max-width: 640px) 100vw, 160px"
               className="object-cover"
+              priority={priority}
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full">

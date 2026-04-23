@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { createBoardPostSqlite } from '@/lib/sqlite/board';
+import { createBoardPost } from '@/lib/supabase/services/board';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     filePath = storagePath;
   }
 
-  const postId = await createBoardPostSqlite({
+  const postId = await createBoardPost({
     userId: user.id,
     userEmail: user.email ?? null,
     title: title.trim(),

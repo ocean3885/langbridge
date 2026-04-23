@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthUserPassword } from '@/lib/sqlite/auth-users';
-import { upsertUserProfileSqlite } from '@/lib/sqlite/user-profiles';
+import { createAuthUser, getAuthUserByEmail } from '@/lib/supabase/services/auth-users';
+import { upsertUserProfile } from '@/lib/supabase/services/user-profiles';
 
 const SESSION_COOKIE = 'lb_user_id';
 
@@ -14,12 +14,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이메일과 비밀번호를 입력하세요.' }, { status: 400 });
     }
 
-    const user = await verifyAuthUserPassword({ email, password });
-    if (!user) {
-      return NextResponse.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
+    if (password.length < 6) {
+      return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
     }
 
-    await upsertUserProfileSqlite({
+    const existing = await getAuthUserByEmail(email);
+    if (existing) {
+      return NextResponse.json({ error: '이미 가입된 이메일입니다.' }, { status: 409 });
+    }
+
+    const user = await createAuthUser({ email, password });
+
+    await upsertUserProfile({
       id: user.id,
       email: user.email,
       createdAt: user.created_at,
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('SQLite login error:', error);
-    return NextResponse.json({ error: '로그인 처리 중 오류가 발생했습니다.' }, { status: 500 });
+    console.error('SQLite sign-up error:', error);
+    return NextResponse.json({ error: '회원가입 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

@@ -1,9 +1,11 @@
 'use server';
 
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { revalidatePath } from 'next/cache';
-import { type VideoVisibility, updateVideoSqlite } from '@/lib/sqlite/videos';
+import { type VideoVisibility, updateVideo as updateVideoService } from '@/lib/supabase/services/videos';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { randomUUID } from 'crypto';
 
 export interface UpdateVideoInput {
   videoId: string;
@@ -22,45 +24,43 @@ export async function updateVideo(input: UpdateVideoInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const isSuperAdmin = await isSuperAdminSqlite({
+    const isAdminUser = await isSuperAdmin({
       userId: user.id,
       email: user.email ?? null,
     });
 
-    await updateVideoSqlite({
+    await updateVideoService({
       videoId: input.videoId,
       title: input.title,
       languageId: input.languageId,
       description: input.description ?? null,
-      visibility: isSuperAdmin ? input.visibility : 'private',
+      visibility: isAdminUser ? input.visibility : 'private',
     });
 
     // my-videos 페이지는 이제 user_category_videos 테이블을 최우선으로 바라보므로
     // 수정 모달에서 변경된 카테고리를 이 테이블에도 동기화해야 합니다. (단일 매핑 교체)
     if (input.categoryId !== undefined) {
-      const { getSqliteDb } = await import('@/lib/sqlite/db');
-      const { randomUUID } = await import('crypto');
-      const db = await getSqliteDb();
+      const supabase = createAdminClient();
 
       // 기존 나의 매핑 모두 제거 (모달은 단일 선택이므로)
-      await db.run(
-        `DELETE FROM user_category_videos WHERE user_id = ? AND video_id = ?`,
-        user.id,
-        input.videoId
-      );
+      await supabase
+        .from('user_category_videos')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('video_id', input.videoId);
 
       // 새 카테고리 선택 시 추가
       if (input.categoryId !== null) {
-        await db.run(
-          `
-            INSERT INTO user_category_videos (id, user_id, category_id, video_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          `,
-          randomUUID(),
-          user.id,
-          Number(input.categoryId),
-          input.videoId
-        );
+        await supabase
+          .from('user_category_videos')
+          .insert({
+            id: randomUUID(),
+            user_id: user.id,
+            category_id: Number(input.categoryId),
+            video_id: input.videoId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
       }
     }
 

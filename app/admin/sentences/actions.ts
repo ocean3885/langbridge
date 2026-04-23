@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { getStorageBucket } from '@/lib/supabase/storage';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -84,8 +84,8 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-    if (!isSuperAdmin) {
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+    if (!isAdminUser) {
       return { success: false, error: '권한이 없습니다.' };
     }
 

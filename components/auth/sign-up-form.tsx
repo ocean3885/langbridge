@@ -36,7 +36,7 @@ export function SignUpForm({
     }
 
     try {
-      const response = await fetch('/api/auth/sqlite-sign-up', {
+      const response = await fetch('/api/auth/sign-up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

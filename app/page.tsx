@@ -1,11 +1,12 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
-import { listVideosSqlite } from '@/lib/sqlite/videos';
-import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
-import { listSqliteCategories, listAllSqliteCategories } from '@/lib/sqlite/categories';
-import { listAllAudioContentSqlite } from '@/lib/sqlite/audio-content';
-import { countAuthUsersSqlite } from '@/lib/sqlite/auth-users';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { listVideos, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
+import { listEduVideos } from '@/lib/supabase/services/edu-videos';
+import { listCategories, listAllCategories } from '@/lib/supabase/services/categories';
+import { listAllAudioContent } from '@/lib/supabase/services/audio-content';
+import { countAuthUsers } from '@/lib/supabase/services/auth-users';
+import { listLanguages } from '@/lib/supabase/services/languages';
+import { listAllVideoProgressForUser } from '@/lib/supabase/services/video-progress';
 import Image from 'next/image';
 import HeroSection from '@/components/home/HeroSection';
 import EduVideoSection, { type EduVideo } from '@/components/home/EduVideoSection';
@@ -15,35 +16,39 @@ import MyVideoSection, { type UserVideo, type VideoCategory } from '@/components
 
 export default async function HomePage() {
   const user = await getAppUserFromServer();
-  const userCount = await countAuthUsersSqlite();
-  const sqliteLanguages = await listSqliteLanguages();
-  const languageNameMap = new Map(sqliteLanguages.map((l) => [l.id, l.name_ko]));
+  const userCount = await countAuthUsers();
+  const languages = await listLanguages();
+  const languageNameMap = new Map(languages.map((l) => [l.id, l.name_ko]));
 
   let lbAudioCategories: LBAudioCategory[] = [];
   let videoCategories: VideoCategory[] = [];
 
   if (user) {
     // ── 비디오 ─────────────────────────────────────────
-    const { listAllUserCategoryVideosSqlite } = await import('@/lib/sqlite/user-category-videos-all');
-    // uploaderId 기반 영상(최신 10개) + 전체 매핑 정보
-    const [userUploads, sqliteVideoCategories, allMyMappings] = await Promise.all([
-      listVideosSqlite({ uploaderId: user.id, limit: 20 }), // 업로드 영상 넉넉히
-      listSqliteCategories('user_categories', user.id),
-      listAllUserCategoryVideosSqlite(user.id),
+    // uploaderId 기반 영상(최신 20개) + 전체 매핑 정보
+    const [userUploads, userVideoCategories, allMyMappings, allMyProgress] = await Promise.all([
+      listVideos({ uploaderId: user.id, limit: 20 }),
+      listCategories('user_categories', user.id),
+      listAllUserCategoryVideos(user.id),
+      listAllVideoProgressForUser(user.id),
     ]);
 
     // 매핑된 모든 영상들의 세부 정보 가져오기 (업로드하지 않은 저장된 영상 포함)
     const mappedVideoIds = allMyMappings.map(m => m.video_id);
-    const missingVideoIds = mappedVideoIds.filter(id => !userUploads.some(v => v.id === id));
+    const progressVideoIds = allMyProgress.map(p => p.video_id);
+    
+    // 유저 업로드 영상이 아니면서, 매핑이나 학습 기록이 있는 영상 ID들
+    const otherVideoIds = Array.from(new Set([...mappedVideoIds, ...progressVideoIds]))
+      .filter(id => !userUploads.some(v => v.id === id));
     
     let allRelevantVideos = [...userUploads];
-    if (missingVideoIds.length > 0) {
-      const savedVideoDetails = await listVideosSqlite({ videoIds: missingVideoIds });
+    if (otherVideoIds.length > 0) {
+      const savedVideoDetails = await listVideos({ videoIds: otherVideoIds });
       allRelevantVideos = [...allRelevantVideos, ...savedVideoDetails];
     }
 
     const videoCategoryMap: Record<string, { name: string; languageName: string }> = {};
-    for (const c of sqliteVideoCategories) {
+    for (const c of userVideoCategories) {
       videoCategoryMap[String(c.id)] = {
         name: c.name,
         languageName: c.language_id ? (languageNameMap.get(c.language_id) ?? '언어 미지정') : '언어 미지정',
@@ -52,7 +57,6 @@ export default async function HomePage() {
 
     // 매핑 테이블 기반으로 비디오 그룹화
     const videoGroups: Record<string, UserVideo[]> = {};
-    const processedVideoIdsPerCategory = new Set<string>(); // 한 카테고리 내 중복 방지용
 
     // 1. 매핑 정보를 순회하며 비디오 분류
     allMyMappings.forEach((m) => {
@@ -70,15 +74,21 @@ export default async function HomePage() {
         duration: v.duration,
         created_at: v.created_at,
         category_id: m.category_id,
+        videoLanguageName: v.language_name,
       });
-      processedVideoIdsPerCategory.add(`${m.category_id}-${v.id}`);
     });
 
-    // 2. 매핑되지 않은 본인 업로드 영상들 처리 (미분류)
-    userUploads.forEach((v) => {
-      // 어떤 카테고리에도 매핑되지 않은 경우만 미분류로 추가
+    // 2. 매핑되지 않았지만 본인 업로드이거나 학습 기록이 있는 영상들 처리 (학습일반)
+    allRelevantVideos.forEach((v) => {
+      // 어떤 카테고리에도 매핑되지 않은 경우만 학습일반(미분류)으로 추가
       const isMapped = allMyMappings.some(m => m.video_id === v.id);
       if (isMapped) return;
+
+      // 본인 업로드이거나 학습 기록이 있는 경우에만 포함
+      const isUploader = v.uploader_id === user.id;
+      const hasProgress = allMyProgress.some(p => p.video_id === v.id);
+      
+      if (!isUploader && !hasProgress) return;
 
       const key = 'uncategorized';
       if (!videoGroups[key]) videoGroups[key] = [];
@@ -90,6 +100,7 @@ export default async function HomePage() {
         duration: v.duration,
         created_at: v.created_at,
         category_id: null,
+        videoLanguageName: v.language_name,
       });
     });
 
@@ -111,7 +122,7 @@ export default async function HomePage() {
   }
 
   // ── 어학 강의 영상 (운영자 영상) ──────────────────────
-  const adminRows = (await listEduVideosSqlite())
+  const adminRows = (await listEduVideos())
     .sort((a, b) => {
       const aHas = Boolean(a.channel_name?.trim());
       const bHas = Boolean(b.channel_name?.trim());
@@ -131,7 +142,7 @@ export default async function HomePage() {
   }));
 
   // ── LB 학습 영상 (공개 영상) ──────────────────────
-  const publicRows = await listVideosSqlite({ visibility: 'public', limit: 6 });
+  const publicRows = await listVideos({ visibility: 'public', limit: 6 });
   const lbVideos: LBVideo[] = publicRows.map((v) => ({
     id: v.id,
     title: v.title,
@@ -144,10 +155,10 @@ export default async function HomePage() {
   }));
 
   // ── LB 문장 학습 (전체 오디오) ──────────────────────
-  const allAudios = await listAllAudioContentSqlite(60);
+  const allAudios = await listAllAudioContent(60);
 
-  // 카테고리 정보를 위해 모든 lang_categories 조회 (user_id 무관)
-  const allAudioCatRows = await listAllSqliteCategories('lang_categories');
+  // 카테고리 정보를 위해 모든 lang_categories 조회
+  const allAudioCatRows = await listAllCategories('lang_categories');
   const allAudioCatMap: Record<number, { name: string; languageName: string }> = {};
   allAudioCatRows.forEach((c) => {
     allAudioCatMap[c.id] = {
@@ -160,7 +171,7 @@ export default async function HomePage() {
   allAudios.forEach((a) => {
     const key = a.category_id === null ? 'uncategorized' : String(a.category_id);
     if (!lbAudioGroups[key]) lbAudioGroups[key] = [];
-    lbAudioGroups[key].push({ id: a.id, title: a.title, created_at: a.created_at, category_id: a.category_id });
+    lbAudioGroups[key].push({ id: a.id, title: a.title || '', created_at: a.created_at, category_id: a.category_id });
   });
 
   lbAudioCategories = Object.entries(lbAudioGroups)

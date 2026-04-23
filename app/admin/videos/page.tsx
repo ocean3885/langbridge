@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listSqliteChannels } from '@/lib/sqlite/channels';
 import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -20,9 +20,9 @@ export default async function AdminVideosPage() {
   }
   
   // 운영자 확인
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   
-  if (!isSuperAdmin) {
+  if (!isAdminUser) {
     redirect('/');
   }
 

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
-import { listSqliteLanguagesByEnglishName } from '@/lib/sqlite/languages';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { listLanguagesByEnglishName } from '@/lib/supabase/services/languages';
 import LanguagesManager from './LanguagesManager';
 import AdminSidebar from '../AdminSidebar';
 
@@ -14,13 +14,13 @@ export default async function LanguagesPage() {
   }
   
   // 운영자 확인
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   
-  if (!isSuperAdmin) {
+  if (!isAdminUser) {
     redirect('/');
   }
   
-  const languages = await listSqliteLanguagesByEnglishName();
+  const languages = await listLanguagesByEnglishName();
   
   return (
     <>

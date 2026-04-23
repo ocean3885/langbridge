@@ -3,9 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import {
-  recordVideoStudySqlite,
-  updateVideoSummaryMemoSqlite,
-} from '@/lib/sqlite/video-learning-progress';
+  recordVideoStudy,
+  updateVideoSummaryMemo,
+} from '@/lib/supabase/services/video-learning-progress';
 
 export interface RecordEduVideoStudyInput {
   videoId: string;
@@ -21,7 +21,7 @@ export async function recordEduVideoStudy(input: RecordEduVideoStudyInput) {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const progress = await recordVideoStudySqlite({
+    const progress = await recordVideoStudy({
       userId: user.id,
       videoId: input.videoId,
       playedSeconds: input.playedSeconds,
@@ -53,7 +53,7 @@ export async function saveEduVideoSummaryMemo(input: SaveEduVideoSummaryMemoInpu
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const progress = await updateVideoSummaryMemoSqlite({
+    const progress = await updateVideoSummaryMemo({
       userId: user.id,
       videoId: input.videoId,
       summaryMemo: input.summaryMemo.trim() ? input.summaryMemo.trim() : null,

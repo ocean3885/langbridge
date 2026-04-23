@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getSqliteChannelById } from '@/lib/sqlite/channels';
 import AdminSidebar from '@/app/admin/AdminSidebar';
 import { ArrowLeft } from 'lucide-react';
@@ -16,8 +16,8 @@ export default async function EditChannelPage({ params }: PageProps) {
   const user = await getAppUserFromServer();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-  if (!isSuperAdmin) redirect('/');
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+  if (!isAdminUser) redirect('/');
 
   const channel = await getSqliteChannelById(id);
 

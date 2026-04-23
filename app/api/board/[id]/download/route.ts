@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { getBoardPostSqlite } from '@/lib/sqlite/board';
+import { getBoardPost } from '@/lib/supabase/services/board';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
 
@@ -19,7 +19,7 @@ export async function GET(
     return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
   }
 
-  const post = await getBoardPostSqlite(postId);
+  const post = await getBoardPost(postId);
   if (!post || !post.file_path) {
     return NextResponse.json({ error: '파일을 찾을 수 없습니다.' }, { status: 404 });
   }

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listSqliteChannelsWithVideoCount } from '@/lib/sqlite/channels';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import AdminSidebar from '../AdminSidebar';
@@ -12,8 +12,8 @@ export default async function AdminChannelsPage() {
   const user = await getAppUserFromServer();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-  if (!isSuperAdmin) redirect('/');
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+  if (!isAdminUser) redirect('/');
 
   const channels = await listSqliteChannelsWithVideoCount();
   const languages = await listSqliteLanguages();

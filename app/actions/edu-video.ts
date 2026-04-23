@@ -3,14 +3,33 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 import {
-  deleteEduVideoSqlite,
-  extractYoutubeIdFromUrl,
-  insertEduVideoSqlite,
-  updateEduVideoChannelSqlite,
-  updateEduVideoDurationSqlite,
-  updateEduVideoPlacementSqlite,
-  updateEduVideoSqlite,
-} from '@/lib/sqlite/edu-videos';
+  deleteEduVideo as deleteEduVideoService,
+  insertEduVideo as insertEduVideoService,
+  updateEduVideoChannel as updateEduVideoChannelService,
+  updateEduVideoDuration as updateEduVideoDurationService,
+  updateEduVideoPlacement as updateEduVideoPlacementService,
+  updateEduVideo as updateEduVideoService,
+} from '@/lib/supabase/services/edu-videos';
+
+/**
+ * YouTube URL에서 video ID 추출
+ */
+function extractYoutubeIdFromUrl(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
 
 export interface RegisterEduVideoInput {
   youtubeUrl: string;
@@ -41,7 +60,7 @@ export async function registerEduVideo(
       return { success: false, error: '유효하지 않은 YouTube URL입니다.' };
     }
 
-    const videoId = await insertEduVideoSqlite({
+    const videoId = await insertEduVideoService({
       youtubeUrl: input.youtubeUrl,
       title: input.title,
       description: input.description || null,
@@ -71,7 +90,7 @@ export async function deleteEduVideo(videoId: string): Promise<{ success: boolea
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await deleteEduVideoSqlite(videoId);
+    await deleteEduVideoService(videoId);
 
     revalidatePath('/admin/videos');
     revalidatePath('/videos');
@@ -95,7 +114,7 @@ export async function updateEduVideoChannel(
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await updateEduVideoChannelSqlite(videoId, channelId);
+    await updateEduVideoChannelService(videoId, channelId);
 
     revalidatePath('/admin/videos');
     revalidatePath('/videos');
@@ -121,7 +140,7 @@ export async function updateEduVideoPlacement(input: {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await updateEduVideoPlacementSqlite(input);
+    await updateEduVideoPlacementService(input);
 
     revalidatePath('/admin/videos');
     revalidatePath('/videos');
@@ -156,7 +175,7 @@ export async function updateEduVideo(input: {
       return { success: false, error: '유효하지 않은 YouTube URL입니다.' };
     }
 
-    await updateEduVideoSqlite({
+    await updateEduVideoService({
       videoId: input.videoId,
       youtubeUrl: input.youtubeUrl,
       title: input.title,
@@ -186,7 +205,7 @@ export async function updateEduVideoDuration(input: {
   durationSeconds: number;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    await updateEduVideoDurationSqlite(input.videoId, input.durationSeconds);
+    await updateEduVideoDurationService(input.videoId, input.durationSeconds);
     revalidatePath('/videos');
     revalidatePath(`/videos/${input.videoId}`);
     return { success: true };

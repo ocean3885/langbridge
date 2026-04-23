@@ -29,7 +29,7 @@ export function UpdatePasswordForm({
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/sqlite-update-password', {
+      const response = await fetch('/api/auth/update-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

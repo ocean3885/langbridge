@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import {
   createSentenceSqlite,
   deleteSentenceSqlite,
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -95,9 +95,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -159,9 +159,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 운영자 확인
-    const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-    if (!isSuperAdmin) {
+    if (!isAdminUser) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 

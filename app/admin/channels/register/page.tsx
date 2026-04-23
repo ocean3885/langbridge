@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import AdminSidebar from '../../AdminSidebar';
 import RegisterChannelForm from './RegisterChannelForm';
 
@@ -10,9 +10,9 @@ export default async function RegisterChannelPage() {
     redirect('/auth/login?redirectTo=/admin/channels/register');
   }
 
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
 
-  if (!isSuperAdmin) {
+  if (!isAdminUser) {
     redirect('/');
   }
 

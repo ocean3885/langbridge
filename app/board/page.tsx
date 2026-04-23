@@ -1,4 +1,4 @@
-import { listBoardPostsSqlite } from '@/lib/sqlite/board';
+import { listBoardPosts } from '@/lib/supabase/services/board';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import Link from 'next/link';
 import { MessageSquare, PenSquare, FileText, Eye } from 'lucide-react';
@@ -17,7 +17,7 @@ export default async function BoardPage({ searchParams }: BoardPageProps) {
   const currentPage = Math.max(1, Number(resolvedParams?.page) || 1);
   const offset = (currentPage - 1) * PAGE_SIZE;
 
-  const { posts, total } = await listBoardPostsSqlite({ limit: PAGE_SIZE, offset });
+  const { posts, total } = await listBoardPosts({ limit: PAGE_SIZE, offset });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (

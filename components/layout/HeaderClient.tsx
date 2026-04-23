@@ -31,13 +31,13 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
 
   const handleLogout = async () => {
     try {
-      const sqliteLogoutRes = await fetch('/api/auth/sqlite-logout', {
+      const logoutRes = await fetch('/api/auth/logout', {
         method: 'POST',
       });
 
-      if (!sqliteLogoutRes.ok) {
-        const body = await sqliteLogoutRes.json().catch(() => ({}));
-        throw new Error(body?.error || 'SQLite 로그아웃 처리 실패');
+      if (!logoutRes.ok) {
+        const body = await logoutRes.json().catch(() => ({}));
+        throw new Error(body?.error || '로그아웃 처리 실패');
       }
 
       await supabase.auth.signOut();

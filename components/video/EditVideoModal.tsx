@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { updateVideo } from '@/app/actions/videos';
 import { deleteVideo as deleteVideoAction } from '@/app/actions/video';
-import type { VideoVisibility } from '@/lib/sqlite/videos';
+import type { VideoVisibility } from '@/lib/supabase/services/videos';
 
 const VIDEO_VISIBILITY_OPTIONS: Array<{ value: VideoVisibility; label: string }> = [
   { value: 'public', label: '공개' },

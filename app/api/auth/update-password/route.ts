@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { updateAuthUserPasswordById } from '@/lib/sqlite/auth-users';
+import { updateAuthUserPasswordById } from '@/lib/supabase/services/auth-users';
 
 export async function POST(request: NextRequest) {
   try {

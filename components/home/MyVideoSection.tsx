@@ -11,6 +11,7 @@ export interface UserVideo {
   duration: number | null;
   created_at: string;
   category_id: number | null;
+  videoLanguageName?: string | null;
 }
 
 export interface VideoCategory {
@@ -126,11 +127,17 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
                 </div>
                 <div className="p-4 flex flex-col flex-grow">
                   <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                    {video.languageName && (
-                      <span className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-[11px] font-semibold border border-cyan-100">
-                        {video.languageName}
-                      </span>
-                    )}
+                    {(() => {
+                      const displayLanguage = (video.languageName && video.languageName !== '언어 미지정' && video.languageName !== '언어미지정')
+                        ? video.languageName 
+                        : video.videoLanguageName;
+                      
+                      return displayLanguage && (
+                        <span className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-[11px] font-semibold border border-cyan-100">
+                          {displayLanguage}
+                        </span>
+                      );
+                    })()}
                     <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
                       {video.categoryName}
                     </span>

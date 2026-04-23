@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import AdminDashboard from './AdminDashboard';
 import AdminSidebar from './AdminSidebar';
 
@@ -13,9 +13,9 @@ export default async function AdminPage() {
   }
   
   // 운영자 확인
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   
-  if (!isSuperAdmin) {
+  if (!isAdminUser) {
     redirect('/');
   }
   

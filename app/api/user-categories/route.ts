@@ -1,14 +1,14 @@
 import {
-  createSqliteCategory,
-  deleteSqliteCategory,
-  findSqliteCategoryByName,
-  listSqliteCategories,
-  updateSqliteCategory,
-} from '@/lib/sqlite/categories';
+  createCategory,
+  deleteCategory,
+  findCategoryByName,
+  listCategories,
+  updateCategory,
+} from '@/lib/supabase/services/categories';
 import {
-  countVideosByCategoryForUploaderSqlite,
-  hasVideosForCategoryByUploaderSqlite,
-} from '@/lib/sqlite/videos';
+  countVideosByCategoryForUploader,
+  hasVideosForCategoryByUploader,
+} from '@/lib/supabase/services/videos';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -22,10 +22,6 @@ function parseIdOrNull(value: string | null): number | null {
   if (!value) return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
-}
-
-async function ensureCategoryCache(userId: string) {
-  return listSqliteCategories(TABLE, userId);
 }
 
 export async function POST(request: NextRequest) {
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '카테고리 이름을 입력하세요.' }, { status: 400 });
     }
 
-    const existing = await findSqliteCategoryByName({
+    const existing = await findCategoryByName({
       table: TABLE,
       userId: user.id,
       name: trimmedName,
@@ -55,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이미 존재하는 카테고리입니다.' }, { status: 400 });
     }
 
-    const created = await createSqliteCategory({
+    const created = await createCategory({
       table: TABLE,
       userId: user.id,
       name: trimmedName,
@@ -80,7 +76,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeCount = searchParams.get('includeCount') === 'true';
 
-    const categories = await ensureCategoryCache(user.id);
+    const categories = await listCategories(TABLE, user.id);
 
     if (!includeCount) {
       return NextResponse.json(categories);
@@ -88,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     const withCount = await Promise.all(
       categories.map(async (category) => {
-        const count = await countVideosByCategoryForUploaderSqlite({
+        const count = await countVideosByCategoryForUploader({
           uploaderId: user.id,
           categoryId: category.id,
         });
@@ -123,14 +119,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID와 카테고리 이름을 입력하세요.' }, { status: 400 });
     }
 
-    const categories = await ensureCategoryCache(user.id);
-    const duplicate = categories.find((c) => c.id !== categoryId && c.name === trimmedName);
+    const existing = await findCategoryByName({
+      table: TABLE,
+      userId: user.id,
+      name: trimmedName,
+      languageId: null,
+      excludeId: categoryId
+    });
 
-    if (duplicate) {
+    if (existing) {
       return NextResponse.json({ error: '이미 존재하는 카테고리 이름입니다.' }, { status: 400 });
     }
 
-    await updateSqliteCategory({
+    await updateCategory({
       table: TABLE,
       id: categoryId,
       userId: user.id,
@@ -159,19 +160,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '카테고리 ID를 입력하세요.' }, { status: 400 });
     }
 
-    const usedVideos = await hasVideosForCategoryByUploaderSqlite({
-      uploaderId: user.id,
-      categoryId,
-    });
+    // We allow deletion even if videos exist, mappings will be handled by DB cascade or manual cleanup
+    // The UI handles the confirm dialog with count warning.
 
-    if (usedVideos) {
-      return NextResponse.json(
-        { error: '이 카테고리를 사용 중인 비디오가 있어 삭제할 수 없습니다.' },
-        { status: 400 }
-      );
-    }
-
-    await deleteSqliteCategory({ table: TABLE, id: categoryId, userId: user.id });
+    await deleteCategory({ table: TABLE, id: categoryId, userId: user.id });
     return NextResponse.json({ message: '카테고리가 삭제되었습니다.' });
   } catch (error) {
     console.error('API 오류:', error);

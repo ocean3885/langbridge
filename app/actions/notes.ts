@@ -1,6 +1,6 @@
 'use server';
 
-import { deleteUserNoteSqlite, upsertUserNoteSqlite } from '@/lib/sqlite/user-notes';
+import { upsertUserNote, deleteUserNote } from '@/lib/supabase/services/user-notes';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { revalidatePath } from 'next/cache';
 
@@ -19,7 +19,6 @@ export interface SaveNoteResult {
 /**
  * 메모 저장 (INSERT or UPDATE)
  * - 기존 메모가 있으면 UPDATE, 없으면 INSERT
- * - RLS 정책으로 본인 메모만 수정 가능
  */
 export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
   try {
@@ -28,7 +27,7 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    const noteId = await upsertUserNoteSqlite({
+    const noteId = await upsertUserNote({
       userId: user.id,
       videoId: input.videoId,
       transcriptId: input.transcriptId,
@@ -36,6 +35,8 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
     });
 
     revalidatePath(`/videos/${input.videoId}`);
+    revalidatePath(`/my-videos/${input.videoId}`);
+    revalidatePath(`/lb-videos/${input.videoId}`);
     return { success: true, noteId };
   } catch (error) {
     console.error('Save note error:', error);
@@ -56,9 +57,11 @@ export async function deleteNote(noteId: string, videoId: string): Promise<SaveN
       return { success: false, error: '로그인이 필요합니다.' };
     }
 
-    await deleteUserNoteSqlite(noteId, user.id);
+    await deleteUserNote(noteId, user.id);
 
     revalidatePath(`/videos/${videoId}`);
+    revalidatePath(`/my-videos/${videoId}`);
+    revalidatePath(`/lb-videos/${videoId}`);
     return { success: true };
   } catch (error) {
     console.error('Delete note error:', error);

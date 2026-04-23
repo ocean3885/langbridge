@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { isSuperAdminSqlite } from '@/lib/auth/super-admin';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getEduVideoByIdSqlite } from '@/lib/sqlite/edu-videos';
 import { listSqliteLanguages } from '@/lib/sqlite/languages';
 import { listSqliteCategories } from '@/lib/sqlite/categories';
@@ -21,8 +21,8 @@ export default async function EditEduVideoPage({ params }: EditEduVideoPageProps
     redirect('/auth/login?redirectTo=/admin/videos');
   }
 
-  const isSuperAdmin = await isSuperAdminSqlite({ userId: user.id, email: user.email ?? null });
-  if (!isSuperAdmin) {
+  const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
+  if (!isAdminUser) {
     redirect('/');
   }
 

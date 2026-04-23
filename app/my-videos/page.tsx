@@ -1,10 +1,8 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { listVideosSqlite } from '@/lib/sqlite/videos';
-import { listSqliteCategories } from '@/lib/sqlite/categories';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
-import { listVideosByUserCategorySqlite } from '@/lib/sqlite/user-category-videos';
-import { listAllUserCategoryVideosSqlite } from '@/lib/sqlite/user-category-videos-all';
-import { listVideoProgressForVideos, type SqliteVideoProgress } from '@/lib/sqlite/video-progress';
+import { listVideos, listVideosByUserCategory, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
+import { listCategories, listUserCategoriesWithCount } from '@/lib/supabase/services/categories';
+import { listLanguages } from '@/lib/supabase/services/languages';
+import { listVideoProgressForVideos, listAllVideoProgressForUser, type SupabaseVideoProgress } from '@/lib/supabase/services/video-progress';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import CategoryManageButton from './CategoryManageButton';
@@ -48,12 +46,12 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   const shouldFilterByLearningCategory =
     selectedLearningCategoryId !== null && Number.isFinite(selectedLearningCategoryId);
 
-  const categoryRows = await listSqliteCategories('user_categories', user.id);
+  const categoryRows = await listUserCategoriesWithCount(user.id);
   const selectedLearningCategory = shouldFilterByLearningCategory
     ? categoryRows.find((category) => category.id === selectedLearningCategoryId) ?? null
     : null;
 
-  const languageRows = await listSqliteLanguages();
+  const languageRows = await listLanguages();
   const languageNameMap = new Map(languageRows.map((language) => [language.id, language.name_ko]));
   
   const categoryMap: Record<string, { name: string; languageName: string }> = {};
@@ -67,29 +65,30 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   }
 
   // 2. 실제로 영상이 존재하는 카테고리 ID들 추출 (필터 바 노출용)
-  const [myUploadedVideos, mySavedMappings] = await Promise.all([
-    listVideosSqlite({ uploaderId: user.id }),
-    listAllUserCategoryVideosSqlite(user.id)
+  const [myUploadedVideos, mySavedMappings, allMyProgress] = await Promise.all([
+    listVideos({ uploaderId: user.id }),
+    listAllUserCategoryVideos(user.id),
+    listAllVideoProgressForUser(user.id)
   ]);
 
-  const activeCategoryIds = new Set(mySavedMappings.map((m: any) => m.category_id));
+  const activeCategoryIds = new Set(mySavedMappings.map((m) => m.category_id));
 
   // 3. 비디오 데이터 로드 및 변환
   const videoList: VideoItem[] = [];
   const addedSet = new Set<string>(); // "category_id:video_id" 조합 기록용
 
   if (shouldFilterByLearningCategory && selectedLearningCategory) {
-    const videos = await listVideosByUserCategorySqlite({
+    const videos = await listVideosByUserCategory({
       userId: user.id,
       categoryId: selectedLearningCategory.id,
     });
 
     for (const video of videos) {
-      const uniqueKey = `${video.category_id}:${video.video_id}`;
+      const uniqueKey = `${video.category_id}:${video.id}`;
       if (!addedSet.has(uniqueKey)) {
         addedSet.add(uniqueKey);
         videoList.push({
-          id: video.video_id,
+          id: video.id,
           youtube_id: video.youtube_id,
           title: video.title,
           description: video.description,
@@ -105,17 +104,17 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   } else {
     // 모든 담긴 영상의 상세 정보를 가져옴
     const categoryVideoPromises = Array.from(activeCategoryIds).map((catId) =>
-      listVideosByUserCategorySqlite({ userId: user.id, categoryId: catId })
+      listVideosByUserCategory({ userId: user.id, categoryId: catId })
     );
     const categoryVideosArrays = await Promise.all(categoryVideoPromises);
 
     for (const videos of categoryVideosArrays) {
       for (const video of videos) {
-        const uniqueKey = `${video.category_id}:${video.video_id}`;
+        const uniqueKey = `${video.category_id}:${video.id}`;
         if (!addedSet.has(uniqueKey)) {
           addedSet.add(uniqueKey);
           videoList.push({
-            id: video.video_id,
+            id: video.id,
             youtube_id: video.youtube_id,
             title: video.title,
             description: video.description,
@@ -123,17 +122,35 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
             thumbnail_url: video.thumbnail_url,
             created_at: video.created_at,
             category_name: categoryMap[String(video.category_id)]?.name || null,
-            language_name: categoryMap[String(video.category_id)]?.languageName || null,
+            language_name: (() => {
+              const catLang = categoryMap[String(video.category_id)]?.languageName;
+              return (catLang && catLang !== '언어 미지정' && catLang !== '언어미지정') 
+                ? catLang 
+                : (video.language_name || null);
+            })(),
             transcript_count: video.transcript_count || 0,
           });
         }
       }
     }
 
-    // 매핑되지 않은 업로드 영상 처리
-    const mappedVideoIds = new Set(mySavedMappings.map((m: any) => m.video_id));
-    for (const v of myUploadedVideos) {
-      if (mappedVideoIds.has(v.id)) continue;
+    // 3. 매핑되지 않았지만 본인 업로드이거나 학습 기록이 있는 영상 처리
+    const mappedVideoIds = new Set(mySavedMappings.map((m) => m.video_id));
+    const progressVideoIds = allMyProgress.map(p => p.video_id);
+    
+    // 유저 업로드 영상이 아니면서, 매핑되지 않았는데 학습 기록이 있는 영상들 가져오기
+    const progressOnlyVideoIds = progressVideoIds.filter(id => 
+      !mappedVideoIds.has(id) && !myUploadedVideos.some(v => v.id === id)
+    );
+    
+    let progressOnlyVideos: any[] = [];
+    if (progressOnlyVideoIds.length > 0) {
+      progressOnlyVideos = await listVideos({ videoIds: progressOnlyVideoIds });
+    }
+
+    const allUnmappedVideos = [...myUploadedVideos.filter(v => !mappedVideoIds.has(v.id)), ...progressOnlyVideos];
+
+    for (const v of allUnmappedVideos) {
       const uniqueKey = `null:${v.id}`;
       if (!addedSet.has(uniqueKey)) {
         addedSet.add(uniqueKey);
@@ -146,7 +163,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
           thumbnail_url: v.thumbnail_url,
           created_at: v.created_at,
           category_name: null,
-          language_name: null,
+          language_name: v.language_name || null,
           transcript_count: v.transcript_count || 0,
         });
       }
@@ -156,7 +173,7 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
   // 학습 진행 데이터 조회
   const videoIds = videoList.map((v) => v.id);
   const progressRows = await listVideoProgressForVideos(user.id, videoIds);
-  const progressMap = new Map<string, SqliteVideoProgress>();
+  const progressMap = new Map<string, SupabaseVideoProgress>();
   for (const row of progressRows) {
     progressMap.set(row.video_id, row);
   }
@@ -193,11 +210,12 @@ export default async function MyVideosPage({ searchParams }: MyVideosPageProps) 
         <EmptyVideoState categoryName={selectedLearningCategory?.name} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedVideos.map((video) => (
+          {paginatedVideos.map((video, index) => (
             <VideoCard
               key={video.id}
               video={video}
-              progress={progressMap.get(video.id)}
+              progress={progressMap.get(video.id) as any}
+              priority={index < 4}
             />
           ))}
         </div>

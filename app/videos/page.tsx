@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { CalendarDays, Clock3, Target, Video } from 'lucide-react';
 import Image from 'next/image';
-import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
+import { listEduVideos } from '@/lib/supabase/services/edu-videos';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { listVideoLearningProgressForVideosSqlite } from '@/lib/sqlite/video-learning-progress';
+import { listVideoLearningProgressForVideos } from '@/lib/supabase/services/video-learning-progress';
 import VideosChannelFilter from './VideosChannelFilter';
 
 // 동적 렌더링 강제
@@ -131,12 +131,14 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
   const selectedChannel = resolvedSearchParams?.channel;
   const selectedSort = normalizeSortValue(resolvedSearchParams?.sort, Boolean(user));
   const requestedPage = normalizePageNumber(resolvedSearchParams?.page);
-  const rows = await listEduVideosSqlite();
+  
+  // Official videos are in edu_videos table
+  const rows = await listEduVideos();
 
   const adminVideos: AdminVideo[] = rows.map((v) => ({
     id: v.id,
     title: v.title,
-    youtube_url: v.youtube_url ?? null,
+    youtube_url: v.youtube_url,
     thumbnail_url: v.thumbnail_url ?? null,
     duration_seconds: v.duration_seconds ?? null,
     created_at: v.created_at,
@@ -167,7 +169,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
 
   const sortingProgressMap = user && selectedSort === RECENT_STUDY_SORT
     ? new Map(
-        (await listVideoLearningProgressForVideosSqlite(user.id, filteredVideos.map((video) => video.id)))
+        (await listVideoLearningProgressForVideos(user.id, filteredVideos.map((video) => video.id)))
           .map((row) => [row.video_id, row])
       )
     : new Map();
@@ -201,7 +203,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
       ? paginatedVideos
           .map((video) => sortingProgressMap.get(video.id))
           .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      : await listVideoLearningProgressForVideosSqlite(user.id, paginatedVideos.map((video) => video.id))
+      : await listVideoLearningProgressForVideos(user.id, paginatedVideos.map((video) => video.id))
     : [];
   const progressMap = new Map(progressRows.map((row) => [row.video_id, row]));
 
@@ -290,7 +292,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
                     {user && (
                       <div className="mt-4 grid gap-2 rounded-lg bg-gray-50 px-3 py-3 text-xs text-gray-600 sm:text-sm">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="flex items-center gap-1">
+                           <span className="flex items-center gap-1">
                             <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
                             최근학습일
                           </span>
@@ -403,4 +405,3 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
     </div>
   );
 }
-

@@ -174,7 +174,7 @@ export default function CategoryManageModal({
     
     let confirmMessage = '이 카테고리를 삭제하시겠습니까?';
     if (contentCount > 0) {
-      confirmMessage = `이 카테고리에는 ${contentCount}개의 ${contentType} 콘텐츠가 포함되어 있습니다.\n카테고리를 삭제하면 포함된 모든 콘텐츠도 함께 삭제됩니다.\n\n정말로 삭제하시겠습니까?`;
+      confirmMessage = `이 카테고리에는 ${contentCount}개의 ${contentType}가 담겨 있습니다.\n\n카테고리를 삭제하면 영상과의 연결만 끊어지며,\n해당 영상들은 '학습일반' 그룹에서 계속 확인하실 수 있습니다.\n\n정말로 삭제하시겠습니까?`;
     }
     
     if (!confirm(confirmMessage)) return;
@@ -301,57 +301,58 @@ export default function CategoryManageModal({
                       {cats.map((category) => (
                         <div
                           key={category.id}
-                          className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+                          className="flex flex-col bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
                         >
-                          {editingId === category.id ? (
-                            <>
-                              <input
-                                type="text"
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleEdit(category.id, editingName);
-                                  } else if (e.key === 'Escape') {
-                                    cancelEdit();
-                                  }
-                                }}
-                                autoFocus
-                              />
-                              <button
-                                onClick={() => handleEdit(category.id, editingName)}
-                                className="px-2 sm:px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs sm:text-sm whitespace-nowrap"
-                              >
-                                저장
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="px-2 sm:px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded text-xs sm:text-sm whitespace-nowrap"
-                              >
-                                취소
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="flex-1 font-medium text-sm sm:text-base break-all">{category.name}</span>
-                              <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">({category.content_count ?? 0})</span>
-                              <button
-                                onClick={() => startEdit(category)}
-                                className="p-2 hover:bg-blue-100 rounded transition-colors"
-                                title="수정"
-                              >
-                                <Pencil className="w-4 h-4 text-blue-600" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(category.id)}
-                                className="p-2 hover:bg-red-100 rounded transition-colors"
-                                title="삭제"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </button>
-                            </>
-                          )}
+                          <div className="flex items-center gap-2 p-2 sm:p-3">
+                            {editingId === category.id ? (
+                              <>
+                                <input
+                                  type="text"
+                                  value={editingName}
+                                  onChange={(e) => setEditingName(e.target.value)}
+                                  className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleEdit(category.id, editingName);
+                                    } else if (e.key === 'Escape') {
+                                      cancelEdit();
+                                    }
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleEdit(category.id, editingName)}
+                                  className="px-2 sm:px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs sm:text-sm whitespace-nowrap"
+                                >
+                                  저장
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="px-2 sm:px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded text-xs sm:text-sm whitespace-nowrap"
+                                >
+                                  취소
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex-1 font-medium text-sm sm:text-base break-all">{category.name}</span>
+                                <button
+                                  onClick={() => startEdit(category)}
+                                  className="p-2 hover:bg-blue-100 rounded transition-colors"
+                                  title="수정"
+                                >
+                                  <Pencil className="w-4 h-4 text-blue-600" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(category.id)}
+                                  className="p-2 hover:bg-red-100 rounded transition-colors"
+                                  title="삭제"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
