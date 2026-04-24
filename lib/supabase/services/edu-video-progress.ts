@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type SupabaseVideoLearningProgress = {
+export type SupabaseEduVideoProgress = {
   id: string;
   user_id: string;
   video_id: string;
@@ -14,72 +14,72 @@ export type SupabaseVideoLearningProgress = {
   updated_at: string;
 };
 
-export async function getVideoLearningProgress(
+export async function getEduVideoProgress(
   userId: string,
   videoId: string
-): Promise<SupabaseVideoLearningProgress | null> {
+): Promise<SupabaseEduVideoProgress | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from('video_learning_progress')
+    .from('edu_video_progress')
     .select('*')
     .eq('user_id', userId)
     .eq('video_id', videoId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data as SupabaseVideoLearningProgress;
+  return data as SupabaseEduVideoProgress;
 }
 
-export async function listVideoLearningProgressByUser(
+export async function listEduVideoProgressByUser(
   userId: string,
   limit = 100
-): Promise<SupabaseVideoLearningProgress[]> {
+): Promise<SupabaseEduVideoProgress[]> {
   const supabase = createAdminClient();
   // Supabase doesn't easily order by COALESCE in the JS client without RPC.
   // We'll order by last_studied_at with nulls last, then by created_at.
   const { data, error } = await supabase
-    .from('video_learning_progress')
+    .from('edu_video_progress')
     .select('*')
     .eq('user_id', userId)
     .order('last_studied_at', { ascending: false, nullsFirst: false })
     .limit(limit);
 
   if (error || !data) return [];
-  return data as SupabaseVideoLearningProgress[];
+  return data as SupabaseEduVideoProgress[];
 }
 
-export async function listVideoLearningProgressForVideos(
+export async function listEduVideoProgressForVideos(
   userId: string,
   videoIds: string[]
-): Promise<SupabaseVideoLearningProgress[]> {
+): Promise<SupabaseEduVideoProgress[]> {
   if (videoIds.length === 0) return [];
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from('video_learning_progress')
+    .from('edu_video_progress')
     .select('*')
     .eq('user_id', userId)
     .in('video_id', videoIds);
 
   if (error || !data) return [];
-  return data as SupabaseVideoLearningProgress[];
+  return data as SupabaseEduVideoProgress[];
 }
 
-export async function recordVideoStudy(input: {
+export async function recordEduVideoStudy(input: {
   userId: string;
   videoId: string;
   playedSeconds: number;
   lastPositionSeconds: number | null;
   incrementSession: boolean;
   nowIso: string;
-}): Promise<SupabaseVideoLearningProgress> {
+}): Promise<SupabaseEduVideoProgress> {
   const supabase = createAdminClient();
   const playedSeconds = Math.max(0, Math.floor(input.playedSeconds));
   const sessionIncrement = input.incrementSession ? 1 : 0;
 
   // We need to fetch existing to update counts correctly, or use RPC.
   // Doing it with fetch + upsert for simplicity since we don't have RPC.
-  const existing = await getVideoLearningProgress(input.userId, input.videoId);
+  const existing = await getEduVideoProgress(input.userId, input.videoId);
 
   let newTotalSeconds = playedSeconds;
   let newSessionCount = sessionIncrement;
@@ -90,7 +90,7 @@ export async function recordVideoStudy(input: {
   }
 
   const { data, error } = await supabase
-    .from('video_learning_progress')
+    .from('edu_video_progress')
     .upsert({
       id: existing ? existing.id : randomUUID(),
       user_id: input.userId,
@@ -110,19 +110,19 @@ export async function recordVideoStudy(input: {
     throw new Error(`학습 기록 저장 실패: ${error.message}`);
   }
 
-  return data as SupabaseVideoLearningProgress;
+  return data as SupabaseEduVideoProgress;
 }
 
-export async function updateVideoSummaryMemo(input: {
+export async function updateEduVideoSummaryMemo(input: {
   userId: string;
   videoId: string;
   summaryMemo: string | null;
-}): Promise<SupabaseVideoLearningProgress> {
+}): Promise<SupabaseEduVideoProgress> {
   const supabase = createAdminClient();
-  const existing = await getVideoLearningProgress(input.userId, input.videoId);
+  const existing = await getEduVideoProgress(input.userId, input.videoId);
 
   const { data, error } = await supabase
-    .from('video_learning_progress')
+    .from('edu_video_progress')
     .upsert({
       id: existing ? existing.id : randomUUID(),
       user_id: input.userId,
@@ -142,5 +142,5 @@ export async function updateVideoSummaryMemo(input: {
     throw new Error(`메모 저장 실패: ${error.message}`);
   }
 
-  return data as SupabaseVideoLearningProgress;
+  return data as SupabaseEduVideoProgress;
 }

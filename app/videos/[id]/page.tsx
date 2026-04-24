@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import EduVideoLearningClient from '@/components/edu-video/EduVideoLearningClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { getVideoWithTranscripts, incrementVideoViewCount } from '@/lib/supabase/services/videos';
-import { getVideoLearningProgress } from '@/lib/supabase/services/video-learning-progress';
+import { getEduVideoProgress } from '@/lib/supabase/services/edu-video-progress';
 
 interface VideoPageProps {
   params: Promise<{
@@ -31,7 +31,7 @@ export default async function VideoPage({ params }: VideoPageProps) {
 
   const user = await getAppUserFromServer();
   const progress = user
-    ? await getVideoLearningProgress(user.id, id)
+    ? await getEduVideoProgress(user.id, id)
     : null;
 
   return (

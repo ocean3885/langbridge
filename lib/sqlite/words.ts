@@ -100,12 +100,6 @@ export async function updateWordSqlite(input: {
 export async function hasWordUsageSqlite(wordId: number): Promise<{ used: boolean; reason: string | null }> {
   const db = await getSqliteDb();
 
-  const hasConjugation = await db.get<{ id: number }>(
-    `SELECT id FROM verb_conjugations WHERE word_id = ? LIMIT 1`,
-    wordId
-  );
-  if (hasConjugation) return { used: true, reason: '이 단어의 동사 활용이 있어' };
-
   const hasMapping = await db.get<{ id: number }>(
     `SELECT id FROM word_sentence_map WHERE word_id = ? LIMIT 1`,
     wordId

@@ -27,7 +27,7 @@ interface TranscriptDisplayProps {
   userNotes: Record<string, { id: string; content: string }>;
   repeatState: { type: 'none' | 'single' | 'range', index1: number | null, index2: number | null };
   onRepeat: (index: number) => void;
-  isAdmin: boolean;
+  hasEditPermission: boolean;
   enlargeTextOnDesktop?: boolean;
 }
 
@@ -40,7 +40,7 @@ export default function TranscriptDisplay({
   userNotes,
   repeatState,
   onRepeat,
-  isAdmin,
+  hasEditPermission,
   enlargeTextOnDesktop = false,
 }: TranscriptDisplayProps) {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
@@ -372,7 +372,7 @@ export default function TranscriptDisplay({
                   >
                     <span style={{fontWeight:'bold'}}>R</span>
                   </button>
-                  {isAdmin && (
+                  {hasEditPermission && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

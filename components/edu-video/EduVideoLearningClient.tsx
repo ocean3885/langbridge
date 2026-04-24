@@ -6,7 +6,7 @@ import BackButton from '@/components/common/BackButton';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { Button } from '@/components/ui/button';
 import { SqliteEduVideo } from '@/lib/sqlite/edu-videos';
-import { saveEduVideoSummaryMemo, recordEduVideoStudy } from '@/app/actions/video-learning-progress';
+import { saveEduVideoSummaryMemo, recordEduVideoStudy } from '@/app/actions/edu-video-progress';
 import { updateEduVideoDuration } from '@/app/actions/edu-video';
 
 type VideoMeta = {

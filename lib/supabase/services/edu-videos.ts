@@ -25,7 +25,7 @@ export async function listEduVideos(): Promise<SupabaseEduVideo[]> {
     .from('edu_videos')
     .select(`
       *,
-      video_channels(channel_name),
+      edu_video_channels(channel_name),
       languages(name_ko),
       edu_video_categories(name)
     `)
@@ -35,7 +35,7 @@ export async function listEduVideos(): Promise<SupabaseEduVideo[]> {
 
   return data.map((row: any) => ({
     ...row,
-    channel_name: row.video_channels?.channel_name,
+    channel_name: row.edu_video_channels?.channel_name,
     language_name: row.languages?.name_ko,
     category_name: row.edu_video_categories?.name
   }));
@@ -47,7 +47,7 @@ export async function getEduVideoById(id: string): Promise<SupabaseEduVideo | nu
     .from('edu_videos')
     .select(`
       *,
-      video_channels(channel_name),
+      edu_video_channels(channel_name),
       languages(name_ko),
       edu_video_categories(name)
     `)
@@ -58,7 +58,7 @@ export async function getEduVideoById(id: string): Promise<SupabaseEduVideo | nu
 
   return {
     ...data,
-    channel_name: data.video_channels?.channel_name,
+    channel_name: data.edu_video_channels?.channel_name,
     language_name: data.languages?.name_ko,
     category_name: data.edu_video_categories?.name
   };

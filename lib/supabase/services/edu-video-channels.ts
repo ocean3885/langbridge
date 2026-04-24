@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type SupabaseVideoChannel = {
+export type SupabaseEduVideoChannel = {
   id: string;
   channel_name: string;
   channel_url: string | null;
@@ -12,25 +12,25 @@ export type SupabaseVideoChannel = {
   updated_at: string;
 };
 
-export async function listVideoChannels(): Promise<SupabaseVideoChannel[]> {
+export async function listEduVideoChannels(): Promise<SupabaseEduVideoChannel[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from('video_channels')
+    .from('edu_video_channels')
     .select('*')
     .order('channel_name', { ascending: true });
 
   if (error || !data) return [];
-  return data as SupabaseVideoChannel[];
+  return data as SupabaseEduVideoChannel[];
 }
 
-export async function listVideoChannelsWithVideoCount(): Promise<Array<SupabaseVideoChannel & { video_count: number }>> {
+export async function listEduVideoChannelsWithVideoCount(): Promise<Array<SupabaseEduVideoChannel & { video_count: number }>> {
   const supabase = createAdminClient();
   
   // Supabase doesn't easily do JOINS with counts in the JS client without RPC.
   // We'll fetch all channels and then counts for each.
   // (In a real app, RPC is better).
   const { data: channels, error } = await supabase
-    .from('video_channels')
+    .from('edu_video_channels')
     .select('*, videos(id)')
     .order('created_at', { ascending: false });
 
@@ -42,19 +42,19 @@ export async function listVideoChannelsWithVideoCount(): Promise<Array<SupabaseV
   })) as any;
 }
 
-export async function getVideoChannelById(channelId: string): Promise<SupabaseVideoChannel | null> {
+export async function getEduVideoChannelById(channelId: string): Promise<SupabaseEduVideoChannel | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from('video_channels')
+    .from('edu_video_channels')
     .select('*')
     .eq('id', channelId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data as SupabaseVideoChannel;
+  return data as SupabaseEduVideoChannel;
 }
 
-export async function insertVideoChannel(input: {
+export async function insertEduVideoChannel(input: {
   channelName: string;
   channelUrl?: string | null;
   channelDescription?: string | null;
@@ -65,7 +65,7 @@ export async function insertVideoChannel(input: {
   const id = randomUUID();
 
   const { error } = await supabase
-    .from('video_channels')
+    .from('edu_video_channels')
     .insert({
       id,
       channel_name: input.channelName,
@@ -79,7 +79,7 @@ export async function insertVideoChannel(input: {
   return id;
 }
 
-export async function updateVideoChannel(input: {
+export async function updateEduVideoChannel(input: {
   channelId: string;
   channelName: string;
   channelUrl?: string | null;
@@ -89,7 +89,7 @@ export async function updateVideoChannel(input: {
 }): Promise<boolean> {
   const supabase = createAdminClient();
   const { error, count } = await supabase
-    .from('video_channels')
+    .from('edu_video_channels')
     .update({
       channel_name: input.channelName,
       channel_url: input.channelUrl ?? null,

@@ -55,16 +55,5 @@ export async function createLanguagesTables(db: SqliteDb): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_word_sentence_map_sentence
       ON word_sentence_map(sentence_id);
-
-    CREATE TABLE IF NOT EXISTS verb_conjugations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      word_id INTEGER NOT NULL,
-      tense TEXT,
-      conjugated_text TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_verb_conjugations_word
-      ON verb_conjugations(word_id);
   `);
 }

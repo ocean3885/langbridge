@@ -8,7 +8,7 @@ import { updateVideoDuration } from '@/app/actions/video';
 import EditVideoModal from './EditVideoModal';
 import type { VideoVisibility } from '@/lib/supabase/services/videos';
 import type { SupabaseVideoProgress as SqliteVideoProgress } from '@/lib/supabase/services/video-progress';
-import { Edit3, ArrowLeft, Trash2, Settings2, FolderTree, Plus } from 'lucide-react';
+import { Edit3, ArrowLeft, Trash2, Settings2, FolderTree, Plus, Download } from 'lucide-react';
 import CategoryManagerModal from '@/components/common/CategoryManagerModal';
 
 
@@ -41,7 +41,7 @@ interface VideoLearningClientProps {
   duration: number | null;
   transcripts: TranscriptWithTranslation[];
   userNotes: Record<string, { id: string; content: string }>;
-  isAdmin: boolean;
+  hasEditPermission: boolean;
   progress?: SqliteVideoProgress;
   backUrl?: string;
   allCategories: { id: number; name: string; language_id: number | null }[];
@@ -64,7 +64,7 @@ export default function VideoLearningClient({
   duration: existingDuration,
   transcripts,
   userNotes,
-  isAdmin,
+  hasEditPermission,
   progress,
   backUrl = '/my-videos',
   allCategories: initialCategories,
@@ -149,6 +149,43 @@ export default function VideoLearningClient({
   // 편집 모달 열기
   const handleOpenEditModal = () => {
     setEditModalOpen(true);
+  };
+
+  const handleDownloadCsv = () => {
+    const formatTime = (seconds: number) => {
+      const sec = Math.floor(seconds % 60);
+      const min = Math.floor((seconds / 60) % 60);
+      const hour = Math.floor(seconds / 3600);
+      if (hour > 0) {
+        return `${hour}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+      } else {
+        return `${min}:${String(sec).padStart(2, '0')}`;
+      }
+    };
+
+    const csvRows = [
+      ['시작시간', '원문', '번역'],
+      ...transcripts.map(t => [
+        formatTime(t.start),
+        t.text_original,
+        t.translations?.[0]?.text_translated || ''
+      ])
+    ];
+
+    const csvContent = csvRows.map(row => 
+      row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${title.replace(/[/\\?%*:|"<>]/g, '-')}_script.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
   const VideoMetaData = ({ isDesktop = false }: { isDesktop?: boolean }) => (
     <div className={`flex flex-wrap gap-${isDesktop ? '3 text-sm' : '1.5 text-xs'} items-center`}>
@@ -289,7 +326,7 @@ export default function VideoLearningClient({
               >
                 <FolderTree className="w-5 h-5" />
               </button>
-              {isAdmin && (
+              {hasEditPermission && (
                 <button
                   onClick={handleOpenEditModal}
                   className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600"
@@ -340,7 +377,17 @@ export default function VideoLearningClient({
       <div className={`md:hidden flex-1 overflow-y-auto px-4 py-4 ${
         isPlaying ? 'pb-safe' : ''
       }`}>
-        <h2 className="text-lg font-semibold mb-3">스크립트</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">스크립트</h2>
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-medium"
+            title="CSV 다운로드"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>다운로드</span>
+          </button>
+        </div>
         <TranscriptDisplay
           videoId={videoId}
           transcripts={transcripts}
@@ -350,7 +397,7 @@ export default function VideoLearningClient({
           userNotes={userNotes}
           repeatState={repeatState}
           onRepeat={handleRepeat}
-          isAdmin={isAdmin}
+          hasEditPermission={hasEditPermission}
           enlargeTextOnDesktop={enlargeTranscriptTextOnDesktop}
         />
       </div>
@@ -360,7 +407,7 @@ export default function VideoLearningClient({
         {/* 제목과 편집 버튼 행 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold break-words">{title}</h1>
-          {isAdmin && (
+          {hasEditPermission && (
             <button
               onClick={handleOpenEditModal}
               className="self-start sm:self-auto p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 flex-shrink-0"
@@ -417,7 +464,17 @@ export default function VideoLearningClient({
 
           {/* 오른쪽: 스크립트 목록 */}
           <div className="space-y-4 md:overflow-y-auto md:max-h-[calc(100vh-12rem)]">
-            <h2 className="text-xl font-semibold">스크립트</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">스크립트</h2>
+              <button
+                onClick={handleDownloadCsv}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-medium"
+                title="CSV 다운로드"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>다운로드</span>
+              </button>
+            </div>
             <TranscriptDisplay
               videoId={videoId}
               transcripts={transcripts}
@@ -427,7 +484,7 @@ export default function VideoLearningClient({
               userNotes={userNotes}
               repeatState={repeatState}
               onRepeat={handleRepeat}
-              isAdmin={isAdmin}
+              hasEditPermission={hasEditPermission}
               enlargeTextOnDesktop={enlargeTranscriptTextOnDesktop}
             />
           </div>

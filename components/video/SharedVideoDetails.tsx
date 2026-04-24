@@ -81,7 +81,7 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
       duration={video.duration ?? null}
       transcripts={transcripts}
       userNotes={userNotes}
-      isAdmin={isAdmin || isOwner}
+      hasEditPermission={isAdmin || isOwner}
       progress={progress || undefined}
       backUrl={backUrl}
       allCategories={allCategories}

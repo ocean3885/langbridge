@@ -3,7 +3,7 @@ import { CalendarDays, Clock3, Target, Video } from 'lucide-react';
 import Image from 'next/image';
 import { listEduVideos } from '@/lib/supabase/services/edu-videos';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
-import { listVideoLearningProgressForVideos } from '@/lib/supabase/services/video-learning-progress';
+import { listEduVideoProgressForVideos } from '@/lib/supabase/services/edu-video-progress';
 import VideosChannelFilter from './VideosChannelFilter';
 
 // 동적 렌더링 강제
@@ -169,7 +169,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
 
   const sortingProgressMap = user && selectedSort === RECENT_STUDY_SORT
     ? new Map(
-        (await listVideoLearningProgressForVideos(user.id, filteredVideos.map((video) => video.id)))
+        (await listEduVideoProgressForVideos(user.id, filteredVideos.map((video) => video.id)))
           .map((row) => [row.video_id, row])
       )
     : new Map();
@@ -203,7 +203,7 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
       ? paginatedVideos
           .map((video) => sortingProgressMap.get(video.id))
           .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      : await listVideoLearningProgressForVideos(user.id, paginatedVideos.map((video) => video.id))
+      : await listEduVideoProgressForVideos(user.id, paginatedVideos.map((video) => video.id))
     : [];
   const progressMap = new Map(progressRows.map((row) => [row.video_id, row]));
 

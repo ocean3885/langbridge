@@ -208,7 +208,7 @@ export async function listVideos(input?: {
     .from('videos')
     .select(`
       *,
-      video_channels(channel_name),
+      edu_video_channels(channel_name),
       languages(name_ko),
       transcripts(id)
     `);
@@ -254,7 +254,7 @@ export async function listVideos(input?: {
 
   return videos.map(v => ({
     ...v,
-    channel_name: v.video_channels?.channel_name,
+    channel_name: v.edu_video_channels?.channel_name,
     language_name: v.languages?.name_ko,
     transcript_count: v.transcripts?.length || 0
   })) as Array<SupabaseVideo & { transcript_count: number }>;
@@ -355,7 +355,7 @@ export async function listVideosByUserCategory(input: {
       video_id,
       videos (
         *,
-        video_channels(channel_name),
+        edu_video_channels(channel_name),
         languages(name_ko),
         transcripts(id)
       )
@@ -368,7 +368,7 @@ export async function listVideosByUserCategory(input: {
   return data.map((row: any) => ({
     ...row.videos,
     category_id: row.category_id,
-    channel_name: row.videos.video_channels?.channel_name,
+    channel_name: row.videos.edu_video_channels?.channel_name,
     language_name: row.videos.languages?.name_ko,
     transcript_count: row.videos.transcripts?.length || 0
   }));
