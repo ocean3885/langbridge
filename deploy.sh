@@ -31,17 +31,13 @@ ssh $REMOTE_USER@$SERVER_IP << EOF
   # rm -rf node_modules
   # npm ci
   npm install
-
-  # If existing posts still point thumbnailUrl to original images,
-  # run this once to generate thumbnail files and update the DB.
-  # npm run backfill:thumbnails
-
-  # 브라우저 리스트 DB 업데이트 (추가된 부분)
-  npx update-browserslist-db@latest -y
   
+  # Update caniuse-lite
+  npx update-browserslist-db@latest -y
+
   echo "Building application..."
   npm run build
-  
+
   echo "Setting file permissions..."
   # Directories: rwxr-xr-x, Files: rw-r--r--
   # Exclude node_modules so executable package binaries keep their execute bit.
@@ -61,3 +57,4 @@ ssh $REMOTE_USER@$SERVER_IP << EOF
   pm2 reload ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
   
   echo "Deployment complete!"
+EOF
