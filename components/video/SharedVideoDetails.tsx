@@ -4,7 +4,6 @@ import { getAllUserNotesForVideo } from '@/lib/supabase/services/user-notes';
 import VideoLearningClient from '@/components/video/VideoLearningClient';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getVideoLearningProgress } from '@/lib/supabase/services/video-learning-progress';
 import { getVideoProgress } from '@/lib/supabase/services/video-progress';
 import { listCategories, listUserCategoriesWithCount } from '@/lib/supabase/services/categories';
 
