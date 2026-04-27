@@ -25,8 +25,8 @@ CREATE TABLE bundle (
 CREATE TABLE bundle_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bundle_id UUID NOT NULL REFERENCES bundle(id) ON DELETE CASCADE,
-    word_id UUID REFERENCES words(id) ON DELETE CASCADE,
-    sentence_id UUID REFERENCES sentences(id) ON DELETE CASCADE,
+    word_id BIGINT REFERENCES words(id) ON DELETE CASCADE,
+    sentence_id BIGINT REFERENCES sentences(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL DEFAULT 0,
     
     -- 제약 조건: 하나의 아이템은 단어 혹은 문장 중 최소 하나를 가져야 함
