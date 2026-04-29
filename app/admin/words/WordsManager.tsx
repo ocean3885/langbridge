@@ -3,21 +3,58 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
 
-interface Language {
+export interface Language {
   id: number;
   name_en: string;
   name_ko: string;
   code: string;
 }
 
-interface Word {
+export interface Word {
   id: number;
-  language_id: number;
-  text: string;
-  meaning_ko: string;
-  level: string;
-  part_of_speech: string | null;
+  word: string;
+  lang_code: string;
+  pos: string[];
+  meaning: Record<string, string[]>;
+  gender: string | null;
+  declensions: Record<string, any>;
+  conjugations: Record<string, any>;
+  audio_url: string | null;
   languages?: Language;
+  sentence_count?: number;
+}
+
+const POS_MAP: Record<string, string> = {
+  'noun': '명사',
+  'verb': '동사',
+  'adjective': '형용사',
+  'adverb': '부사',
+  'pronoun': '대명사',
+  'preposition': '전치사',
+  'conjunction': '접속사',
+  'interjection': '감탄사',
+  'article': '관사',
+  'determiner': '한정사',
+  'numeral': '수사',
+  'particle': '조사',
+  'auxiliary': '조동사',
+  // Abbreviations
+  'adj': '형용사',
+  'adv': '부사',
+  'n': '명사',
+  'v': '동사',
+  'prep': '전치사',
+  'pron': '대명사',
+  'conj': '접속사',
+  'det': '한정사',
+  'adp': '전치사',
+  'aux': '조동사',
+  'part': '조사',
+  'propn': '고유명사',
+};
+
+function formatPOS(pos: string): string {
+  return POS_MAP[pos.toLowerCase()] || pos;
 }
 
 interface WordsManagerProps {
@@ -25,35 +62,74 @@ interface WordsManagerProps {
   languages: Language[];
 }
 
+function getMeaningDisplay(meaning: any): string {
+  if (!meaning) return '-';
+  
+  // If it's already a string, return it
+  if (typeof meaning === 'string') {
+    try {
+      const parsed = JSON.parse(meaning);
+      return getMeaningDisplay(parsed);
+    } catch (e) {
+      return meaning;
+    }
+  }
+
+  // If it's an object, check common keys
+  if (typeof meaning === 'object') {
+    // Try ko, then en, then any first key
+    const val = meaning.ko || meaning.en || Object.values(meaning)[0];
+    if (Array.isArray(val)) return val[0] || '-';
+    if (typeof val === 'string') return val;
+  }
+
+  return '-';
+}
+
 export default function WordsManager({ initialWords, languages }: WordsManagerProps) {
   const [words, setWords] = useState<Word[]>(initialWords);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
-    language_id: languages[0]?.id || 0,
-    text: '',
-    meaning_ko: '',
-    level: 'A1',
-    part_of_speech: '',
+    lang_code: languages[0]?.code || '',
+    word: '',
+    meaning_ko: '', // UI simplification: will be mapped to meaning.ko
+    gender: '',
+    pos_input: '', // UI simplification: comma separated
   });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterLanguage, setFilterLanguage] = useState<number>(0);
-
-  const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-  const partsOfSpeech = ['명사', '동사', '형용사', '부사', '전치사', '접속사', '대명사', '감탄사'];
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
   const filteredWords = words.filter((word) => {
     const matchesSearch = 
-      word.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      word.meaning_ko.includes(searchTerm);
-    const matchesLanguage = filterLanguage === 0 || word.language_id === filterLanguage;
+      word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getMeaningDisplay(word.meaning).includes(searchTerm);
+    const matchesLanguage = filterLanguage === 'all' || word.lang_code === filterLanguage;
     return matchesSearch && matchesLanguage;
   });
 
+  const paginatedWords = filteredWords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterLanguage(e.target.value);
+    setCurrentPage(1);
+  };
+
   const handleAdd = async () => {
-    if (!formData.text || !formData.meaning_ko) {
-      alert('단어와 의미를 입력해주세요.');
+    if (!formData.word || !formData.meaning_ko || !formData.lang_code) {
+      alert('단어, 의미, 언어를 모두 입력해주세요.');
       return;
     }
 
@@ -63,8 +139,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          part_of_speech: formData.part_of_speech || null,
+          word: formData.word,
+          lang_code: formData.lang_code,
+          meaning: { ko: [formData.meaning_ko] },
+          gender: formData.gender || null,
+          pos: formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [],
         }),
       });
 
@@ -76,11 +155,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
       const newWord = await res.json();
       setWords([newWord, ...words]);
       setFormData({
-        language_id: languages[0]?.id || 0,
-        text: '',
+        lang_code: languages[0]?.code || '',
+        word: '',
         meaning_ko: '',
-        level: 'A1',
-        part_of_speech: '',
+        gender: '',
+        pos_input: '',
       });
       setIsAdding(false);
       alert('단어가 추가되었습니다.');
@@ -92,8 +171,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   };
 
   const handleUpdate = async (id: number) => {
-    if (!formData.text || !formData.meaning_ko) {
-      alert('단어와 의미를 입력해주세요.');
+    if (!formData.word || !formData.meaning_ko || !formData.lang_code) {
+      alert('단어, 의미, 언어를 모두 입력해주세요.');
       return;
     }
 
@@ -104,8 +183,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
-          ...formData,
-          part_of_speech: formData.part_of_speech || null,
+          word: formData.word,
+          lang_code: formData.lang_code,
+          meaning: { ko: [formData.meaning_ko] },
+          gender: formData.gender || null,
+          pos: formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [],
         }),
       });
 
@@ -118,11 +200,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
       setWords(words.map(word => word.id === id ? updatedWord : word));
       setEditingId(null);
       setFormData({
-        language_id: languages[0]?.id || 0,
-        text: '',
+        lang_code: languages[0]?.code || '',
+        word: '',
         meaning_ko: '',
-        level: 'A1',
-        part_of_speech: '',
+        gender: '',
+        pos_input: '',
       });
       alert('단어가 수정되었습니다.');
     } catch (error) {
@@ -160,11 +242,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const startEdit = (word: Word) => {
     setEditingId(word.id);
     setFormData({
-      language_id: word.language_id,
-      text: word.text,
-      meaning_ko: word.meaning_ko,
-      level: word.level,
-      part_of_speech: word.part_of_speech || '',
+      lang_code: word.lang_code,
+      word: word.word,
+      meaning_ko: word.meaning.ko?.[0] || '',
+      gender: word.gender || '',
+      pos_input: word.pos.join(', '),
     });
   };
 
@@ -172,11 +254,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     setEditingId(null);
     setIsAdding(false);
     setFormData({
-      language_id: languages[0]?.id || 0,
-      text: '',
+      lang_code: languages[0]?.code || '',
+      word: '',
       meaning_ko: '',
-      level: 'A1',
-      part_of_speech: '',
+      gender: '',
+      pos_input: '',
     });
   };
 
@@ -206,19 +288,19 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               <input
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 placeholder="단어 또는 의미 검색..."
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <select
               value={filterLanguage}
-              onChange={(e) => setFilterLanguage(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={handleFilterLanguageChange}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
             >
-              <option value={0}>모든 언어</option>
+              <option value="all">모든 언어</option>
               {languages.map((lang) => (
-                <option key={lang.id} value={lang.id}>
+                <option key={lang.id} value={lang.code}>
                   {lang.name_ko} ({lang.code})
                 </option>
               ))}
@@ -234,12 +316,12 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">언어</label>
                 <select
-                  value={formData.language_id}
-                  onChange={(e) => setFormData({ ...formData, language_id: Number(e.target.value) })}
+                  value={formData.lang_code}
+                  onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {languages.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
+                    <option key={lang.id} value={lang.code}>
                       {lang.name_ko} ({lang.code})
                     </option>
                   ))}
@@ -249,8 +331,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 <label className="block text-sm font-medium text-gray-700 mb-1">단어</label>
                 <input
                   type="text"
-                  value={formData.text}
-                  onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                  value={formData.word}
+                  onChange={(e) => setFormData({ ...formData, word: e.target.value })}
                   placeholder="예: hello"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -266,29 +348,24 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">난이도</label>
-                <select
-                  value={formData.level}
-                  onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">성별 (선택)</label>
+                <input
+                  type="text"
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  placeholder="예: M, F"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {levels.map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">품사 (선택)</label>
-                <select
-                  value={formData.part_of_speech}
-                  onChange={(e) => setFormData({ ...formData, part_of_speech: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">품사 (쉼표로 구분)</label>
+                <input
+                  type="text"
+                  value={formData.pos_input}
+                  onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
+                  placeholder="예: 명사, 동사"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">선택 안함</option>
-                  {partsOfSpeech.map((pos) => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
             <div className="flex gap-2">
@@ -312,144 +389,179 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           </div>
         )}
 
-        {/* 단어 목록 */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">ID</th>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">언어</th>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">단어</th>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">의미</th>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">난이도</th>
-                  <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">품사</th>
-                  <th className="text-right px-6 py-3 text-sm font-semibold text-gray-700">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredWords.map((word) => (
-                  <tr key={word.id} className="border-b hover:bg-gray-50">
-                    {editingId === word.id ? (
-                      <>
-                        <td className="px-6 py-4 text-sm text-gray-700">{word.id}</td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={formData.language_id}
-                            onChange={(e) => setFormData({ ...formData, language_id: Number(e.target.value) })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                          >
-                            {languages.map((lang) => (
-                              <option key={lang.id} value={lang.id}>
-                                {lang.name_ko}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={formData.text}
-                            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={formData.meaning_ko}
-                            onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={formData.level}
-                            onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                          >
-                            {levels.map((level) => (
-                              <option key={level} value={level}>{level}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={formData.part_of_speech}
-                            onChange={(e) => setFormData({ ...formData, part_of_speech: e.target.value })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">-</option>
-                            {partsOfSpeech.map((pos) => (
-                              <option key={pos} value={pos}>{pos}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleUpdate(word.id)}
-                            disabled={loading}
-                            className="text-green-600 hover:text-green-800 mr-3 disabled:opacity-50"
-                          >
-                            <Save className="w-5 h-5 inline" />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={loading}
-                            className="text-gray-600 hover:text-gray-800 disabled:opacity-50"
-                          >
-                            <X className="w-5 h-5 inline" />
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-6 py-4 text-sm text-gray-700">{word.id}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                            {word.languages?.name_ko || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{word.text}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{word.meaning_ko}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                            {word.level}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{word.part_of_speech || '-'}</td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => startEdit(word)}
-                            disabled={loading || isAdding}
-                            className="text-blue-600 hover:text-blue-800 mr-3 disabled:opacity-50"
-                          >
-                            <Pencil className="w-5 h-5 inline" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(word.id)}
-                            disabled={loading || isAdding}
-                            className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-5 h-5 inline" />
-                          </button>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* 단어 목록 (카드 그리드) */}
+        {filteredWords.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
+            {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다. 새 단어를 추가해주세요.'}
           </div>
-          {filteredWords.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              {searchTerm || filterLanguage ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다. 새 단어를 추가해주세요.'}
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedWords.map((word) => (
+              <div key={word.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group">
+                {editingId === word.id ? (
+                  <div className="p-4 space-y-3">
+                    <div className="flex gap-2">
+                      <select
+                        value={formData.lang_code}
+                        onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        {languages.map((lang) => (
+                          <option key={lang.id} value={lang.code}>{lang.name_ko}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={formData.word}
+                        onChange={(e) => setFormData({ ...formData, word: e.target.value })}
+                        placeholder="단어"
+                        className="flex-2 w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.meaning_ko}
+                      onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
+                      placeholder="의미 (한국어)"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.gender}
+                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                        placeholder="성별 (M/F)"
+                        className="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={formData.pos_input}
+                        onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
+                        placeholder="품사 (쉼표 구분)"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-50">
+                      <button
+                        onClick={() => handleUpdate(word.id)}
+                        disabled={loading}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="저장"
+                      >
+                        <Save className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={loading}
+                        className="p-1.5 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+                        title="취소"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 relative">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          {word.lang_code}
+                        </span>
+                        {word.pos.map((p, idx) => (
+                          <span key={idx} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                            {formatPOS(p)}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEdit(word)}
+                          className="p-1 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
+                          title="수정"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(word.id)}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
+                      {word.word}
+                      {word.gender && (
+                        <span className="text-xs font-normal text-gray-400">({word.gender})</span>
+                      )}
+                    </h3>
+                    
+                    <p className="text-sm text-gray-600 font-medium">
+                      {getMeaningDisplay(word.meaning)}
+                    </p>
+                    
+                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                      <div className="flex gap-2">
+                        <span>ID: {word.id}</span>
+                        <span>•</span>
+                        <span className="text-blue-500 font-medium">문장 {word.sentence_count || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) }
         
-        <div className="mt-4 text-sm text-gray-600">
-          전체 {words.length}개 중 {filteredWords.length}개 표시
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              이전
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum = currentPage;
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+                
+                // Ensure pageNum is valid
+                if (pageNum < 1 || pageNum > totalPages) return null;
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-blue-600 text-white border border-blue-600'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              다음
+            </button>
+          </div>
+        )}
+        
+        <div className="mt-4 text-sm text-gray-600 text-center">
+          전체 {words.length}개 중 {filteredWords.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredWords.length)})
         </div>
       </div>
     </div>

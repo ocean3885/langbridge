@@ -3,8 +3,8 @@ import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteChannelsWithVideoCount } from '@/lib/sqlite/channels';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { listEduVideoChannelsWithVideoCount } from '@/lib/supabase/services/edu-video-channels';
+import { listLanguages } from '@/lib/supabase/services/languages';
 import AdminSidebar from '../AdminSidebar';
 import { Plus, Edit, ImageIcon } from 'lucide-react';
 
@@ -15,10 +15,10 @@ export default async function AdminChannelsPage() {
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   if (!isAdminUser) redirect('/');
 
-  const channels = await listSqliteChannelsWithVideoCount();
-  const languages = await listSqliteLanguages();
+  const channels = await listEduVideoChannelsWithVideoCount();
+  const languages = await listLanguages();
   const languageMap = new Map<number, { name_ko: string; name_en: string | null }>(
-    languages.map((language) => [language.id, { name_ko: language.name_ko, name_en: language.name_en }])
+    languages.map((language) => [language.id, { name_ko: language.name_ko, name_en: language.name_en || null }])
   );
 
   return (

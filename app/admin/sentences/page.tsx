@@ -1,23 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteLanguagesByEnglishName } from '@/lib/sqlite/languages';
-import { listSentencesSqlite } from '@/lib/sqlite/sentences';
-import SentencesManager from './SentencesManager';
+import { listSentences } from '@/lib/supabase/services/sentences';
+import SentencesManager, { Sentence, Language } from './SentencesManager';
 import AdminSidebar from '../AdminSidebar';
-
-function safeParseMappingDetails(raw: string | null): Record<string, unknown> | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null) {
-      return parsed as Record<string, unknown>;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function SentencesPage() {
   // 인증 확인
@@ -34,31 +20,20 @@ export default async function SentencesPage() {
     redirect('/');
   }
   
-  const sqliteLanguages = await listSqliteLanguagesByEnglishName();
-  const languages = sqliteLanguages.map((language) => ({
-    id: language.id,
-    name_en: language.name_en ?? '',
-    name_ko: language.name_ko,
-    code: language.code,
-  }));
-
-  const languageMap = new Map(languages.map((l) => [l.id, l]));
-  const sqliteSentences = await listSentencesSqlite();
-  const sentences = sqliteSentences.map((sentence) => ({
+  const sbSentences = await listSentences();
+  const sentences: Sentence[] = sbSentences.map((sentence) => ({
     id: sentence.id,
-    language_id: sentence.language_id,
-    text: sentence.text,
-    translation_ko: sentence.translation_ko,
-    audio_path: sentence.audio_path,
-    context_category: sentence.context_category,
-    mapping_details: safeParseMappingDetails(sentence.mapping_details),
-    languages: languageMap.get(sentence.language_id),
+    sentence: sentence.sentence,
+    translation: sentence.translation,
+    audio_url: sentence.audio_url,
+    word_count: sentence.word_count,
+    languages: undefined,
   }));
   
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
-      <SentencesManager initialSentences={sentences} languages={languages} />
+      <SentencesManager initialSentences={sentences} languages={[]} />
     </>
   );
 }

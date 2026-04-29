@@ -13,6 +13,21 @@ export async function ensureColumnExists(
   }
 }
 
+export async function renameColumnIfExists(
+  db: SqliteDb,
+  tableName: string,
+  oldColumnName: string,
+  newColumnName: string,
+): Promise<void> {
+  const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(${tableName})`);
+  const oldExists = columns.some((column) => column.name === oldColumnName);
+  const newExists = columns.some((column) => column.name === newColumnName);
+
+  if (oldExists && !newExists) {
+    await db.exec(`ALTER TABLE ${tableName} RENAME COLUMN ${oldColumnName} TO ${newColumnName}`);
+  }
+}
+
 async function ensureUserNotesForeignKeys(db: SqliteDb): Promise<void> {
   const foreignKeys = await db.all<
     Array<{ table: string; from: string; on_delete: string }>
@@ -300,6 +315,120 @@ async function migrateEduVideoCategories(db: SqliteDb): Promise<void> {
   }
 }
 
+async function restructureWordsTable(db: SqliteDb): Promise<void> {
+  const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(words)`);
+  const hasLangCode = columns.some((c) => c.name === 'lang_code');
+  if (hasLangCode) return;
+
+  await db.exec('BEGIN');
+  try {
+    await db.exec(`DROP TABLE IF EXISTS words__new;`);
+    await db.exec(`
+      CREATE TABLE words__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word TEXT NOT NULL,
+        lang_code TEXT NOT NULL,
+        pos TEXT NOT NULL DEFAULT '[]',
+        meaning TEXT NOT NULL DEFAULT '{}',
+        gender TEXT,
+        declensions TEXT NOT NULL DEFAULT '{}',
+        conjugations TEXT NOT NULL DEFAULT '{}',
+        audio_url TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      INSERT INTO words__new (id, word, lang_code, created_at, updated_at)
+      SELECT 
+        w.id, 
+        w.word, 
+        COALESCE(l.code, 'unknown'),
+        w.created_at,
+        w.updated_at
+      FROM words w
+      LEFT JOIN languages l ON l.id = w.language_id;
+
+      DROP TABLE words;
+      ALTER TABLE words__new RENAME TO words;
+      CREATE INDEX IF NOT EXISTS idx_words_word ON words(word);
+      CREATE INDEX IF NOT EXISTS idx_words_lang_code ON words(lang_code);
+    `);
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+async function restructureSentencesTable(db: SqliteDb): Promise<void> {
+  const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(sentences)`);
+  const hasTranslation = columns.some((c) => c.name === 'translation');
+  if (hasTranslation) return;
+
+  await db.exec('BEGIN');
+  try {
+    await db.exec(`DROP TABLE IF EXISTS sentences__new;`);
+    await db.exec(`
+      CREATE TABLE sentences__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sentence TEXT NOT NULL,
+        translation TEXT NOT NULL,
+        audio_url TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      INSERT INTO sentences__new (id, sentence, translation, audio_url, created_at, updated_at)
+      SELECT id, sentence, translation, audio_url, created_at, updated_at
+      FROM sentences;
+
+      DROP TABLE sentences;
+      ALTER TABLE sentences__new RENAME TO sentences;
+    `);
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+async function restructureWordSentenceMapTable(db: SqliteDb): Promise<void> {
+  const columns = await db.all<Array<{ name: string }>>(`PRAGMA table_info(word_sentence_map)`);
+  const hasUsedAs = columns.some((c) => c.name === 'used_as');
+  if (hasUsedAs) return;
+
+  await db.exec('BEGIN');
+  try {
+    await db.exec(`DROP TABLE IF EXISTS word_sentence_map__new;`);
+    await db.exec(`
+      CREATE TABLE word_sentence_map__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_id INTEGER NOT NULL,
+        sentence_id INTEGER NOT NULL,
+        used_as TEXT,
+        pos_key TEXT,
+        grammar_info TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+        FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO word_sentence_map__new (id, word_id, sentence_id, created_at)
+      SELECT id, word_id, sentence_id, created_at
+      FROM word_sentence_map;
+
+      DROP TABLE word_sentence_map;
+      ALTER TABLE word_sentence_map__new RENAME TO word_sentence_map;
+      CREATE INDEX IF NOT EXISTS idx_wsm_word_id ON word_sentence_map(word_id);
+      CREATE INDEX IF NOT EXISTS idx_wsm_sentence_id ON word_sentence_map(sentence_id);
+    `);
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export async function runMigrations(db: SqliteDb): Promise<void> {
   // videos
   await ensureColumnExists(db, 'videos', 'visibility', "TEXT NOT NULL DEFAULT 'private'");
@@ -309,6 +438,17 @@ export async function runMigrations(db: SqliteDb): Promise<void> {
 
   // edu_videos
   await ensureColumnExists(db, 'edu_videos', 'duration_seconds', 'INTEGER');
+
+  // 1. Ensure basic column names are consistent
+  await renameColumnIfExists(db, 'words', 'text', 'word');
+  await renameColumnIfExists(db, 'sentences', 'text', 'sentence');
+  await renameColumnIfExists(db, 'sentences', 'translation_ko', 'translation');
+  await renameColumnIfExists(db, 'sentences', 'audio_path', 'audio_url');
+
+  // 2. Supabase 구조에 맞춘 테이블 재구성
+  await restructureWordsTable(db);
+  await restructureSentencesTable(db);
+  await restructureWordSentenceMapTable(db);
 
   // script_progress 집계 컬럼
   await ensureColumnExists(db, 'script_progress', 'total_attempts', 'INTEGER NOT NULL DEFAULT 0');
@@ -329,4 +469,14 @@ export async function runMigrations(db: SqliteDb): Promise<void> {
 
   // 레거시 카테고리 마이그레이션
   await migrateEduVideoCategories(db);
+
+  // 최종 인덱스 생성 (모든 컬럼이 존재함을 보장한 후 실행)
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_languages_name_ko ON languages(name_ko);
+    CREATE INDEX IF NOT EXISTS idx_words_word ON words(word);
+    CREATE INDEX IF NOT EXISTS idx_words_lang_code ON words(lang_code);
+    CREATE INDEX IF NOT EXISTS idx_sentences_sentence ON sentences(sentence);
+    CREATE INDEX IF NOT EXISTS idx_wsm_word_id ON word_sentence_map(word_id);
+    CREATE INDEX IF NOT EXISTS idx_wsm_sentence_id ON word_sentence_map(sentence_id);
+  `);
 }

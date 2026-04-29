@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteChannels } from '@/lib/sqlite/channels';
-import { listEduVideosSqlite } from '@/lib/sqlite/edu-videos';
-import { listSqliteCategories } from '@/lib/sqlite/categories';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
+import { listEduVideoChannels } from '@/lib/supabase/services/edu-video-channels';
+import { listEduVideos } from '@/lib/supabase/services/edu-videos';
+import { listAllCategories } from '@/lib/supabase/services/categories';
+import { listLanguages } from '@/lib/supabase/services/languages';
 import { Plus, Tag } from 'lucide-react';
 import AdminSidebar from '../AdminSidebar';
 import EduVideoCategoryManageButton from './EduVideoCategoryManageButton';
@@ -26,11 +26,11 @@ export default async function AdminVideosPage() {
     redirect('/');
   }
 
-  const videos = await listEduVideosSqlite({ hasChannel: true });
+  const videos = await listEduVideos();
   const [channels, categories, languages] = await Promise.all([
-    listSqliteChannels(),
-    listSqliteCategories('edu_video_categories', user.id),
-    listSqliteLanguages(),
+    listEduVideoChannels(),
+    listAllCategories('edu_video_categories'),
+    listLanguages(),
   ]);
 
   // 언어별 그룹핑

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getStorageBucket } from '@/lib/supabase/storage';
 
 export type SupabaseWord = {
   id: number;
@@ -12,11 +13,12 @@ export type SupabaseWord = {
   audio_url: string | null;
   created_at: string;
   updated_at: string;
+  sentence_count?: number;
 };
 
 export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   const supabase = createAdminClient();
-  let query = supabase.from('words').select('*');
+  let query = supabase.from('words').select('*, word_sentence_map(id)');
   
   if (langCode) {
     query = query.eq('lang_code', langCode);
@@ -25,19 +27,27 @@ export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   const { data, error } = await query.order('word', { ascending: true });
   
   if (error || !data) return [];
-  return data as SupabaseWord[];
+  
+  return data.map(row => ({
+    ...row,
+    sentence_count: Array.isArray(row.word_sentence_map) ? row.word_sentence_map.length : 0
+  })) as SupabaseWord[];
 }
 
 export async function getWordById(id: number): Promise<SupabaseWord | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('words')
-    .select('*')
+    .select('*, word_sentence_map(id)')
     .eq('id', id)
     .maybeSingle();
     
   if (error || !data) return null;
-  return data as SupabaseWord;
+  
+  return {
+    ...data,
+    sentence_count: Array.isArray(data.word_sentence_map) ? data.word_sentence_map.length : 0
+  } as SupabaseWord;
 }
 
 export async function insertWord(input: {
@@ -101,6 +111,32 @@ export async function updateWord(id: number, input: {
 
 export async function deleteWord(id: number): Promise<void> {
   const supabase = createAdminClient();
+  
+  const word = await getWordById(id);
+  
   const { error } = await supabase.from('words').delete().eq('id', id);
   if (error) throw new Error(`단어 삭제 실패: ${error.message}`);
+  
+  if (word?.audio_url) {
+    try {
+      const bucket = getStorageBucket();
+      let storagePath = word.audio_url;
+      
+      if (storagePath.startsWith('http')) {
+        const urlObj = new URL(storagePath);
+        const pathParts = urlObj.pathname.split('/');
+        const bucketIndex = pathParts.findIndex(p => p === bucket);
+        if (bucketIndex !== -1 && bucketIndex + 1 < pathParts.length) {
+          storagePath = decodeURIComponent(pathParts.slice(bucketIndex + 1).join('/'));
+        }
+      }
+      
+      const { error: storageError } = await supabase.storage.from(bucket).remove([storagePath]);
+      if (storageError) {
+        console.error(`Storage 오디오 삭제 실패 (word id: ${id}):`, storageError);
+      }
+    } catch (err) {
+      console.error(`Storage 삭제 처리 중 오류 (word id: ${id}):`, err);
+    }
+  }
 }

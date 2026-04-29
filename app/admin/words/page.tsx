@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteLanguagesByEnglishName } from '@/lib/sqlite/languages';
-import { listWordsSqlite } from '@/lib/sqlite/words';
-import WordsManager from './WordsManager';
+import { listLanguages } from '@/lib/supabase/services/languages';
+import { listWords } from '@/lib/supabase/services/words';
+import WordsManager, { Word, Language } from './WordsManager';
 import AdminSidebar from '../AdminSidebar';
 
 export default async function WordsPage() {
@@ -21,24 +21,19 @@ export default async function WordsPage() {
     redirect('/');
   }
   
-  const sqliteLanguages = await listSqliteLanguagesByEnglishName();
-  const languages = sqliteLanguages.map((language) => ({
+  const sbLanguages = await listLanguages();
+  const languages: Language[] = sbLanguages.map((language) => ({
     id: language.id,
     name_en: language.name_en ?? '',
     name_ko: language.name_ko,
     code: language.code,
   }));
 
-  const languageMap = new Map(languages.map((l) => [l.id, l]));
-  const sqliteWords = await listWordsSqlite();
-  const words = sqliteWords.map((word) => ({
-    id: word.id,
-    language_id: word.language_id,
-    text: word.text,
-    meaning_ko: word.meaning_ko,
-    level: word.level,
-    part_of_speech: word.part_of_speech,
-    languages: languageMap.get(word.language_id),
+  const languageMap = new Map(languages.map((l) => [l.code, l]));
+  const sbWords = await listWords();
+  const words: Word[] = sbWords.map((word) => ({
+    ...word,
+    languages: languageMap.get(word.lang_code),
   }));
   
   return (

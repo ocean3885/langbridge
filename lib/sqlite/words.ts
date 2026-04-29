@@ -2,11 +2,14 @@ import { getSqliteDb } from '@/lib/sqlite/db';
 
 export type SqliteWord = {
   id: number;
-  language_id: number;
-  text: string;
-  meaning_ko: string;
-  level: string;
-  part_of_speech: string | null;
+  word: string;
+  lang_code: string;
+  pos: string; // JSON array string
+  meaning: string; // JSON object string
+  gender: string | null;
+  declensions: string; // JSON object string
+  conjugations: string; // JSON object string
+  audio_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -15,7 +18,7 @@ export async function listWordsSqlite(): Promise<SqliteWord[]> {
   const db = await getSqliteDb();
   return db.all<SqliteWord[]>(
     `
-      SELECT id, language_id, text, meaning_ko, level, part_of_speech, created_at, updated_at
+      SELECT *
       FROM words
       ORDER BY id DESC
     `
@@ -23,28 +26,34 @@ export async function listWordsSqlite(): Promise<SqliteWord[]> {
 }
 
 export async function createWordSqlite(input: {
-  languageId: number;
-  text: string;
-  meaningKo: string;
-  level: string;
-  partOfSpeech?: string | null;
+  word: string;
+  langCode: string;
+  pos?: string[];
+  meaning?: Record<string, any>;
+  gender?: string | null;
+  declensions?: Record<string, any>;
+  conjugations?: Record<string, any>;
+  audioUrl?: string | null;
 }): Promise<SqliteWord> {
   const db = await getSqliteDb();
   const result = await db.run(
     `
-      INSERT INTO words (language_id, text, meaning_ko, level, part_of_speech)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO words (word, lang_code, pos, meaning, gender, declensions, conjugations, audio_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    input.languageId,
-    input.text.trim(),
-    input.meaningKo.trim(),
-    input.level,
-    input.partOfSpeech ?? null
+    input.word.trim(),
+    input.langCode,
+    JSON.stringify(input.pos ?? []),
+    JSON.stringify(input.meaning ?? {}),
+    input.gender ?? null,
+    JSON.stringify(input.declensions ?? {}),
+    JSON.stringify(input.conjugations ?? {}),
+    input.audioUrl ?? null
   );
 
   const row = await db.get<SqliteWord>(
     `
-      SELECT id, language_id, text, meaning_ko, level, part_of_speech, created_at, updated_at
+      SELECT *
       FROM words
       WHERE id = ?
       LIMIT 1
@@ -58,35 +67,44 @@ export async function createWordSqlite(input: {
 
 export async function updateWordSqlite(input: {
   id: number;
-  languageId: number;
-  text: string;
-  meaningKo: string;
-  level: string;
-  partOfSpeech?: string | null;
+  word: string;
+  langCode: string;
+  pos?: string[];
+  meaning?: Record<string, any>;
+  gender?: string | null;
+  declensions?: Record<string, any>;
+  conjugations?: Record<string, any>;
+  audioUrl?: string | null;
 }): Promise<SqliteWord | null> {
   const db = await getSqliteDb();
   await db.run(
     `
       UPDATE words
-      SET language_id = ?,
-          text = ?,
-          meaning_ko = ?,
-          level = ?,
-          part_of_speech = ?,
+      SET word = ?,
+          lang_code = ?,
+          pos = ?,
+          meaning = ?,
+          gender = ?,
+          declensions = ?,
+          conjugations = ?,
+          audio_url = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `,
-    input.languageId,
-    input.text.trim(),
-    input.meaningKo.trim(),
-    input.level,
-    input.partOfSpeech ?? null,
+    input.word.trim(),
+    input.langCode,
+    JSON.stringify(input.pos ?? []),
+    JSON.stringify(input.meaning ?? {}),
+    input.gender ?? null,
+    JSON.stringify(input.declensions ?? {}),
+    JSON.stringify(input.conjugations ?? {}),
+    input.audioUrl ?? null,
     input.id
   );
 
   const row = await db.get<SqliteWord>(
     `
-      SELECT id, language_id, text, meaning_ko, level, part_of_speech, created_at, updated_at
+      SELECT *
       FROM words
       WHERE id = ?
       LIMIT 1

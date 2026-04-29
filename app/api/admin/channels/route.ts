@@ -1,6 +1,6 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteChannels } from '@/lib/sqlite/channels';
+import { listEduVideoChannels } from '@/lib/supabase/services/edu-video-channels';
 import { NextRequest, NextResponse } from 'next/server';
 
 // 채널 목록 조회 (관리자 로그인 필요)
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const channels = await listSqliteChannels();
+    const channels = await listEduVideoChannels();
     return NextResponse.json(channels);
   } catch (err) {
     console.error('API 오류:', err);

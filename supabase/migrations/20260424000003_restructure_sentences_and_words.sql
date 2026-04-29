@@ -9,14 +9,14 @@ DROP TABLE IF EXISTS sentences;
 
 CREATE TABLE sentences (
   id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  text TEXT NOT NULL,
+  sentence TEXT NOT NULL,
   translation TEXT NOT NULL,
   audio_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sentences_text ON sentences(text);
+CREATE INDEX idx_sentences_sentence ON sentences(sentence);
 
 DROP TRIGGER IF EXISTS update_sentences_updated_at ON sentences;
 CREATE TRIGGER update_sentences_updated_at BEFORE UPDATE ON sentences FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();

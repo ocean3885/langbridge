@@ -4,22 +4,20 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
 import { generateSentenceAudio } from './actions';
 
-interface Language {
+export interface Language {
   id: number;
   name_en: string;
   name_ko: string;
   code: string;
 }
 
-interface Sentence {
+export interface Sentence {
   id: number;
-  language_id: number;
-  text: string;
-  translation_ko: string;
-  audio_path: string;
-  context_category: string | null;
-  mapping_details: Record<string, unknown> | null;
+  sentence: string;
+  translation: string;
+  audio_url: string | null;
   languages?: Language;
+  word_count?: number;
 }
 
 interface SentencesManagerProps {
@@ -32,42 +30,48 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
-    language_id: languages[0]?.id || 0,
-    text: '',
-    translation_ko: '',
-    context_category: '',
+    sentence: '',
+    translation: '',
   });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterLanguage, setFilterLanguage] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
   const filteredSentences = sentences.filter((sentence) => {
     const matchesSearch = 
-      sentence.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sentence.translation_ko.includes(searchTerm);
-    const matchesLanguage = filterLanguage === 0 || sentence.language_id === filterLanguage;
-    return matchesSearch && matchesLanguage;
+      sentence.sentence.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sentence.translation.includes(searchTerm);
+    return matchesSearch;
   });
 
+  const paginatedSentences = filteredSentences.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const totalPages = Math.ceil(filteredSentences.length / itemsPerPage);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
   const handleAdd = async () => {
-    if (!formData.text || !formData.translation_ko) {
+    if (!formData.sentence || !formData.translation) {
       alert('문장과 번역을 입력해주세요.');
       return;
     }
 
     setLoading(true);
     try {
-      // 1. 먼저 TTS 오디오 생성
-      const selectedLanguage = languages.find(lang => lang.id === formData.language_id);
-      if (!selectedLanguage) {
-        alert('언어를 선택해주세요.');
-        setLoading(false);
-        return;
-      }
-
+      // 1. TTS 오디오 생성 (언어 선택이 없으므로 기본값 사용하거나 로직 수정 필요)
+      // 여기서는 일단 한국어(ko) 코드를 사용하거나, 문장에 맞는 언어를 자동으로 감지해야 합니다.
+      // 일단 UI상에서 언어 선택이 없어졌으므로 고정값 'es' (스페인어) 등을 임시로 사용하거나 안내가 필요합니다.
+      const defaultLangCode = 'es'; 
+      
       const audioResult = await generateSentenceAudio({
-        text: formData.text,
-        languageCode: selectedLanguage.code,
+        text: formData.sentence,
+        languageCode: defaultLangCode,
       });
 
       if (!audioResult.success || !audioResult.audioPath) {
@@ -82,8 +86,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          audio_path: audioResult.audioPath,
-          context_category: formData.context_category || null,
+          audio_url: audioResult.audioPath,
         }),
       });
 
@@ -95,10 +98,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       const newSentence = await res.json();
       setSentences([newSentence, ...sentences]);
       setFormData({
-        language_id: languages[0]?.id || 0,
-        text: '',
-        translation_ko: '',
-        context_category: '',
+        sentence: '',
+        translation: '',
       });
       setIsAdding(false);
       alert('문장이 추가되었습니다.');
@@ -110,24 +111,19 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   };
 
   const handleUpdate = async (id: number) => {
-    if (!formData.text || !formData.translation_ko) {
+    if (!formData.sentence || !formData.translation) {
       alert('문장과 번역을 입력해주세요.');
       return;
     }
 
     setLoading(true);
     try {
-      // 1. 먼저 TTS 오디오 생성
-      const selectedLanguage = languages.find(lang => lang.id === formData.language_id);
-      if (!selectedLanguage) {
-        alert('언어를 선택해주세요.');
-        setLoading(false);
-        return;
-      }
+      // 1. TTS 오디오 생성
+      const defaultLangCode = 'es';
 
       const audioResult = await generateSentenceAudio({
-        text: formData.text,
-        languageCode: selectedLanguage.code,
+        text: formData.sentence,
+        languageCode: defaultLangCode,
         sentenceId: id,
       });
 
@@ -143,9 +139,9 @@ export default function SentencesManager({ initialSentences, languages }: Senten
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
-          ...formData,
-          audio_path: audioResult.audioPath,
-          context_category: formData.context_category || null,
+          sentence: formData.sentence,
+          translation: formData.translation,
+          audio_url: audioResult.audioPath,
         }),
       });
 
@@ -158,10 +154,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       setSentences(sentences.map(sentence => sentence.id === id ? updatedSentence : sentence));
       setEditingId(null);
       setFormData({
-        language_id: languages[0]?.id || 0,
-        text: '',
-        translation_ko: '',
-        context_category: '',
+        sentence: '',
+        translation: '',
       });
       alert('문장이 수정되었습니다.');
     } catch (error) {
@@ -199,10 +193,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const startEdit = (sentence: Sentence) => {
     setEditingId(sentence.id);
     setFormData({
-      language_id: sentence.language_id,
-      text: sentence.text,
-      translation_ko: sentence.translation_ko,
-      context_category: sentence.context_category || '',
+      sentence: sentence.sentence,
+      translation: sentence.translation,
     });
   };
 
@@ -210,10 +202,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
     setEditingId(null);
     setIsAdding(false);
     setFormData({
-      language_id: languages[0]?.id || 0,
-      text: '',
-      translation_ko: '',
-      context_category: '',
+      sentence: '',
+      translation: '',
     });
   };
 
@@ -243,23 +233,11 @@ export default function SentencesManager({ initialSentences, languages }: Senten
               <input
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 placeholder="문장 또는 번역 검색..."
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <select
-              value={filterLanguage}
-              onChange={(e) => setFilterLanguage(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value={0}>모든 언어</option>
-              {languages.map((lang) => (
-                <option key={lang.id} value={lang.id}>
-                  {lang.name_ko} ({lang.code})
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
@@ -269,46 +247,22 @@ export default function SentencesManager({ initialSentences, languages }: Senten
             <h2 className="text-xl font-bold text-gray-900 mb-4">새 문장 추가</h2>
             <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">언어</label>
-                <select
-                  value={formData.language_id}
-                  onChange={(e) => setFormData({ ...formData, language_id: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.name_ko} ({lang.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">문장</label>
                 <textarea
-                  value={formData.text}
-                  onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                  value={formData.sentence}
+                  onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
                   placeholder="예: Hola, ¿cómo estás?"
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">번역 (한국어)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">번역</label>
                 <textarea
-                  value={formData.translation_ko}
-                  onChange={(e) => setFormData({ ...formData, translation_ko: e.target.value })}
-                  placeholder="예: 안녕하세요, 어떻게 지내세요?"
+                  value={formData.translation}
+                  onChange={(e) => setFormData({ ...formData, translation: e.target.value })}
+                  placeholder="예: 안녕, 잘 지내?"
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">컨텍스트 카테고리 (선택)</label>
-                <input
-                  type="text"
-                  value={formData.context_category}
-                  onChange={(e) => setFormData({ ...formData, context_category: e.target.value })}
-                  placeholder="예: 인사, 여행, 식당 등"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -334,129 +288,136 @@ export default function SentencesManager({ initialSentences, languages }: Senten
           </div>
         )}
 
-        {/* 문장 목록 */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">ID</th>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">언어</th>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">문장</th>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">번역</th>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">카테고리</th>
-                  <th className="text-right px-4 py-3 text-sm font-semibold text-gray-700">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSentences.map((sentence) => (
-                  <tr key={sentence.id} className="border-b hover:bg-gray-50">
-                    {editingId === sentence.id ? (
-                      <>
-                        <td className="px-4 py-4 text-sm text-gray-700">{sentence.id}</td>
-                        <td className="px-4 py-4">
-                          <select
-                            value={formData.language_id}
-                            onChange={(e) => setFormData({ ...formData, language_id: Number(e.target.value) })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                          >
-                            {languages.map((lang) => (
-                              <option key={lang.id} value={lang.id}>
-                                {lang.name_ko}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-4 py-4">
-                          <textarea
-                            value={formData.text}
-                            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-                            rows={2}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <textarea
-                            value={formData.translation_ko}
-                            onChange={(e) => setFormData({ ...formData, translation_ko: e.target.value })}
-                            rows={2}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <input
-                            type="text"
-                            value={formData.context_category}
-                            onChange={(e) => setFormData({ ...formData, context_category: e.target.value })}
-                            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <button
-                            onClick={() => handleUpdate(sentence.id)}
-                            disabled={loading}
-                            className="text-green-600 hover:text-green-800 mr-3 disabled:opacity-50"
-                          >
-                            <Save className="w-5 h-5 inline" />
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={loading}
-                            className="text-gray-600 hover:text-gray-800 disabled:opacity-50"
-                          >
-                            <X className="w-5 h-5 inline" />
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-4 py-4 text-sm text-gray-700">{sentence.id}</td>
-                        <td className="px-4 py-4 text-sm">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                            {sentence.languages?.name_ko || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" title={sentence.text}>
-                          {sentence.text}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-700 max-w-xs truncate" title={sentence.translation_ko}>
-                          {sentence.translation_ko}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-700">
-                          {sentence.context_category || '-'}
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <button
-                            onClick={() => startEdit(sentence)}
-                            disabled={loading || isAdding}
-                            className="text-blue-600 hover:text-blue-800 mr-3 disabled:opacity-50"
-                          >
-                            <Pencil className="w-5 h-5 inline" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(sentence.id)}
-                            disabled={loading || isAdding}
-                            className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-5 h-5 inline" />
-                          </button>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* 문장 목록 (카드 그리드) */}
+        {filteredSentences.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
+            {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다. 새 문장을 추가해주세요.'}
           </div>
-          {filteredSentences.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              {searchTerm || filterLanguage ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다. 새 문장을 추가해주세요.'}
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedSentences.map((sentence) => (
+              <div key={sentence.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group flex flex-col">
+                {editingId === sentence.id ? (
+                  <div className="p-4 flex flex-col h-full space-y-3">
+                    <textarea
+                      value={formData.sentence}
+                      onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
+                      rows={3}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none"
+                    />
+                    <textarea
+                      value={formData.translation}
+                      onChange={(e) => setFormData({ ...formData, translation: e.target.value })}
+                      rows={3}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    />
+                    <div className="mt-auto pt-2 border-t border-gray-50 flex justify-end gap-2">
+                      <button
+                        onClick={() => handleUpdate(sentence.id)}
+                        disabled={loading}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="저장"
+                      >
+                        <Save className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={loading}
+                        className="p-1.5 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+                        title="취소"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 flex flex-col h-full relative">
+                    <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md shadow-sm border border-gray-100 z-10">
+                      <button
+                        onClick={() => startEdit(sentence)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
+                        title="수정"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sentence.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-md transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="flex-1 space-y-3 mb-4 pr-16">
+                      <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
+                        {sentence.sentence}
+                      </h3>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
+                        {sentence.translation}
+                      </p>
+                    </div>
+                    
+                    <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                      <div className="flex gap-2">
+                        <span>ID: {sentence.id}</span>
+                        <span>•</span>
+                        <span className="text-blue-500 font-medium">단어 {sentence.word_count || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         
-        <div className="mt-4 text-sm text-gray-600">
-          전체 {sentences.length}개 중 {filteredSentences.length}개 표시
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              이전
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum = currentPage;
+                if (currentPage <= 3) pageNum = i + 1;
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                else pageNum = currentPage - 2 + i;
+                
+                // Ensure pageNum is valid
+                if (pageNum < 1 || pageNum > totalPages) return null;
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-blue-600 text-white border border-blue-600'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              다음
+            </button>
+          </div>
+        )}
+        
+        <div className="mt-4 text-sm text-gray-600 text-center">
+          전체 {sentences.length}개 중 {filteredSentences.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredSentences.length)})
         </div>
       </div>
     </div>

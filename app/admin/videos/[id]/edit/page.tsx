@@ -2,10 +2,10 @@ import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getEduVideoByIdSqlite } from '@/lib/sqlite/edu-videos';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
-import { listSqliteCategories } from '@/lib/sqlite/categories';
-import { listSqliteChannels } from '@/lib/sqlite/channels';
+import { getEduVideoById } from '@/lib/supabase/services/edu-videos';
+import { listLanguages } from '@/lib/supabase/services/languages';
+import { listAllCategories } from '@/lib/supabase/services/categories';
+import { listEduVideoChannels } from '@/lib/supabase/services/edu-video-channels';
 import AdminSidebar from '../../../AdminSidebar';
 import EditEduVideoForm from './EditEduVideoForm';
 
@@ -27,15 +27,15 @@ export default async function EditEduVideoPage({ params }: EditEduVideoPageProps
   }
 
   const { id } = await params;
-  const video = await getEduVideoByIdSqlite(id);
+  const video = await getEduVideoById(id);
   if (!video) {
     notFound();
   }
 
   const [languages, categories, channels] = await Promise.all([
-    listSqliteLanguages(),
-    listSqliteCategories('edu_video_categories', user.id),
-    listSqliteChannels(),
+    listLanguages(),
+    listAllCategories('edu_video_categories'),
+    listEduVideoChannels(),
   ]);
 
   return (

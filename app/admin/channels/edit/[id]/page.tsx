@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getSqliteChannelById } from '@/lib/sqlite/channels';
+import { getEduVideoChannelById } from '@/lib/supabase/services/edu-video-channels';
 import AdminSidebar from '@/app/admin/AdminSidebar';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ export default async function EditChannelPage({ params }: PageProps) {
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
   if (!isAdminUser) redirect('/');
 
-  const channel = await getSqliteChannelById(id);
+  const channel = await getEduVideoChannelById(id);
 
   if (!channel) {
     return (

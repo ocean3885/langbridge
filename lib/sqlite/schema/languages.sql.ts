@@ -1,6 +1,7 @@
 import type { SqliteDb } from '../db';
 
 export async function createLanguagesTables(db: SqliteDb): Promise<void> {
+  // 1. Create tables first
   await db.exec(`
     CREATE TABLE IF NOT EXISTS languages (
       id INTEGER PRIMARY KEY,
@@ -11,49 +12,39 @@ export async function createLanguagesTables(db: SqliteDb): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE INDEX IF NOT EXISTS idx_languages_name_ko
-      ON languages(name_ko);
-
     CREATE TABLE IF NOT EXISTS words (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      language_id INTEGER NOT NULL,
-      text TEXT NOT NULL,
-      meaning_ko TEXT NOT NULL,
-      level TEXT NOT NULL,
-      part_of_speech TEXT,
+      word TEXT NOT NULL,
+      lang_code TEXT NOT NULL,
+      pos TEXT NOT NULL DEFAULT '[]',
+      meaning TEXT NOT NULL DEFAULT '{}',
+      gender TEXT,
+      declensions TEXT NOT NULL DEFAULT '{}',
+      conjugations TEXT NOT NULL DEFAULT '{}',
+      audio_url TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
-
-    CREATE INDEX IF NOT EXISTS idx_words_language
-      ON words(language_id);
 
     CREATE TABLE IF NOT EXISTS sentences (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      language_id INTEGER NOT NULL,
-      text TEXT NOT NULL,
-      translation_ko TEXT NOT NULL,
-      audio_path TEXT NOT NULL,
-      context_category TEXT,
-      mapping_details TEXT,
+      sentence TEXT NOT NULL,
+      translation TEXT NOT NULL,
+      audio_url TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
-
-    CREATE INDEX IF NOT EXISTS idx_sentences_language
-      ON sentences(language_id);
 
     CREATE TABLE IF NOT EXISTS word_sentence_map (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       word_id INTEGER NOT NULL,
       sentence_id INTEGER NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      used_as TEXT,
+      pos_key TEXT,
+      grammar_info TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+      FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE
     );
-
-    CREATE INDEX IF NOT EXISTS idx_word_sentence_map_word
-      ON word_sentence_map(word_id);
-
-    CREATE INDEX IF NOT EXISTS idx_word_sentence_map_sentence
-      ON word_sentence_map(sentence_id);
   `);
 }

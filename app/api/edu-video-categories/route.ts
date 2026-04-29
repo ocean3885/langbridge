@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  createSqliteCategory,
-  deleteSqliteCategory,
-  findSqliteCategoryByName,
-  listSqliteCategories,
-  updateSqliteCategory,
-} from '@/lib/sqlite/categories';
-import {
-  countEduVideosByCategoryForUploaderSqlite,
-  hasEduVideosForCategoryByUploaderSqlite,
-} from '@/lib/sqlite/edu-videos';
+  createCategory,
+  deleteCategory,
+  findCategoryByName,
+  listCategories,
+  updateCategory,
+} from '@/lib/supabase/services/categories';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const TABLE = 'edu_video_categories' as const;
 
@@ -29,10 +26,6 @@ function parseIdOrNull(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function ensureCategoryCache(userId: string) {
-  return listSqliteCategories(TABLE, userId);
-}
-
 export async function POST(request: NextRequest) {
   try {
     const user = await getAppUserFromServer();
@@ -48,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '카테고리 이름을 입력해주세요.' }, { status: 400 });
     }
 
-    const existing = await findSqliteCategoryByName({
+    const existing = await findCategoryByName({
       table: TABLE,
       userId: user.id,
       name,
@@ -59,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이미 같은 이름의 카테고리가 있습니다.' }, { status: 409 });
     }
 
-    const created = await createSqliteCategory({
+    const created = await createCategory({
       table: TABLE,
       userId: user.id,
       name,
@@ -82,22 +75,25 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const includeCount = searchParams.get('includeCount') === 'true';
-    const categories = await ensureCategoryCache(user.id);
+    const categories = await listCategories(TABLE, user.id);
 
     if (!includeCount) {
       return NextResponse.json(categories);
     }
 
+    // counts for each
+    const supabase = createAdminClient();
     const categoriesWithCount = await Promise.all(
       categories.map(async (category) => {
-        const count = await countEduVideosByCategoryForUploaderSqlite({
-          uploaderId: user.id,
-          categoryId: category.id,
-        });
+        const { count, error } = await supabase
+          .from('edu_videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('uploader_id', user.id)
+          .eq('category_id', category.id);
 
         return {
           ...category,
-          content_count: count,
+          content_count: count || 0,
         };
       })
     );
@@ -125,13 +121,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '유효한 요청이 아닙니다.' }, { status: 400 });
     }
 
-    const categories = await ensureCategoryCache(user.id);
-    const duplicate = categories.find((category) => category.id !== categoryId && category.name === trimmedName);
-    if (duplicate) {
-      return NextResponse.json({ error: '이미 같은 이름의 카테고리가 있습니다.' }, { status: 409 });
-    }
-
-    await updateSqliteCategory({
+    await updateCategory({
       table: TABLE,
       id: categoryId,
       userId: user.id,
@@ -159,19 +149,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '카테고리 ID가 필요합니다.' }, { status: 400 });
     }
 
-    const usedVideos = await hasEduVideosForCategoryByUploaderSqlite({
-      uploaderId: user.id,
-      categoryId,
-    });
+    // check if used
+    const supabase = createAdminClient();
+    const { count, error } = await supabase
+      .from('edu_videos')
+      .select('*', { count: 'exact', head: true })
+      .eq('uploader_id', user.id)
+      .eq('category_id', categoryId);
 
-    if (usedVideos) {
+    if (count && count > 0) {
       return NextResponse.json(
         { error: '이 카테고리를 사용하는 교육 영상이 있어 삭제할 수 없습니다.' },
         { status: 409 }
       );
     }
 
-    await deleteSqliteCategory({ table: TABLE, id: categoryId, userId: user.id });
+    await deleteCategory({ table: TABLE, id: categoryId, userId: user.id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete edu video category error:', error);

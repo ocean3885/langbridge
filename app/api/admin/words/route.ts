@@ -1,16 +1,16 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { listSqliteLanguages } from '@/lib/sqlite/languages';
-import { createWordSqlite, deleteWordSqlite, hasWordUsageSqlite, listWordsSqlite, updateWordSqlite } from '@/lib/sqlite/words';
+import { listLanguages } from '@/lib/supabase/services/languages';
+import { listWords, insertWord, updateWord, deleteWord, getWordById } from '@/lib/supabase/services/words';
 import { NextRequest, NextResponse } from 'next/server';
 
-function withLanguage<T extends { language_id: number }>(
+function withLanguage<T extends { lang_code: string }>(
   row: T,
-  languageMap: Map<number, { id: number; name_en: string | null; name_ko: string; code: string }>
+  languageMap: Map<string, { id: number; name_en: string | null; name_ko: string; code: string }>
 ) {
   return {
     ...row,
-    languages: languageMap.get(row.language_id) ?? null,
+    languages: languageMap.get(row.lang_code) ?? null,
   };
 }
 
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
     }
 
     const [words, languages] = await Promise.all([
-      listWordsSqlite(),
-      listSqliteLanguages(),
+      listWords(),
+      listLanguages(),
     ]);
     const languageMap = new Map(
-      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+      languages.map((l) => [l.code, { id: l.id, name_en: l.name_en || null, name_ko: l.name_ko, code: l.code }])
     );
 
     return NextResponse.json(words.map((row) => withLanguage(row, languageMap)));
@@ -52,22 +52,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { language_id, text, meaning_ko, level, part_of_speech } = await request.json();
+    const { word, lang_code, pos, meaning, gender, declensions, conjugations, audio_url } = await request.json();
 
-    if (!language_id || !text || !meaning_ko || !level) {
-      return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
+    if (!word || !lang_code) {
+      return NextResponse.json({ error: '단어와 언어 코드는 필수입니다.' }, { status: 400 });
     }
 
-    const created = await createWordSqlite({
-      languageId: Number(language_id),
-      text,
-      meaningKo: meaning_ko,
-      level,
-      partOfSpeech: part_of_speech || null,
+    const wordId = await insertWord({
+      word,
+      langCode: lang_code,
+      pos: pos || [],
+      meaning: meaning || {},
+      gender: gender || null,
+      declensions: declensions || {},
+      conjugations: conjugations || {},
+      audioUrl: audio_url || null,
     });
-    const languages = await listSqliteLanguages();
+    
+    const created = await getWordById(wordId);
+    if (!created) throw new Error('단어 생성 후 조회 실패');
+
+    const languages = await listLanguages();
     const languageMap = new Map(
-      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+      languages.map((l) => [l.code, { id: l.id, name_en: l.name_en || null, name_ko: l.name_ko, code: l.code }])
     );
 
     return NextResponse.json(withLanguage(created, languageMap), { status: 201 });
@@ -92,28 +99,32 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { id, language_id, text, meaning_ko, level, part_of_speech } = await request.json();
+    const { id, word, lang_code, pos, meaning, gender, declensions, conjugations, audio_url } = await request.json();
 
-    if (!id || !language_id || !text || !meaning_ko || !level) {
-      return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
+    if (!id || !word || !lang_code) {
+      return NextResponse.json({ error: 'ID, 단어, 언어 코드는 필수입니다.' }, { status: 400 });
     }
 
-    const updated = await updateWordSqlite({
-      id: Number(id),
-      languageId: Number(language_id),
-      text,
-      meaningKo: meaning_ko,
-      level,
-      partOfSpeech: part_of_speech || null,
+    await updateWord(Number(id), {
+      word,
+      langCode: lang_code,
+      pos: pos || [],
+      meaning: meaning || {},
+      gender: gender || null,
+      declensions: declensions || {},
+      conjugations: conjugations || {},
+      audioUrl: audio_url || null,
     });
+
+    const updated = await getWordById(Number(id));
 
     if (!updated) {
       return NextResponse.json({ error: '단어를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    const languages = await listSqliteLanguages();
+    const languages = await listLanguages();
     const languageMap = new Map(
-      languages.map((l) => [l.id, { id: l.id, name_en: l.name_en, name_ko: l.name_ko, code: l.code }])
+      languages.map((l) => [l.code, { id: l.id, name_en: l.name_en || null, name_ko: l.name_ko, code: l.code }])
     );
 
     return NextResponse.json(withLanguage(updated, languageMap));
@@ -146,15 +157,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const wordId = parseInt(id);
-    const usage = await hasWordUsageSqlite(wordId);
-    if (usage.used) {
-      return NextResponse.json(
-        { error: `${usage.reason} 삭제할 수 없습니다.` },
-        { status: 400 }
-      );
-    }
-
-    await deleteWordSqlite(wordId);
+    await deleteWord(wordId);
 
     return NextResponse.json({ message: '단어가 삭제되었습니다.' });
   } catch (error) {
