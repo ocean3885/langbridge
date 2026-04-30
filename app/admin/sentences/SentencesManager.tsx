@@ -332,41 +332,52 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 flex flex-col h-full relative">
+                  <div className="relative h-full">
+                    <Link 
+                      href={`/admin/sentences/${sentence.id}`}
+                      className="p-4 flex flex-col h-full hover:bg-gray-50/50 transition-colors"
+                    >
+                      <div className="flex-1 space-y-3 mb-4 pr-16">
+                        <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
+                          {sentence.sentence}
+                        </h3>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
+                          {sentence.translation}
+                        </p>
+                      </div>
+                      
+                      <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                        <div className="flex gap-2">
+                          <span>ID: {sentence.id}</span>
+                          <span>•</span>
+                          <span className="text-blue-500 font-medium">단어 {sentence.word_count || 0}</span>
+                        </div>
+                      </div>
+                    </Link>
+
                     <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md shadow-sm border border-gray-100 z-10">
                       <button
-                        onClick={() => startEdit(sentence)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          startEdit(sentence);
+                        }}
                         className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
                         title="수정"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(sentence.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(sentence.id);
+                        }}
                         className="p-1.5 text-gray-400 hover:text-red-600 rounded-md transition-colors"
                         title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    </div>
-                    
-                    <div className="flex-1 space-y-3 mb-4 pr-16">
-                      <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
-                        <Link href={`/admin/sentences/${sentence.id}`}>
-                          {sentence.sentence}
-                        </Link>
-                      </h3>
-                      <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
-                        {sentence.translation}
-                      </p>
-                    </div>
-                    
-                    <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
-                      <div className="flex gap-2">
-                        <span>ID: {sentence.id}</span>
-                        <span>•</span>
-                        <span className="text-blue-500 font-medium">단어 {sentence.word_count || 0}</span>
-                      </div>
                     </div>
                   </div>
                 )}

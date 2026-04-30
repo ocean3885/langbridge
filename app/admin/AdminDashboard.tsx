@@ -2,9 +2,9 @@
 
 import { 
   Users, 
-  AudioLines, 
+  BookOpen, 
   FolderTree, 
-  Settings
+  MessageSquare
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -33,10 +33,10 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">전체 오디오</p>
+                  <p className="text-sm text-gray-600">전체 단어</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
                 </div>
-                <AudioLines className="w-10 h-10 text-green-500" />
+                <BookOpen className="w-10 h-10 text-green-500" />
               </div>
             </div>
 
@@ -53,10 +53,10 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">프리미엄 사용자</p>
+                  <p className="text-sm text-gray-600">전체 문장</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">-</p>
                 </div>
-                <Settings className="w-10 h-10 text-orange-500" />
+                <MessageSquare className="w-10 h-10 text-orange-500" />
               </div>
             </div>
           </div>

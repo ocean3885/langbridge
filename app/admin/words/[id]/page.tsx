@@ -199,9 +199,10 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
               목록으로 돌아가기
             </Link>
 
-            <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+            <div className="space-y-6">
+              {/* 상단 라벨 및 메타 정보 */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
                   <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                     {word.lang_code}
                   </span>
@@ -213,16 +214,21 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                     ))}
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-gray-900 tracking-tight flex items-baseline gap-4">
+                <div className="flex items-center gap-4 text-xs text-gray-400">
+                  <span>ID: {word.id}</span>
+                  <span className="w-px h-3 bg-gray-200" />
+                  <span>등록일: {new Date(word.created_at).toLocaleDateString('ko-KR')}</span>
+                </div>
+              </div>
+
+              {/* 본문 영역 */}
+              <div>
+                <h1 className="text-5xl font-bold text-gray-900 tracking-tight flex items-baseline gap-4 leading-tight break-words">
                   {word.word}
                   {word.gender && (
                     <span className="text-2xl font-medium text-gray-400">({word.gender})</span>
                   )}
                 </h1>
-              </div>
-              <div className="text-left md:text-right flex-shrink-0 md:ml-4 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
-                <p className="text-sm text-gray-400 mb-1">등록일: {new Date(word.created_at).toLocaleDateString('ko-KR')}</p>
-                <p className="text-sm text-gray-400">ID: {word.id}</p>
               </div>
             </div>
           </div>
@@ -333,16 +339,20 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                 {word.sentences && word.sentences.length > 0 ? (
                   <div className="space-y-4">
                     {word.sentences.map((s: any, idx: number) => (
-                      <div key={idx} className="p-5 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-colors group">
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {highlightWord(s.sentence, s.used_as || word.word)}
-                          </p>
+                      <div key={idx} className="p-5 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-all duration-200 group relative">
+                        <div className="flex justify-between items-start">
+                          <Link href={`/admin/sentences/${s.id}`} className="flex-1 min-w-0">
+                            <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors mb-2 break-words">
+                              {highlightWord(s.sentence, s.used_as || word.word)}
+                            </p>
+                            <p className="text-gray-600 break-words">{s.translation}</p>
+                          </Link>
                           {s.audio_url && (
-                            <AudioButton fullSrc={getFullAudioUrl(s.audio_url)} />
+                            <div className="ml-4 flex-shrink-0 relative z-10">
+                              <AudioButton fullSrc={getFullAudioUrl(s.audio_url)} />
+                            </div>
                           )}
                         </div>
-                        <p className="text-gray-600">{s.translation}</p>
                       </div>
                     ))}
                   </div>

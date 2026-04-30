@@ -121,37 +121,43 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
               목록으로 돌아가기
             </Link>
 
-            <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+            <div className="space-y-6">
+              {/* 상단 라벨 및 메타 정보 */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
                   <span className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                     <MessageSquare className="w-3 h-3" />
                     문장
                   </span>
                 </div>
-                <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">
+                <div className="flex items-center gap-4 text-xs text-gray-400">
+                  <span>ID: {sentenceData.id}</span>
+                  <span className="w-px h-3 bg-gray-200" />
+                  <span>등록일: {new Date(sentenceData.created_at).toLocaleDateString('ko-KR')}</span>
+                </div>
+              </div>
+
+              {/* 본문 영역 */}
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-3 leading-tight break-words">
                   {sentenceData.sentence}
                 </h1>
-                <p className="text-xl text-gray-600 font-medium mb-4">
+                <p className="text-xl text-gray-600 font-medium mb-6 leading-relaxed break-words">
                   {sentenceData.translation}
                 </p>
 
                 {/* Compact Audio Player */}
                 {sentenceData.audio_url ? (
-                  <div className="w-full max-w-sm mt-2">
+                  <div className="w-full max-w-sm">
                     <audio key={sentenceData.audio_url} controls className="h-10 w-full" src={getFullAudioUrl(sentenceData.audio_url) || undefined}>
                       브라우저가 오디오 태그를 지원하지 않습니다.
                     </audio>
                   </div>
                 ) : (
-                  <div className="inline-block mt-2 px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-sm border border-gray-200">
+                  <div className="inline-block px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-sm border border-gray-200">
                     오디오 파일 없음
                   </div>
                 )}
-              </div>
-              <div className="text-left md:text-right flex-shrink-0 md:ml-4 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
-                <p className="text-sm text-gray-400 mb-1">등록일: {new Date(sentenceData.created_at).toLocaleDateString('ko-KR')}</p>
-                <p className="text-sm text-gray-400">ID: {sentenceData.id}</p>
               </div>
             </div>
           </div>

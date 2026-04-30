@@ -35,11 +35,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     { id: 'sentences', label: '문장 관리', icon: MessageSquare, href: '/admin/sentences' },
     { id: 'channels', label: '채널 관리', icon: FolderTree, href: '/admin/channels' },
     { id: 'videos', label: '영상 관리', icon: Video, href: '/admin/videos' },
-    { id: 'conjugations', label: '동사 활용', icon: GitMerge, href: '/admin/verb-conjugations' },
-    { id: 'mappings', label: '단어-문장 매핑', icon: BookMarked, href: '/admin/word-sentence-map' },
     { id: 'users', label: '사용자 관리', icon: Users, href: '/admin/users' },
-    { id: 'audio', label: '오디오 관리', icon: AudioLines, href: '/admin/audio' },
-    { id: 'settings', label: '시스템 설정', icon: Settings, href: '/admin/settings' },
   ];
 
   return (
