@@ -1,7 +1,7 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listLanguages } from '@/lib/supabase/services/languages';
-import { listWords, insertWord, updateWord, deleteWord, getWordById } from '@/lib/supabase/services/words';
+import { listWords, updateWord, deleteWord, getWordById } from '@/lib/supabase/services/words';
 import { NextRequest, NextResponse } from 'next/server';
 
 function withLanguage<T extends { lang_code: string }>(
@@ -37,52 +37,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 단어 추가
-export async function POST(request: NextRequest) {
-  try {
-    const user = await getAppUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
-    }
-
-    // 운영자 확인
-    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
-
-    if (!isAdminUser) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-    }
-
-    const { word, lang_code, pos, meaning, gender, declensions, conjugations, audio_url } = await request.json();
-
-    if (!word || !lang_code) {
-      return NextResponse.json({ error: '단어와 언어 코드는 필수입니다.' }, { status: 400 });
-    }
-
-    const wordId = await insertWord({
-      word,
-      langCode: lang_code,
-      pos: pos || [],
-      meaning: meaning || {},
-      gender: gender || null,
-      declensions: declensions || {},
-      conjugations: conjugations || {},
-      audioUrl: audio_url || null,
-    });
-    
-    const created = await getWordById(wordId);
-    if (!created) throw new Error('단어 생성 후 조회 실패');
-
-    const languages = await listLanguages();
-    const languageMap = new Map(
-      languages.map((l) => [l.code, { id: l.id, name_en: l.name_en || null, name_ko: l.name_ko, code: l.code }])
-    );
-
-    return NextResponse.json(withLanguage(created, languageMap), { status: 201 });
-  } catch (error) {
-    console.error('API 오류:', error);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
 
 // 단어 수정
 export async function PUT(request: NextRequest) {

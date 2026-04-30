@@ -89,7 +89,6 @@ function getMeaningDisplay(meaning: any): string {
 
 export default function WordsManager({ initialWords, languages }: WordsManagerProps) {
   const [words, setWords] = useState<Word[]>(initialWords);
-  const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     lang_code: languages[0]?.code || '',
@@ -128,48 +127,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     setCurrentPage(1);
   };
 
-  const handleAdd = async () => {
-    if (!formData.word || !formData.meaning_ko || !formData.lang_code) {
-      alert('단어, 의미, 언어를 모두 입력해주세요.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/words', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          word: formData.word,
-          lang_code: formData.lang_code,
-          meaning: { ko: [formData.meaning_ko] },
-          gender: formData.gender || null,
-          pos: formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [],
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || '단어 추가 실패');
-      }
-
-      const newWord = await res.json();
-      setWords([newWord, ...words]);
-      setFormData({
-        lang_code: languages[0]?.code || '',
-        word: '',
-        meaning_ko: '',
-        gender: '',
-        pos_input: '',
-      });
-      setIsAdding(false);
-      alert('단어가 추가되었습니다.');
-    } catch (error) {
-      alert(error instanceof Error ? error.message : '단어 추가 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUpdate = async (id: number) => {
     if (!formData.word || !formData.meaning_ko || !formData.lang_code) {
@@ -253,7 +210,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
   const cancelEdit = () => {
     setEditingId(null);
-    setIsAdding(false);
     setFormData({
       lang_code: languages[0]?.code || '',
       word: '',
@@ -271,19 +227,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             <h1 className="text-3xl font-bold text-gray-900">단어 관리</h1>
             <p className="text-gray-600 mt-2">학습할 단어를 관리합니다.</p>
           </div>
-          <button
-            onClick={() => setIsAdding(true)}
-            disabled={isAdding || loading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Plus className="w-5 h-5" />
-            단어 추가
-          </button>
         </div>
 
         {/* 검색 및 필터 */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -309,91 +257,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           </div>
         </div>
 
-        {/* 추가 폼 */}
-        {isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">새 단어 추가</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">언어</label>
-                <select
-                  value={formData.lang_code}
-                  onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.id} value={lang.code}>
-                      {lang.name_ko} ({lang.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">단어</label>
-                <input
-                  type="text"
-                  value={formData.word}
-                  onChange={(e) => setFormData({ ...formData, word: e.target.value })}
-                  placeholder="예: hello"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">의미 (한국어)</label>
-                <input
-                  type="text"
-                  value={formData.meaning_ko}
-                  onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
-                  placeholder="예: 안녕"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">성별 (선택)</label>
-                <input
-                  type="text"
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  placeholder="예: M, F"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">품사 (쉼표로 구분)</label>
-                <input
-                  type="text"
-                  value={formData.pos_input}
-                  onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
-                  placeholder="예: 명사, 동사"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleAdd}
-                disabled={loading}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                저장
-              </button>
-              <button
-                onClick={cancelEdit}
-                disabled={loading}
-                className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-                취소
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* 단어 목록 (카드 그리드) */}
         {filteredWords.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
-            {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다. 새 단어를 추가해주세요.'}
+            {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

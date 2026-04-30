@@ -50,12 +50,12 @@ const GRAMMAR_LABEL_MAP: Record<string, string> = {
   'subj': '접속법',
 
   // Short Person Formats (S1, P1, etc.)
-  's1': '1인칭 단수 (Yo)',
-  's2': '2인칭 단수 (Tú)',
-  's3': '3인칭 단수 (Él/Ella)',
-  'p1': '1인칭 복수 (Nosotros)',
-  'p2': '2인칭 복수 (Vosotros)',
-  'p3': '3인칭 복수 (Ellos/Ellas)',
+  's1': 'Yo',
+  's2': 'Tú',
+  's3': 'Él/Ella',
+  'p1': 'Nosotros',
+  'p2': 'Vosotros',
+  'p3': 'Ellos/Ellas',
 
   // Noun Declension Abbreviations
   'ms': '남성 단수',
@@ -187,21 +187,21 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
-      <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
-        <div className="max-w-5xl mx-auto">
+      <div className="min-h-screen bg-gray-50 md:ml-64 p-4 md:p-6">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <Link
               href="/admin/words"
-              className="inline-flex items-center text-sm text-gray-500 hover:text-blue-600 transition-colors mb-4 group"
+              className="inline-flex items-center text-sm text-gray-500 hover:text-blue-600 transition-colors mb-2 group"
             >
               <ArrowLeft className="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" />
               목록으로 돌아가기
             </Link>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* 상단 라벨 및 메타 정보 */}
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
                 <div className="flex items-center gap-3">
                   <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                     {word.lang_code}
@@ -221,36 +221,36 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                 </div>
               </div>
 
-              {/* 본문 영역 */}
-              <div>
-                <h1 className="text-5xl font-bold text-gray-900 tracking-tight flex items-baseline gap-4 leading-tight break-words">
+              <div className="flex items-center gap-4">
+                <h1 className="text-4xl font-bold text-gray-900 tracking-tight flex items-baseline gap-3 leading-tight break-words">
                   {word.word}
                   {word.gender && (
                     <span className="text-2xl font-medium text-gray-400">({word.gender})</span>
                   )}
                 </h1>
+                {word.audio_url && (
+                  <AudioButton fullSrc={getFullAudioUrl(word.audio_url)} />
+                )}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Basic Info */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Meaning Card */}
-              <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-blue-500" />
+          <div className="space-y-6">
+            {/* Main Content Area */}
+            <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-blue-500" />
                   뜻과 의미
                 </h2>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {Object.entries(word.meaning || {}).map(([lang, meanings]: [string, any]) => (
-                    <div key={lang} className="border-b border-gray-50 last:border-0 pb-6 last:pb-0">
-                      <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2">
+                    <div key={lang} className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest flex items-center gap-2">
                         <Tag className="w-3 h-3" />
                         {lang === 'ko' ? '한국어' : lang === 'en' ? '영어' : lang}
                       </h3>
-                      <ul className="space-y-2">
+                      <ul className="space-y-1.5">
                         {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
                           <li key={idx} className="text-lg text-gray-800 font-medium leading-relaxed">
                             {m}
@@ -266,16 +266,16 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
 
               {/* Grammar Section (Declensions/Conjugations) */}
               {(hasDeclensions || hasConjugations) && (
-                <div className={`grid grid-cols-1 ${hasDeclensions && hasConjugations ? 'md:grid-cols-2' : ''} gap-6`}>
+                <div className={`grid grid-cols-1 ${hasDeclensions && hasConjugations ? 'md:grid-cols-2' : ''} gap-4`}>
                   {hasDeclensions && (
-                    <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                      <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <Layers className="w-5 h-5 text-purple-500" />
-                        성·수 변화 (Gender & Number)
+                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                      <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-purple-500" />
+                        성·수 변화
                       </h2>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {validDeclensions.map(([key, val]: [string, any]) => (
-                          <div key={key} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                          <div key={key} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
                             <span className="text-sm font-semibold text-gray-500">{formatGrammarKey(key)}</span>
                             <span className="text-sm font-bold text-gray-900">{String(val)}</span>
                           </div>
@@ -285,12 +285,12 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                   )}
 
                   {hasConjugations && (
-                    <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                      <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <Info className="w-5 h-5 text-orange-500" />
-                        동사 변화 (Conjugations)
+                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                      <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-orange-500" />
+                        동사 변화
                       </h2>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {validConjugations
                           .sort(([a], [b]) => {
                             const orderA = TENSE_ORDER[a.toLowerCase()] || 99;
@@ -298,13 +298,13 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                             return orderA - orderB;
                           })
                           .map(([key, val]: [string, any]) => (
-                            <div key={key} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 hover:border-orange-100 transition-colors">
-                            <h3 className="text-sm font-black text-orange-600 uppercase mb-3 pb-2 border-b border-orange-100 flex justify-between items-baseline">
+                            <div key={key} className="p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-orange-100 transition-colors">
+                            <h3 className="text-xs font-black text-orange-600 uppercase mb-2 pb-1 border-b border-orange-100 flex justify-between items-baseline">
                               {formatGrammarKey(key)}
-                              <span className="text-[10px] text-gray-400 font-normal uppercase">{key}</span>
+                              <span className="text-[9px] text-gray-400 font-normal uppercase">{key}</span>
                             </h3>
                             {typeof val === 'object' && val !== null ? (
-                              <div className="space-y-1.5">
+                              <div className="space-y-1">
                                 {Object.entries(val)
                                   .sort(([a], [b]) => {
                                     const orderA = PERSON_ORDER[a.toLowerCase()] || 99;
@@ -312,14 +312,14 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
                                     return orderA - orderB;
                                   })
                                   .map(([subKey, subVal]: [string, any]) => (
-                                    <div key={subKey} className="flex justify-between items-center py-1">
-                                      <span className="text-[11px] font-bold text-gray-500">{formatGrammarKey(subKey)}</span>
-                                      <span className="text-sm font-medium text-gray-900">{String(subVal)}</span>
+                                    <div key={subKey} className="flex justify-between items-center py-0.5">
+                                      <span className="text-xs font-bold text-gray-500">{formatGrammarKey(subKey)}</span>
+                                      <span className="text-base font-medium text-gray-900">{String(subVal)}</span>
                                     </div>
                                   ))}
                               </div>
                             ) : (
-                              <div className="text-sm font-bold text-gray-900">{String(val)}</div>
+                              <div className="text-base font-bold text-gray-900">{String(val)}</div>
                             )}
                           </div>
                         ))}
@@ -330,25 +330,25 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
               )}
 
               {/* Sentences Section */}
-              <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-green-500" />
+              <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-green-500" />
                   관련 문장 ({word.sentences?.length || 0})
                 </h2>
 
                 {word.sentences && word.sentences.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {word.sentences.map((s: any, idx: number) => (
-                      <div key={idx} className="p-5 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-all duration-200 group relative">
+                      <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-all duration-200 group relative">
                         <div className="flex justify-between items-start">
                           <Link href={`/admin/sentences/${s.id}`} className="flex-1 min-w-0">
-                            <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors mb-2 break-words">
+                            <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors mb-1 break-words">
                               {highlightWord(s.sentence, s.used_as || word.word)}
                             </p>
-                            <p className="text-gray-600 break-words">{s.translation}</p>
+                            <p className="text-base text-gray-600 break-words">{s.translation}</p>
                           </Link>
                           {s.audio_url && (
-                            <div className="ml-4 flex-shrink-0 relative z-10">
+                            <div className="ml-3 flex-shrink-0 relative z-10">
                               <AudioButton fullSrc={getFullAudioUrl(s.audio_url)} />
                             </div>
                           )}
@@ -364,28 +364,6 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
               </section>
             </div>
 
-            {/* Right Column: Audio & Quick Stats */}
-            <div className="space-y-6">
-              <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-lg p-8 text-white">
-                <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                  <Volume2 className="w-5 h-5" />
-                  발음 오디오
-                </h2>
-
-                {word.audio_url ? (
-                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                    <audio key={word.audio_url} controls className="w-full" src={getFullAudioUrl(word.audio_url) || undefined}>
-                      브라우저가 오디오 태그를 지원하지 않습니다.
-                    </audio>
-                  </div>
-                ) : (
-                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 text-center">
-                    <p className="text-blue-100">오디오 파일이 없습니다.</p>
-                  </div>
-                )}
-              </section>
-            </div>
-          </div>
         </div>
       </div>
     </>

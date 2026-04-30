@@ -28,7 +28,6 @@ interface SentencesManagerProps {
 
 export default function SentencesManager({ initialSentences, languages }: SentencesManagerProps) {
   const [sentences, setSentences] = useState<Sentence[]>(initialSentences);
-  const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     sentence: '',
@@ -57,59 +56,6 @@ export default function SentencesManager({ initialSentences, languages }: Senten
     setCurrentPage(1);
   };
 
-  const handleAdd = async () => {
-    if (!formData.sentence || !formData.translation) {
-      alert('문장과 번역을 입력해주세요.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // 1. TTS 오디오 생성 (언어 선택이 없으므로 기본값 사용하거나 로직 수정 필요)
-      // 여기서는 일단 한국어(ko) 코드를 사용하거나, 문장에 맞는 언어를 자동으로 감지해야 합니다.
-      // 일단 UI상에서 언어 선택이 없어졌으므로 고정값 'es' (스페인어) 등을 임시로 사용하거나 안내가 필요합니다.
-      const defaultLangCode = 'es'; 
-      
-      const audioResult = await generateSentenceAudio({
-        text: formData.sentence,
-        languageCode: defaultLangCode,
-      });
-
-      if (!audioResult.success || !audioResult.audioPath) {
-        alert(audioResult.error || '오디오 생성에 실패했습니다.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. 오디오 경로와 함께 문장 저장
-      const res = await fetch('/api/admin/sentences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          audio_url: audioResult.audioPath,
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || '문장 추가 실패');
-      }
-
-      const newSentence = await res.json();
-      setSentences([newSentence, ...sentences]);
-      setFormData({
-        sentence: '',
-        translation: '',
-      });
-      setIsAdding(false);
-      alert('문장이 추가되었습니다.');
-    } catch (error) {
-      alert(error instanceof Error ? error.message : '문장 추가 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUpdate = async (id: number) => {
     if (!formData.sentence || !formData.translation) {
@@ -201,7 +147,6 @@ export default function SentencesManager({ initialSentences, languages }: Senten
 
   const cancelEdit = () => {
     setEditingId(null);
-    setIsAdding(false);
     setFormData({
       sentence: '',
       translation: '',
@@ -216,20 +161,11 @@ export default function SentencesManager({ initialSentences, languages }: Senten
             <h1 className="text-3xl font-bold text-gray-900">문장 관리</h1>
             <p className="text-gray-600 mt-2">학습할 문장을 관리합니다.</p>
           </div>
-          <button
-            onClick={() => setIsAdding(true)}
-            disabled={isAdding || loading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Plus className="w-5 h-5" />
-            문장 추가
-          </button>
         </div>
 
         {/* 검색 및 필터 */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="relative">
+          <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -239,60 +175,13 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-          </div>
         </div>
 
-        {/* 추가 폼 */}
-        {isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">새 문장 추가</h2>
-            <div className="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">문장</label>
-                <textarea
-                  value={formData.sentence}
-                  onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
-                  placeholder="예: Hola, ¿cómo estás?"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">번역</label>
-                <textarea
-                  value={formData.translation}
-                  onChange={(e) => setFormData({ ...formData, translation: e.target.value })}
-                  placeholder="예: 안녕, 잘 지내?"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleAdd}
-                disabled={loading}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                저장
-              </button>
-              <button
-                onClick={cancelEdit}
-                disabled={loading}
-                className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <X className="w-4 h-4" />
-                취소
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* 문장 목록 (카드 그리드) */}
         {filteredSentences.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
-            {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다. 새 문장을 추가해주세요.'}
+            {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
