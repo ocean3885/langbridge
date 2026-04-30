@@ -84,7 +84,7 @@ export default function EditEduVideoForm({ video, languages, categories, channel
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">교육 영상 수정</h1>

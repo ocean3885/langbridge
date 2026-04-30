@@ -57,6 +57,36 @@ export async function getSentenceById(id: number): Promise<SupabaseSentence | nu
   } as SupabaseSentence;
 }
 
+export async function getSentenceWithWords(id: number): Promise<SupabaseSentence & { words: any[] } | null> {
+  const sentence = await getSentenceById(id);
+  if (!sentence) return null;
+
+  const supabase = createAdminClient();
+  const { data: mappings, error } = await supabase
+    .from('word_sentence_map')
+    .select(`
+      used_as,
+      word_id,
+      words:words(*)
+    `)
+    .eq('sentence_id', id);
+
+  if (error) {
+    console.error('Error fetching words for sentence:', error);
+    return { ...sentence, words: [] };
+  }
+
+  const words = (mappings || []).map(m => ({
+    ...m.words,
+    used_as: m.used_as
+  }));
+
+  return {
+    ...sentence,
+    words
+  };
+}
+
 export async function insertSentence(input: {
   sentence: string;
   translation: string;

@@ -50,6 +50,27 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
   } as SupabaseWord;
 }
 
+export async function getWordWithSentences(id: number) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('words')
+    .select('*, word_sentence_map(*, sentences(*))')
+    .eq('id', id)
+    .maybeSingle();
+    
+  if (error || !data) return null;
+  
+  return {
+    ...data,
+    sentences: (data.word_sentence_map || []).map((m: any) => ({
+      ...m.sentences,
+      used_as: m.used_as,
+      pos_key: m.pos_key,
+      grammar_info: m.grammar_info
+    }))
+  };
+}
+
 export async function insertWord(input: {
   word: string;
   langCode: string;

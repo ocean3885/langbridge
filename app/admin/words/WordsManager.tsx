@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
 
 export interface Language {
@@ -263,7 +264,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -461,55 +462,61 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 relative">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                          {word.lang_code}
-                        </span>
-                        {word.pos.map((p, idx) => (
-                          <span key={idx} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-medium">
-                            {formatPOS(p)}
+                    <Link href={`/admin/words/${word.id}`} className="block p-4 relative hover:bg-gray-50 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                            {word.lang_code}
                           </span>
-                        ))}
+                          {word.pos.map((p, idx) => (
+                            <span key={idx} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                              {formatPOS(p)}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.preventDefault()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEdit(word);
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
+                            title="수정"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(word.id);
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => startEdit(word)}
-                          className="p-1 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
-                          title="수정"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(word.id)}
-                          className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      
+                      <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
+                        {word.word}
+                        {word.gender && (
+                          <span className="text-xs font-normal text-gray-400">({word.gender})</span>
+                        )}
+                      </h3>
+                      
+                      <p className="text-sm text-gray-600 font-medium">
+                        {getMeaningDisplay(word.meaning)}
+                      </p>
+                      
+                      <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                        <div className="flex gap-2">
+                          <span>ID: {word.id}</span>
+                          <span>•</span>
+                          <span className="text-blue-500 font-medium">문장 {word.sentence_count || 0}</span>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
-                      {word.word}
-                      {word.gender && (
-                        <span className="text-xs font-normal text-gray-400">({word.gender})</span>
-                      )}
-                    </h3>
-                    
-                    <p className="text-sm text-gray-600 font-medium">
-                      {getMeaningDisplay(word.meaning)}
-                    </p>
-                    
-                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
-                      <div className="flex gap-2">
-                        <span>ID: {word.id}</span>
-                        <span>•</span>
-                        <span className="text-blue-500 font-medium">문장 {word.sentence_count || 0}</span>
-                      </div>
-                    </div>
-                  </div>
+                    </Link>
                 )}
               </div>
             ))}

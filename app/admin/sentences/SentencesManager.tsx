@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
 import { generateSentenceAudio } from './actions';
+import Link from 'next/link';
 
 export interface Language {
   id: number;
@@ -208,7 +209,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -350,8 +351,10 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                     </div>
                     
                     <div className="flex-1 space-y-3 mb-4 pr-16">
-                      <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
-                        {sentence.sentence}
+                      <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
+                        <Link href={`/admin/sentences/${sentence.id}`}>
+                          {sentence.sentence}
+                        </Link>
                       </h3>
                       <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
                         {sentence.translation}

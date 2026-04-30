@@ -25,7 +25,7 @@ export default async function EditChannelPage({ params }: PageProps) {
     return (
       <>
         <AdminSidebar userEmail={user.email ?? ''} />
-        <div className="min-h-screen bg-gray-50 ml-64 p-8">
+        <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
           <div className="max-w-3xl mx-auto">
             <div className="text-red-600">채널을 찾을 수 없습니다.</div>
             <Link href="/admin/channels" className="text-blue-600 hover:underline mt-4 inline-block">
@@ -40,7 +40,7 @@ export default async function EditChannelPage({ params }: PageProps) {
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
-      <div className="min-h-screen bg-gray-50 ml-64 p-8">
+      <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
         <div className="max-w-3xl mx-auto">
           <Link
             href="/admin/channels"

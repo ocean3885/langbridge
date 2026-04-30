@@ -60,7 +60,7 @@ export default async function AdminVideosPage() {
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
-      <div className="min-h-screen bg-gray-50 ml-64 p-8">
+      <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <div>
