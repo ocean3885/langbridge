@@ -346,16 +346,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              startEdit(word);
-                            }}
-                            className="p-1 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
-                            title="수정"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
                               handleDelete(word.id);
                             }}
                             className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors"

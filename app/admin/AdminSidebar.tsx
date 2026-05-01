@@ -33,6 +33,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     { id: 'languages', label: '언어 관리', icon: Languages, href: '/admin/languages' },
     { id: 'words', label: '단어 관리', icon: BookOpen, href: '/admin/words' },
     { id: 'sentences', label: '문장 관리', icon: MessageSquare, href: '/admin/sentences' },
+    { id: 'bundles', label: '번들 관리', icon: BookMarked, href: '/admin/bundles' },
     { id: 'channels', label: '채널 관리', icon: FolderTree, href: '/admin/channels' },
     { id: 'videos', label: '영상 관리', icon: Video, href: '/admin/videos' },
     { id: 'users', label: '사용자 관리', icon: Users, href: '/admin/users' },

@@ -193,7 +193,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                       value={formData.sentence}
                       onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
                       rows={3}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none"
+                      className="w-full px-2 py-1.5 text-base border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none"
                     />
                     <textarea
                       value={formData.translation}
@@ -227,7 +227,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                       className="p-4 flex flex-col h-full hover:bg-gray-50/50 transition-colors"
                     >
                       <div className="flex-1 space-y-3 mb-4 pr-16">
-                        <h3 className="text-sm font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-base font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
                           {sentence.sentence}
                         </h3>
                         <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">

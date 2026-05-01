@@ -45,3 +45,17 @@ export function relativeFromNowKo(iso: string | null): string {
   const years = Math.floor(months / 12);
   return `${years}년 전`;
 }
+
+/**
+ * ISO 날짜 문자열을 받아 'YYYY. MM. DD.' 형식으로 변환합니다.
+ * 서버와 클라이언트에서 동일한 결과를 보장하여 Hydration 에러를 방지합니다.
+ */
+export function formatDate(iso: string | null): string {
+  if (!iso) return '-';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '-';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}. ${m}. ${d}.`;
+}
