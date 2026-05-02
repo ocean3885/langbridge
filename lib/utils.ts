@@ -11,7 +11,7 @@ export const hasEnvVars =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // 현재 활성 학습 언어 (추후 다국어 확장을 위해 상수화)
-export const ACTIVE_LANGUAGE = 'es-ES';
+export const ACTIVE_LANGUAGE = 'es';
 export const ACTIVE_LANGUAGE_LABEL = 'Spanish / 스페인어';
 
 // 초를 MM:SS 또는 H:MM:SS 형식으로 변환

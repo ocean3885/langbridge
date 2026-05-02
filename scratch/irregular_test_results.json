@@ -1,0 +1,186 @@
+[
+  {
+    "input": "fui",
+    "extracted_lemma": "ir",
+    "info": {
+      "word": "ir",
+      "pos": [
+        "verb"
+      ],
+      "meaning": {
+        "verb": "가다, 되다, 진행되다"
+      },
+      "gender": null,
+      "conjugations": {
+        "pres": {
+          "s1": "voy",
+          "s2": "vas",
+          "s3": "va",
+          "p1": "vamos",
+          "p2": "vais",
+          "p3": "van"
+        },
+        "pret": {
+          "s1": "fui",
+          "s2": "fuiste",
+          "s3": "fue",
+          "p1": "fuimos",
+          "p2": "fuisteis",
+          "p3": "fueron"
+        },
+        "imp": {
+          "s1": "iba",
+          "s2": "ibas",
+          "s3": "iba",
+          "p1": "íbamos",
+          "p2": "ibais",
+          "p3": "iban"
+        },
+        "fut": {
+          "s1": "iré",
+          "s2": "irás",
+          "s3": "irá",
+          "p1": "iremos",
+          "p2": "iréis",
+          "p3": "irán"
+        },
+        "cond": {
+          "s1": "iría",
+          "s2": "irías",
+          "s3": "iría",
+          "p1": "iríamos",
+          "p2": "iríais",
+          "p3": "irían"
+        },
+        "pres_sub": {
+          "s1": "vaya",
+          "s2": "vayas",
+          "s3": "vaya",
+          "p1": "vayamos",
+          "p2": "vayáis",
+          "p3": "vayan"
+        },
+        "imp_sub": {
+          "s1": "fuera",
+          "s2": "fueras",
+          "s3": "fuera",
+          "p1": "fuéramos",
+          "p2": "fuerais",
+          "p3": "fueran"
+        }
+      }
+    }
+  },
+  {
+    "input": "duerma",
+    "extracted_lemma": "dormir",
+    "info": {
+      "word": "dormir",
+      "pos": [
+        "v"
+      ],
+      "meaning": {
+        "v": "자다, 잠을 자다"
+      },
+      "gender": null,
+      "conjugations": {
+        "pres": {
+          "s1": "duermo",
+          "s2": "duermes",
+          "s3": "duerme",
+          "p1": "dormimos",
+          "p2": "dormís",
+          "p3": "duermen"
+        },
+        "pret": {
+          "s1": "dormí",
+          "s2": "dormiste",
+          "s3": "durmió",
+          "p1": "dormimos",
+          "p2": "dormisteis",
+          "p3": "durmieron"
+        },
+        "imp": {
+          "s1": "dormía",
+          "s2": "dormías",
+          "s3": "dormía",
+          "p1": "dormíamos",
+          "p2": "dormíais",
+          "p3": "dormían"
+        },
+        "fut": {
+          "s1": "dormiré",
+          "s2": "dormirás",
+          "s3": "dormirá",
+          "p1": "dormiremos",
+          "p2": "dormiréis",
+          "p3": "dormirán"
+        },
+        "cond": {
+          "s1": "dormiría",
+          "s2": "dormirías",
+          "s3": "dormiría",
+          "p1": "dormiríamos",
+          "p2": "dormiríais",
+          "p3": "dormirían"
+        },
+        "pres_sub": {
+          "s1": "duerma",
+          "s2": "duermas",
+          "s3": "duerma",
+          "p1": "durmamos",
+          "p2": "durmáis",
+          "p3": "duerman"
+        },
+        "imp_sub": {
+          "s1": "durmiera",
+          "s2": "durmieras",
+          "s3": "durmiera",
+          "p1": "durmiéramos",
+          "p2": "durmierais",
+          "p3": "durmieran"
+        },
+        "gerund": {
+          "s1": "durmiendo",
+          "s2": "",
+          "s3": "",
+          "p1": "",
+          "p2": "",
+          "p3": ""
+        },
+        "part": {
+          "s1": "dormido",
+          "s2": "",
+          "s3": "",
+          "p1": "",
+          "p2": "",
+          "p3": ""
+        }
+      }
+    }
+  },
+  {
+    "input": "quise",
+    "extracted_lemma": "querer",
+    "info": {
+      "word": "querer",
+      "pos": [
+        "verb"
+      ],
+      "meaning": {
+        "verb": "원하다, 사랑하다"
+      },
+      "gender": null,
+      "conjugations": {
+        "pret": {
+          "s1": "quise",
+          "s2": "quisiste",
+          "s3": "quiso",
+          "p1": "quisimos",
+          "p2": "quisisteis",
+          "p3": "quisieron"
+        }
+      }
+    }
+  }
+]

@@ -14,6 +14,7 @@ export type SupabaseWord = {
   created_at: string;
   updated_at: string;
   sentence_count?: number;
+  distractors?: any[];
 };
 
 export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
@@ -38,7 +39,7 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('words')
-    .select('*, word_sentence_map(id)')
+    .select('*, word_sentence_map(id), words_distractor(*)')
     .eq('id', id)
     .maybeSingle();
     
@@ -46,7 +47,8 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
   
   return {
     ...data,
-    sentence_count: Array.isArray(data.word_sentence_map) ? data.word_sentence_map.length : 0
+    sentence_count: Array.isArray(data.word_sentence_map) ? data.word_sentence_map.length : 0,
+    distractors: data.words_distractor || []
   } as SupabaseWord;
 }
 
@@ -54,7 +56,7 @@ export async function getWordWithSentences(id: number) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('words')
-    .select('*, word_sentence_map(*, sentences(*))')
+    .select('*, word_sentence_map(*, sentences(*)), words_distractor(*)')
     .eq('id', id)
     .maybeSingle();
     
@@ -67,7 +69,8 @@ export async function getWordWithSentences(id: number) {
       used_as: m.used_as,
       pos_key: m.pos_key,
       grammar_info: m.grammar_info
-    }))
+    })),
+    distractors: data.words_distractor || []
   };
 }
 

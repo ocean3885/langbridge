@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Tag, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Tag, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw } from 'lucide-react';
 import AudioButton from '@/components/AudioButton';
 
 const POS_MAP: Record<string, string> = {
@@ -95,7 +95,7 @@ function getFullAudioUrl(path: string | null): string | null {
   if (!path) return null;
   if (path.startsWith('http')) return path;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const bucket = 'langbridge-audio';
+  const bucket = 'langbridge';
   if (!supabaseUrl) return path;
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path.replace(/^\/+/, '')}`;
 }
@@ -130,6 +130,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [word, setWord] = useState(initialWord);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ttsLoading, setTtsLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     word: initialWord.word,
@@ -214,6 +215,33 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     } catch (e) {
       alert('삭제 중 오류가 발생했습니다.');
       setLoading(false);
+    }
+  };
+
+  const handleGenerateTTS = async () => {
+    if (ttsLoading) return;
+    setTtsLoading(true);
+    try {
+      const res = await fetch('/api/admin/words/generate-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wordId: word.id,
+          text: word.word,
+          langCode: word.lang_code
+        })
+      });
+
+      if (!res.ok) throw new Error('TTS 생성 실패');
+      
+      const data = await res.json();
+      setWord({ ...word, audio_url: data.audio_url });
+      alert('오디오가 성공적으로 생성되었습니다.');
+      router.refresh();
+    } catch (e) {
+      alert('오디오 생성 중 오류가 발생했습니다.');
+    } finally {
+      setTtsLoading(false);
     }
   };
 
@@ -306,6 +334,49 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                   onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
                 />
+              </div>
+              <div className="md:col-span-2 py-2">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${word.audio_url ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                      <Volume2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">오디오 데이터</p>
+                      <p className="text-xs text-gray-500">
+                        {word.audio_url ? '이미 등록된 오디오가 있습니다.' : '등록된 오디오가 없습니다. AI 음성을 생성해보세요.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {word.audio_url ? (
+                      <>
+                        <AudioButton fullSrc={getFullAudioUrl(word.audio_url)} />
+                        <button
+                          onClick={handleGenerateTTS}
+                          disabled={ttsLoading}
+                          className="p-2 bg-white border border-gray-100 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all shadow-sm disabled:opacity-50 group"
+                          title="오디오 재생성"
+                        >
+                          {ttsLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RotateCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleGenerateTTS}
+                        disabled={ttsLoading}
+                        className="px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                      >
+                        {ttsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-orange-400" />}
+                        오디오 생성
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -453,6 +524,31 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
               )}
             </div>
           )}
+
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-500" />
+              혼동 어휘 (Distractors)
+            </h2>
+            {word.distractors && word.distractors.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {word.distractors.map((d: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-yellow-100 transition-colors group">
+                    <p className="text-lg font-bold text-gray-900 group-hover:text-yellow-700 transition-colors">
+                      {d.distractor}
+                    </p>
+                    {d.meaning_ko && (
+                      <p className="text-sm text-gray-600 mt-1">{d.meaning_ko}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                <p className="text-gray-400">등록된 혼동 어휘가 없습니다.</p>
+              </div>
+            )}
+          </section>
 
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">

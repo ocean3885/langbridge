@@ -264,9 +264,9 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedWords.map((word) => (
-              <div key={word.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group">
+              <div key={word.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group relative">
                 {editingId === word.id ? (
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
@@ -330,7 +330,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                     </div>
                   </div>
                 ) : (
-                    <Link href={`/admin/words/${word.id}`} className="block p-4 relative hover:bg-gray-50 transition-colors">
+                  <>
+                    <Link href={`/admin/words/${word.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex flex-wrap gap-1.5">
                           <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
@@ -342,18 +343,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                             </span>
                           ))}
                         </div>
-                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.preventDefault()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(word.id);
-                            }}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors"
-                            title="삭제"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {/* Space for the delete button */}
+                        <div className="w-6 h-6" />
                       </div>
                       
                       <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
@@ -375,6 +366,21 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         </div>
                       </div>
                     </Link>
+
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(word.id);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ))}

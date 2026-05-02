@@ -5,6 +5,7 @@ export type SupabaseSentence = {
   id: number;
   sentence: string;
   translation: string;
+  lang_code?: string;
   audio_url: string | null;
   created_at: string;
   updated_at: string;

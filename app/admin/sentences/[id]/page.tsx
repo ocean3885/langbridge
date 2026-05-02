@@ -5,6 +5,8 @@ import { getSentenceWithWords } from '@/lib/supabase/services/sentences';
 import AdminSidebar from '../../AdminSidebar';
 import { ArrowLeft, Volume2, MessageSquare, Tag, BookOpen } from 'lucide-react';
 import Link from 'next/link';
+import WordExtractor from './WordExtractor';
+import { ACTIVE_LANGUAGE } from '@/lib/utils';
 
 function getFullAudioUrl(path: string | null): string | null {
   if (!path) return null;
@@ -204,6 +206,13 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
                   <p className="text-gray-400">연결된 단어가 아직 없습니다.</p>
                 </div>
               )}
+
+              {/* 단어 추출 등록 섹션 */}
+              <WordExtractor 
+                sentenceId={sentenceData.id} 
+                sentenceText={sentenceData.sentence} 
+                langCode={sentenceData.lang_code || ACTIVE_LANGUAGE} 
+              />
             </section>
           </div>
         </div>
