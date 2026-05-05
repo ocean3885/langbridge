@@ -5,6 +5,7 @@ export type SupabaseUserProfile = {
   email: string | null;
   created_at: string | null;
   updated_at: string;
+  display_language: 'ko' | 'en';
 };
 
 export async function upsertUserProfile(input: {
@@ -32,7 +33,7 @@ export async function getUserProfileById(userId: string): Promise<SupabaseUserPr
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('id, email, created_at, updated_at')
+    .select('id, email, created_at, updated_at, display_language')
     .eq('id', userId)
     .maybeSingle();
 
@@ -41,4 +42,19 @@ export async function getUserProfileById(userId: string): Promise<SupabaseUserPr
     return null;
   }
   return data;
+}
+
+export async function updateUserLanguage(userId: string, language: 'ko' | 'en'): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      display_language: language,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+
+  if (error) {
+    throw new Error(`언어 설정 업데이트 실패: ${error.message}`);
+  }
 }

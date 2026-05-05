@@ -32,7 +32,7 @@ export interface BundleItem {
   words?: {
     id: number;
     word: string;
-    meaning: any;
+    meaning_ko: any;
     lang_code: string;
   } | null;
   sentences?: {

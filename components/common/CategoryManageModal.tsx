@@ -23,8 +23,8 @@ interface Props {
   onCategoryChanged?: () => void;
   initialCategories?: Category[];
   initialLanguages?: Language[];
-  apiEndpoint?: string; // API 엔드포인트 (기본값: '/api/categories')
-  contentType?: string; // 콘텐츠 타입 (예: '오디오', '비디오')
+  apiEndpoint?: string; // API 엔드포인트 (기본값: '/api/user-categories')
+  contentType?: string; // 콘텐츠 타입 (예: '비디오')
 }
 
 export default function CategoryManageModal({ 
@@ -33,8 +33,8 @@ export default function CategoryManageModal({
   onCategoryChanged, 
   initialCategories = [], 
   initialLanguages = [],
-  apiEndpoint = '/api/categories',
-  contentType = '오디오'
+  apiEndpoint = '/api/user-categories',
+  contentType = '비디오'
 }: Props) {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [languages, setLanguages] = useState<Language[]>(initialLanguages);

@@ -15,7 +15,6 @@ export default async function UploadPage() {
     redirect('/auth/login?redirectTo=/upload');
   }
 
-  const audioCategories = await listCategories('lang_categories', user.id);
   const videoCategories = await listCategories('user_categories', user.id);
 
   const languages = await listLanguages();
@@ -23,7 +22,6 @@ export default async function UploadPage() {
 
   return (
     <UploadTabs
-      audioCategories={audioCategories || []}
       videoCategories={videoCategories || []}
       initialLanguages={languages}
       canSelectVideoVisibility={isAdminUser}

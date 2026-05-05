@@ -53,7 +53,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { id, word, lang_code, pos, meaning, gender, declensions, conjugations, audio_url } = await request.json();
+    const { id, word, lang_code, pos, meaning_ko, gender, declensions, conjugations, audio_url } = await request.json();
 
     if (!id || !word || !lang_code) {
       return NextResponse.json({ error: 'ID, 단어, 언어 코드는 필수입니다.' }, { status: 400 });
@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest) {
       word,
       langCode: lang_code,
       pos: pos || [],
-      meaning: meaning || {},
+      meaning_ko: meaning_ko || {},
       gender: gender || null,
       declensions: declensions || {},
       conjugations: conjugations || {},

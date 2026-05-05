@@ -16,6 +16,7 @@ export interface Sentence {
   id: number;
   sentence: string;
   translation: string;
+  translation_en: string | null;
   audio_url: string | null;
   languages?: Language;
   word_count?: number;
@@ -32,6 +33,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const [formData, setFormData] = useState({
     sentence: '',
     translation: '',
+    translation_en: '',
   });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +43,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const filteredSentences = sentences.filter((sentence) => {
     const matchesSearch = 
       sentence.sentence.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sentence.translation.includes(searchTerm);
+      sentence.translation.includes(searchTerm) ||
+      (sentence.translation_en || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -88,6 +91,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
           id,
           sentence: formData.sentence,
           translation: formData.translation,
+          translation_en: formData.translation_en,
           audio_url: audioResult.audioPath,
         }),
       });
@@ -103,6 +107,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       setFormData({
         sentence: '',
         translation: '',
+        translation_en: '',
       });
       alert('문장이 수정되었습니다.');
     } catch (error) {
@@ -142,6 +147,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
     setFormData({
       sentence: sentence.sentence,
       translation: sentence.translation,
+      translation_en: sentence.translation_en || '',
     });
   };
 
@@ -150,6 +156,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
     setFormData({
       sentence: '',
       translation: '',
+      translation_en: '',
     });
   };
 
@@ -201,6 +208,13 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                       rows={3}
                       className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                     />
+                    <textarea
+                      value={formData.translation_en}
+                      onChange={(e) => setFormData({ ...formData, translation_en: e.target.value })}
+                      placeholder="영어 번역 (선택 사항)"
+                      rows={2}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    />
                     <div className="mt-auto pt-2 border-t border-gray-50 flex justify-end gap-2">
                       <button
                         onClick={() => handleUpdate(sentence.id)}
@@ -233,6 +247,11 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                         <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
                           {sentence.translation}
                         </p>
+                        {sentence.translation_en && (
+                          <p className="text-xs text-gray-400 whitespace-pre-wrap leading-relaxed break-words italic">
+                            {sentence.translation_en}
+                          </p>
+                        )}
                       </div>
                       
                       <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">

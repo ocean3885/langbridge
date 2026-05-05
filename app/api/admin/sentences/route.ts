@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { id, sentence, translation, audio_url } = await request.json();
+    const { id, sentence, translation, translation_en, audio_url } = await request.json();
 
     if (!id || !sentence || !translation) {
       return NextResponse.json({ error: '필수 필드를 입력해주세요.' }, { status: 400 });
@@ -59,6 +59,7 @@ export async function PUT(request: NextRequest) {
     await updateSentence(Number(id), {
       sentence,
       translation,
+      translation_en: translation_en || null,
       audio_url: audio_url || null,
     });
 

@@ -16,8 +16,8 @@ export default async function Header() {
     <HeaderClient
       isLoggedIn={isLoggedIn}
       userEmail={userEmail}
-      // HeaderClient는 기존 prop 이름을 사용하므로 그대로 전달
       isAdmin={isAdminUser}
+      language={user?.displayLanguage || 'ko'}
     />
   );
 }

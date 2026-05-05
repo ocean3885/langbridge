@@ -25,6 +25,7 @@ export default async function SentencesPage() {
     id: sentence.id,
     sentence: sentence.sentence,
     translation: sentence.translation,
+    translation_en: sentence.translation_en ?? null,
     audio_url: sentence.audio_url,
     word_count: sentence.word_count,
     languages: undefined,

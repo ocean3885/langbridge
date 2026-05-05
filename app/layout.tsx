@@ -1,4 +1,5 @@
 // langbridge/app/layout.tsx
+import { getAppUserFromServer } from '@/lib/auth/app-user';
 
 import { Inter } from 'next/font/google'; 
 import Header from '@/components/layout/Header'; 
@@ -15,13 +16,16 @@ export const metadata: Metadata = {
 const inter = Inter({ subsets: ['latin'] });
 
 // **Root Layout Component**
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getAppUserFromServer();
+  const lang = user?.displayLanguage || 'ko';
+
   return (
-    <html lang="ko">
+    <html lang={lang}>
       {/* 💡 개선: 폰트 클래스와 안티-앨리어싱(antialiased) 적용 */}
       <body className={`${inter.className} antialiased`}> 
         
@@ -38,7 +42,7 @@ export default function RootLayout({
           </main>
           
           {/* 3. 하단: 푸터 */}
-          <Footer />
+          <Footer language={lang} />
         </div>
       </body>
     </html>

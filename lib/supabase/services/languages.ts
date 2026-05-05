@@ -107,7 +107,6 @@ export async function hasLanguageUsage(languageId: number): Promise<{ used: bool
   const supabase = createAdminClient();
   const checks: Array<{ table: string; label: string }> = [
     { table: 'videos', label: '영상' },
-    { table: 'lang_categories', label: '오디오 카테고리' },
     { table: 'user_categories', label: '비디오 카테고리' },
     { table: 'edu_video_categories', label: '교육 영상 카테고리' },
     { table: 'edu_video_channels', label: '채널' },

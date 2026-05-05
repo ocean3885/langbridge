@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
-type CategoryTable = 'lang_categories' | 'user_categories' | 'edu_video_categories';
+type CategoryTable = 'user_categories' | 'edu_video_categories';
 
 export type SupabaseCategory = {
   id: number;

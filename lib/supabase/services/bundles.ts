@@ -26,7 +26,7 @@ export async function listBundleItems(bundleId: string) {
     .from('bundle_items')
     .select(`
       *,
-      words(id, word, meaning, lang_code),
+      words(id, word, meaning_ko, lang_code),
       sentences(id, sentence, translation)
     `)
     .eq('bundle_id', bundleId)

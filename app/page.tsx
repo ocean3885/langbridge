@@ -3,7 +3,7 @@ import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import { listVideos, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
 import { listEduVideos } from '@/lib/supabase/services/edu-videos';
 import { listCategories, listAllCategories } from '@/lib/supabase/services/categories';
-import { listAllAudioContent } from '@/lib/supabase/services/audio-content';
+
 import { countAuthUsers } from '@/lib/supabase/services/auth-users';
 import { listLanguages } from '@/lib/supabase/services/languages';
 import { listAllVideoProgressForUser } from '@/lib/supabase/services/video-progress';
@@ -11,7 +11,7 @@ import Image from 'next/image';
 import HeroSection from '@/components/home/HeroSection';
 import EduVideoSection, { type EduVideo } from '@/components/home/EduVideoSection';
 import LBVideoSection, { type LBVideo } from '@/components/home/LBVideoSection';
-import LBAudioSection, { type LBAudio, type LBAudioCategory } from '@/components/home/LBAudioSection';
+
 import MyVideoSection, { type UserVideo, type VideoCategory } from '@/components/home/MyVideoSection';
 
 export default async function HomePage() {
@@ -20,7 +20,7 @@ export default async function HomePage() {
   const languages = await listLanguages();
   const languageNameMap = new Map(languages.map((l) => [l.id, l.name_ko]));
 
-  let lbAudioCategories: LBAudioCategory[] = [];
+
   let videoCategories: VideoCategory[] = [];
 
   if (user) {
@@ -154,41 +154,7 @@ export default async function HomePage() {
     language_name: v.language_name ?? null,
   }));
 
-  // ── LB 문장 학습 (전체 오디오) ──────────────────────
-  const allAudios = await listAllAudioContent(60);
 
-  // 카테고리 정보를 위해 모든 lang_categories 조회
-  const allAudioCatRows = await listAllCategories('lang_categories');
-  const allAudioCatMap: Record<number, { name: string; languageName: string }> = {};
-  allAudioCatRows.forEach((c) => {
-    allAudioCatMap[c.id] = {
-      name: c.name,
-      languageName: c.language_id ? (languageNameMap.get(c.language_id) ?? '언어 미지정') : '언어 미지정',
-    };
-  });
-
-  const lbAudioGroups: Record<string, LBAudio[]> = {};
-  allAudios.forEach((a) => {
-    const key = a.category_id === null ? 'uncategorized' : String(a.category_id);
-    if (!lbAudioGroups[key]) lbAudioGroups[key] = [];
-    lbAudioGroups[key].push({ id: a.id, title: a.title || '', created_at: a.created_at, category_id: a.category_id });
-  });
-
-  lbAudioCategories = Object.entries(lbAudioGroups)
-    .map(([key, list]) => {
-      const catId = key === 'uncategorized' ? null : Number(key);
-      return {
-        id: catId,
-        name: catId === null ? DEFAULT_LEARNING_CATEGORY_NAME : (allAudioCatMap[catId]?.name || '알 수 없는 카테고리'),
-        languageName: catId === null ? '' : (allAudioCatMap[catId]?.languageName || ''),
-        audioList: list,
-      };
-    })
-    .sort((a, b) => {
-      if (a.id === null) return 1;
-      if (b.id === null) return -1;
-      return a.name.localeCompare(b.name, 'ko');
-    });
 
   return (
     <div className="space-y-11">
@@ -212,7 +178,7 @@ export default async function HomePage() {
 
       <EduVideoSection videos={learningVideos} />
       <LBVideoSection videos={lbVideos} />
-      <LBAudioSection isLoggedIn={!!user} categories={lbAudioCategories} />
+
       <MyVideoSection isLoggedIn={!!user} categories={videoCategories} />
     </div>
   );

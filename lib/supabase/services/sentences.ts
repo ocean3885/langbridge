@@ -5,6 +5,7 @@ export type SupabaseSentence = {
   id: number;
   sentence: string;
   translation: string;
+  translation_en?: string | null;
   lang_code?: string;
   audio_url: string | null;
   created_at: string;
@@ -91,6 +92,7 @@ export async function getSentenceWithWords(id: number): Promise<SupabaseSentence
 export async function insertSentence(input: {
   sentence: string;
   translation: string;
+  translation_en?: string | null;
   audio_url?: string | null;
 }): Promise<number> {
   const supabase = createAdminClient();
@@ -99,6 +101,7 @@ export async function insertSentence(input: {
     .insert({
       sentence: input.sentence,
       translation: input.translation,
+      translation_en: input.translation_en ?? null,
       audio_url: input.audio_url ?? null
     })
     .select('id')
@@ -111,6 +114,7 @@ export async function insertSentence(input: {
 export async function updateSentence(id: number, input: {
   sentence?: string;
   translation?: string;
+  translation_en?: string | null;
   audio_url?: string | null;
 }): Promise<void> {
   const supabase = createAdminClient();
@@ -119,6 +123,7 @@ export async function updateSentence(id: number, input: {
     .update({
       ...(input.sentence && { sentence: input.sentence }),
       ...(input.translation && { translation: input.translation }),
+      ...(input.translation_en !== undefined && { translation_en: input.translation_en }),
       ...(input.audio_url !== undefined && { audio_url: input.audio_url }),
       updated_at: new Date().toISOString()
     })

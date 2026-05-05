@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
       word: wordInfo.word, // 원형(Lemma) 사용
       langCode,
       pos: wordInfo.pos,
-      meaning: wordInfo.meaning as any,
+      meaning_ko: wordInfo.meaning_ko as any,
+      meaning_en: wordInfo.meaning_en as any,
       gender: wordInfo.gender ? wordInfo.gender.trim().toUpperCase().charAt(0) : null,
       declensions: wordInfo.declensions as any,
       conjugations: wordInfo.conjugations as any,

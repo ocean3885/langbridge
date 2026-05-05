@@ -381,7 +381,7 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                           <span className="text-xs text-gray-400 uppercase font-bold tracking-tighter">{item.words.lang_code}</span>
                         </div>
                         <h3 className="text-lg font-bold text-gray-800 tracking-tight">{item.words.word}</h3>
-                        <p className="text-gray-500 font-medium">{getMeaningDisplay(item.words.meaning)}</p>
+                        <p className="text-gray-500 font-medium">{getMeaningDisplay(item.words.meaning_ko)}</p>
                       </div>
                     ) : item.sentences ? (
                       <div className="space-y-1">
@@ -392,7 +392,10 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                           </span>
                         </div>
                         <h3 className="text-lg font-bold text-gray-800 tracking-tight leading-snug">{item.sentences.sentence}</h3>
-                        <p className="text-gray-500 font-medium">{item.sentences.translation}</p>
+                        <p className="text-gray-500 font-medium leading-snug">{item.sentences.translation}</p>
+                        {item.sentences.translation_en && (
+                          <p className="text-xs text-gray-400 italic leading-snug">{item.sentences.translation_en}</p>
+                        )}
                       </div>
                     ) : (
                       <div className="py-2 text-gray-400 italic">데이터 정보 없음</div>

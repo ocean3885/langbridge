@@ -19,9 +19,38 @@ interface Props {
   isLoggedIn: boolean;
   userEmail: string | null;
   isAdmin: boolean;
+  language?: 'ko' | 'en';
 }
 
-export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) {
+const translations = {
+  ko: {
+    study: '학습',
+    create: '생성',
+    board: '게시판',
+    admin: '운영관리',
+    login: '로그인',
+    myAccount: '내 계정',
+    lbVideos: 'LB 영상',
+    myVideos: '내 영상',
+    profile: '프로필',
+    logout: '로그아웃',
+  },
+  en: {
+    study: 'Study',
+    create: 'Create',
+    board: 'Board',
+    admin: 'Admin',
+    login: 'Login',
+    myAccount: 'My Account',
+    lbVideos: 'LB Videos',
+    myVideos: 'My Videos',
+    profile: 'Profile',
+    logout: 'Logout',
+  }
+};
+
+export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'ko' }: Props) {
+  const t = translations[language];
   const supabase = createClient();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -45,7 +74,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
       window.location.href = '/';
     } catch (err) {
       console.error('Logout exception:', err);
-      alert('로그아웃 중 오류가 발생했습니다.');
+      alert(language === 'ko' ? '로그아웃 중 오류가 발생했습니다.' : 'Error during logout.');
     }
   };
 
@@ -65,10 +94,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
             {/* 우측: 간단한 로그인 버튼 표시 */}
             <div className="w-full flex items-center justify-between sm:w-auto sm:justify-end gap-2 sm:gap-4 min-w-0">
               <div className="flex items-center gap-2 sm:gap-4">
-                <span className="opacity-70">메뉴</span>
+                <span className="opacity-70">...</span>
               </div>
               <Link href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`} className="bg-blue-600 py-2 px-3 sm:px-4 rounded whitespace-nowrap">
-                로그인
+                {t.login}
               </Link>
             </div>
           </div>
@@ -106,17 +135,17 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
               {/* 왼쪽 링크 그룹 */}
               <div className="flex items-center gap-3 sm:gap-4 font-medium">
                 <Link href="/my-videos" className="hover:text-amber-300 transition-colors duration-150 whitespace-nowrap">
-                  학습
+                  {t.study}
                 </Link>
                 <Link href="/upload" className="hover:text-blue-300 transition-colors duration-150 whitespace-nowrap">
-                  생성
+                  {t.create}
                 </Link>
                 <Link href="/board" className="hover:text-blue-300 transition duration-150">
-                  게시판
+                  {t.board}
                 </Link>
                 {isAdmin && (
                   <Link href="/admin" className="hover:text-blue-300 transition duration-150">
-                    운영관리
+                    {t.admin}
                   </Link>
                 )}
               </div>
@@ -133,30 +162,24 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t.myAccount}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/lb-audio" className="flex items-center gap-2 cursor-pointer">
-                      <BookOpen className="w-4 h-4" />
-                      <span>LB 문장</span>
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/lb-videos" className="flex items-center gap-2 cursor-pointer">
                       <Globe className="w-4 h-4" />
-                      <span>LB 영상</span>
+                      <span>{t.lbVideos}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/my-videos" className="flex items-center gap-2 cursor-pointer">
                       <Video className="w-4 h-4" />
-                      <span>내 영상</span>
+                      <span>{t.myVideos}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
                       <UserIcon className="w-4 h-4" />
-                      <span>프로필</span>
+                      <span>{t.profile}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -165,7 +188,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                     className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>로그아웃</span>
+                    <span>{t.logout}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -174,7 +197,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin }: Props) 
                 href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
                 className="bg-blue-600 hover:bg-blue-700 py-2 px-3 sm:px-4 rounded transition duration-150 whitespace-nowrap"
               >
-                로그인
+                {t.login}
               </Link>
               )}
             </div>

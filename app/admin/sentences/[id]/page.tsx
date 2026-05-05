@@ -144,9 +144,14 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
                 <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-3 leading-tight break-words">
                   {sentenceData.sentence}
                 </h1>
-                <p className="text-xl text-gray-600 font-medium mb-6 leading-relaxed break-words">
+                <p className="text-xl text-gray-600 font-medium mb-2 leading-relaxed break-words">
                   {sentenceData.translation}
                 </p>
+                {sentenceData.translation_en && (
+                  <p className="text-lg text-gray-400 font-normal mb-6 italic leading-relaxed break-words">
+                    {sentenceData.translation_en}
+                  </p>
+                )}
 
                 {/* Compact Audio Player */}
                 {sentenceData.audio_url ? (
@@ -195,7 +200,7 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
                         </div>
                         
                         <div className="text-sm text-gray-600 mt-auto">
-                          {getMeaningDisplay(w.meaning)}
+                          {getMeaningDisplay(w.meaning_ko)}
                         </div>
                       </div>
                     </Link>

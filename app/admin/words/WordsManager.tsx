@@ -16,7 +16,8 @@ export interface Word {
   word: string;
   lang_code: string;
   pos: string[];
-  meaning: Record<string, string[]>;
+  meaning_ko: Record<string, string[]>;
+  meaning_en: Record<string, string[]>;
   gender: string | null;
   declensions: Record<string, any>;
   conjugations: Record<string, any>;
@@ -65,7 +66,7 @@ interface WordsManagerProps {
 
 function getMeaningDisplay(meaning: any): string {
   if (!meaning) return '-';
-  
+
   // If it's already a string, return it
   if (typeof meaning === 'string') {
     try {
@@ -94,6 +95,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     lang_code: languages[0]?.code || '',
     word: '',
     meaning_ko: '', // UI simplification: will be mapped to meaning.ko
+    meaning_en: '', // UI simplification: will be mapped to meaning.en
     gender: '',
     pos_input: '', // UI simplification: comma separated
   });
@@ -104,9 +106,9 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const itemsPerPage = 100;
 
   const filteredWords = words.filter((word) => {
-    const matchesSearch = 
+    const matchesSearch =
       word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getMeaningDisplay(word.meaning).includes(searchTerm);
+      getMeaningDisplay(word.meaning_ko).includes(searchTerm);
     const matchesLanguage = filterLanguage === 'all' || word.lang_code === filterLanguage;
     return matchesSearch && matchesLanguage;
   });
@@ -143,7 +145,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           id,
           word: formData.word,
           lang_code: formData.lang_code,
-          meaning: { ko: [formData.meaning_ko] },
+          meaning_ko: { ko: [formData.meaning_ko] },
+          meaning_en: { en: [formData.meaning_en] },
           gender: formData.gender || null,
           pos: formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [],
         }),
@@ -161,6 +164,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         lang_code: languages[0]?.code || '',
         word: '',
         meaning_ko: '',
+        meaning_en: '',
         gender: '',
         pos_input: '',
       });
@@ -202,7 +206,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     setFormData({
       lang_code: word.lang_code,
       word: word.word,
-      meaning_ko: word.meaning.ko?.[0] || '',
+      meaning_ko: word.meaning_ko.ko?.[0] || '',
+      meaning_en: word.meaning_en.en?.[0] || '',
       gender: word.gender || '',
       pos_input: word.pos.join(', '),
     });
@@ -214,6 +219,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
       lang_code: languages[0]?.code || '',
       word: '',
       meaning_ko: '',
+      meaning_en: '',
       gender: '',
       pos_input: '',
     });
@@ -264,7 +270,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedWords.map((word) => (
               <div key={word.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group relative">
                 {editingId === word.id ? (
@@ -292,6 +298,13 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       value={formData.meaning_ko}
                       onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
                       placeholder="의미 (한국어)"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={formData.meaning_en}
+                      onChange={(e) => setFormData({ ...formData, meaning_en: e.target.value })}
+                      placeholder="Meaning (English)"
                       className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                     <div className="flex gap-2">
@@ -346,18 +359,18 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         {/* Space for the delete button */}
                         <div className="w-6 h-6" />
                       </div>
-                      
+
                       <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
                         {word.word}
                         {word.gender && (
                           <span className="text-xs font-normal text-gray-400">({word.gender})</span>
                         )}
                       </h3>
-                      
+
                       <p className="text-sm text-gray-600 font-medium">
-                        {getMeaningDisplay(word.meaning)}
+                        {getMeaningDisplay(word.meaning_ko)}
                       </p>
-                      
+
                       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
                         <div className="flex gap-2">
                           <span>ID: {word.id}</span>
@@ -385,8 +398,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               </div>
             ))}
           </div>
-        ) }
-        
+        )}
+
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 mt-8">
             <button
@@ -402,7 +415,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 if (currentPage <= 3) pageNum = i + 1;
                 else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
                 else pageNum = currentPage - 2 + i;
-                
+
                 // Ensure pageNum is valid
                 if (pageNum < 1 || pageNum > totalPages) return null;
 
@@ -410,11 +423,10 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === pageNum
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
                         ? 'bg-blue-600 text-white border border-blue-600'
                         : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -430,7 +442,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             </button>
           </div>
         )}
-        
+
         <div className="mt-4 text-sm text-gray-600 text-center">
           전체 {words.length}개 중 {filteredWords.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredWords.length)})
         </div>

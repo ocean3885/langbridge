@@ -8,6 +8,7 @@ async def process_and_store_sentence(
     sentence_text: str, 
     translation: str, 
     bundle_id: str, 
+    translation_en: str = "",
     start_index: int = 0, 
     lang_code: str = "es"
 ) -> tuple[int, int]:
@@ -28,6 +29,7 @@ async def process_and_store_sentence(
     sentence_res = supabase.table("sentences").insert({
         "sentence": sentence_text,
         "translation": translation,
+        "translation_en": translation_en if translation_en else None,
         "audio_url": sentence_audio_url
     }).execute()
     
@@ -72,7 +74,7 @@ async def process_and_store_sentence(
             llm_info = await generate_word_info(word_lemma)
 
             # 유효하지 않은 단어(할루시네이션 등) 필터링
-            if llm_info.get("error") == "invalid_word" or not llm_info.get("meaning"):
+            if llm_info.get("error") == "invalid_word" or not llm_info.get("meaning_ko"):
                 print(f"  - ⚠️ 유효하지 않은 단어로 판명되어 건너끕니다: {word_lemma}")
                 continue
             
@@ -82,7 +84,7 @@ async def process_and_store_sentence(
                 "word": word_lemma,
                 "lang_code": lang_code,
                 "pos": llm_info.get("pos", [token.pos] if token.pos else []),
-                "meaning": llm_info.get("meaning", {}), 
+                "meaning_ko": llm_info.get("meaning_ko", {}), 
                 "gender": llm_info.get("gender"),
                 "declensions": llm_info.get("declensions", {}),
                 "conjugations": llm_info.get("conjugations", {}),

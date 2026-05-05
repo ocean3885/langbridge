@@ -32,7 +32,7 @@ async def generate_word_info(word: str) -> dict:
 다음 JSON 구조를 엄격히 따르세요:
 word: 스페인어 원형(Lemma)을 적습니다.
 pos: 리스트 형식으로 품사를 지정합니다 (예: ["VERB"], ["NOUN", "ADJ"]).
-meaning: 품사를 키로 하는 사전형 정의를 제공합니다.
+meaning_ko: 품사를 키로 하는 사전형 정의를 제공합니다.
 gender: 성별을 나타냅니다. 남성은 "m", 여성은 "f", 공통은 "mf", 해당 없으면 null을 사용합니다.
 conjugations: 동사(VERB)인 경우에만 포함합니다. pres, pret, impf, futr, cond, perf 6개 키와 각 시제 내부의 s1, s2, s3, p1, p2, p3 키를 누락 없이 작성합니다.
 declensions: 명사나 형용사인 경우에만 포함합니다. ms, mp, fs, fp 키를 사용합니다.
@@ -61,7 +61,7 @@ JSON 문법(쉼표, 중괄호 등) 오류가 없어야 합니다.
         return {
             "word": word,
             "pos": [],
-            "meaning": {},
+            "meaning_ko": {},
             "gender": None,
             "conjugations": {},
             "declensions": {}
@@ -156,7 +156,7 @@ async def generate_word_info_deepseek(word: str) -> dict:
 다음 JSON 구조를 엄격히 따르세요:
 word: 반드시 스페인어 사전적 원형(Lemma)을 적습니다. (예: 'fui' 입력 시 'ir', 'casas' 입력 시 'casa')
 pos: 리스트 형식으로 품사를 지정합니다 (예: ["VERB"], ["NOUN", "ADJ"]).
-meaning: 품사를 키로 하는 사전형 정의를 제공합니다.
+meaning_ko: 품사를 키로 하는 사전형 정의를 제공합니다.
 gender: 성별을 나타냅니다. 남성은 "m", 여성은 "f", 공통은 "mf", 해당 없으면 null을 사용합니다.
 conjugations: 동사(VERB)인 경우에만 포함합니다. pres, pret, impf, futr, cond, perf 6개 키와 각 시제 내부의 s1, s2, s3, p1, p2, p3 키를 누락 없이 작성합니다.
 declensions: 명사나 형용사인 경우에만 포함합니다. ms, mp, fs, fp 키를 사용합니다.

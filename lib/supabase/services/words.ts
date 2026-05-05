@@ -6,7 +6,8 @@ export type SupabaseWord = {
   word: string;
   lang_code: string;
   pos: string[];
-  meaning: Record<string, string[]>;
+  meaning_ko: Record<string, string[]>;
+  meaning_en: Record<string, string[]>;
   gender: string | null;
   declensions: Record<string, string>;
   conjugations: Record<string, any>;
@@ -78,7 +79,8 @@ export async function insertWord(input: {
   word: string;
   langCode: string;
   pos?: string[];
-  meaning: Record<string, string[]>;
+  meaning_ko: Record<string, string[]>;
+  meaning_en: Record<string, string[]>;
   gender?: string | null;
   declensions?: Record<string, string>;
   conjugations?: Record<string, any>;
@@ -91,7 +93,8 @@ export async function insertWord(input: {
       word: input.word,
       lang_code: input.langCode,
       pos: input.pos ?? [],
-      meaning: input.meaning,
+      meaning_ko: input.meaning_ko,
+      meaning_en: input.meaning_en,
       gender: input.gender ?? null,
       declensions: input.declensions ?? {},
       conjugations: input.conjugations ?? {},
@@ -108,7 +111,8 @@ export async function updateWord(id: number, input: {
   word?: string;
   langCode?: string;
   pos?: string[];
-  meaning?: Record<string, string[]>;
+  meaning_ko?: Record<string, string[]>;
+  meaning_en?: Record<string, string[]>;
   gender?: string | null;
   declensions?: Record<string, string>;
   conjugations?: Record<string, any>;
@@ -121,7 +125,8 @@ export async function updateWord(id: number, input: {
       ...(input.word && { word: input.word }),
       ...(input.langCode && { lang_code: input.langCode }),
       ...(input.pos && { pos: input.pos }),
-      ...(input.meaning && { meaning: input.meaning }),
+      ...(input.meaning_ko && { meaning_ko: input.meaning_ko }),
+      ...(input.meaning_en && { meaning_en: input.meaning_en }),
       ...(input.gender !== undefined && { gender: input.gender }),
       ...(input.declensions && { declensions: input.declensions }),
       ...(input.conjugations && { conjugations: input.conjugations }),

@@ -10,7 +10,8 @@ const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 export interface WordInfo {
   word: string;
   pos: string[];
-  meaning: Record<string, string[] | string>;
+  meaning_ko: Record<string, string[] | string>;
+  meaning_en: Record<string, string[] | string>;
   gender: 'm' | 'f' | 'mf' | null;
   conjugations?: {
     pres?: Record<string, string>;
@@ -39,12 +40,13 @@ export async function generateWordInfoDeepseek(word: string): Promise<WordInfo> 
 
   if (!apiKey) {
     console.error("DEEPSEEK_API_KEY is not set in environment variables.");
-    return { 
-      word, 
-      pos: [], 
-      meaning: {}, 
-      gender: null, 
-      error: "API key is missing" 
+    return {
+      word,
+      pos: [],
+      meaning_ko: {},
+      meaning_en: {},
+      gender: null,
+      error: "API key is missing"
     };
   }
 
@@ -55,7 +57,8 @@ export async function generateWordInfoDeepseek(word: string): Promise<WordInfo> 
 {
   "word": "원형",
   "pos": ["품사"],
-  "meaning": { "품사": "한국어 뜻" },
+  "meaning_ko": { "품사": "한국어 뜻" },
+  "meaning_en": { "품사": "영어 뜻" },
   "gender": "m/f/mf/null",
   "conjugations": {
     "pres": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
@@ -69,9 +72,10 @@ export async function generateWordInfoDeepseek(word: string): Promise<WordInfo> 
 }
 
 ### [지침]
-1. 뜻은 한국어로 작성합니다.
-2. 동사인 경우 conjugations에 6개 시제 변화를 포함합니다.
-3. 명사/형용사인 경우 declensions에 성수 변화를 포함합니다.
+1. 뜻은 한국어/영어를 함께 작성하되, 해당 필드에 원본 단어(스페인어)를 포함하지 마세요.
+2. meaning_en에는 순수한 영어 번역만, meaning_ko에는 순수한 한국어 번역만 작성하세요.
+3. 동사인 경우 conjugations에 6개 시제 변화를 포함합니다.
+4. 명사/형용사인 경우 declensions에 성수 변화를 포함합니다.
 `;
 
   try {
@@ -109,13 +113,22 @@ export async function generateWordInfoDeepseek(word: string): Promise<WordInfo> 
       rawData.conjugations = normalizedConjugations;
     }
 
+    // declensions 정규화
+    if (rawData.declensions && typeof rawData.declensions === 'object') {
+      const isEmpty = Object.values(rawData.declensions).every(v => v === "" || v === null);
+      if (isEmpty) {
+        rawData.declensions = {};
+      }
+    }
+
     return rawData as WordInfo;
   } catch (error) {
     console.error(`Error generating word info for ${word}:`, error);
     return {
       word,
       pos: [],
-      meaning: {},
+      meaning_ko: {},
+      meaning_en: {},
       gender: null,
       error: error instanceof Error ? error.message : String(error)
     };
@@ -149,15 +162,20 @@ function normalizeConjugations(val: any): Record<string, string> {
         result[normalizedKey] = String(v);
       }
     });
-
-    // 누락된 키 보정
-    keys.forEach(k => { if (!result[k]) result[k] = ""; });
   } else if (typeof val === 'string') {
     // "como, comes, come..." 형태인 경우
     const parts = val.split(',').map(s => s.trim());
     keys.forEach((key, i) => {
       result[key] = parts[i] || "";
     });
+  }
+
+  // 누락된 키 보정
+  keys.forEach(k => { if (!result[k]) result[k] = ""; });
+
+  // 만약 모든 값이 비어있다면 빈 객체 반환
+  if (Object.values(result).every(v => v === "")) {
+    return {};
   }
 
   return result;

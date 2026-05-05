@@ -135,7 +135,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [formData, setFormData] = useState({
     word: initialWord.word,
     lang_code: initialWord.lang_code,
-    meaning_ko: extractMeaningKo(initialWord.meaning),
+    meaning_ko: extractMeaningKo(initialWord.meaning_ko),
     gender: initialWord.gender || '',
     pos_input: initialWord.pos?.join(', ') || '',
   });
@@ -146,7 +146,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     setFormData({
       word: initialWord.word,
       lang_code: initialWord.lang_code,
-      meaning_ko: extractMeaningKo(initialWord.meaning),
+      meaning_ko: extractMeaningKo(initialWord.meaning_ko),
       gender: initialWord.gender || '',
       pos_input: initialWord.pos?.join(', ') || '',
     });
@@ -158,7 +158,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       setFormData({
         word: word.word,
         lang_code: word.lang_code,
-        meaning_ko: extractMeaningKo(word.meaning),
+        meaning_ko: extractMeaningKo(word.meaning_ko),
         gender: word.gender || '',
         pos_input: word.pos?.join(', ') || '',
       });
@@ -174,7 +174,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     setLoading(true);
     try {
       // 기존 meaning의 첫 번째 키를 유지하거나 없으면 'ko' 사용
-      const existingMeaning = typeof word.meaning === 'string' ? JSON.parse(word.meaning || '{}') : (word.meaning || {});
+      const existingMeaning = typeof word.meaning_ko === 'string' ? JSON.parse(word.meaning_ko || '{}') : (word.meaning_ko || {});
       const existingKeys = Object.keys(existingMeaning);
       const targetKey = existingKeys.length > 0 ? existingKeys[0] : 'ko';
 
@@ -185,7 +185,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           id: word.id,
           word: formData.word,
           lang_code: formData.lang_code,
-          meaning: { [targetKey]: formData.meaning_ko },
+          meaning_ko: { [targetKey]: formData.meaning_ko },
           gender: formData.gender || null,
           pos: formData.pos_input ? formData.pos_input.split(',').map((s: string) => s.trim()) : [],
         }),
@@ -441,7 +441,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
               뜻과 의미
             </h2>
             <div className="space-y-4">
-              {Object.entries(word.meaning || {}).map(([lang, meanings]: [string, any]) => (
+              {Object.entries(word.meaning_ko || {}).map(([lang, meanings]: [string, any]) => (
                 <div key={lang} className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
                   <h3 className="text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest flex items-center gap-2">
                     <Tag className="w-3 h-3" />
