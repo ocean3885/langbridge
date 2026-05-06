@@ -77,29 +77,24 @@ if not DEEPSEEK_API_KEY:
 
 async def generate_words_distractor_deepseek(word: str) -> list:
     """
-    제시된 단어와 의미가 유사하거나 스펠링이 유사하여 헷갈릴 수 있는 오답 단어(Distractors)를 생성합니다.
+    제시된 단어와 의미가 유사하거나 스펠링이 유사하여 헷갈릴 수 있는 유사 단어(Distractors)를 생성합니다.
     """
     prompt = f"""
-당신은 스페인어 교육 전문가입니다. 학습자가 제시된 단어 '{word}'의 뜻을 맞히는 4지선다형 퀴즈를 풀 때, 헷갈릴 만한 오답 단어(Distractors) 6개를 생성해야 합니다.
+당신은 스페인어 교육 전문가입니다. 학습자가 제시된 단어 '{word}'의 뜻을 맞히는 4지선다형 퀴즈를 풀 때, 헷갈릴 만한 유사 단어(Distractors) 6개를 생성해야 합니다.
 
-오답 단어 선정 기준:
-1. '{word}'와 철자가 유사하여 시각적으로 혼동을 주는 단어 2개
-2. '{word}'와 의미가 비슷하여 개념적으로 혼동을 주는 단어(유의어) 2개
-3. '{word}'와 같은 범주에 속하지만 뜻이 다른 단어 2개
+유사 단어 선정 기준:
+1. '{word}'와 철자가 유사하여 시각적으로 혼동을 주는 단어 3개
+2. '{word}'와 의미가 비슷하여 개념적으로 혼동을 주는 단어(유의어) 3개
 
 출력 형식:
 반드시 다음 구조의 JSON 리스트 형식으로만 출력하세요. (총 6개)
 [
-  {{"word": "오답단어1", "meaning": "오답단어1의 뜻"}},
-  {{"word": "오답단어2", "meaning": "오답단어2의 뜻"}},
-  {{"word": "오답단어3", "meaning": "오답단어3의 뜻"}},
-  {{"word": "오답단어4", "meaning": "오답단어4의 뜻"}},
-  {{"word": "오답단어5", "meaning": "오답단어5의 뜻"}},
-  {{"word": "오답단어6", "meaning": "오답단어6의 뜻"}}
+  {{"word": "유사단어1", "meaning_ko": "한국어 뜻", "meaning_en": "영어 뜻"}},
+  ...
 ]
 
 주의사항:
-- 뜻은 반드시 한국어로 작성하세요.
+- 뜻은 한국어(meaning_ko)와 영어(meaning_en)로 각각 작성하세요.
 - 인사말이나 설명 없이 오직 JSON 데이터만 반환하세요.
 """
 
@@ -111,7 +106,7 @@ async def generate_words_distractor_deepseek(word: str) -> list:
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "당신은 스페인어 교육 전문가입니다. 오답 단어 생성 시 학습자의 혼동을 유발할 수 있는 정교한 단어를 선택하세요."},
+            {"role": "system", "content": "당신은 스페인어 교육 전문가입니다. 유사 단어 생성 시 학습자의 혼동을 유발할 수 있는 정교한 단어를 선택하세요."},
             {"role": "user", "content": prompt}
         ],
         "response_format": {"type": "json_object"},
@@ -134,7 +129,7 @@ async def generate_words_distractor_deepseek(word: str) -> list:
                         return val
             return data if isinstance(data, list) else []
     except Exception as e:
-        print(f"오답 단어 생성 실패 ({word}): {e}")
+        print(f"유사 단어 생성 실패 ({word}): {e}")
         return []
 
 async def generate_word_info_deepseek(word: str) -> dict:

@@ -180,3 +180,75 @@ function normalizeConjugations(val: any): Record<string, string> {
 
   return result;
 }
+
+/**
+ * 헷갈릴 만한 유사 단어(Distractors)를 생성합니다.
+ * @param word 기준 단어
+ * @param count 생성할 개수 (기본 6개)
+ */
+export async function generateDistractorsDeepseek(word: string, count: number = 6): Promise<any[]> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return [];
+
+  const prompt = `
+당신은 스페인어 교육 전문가입니다. 학습자가 제시된 단어 '${word}'의 뜻을 맞히는 퀴즈를 풀 때, 헷갈릴 만한 유사 단어(Distractors) ${count}개를 생성해야 합니다.
+
+유사 단어 선정 기준:
+1. '${word}'와 철자가 유사하여 시각적으로 혼동을 주는 단어
+2. '${word}'와 의미가 비슷하여 개념적으로 혼동을 주는 단어(유의어)
+
+출력 형식:
+반드시 다음 구조의 JSON 리스트 형식으로만 출력하세요.
+[
+  {"word": "유사단어1", "meaning_ko": "한국어 뜻", "meaning_en": "영어 뜻"},
+  ...
+]
+
+주의사항:
+- 뜻은 한국어(meaning_ko)와 영어(meaning_en)로 각각 작성하세요.
+- 제시된 원래 단어 '${word}'는 절대로 결과 리스트에 포함하지 마세요. 오직 유사 단어만 생성하세요.
+- 인사말이나 설명 없이 오직 JSON 데이터만 반환하세요.
+`;
+
+  try {
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "스페인어 교육 전문가로서 JSON 형식으로만 응답하세요." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        stream: false
+      })
+    });
+
+    if (!response.ok) return [];
+
+    const result = await response.json();
+    const content = result.choices[0].message.content;
+    const data = JSON.parse(content);
+    
+    let distractorsList: any[] = [];
+    if (Array.isArray(data)) {
+      distractorsList = data;
+    } else if (typeof data === 'object' && data !== null) {
+      const list = Object.values(data).find(val => Array.isArray(val));
+      if (list) distractorsList = list as any[];
+    }
+
+    // 원본 단어와 동일한 단어가 포함된 경우 필터링
+    const normalizedWord = word.toLowerCase().trim();
+    return distractorsList.filter(d => 
+      d.word && d.word.toLowerCase().trim() !== normalizedWord
+    );
+  } catch (error) {
+    console.error(`Error generating distractors for ${word}:`, error);
+    return [];
+  }
+}

@@ -199,8 +199,13 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
                           </span>
                         </div>
                         
-                        <div className="text-sm text-gray-600 mt-auto">
-                          {getMeaningDisplay(w.meaning_ko)}
+                        <div className="space-y-0.5 mt-auto">
+                          <div className="text-sm text-gray-600 font-medium">
+                            {getMeaningDisplay(w.meaning_ko)}
+                          </div>
+                          <div className="text-[11px] text-gray-400 italic">
+                            {getMeaningDisplay(w.meaning_en)}
+                          </div>
                         </div>
                       </div>
                     </Link>

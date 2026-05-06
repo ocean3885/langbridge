@@ -2,7 +2,7 @@ import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { generateWordInfoDeepseek } from '@/lib/generator';
 import { generateTTS } from '@/lib/tts';
-import { insertWord } from '@/lib/supabase/services/words';
+import { insertWord, getWordByText } from '@/lib/supabase/services/words';
 import { insertMapping } from '@/lib/supabase/services/word-sentence-map';
 import { getStorageBucket } from '@/lib/supabase/storage';
 import { NextRequest, NextResponse } from 'next/server';
@@ -55,18 +55,26 @@ export async function POST(request: NextRequest) {
       console.error('TTS 생성 중 오류 (무시하고 계속 진행):', ttsError);
     }
 
-    // 3. words 테이블에 단어 추가
-    const wordId = await insertWord({
-      word: wordInfo.word, // 원형(Lemma) 사용
-      langCode,
-      pos: wordInfo.pos,
-      meaning_ko: wordInfo.meaning_ko as any,
-      meaning_en: wordInfo.meaning_en as any,
-      gender: wordInfo.gender ? wordInfo.gender.trim().toUpperCase().charAt(0) : null,
-      declensions: wordInfo.declensions as any,
-      conjugations: wordInfo.conjugations as any,
-      audioUrl: audioUrl,
-    });
+    // 3. words 테이블에 단어 추가 (중복 체크)
+    const existingWord = await getWordByText(wordInfo.word, langCode);
+    let wordId: number;
+
+    if (existingWord) {
+      console.log(`이미 존재하는 단어입니다 (ID: ${existingWord.id})`);
+      wordId = existingWord.id;
+    } else {
+      wordId = await insertWord({
+        word: wordInfo.word, // 원형(Lemma) 사용
+        langCode,
+        pos: wordInfo.pos,
+        meaning_ko: wordInfo.meaning_ko as any,
+        meaning_en: wordInfo.meaning_en as any,
+        gender: wordInfo.gender ? wordInfo.gender.trim().toUpperCase().charAt(0) : null,
+        declensions: wordInfo.declensions as any,
+        conjugations: wordInfo.conjugations as any,
+        audioUrl: audioUrl,
+      });
+    }
 
     // 4. word_sentence_map 테이블에 매핑 추가
     await insertMapping({

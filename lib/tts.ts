@@ -17,9 +17,9 @@ export async function generateTTS(
   if (!text) return null;
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY가 설정되지 않았습니다.');
+      console.error('API 키(GOOGLE_API_KEY 또는 GEMINI_API_KEY)가 설정되지 않았습니다.');
       return null;
     }
 

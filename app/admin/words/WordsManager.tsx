@@ -24,6 +24,7 @@ export interface Word {
   audio_url: string | null;
   languages?: Language;
   sentence_count?: number;
+  distractor_count?: number;
 }
 
 const POS_MAP: Record<string, string> = {
@@ -54,6 +55,28 @@ const POS_MAP: Record<string, string> = {
   'part': '조사',
   'propn': '고유명사',
 };
+
+const POS_OPTIONS = [
+  { value: 'noun', label: '명사 (Noun)' },
+  { value: 'verb', label: '동사 (Verb)' },
+  { value: 'adjective', label: '형용사 (Adjective)' },
+  { value: 'adverb', label: '부사 (Adverb)' },
+  { value: 'pronoun', label: '대명사 (Pronoun)' },
+  { value: 'preposition', label: '전치사 (Preposition)' },
+  { value: 'conjunction', label: '접속사 (Conjunction)' },
+  { value: 'article', label: '관사 (Article)' },
+  { value: 'numeral', label: '수사 (Numeral)' },
+  { value: 'particle', label: '조사 (Particle)' },
+  { value: 'auxiliary', label: '조동사 (Auxiliary)' },
+  { value: 'propn', label: '고유명사 (Proper Noun)' },
+];
+
+const GENDER_OPTIONS = [
+  { value: '', label: '없음 (None)' },
+  { value: 'M', label: '남성 (Masculine)' },
+  { value: 'F', label: '여성 (Feminine)' },
+  { value: 'N', label: '중성 (Neuter)' },
+];
 
 function formatPOS(pos: string): string {
   return POS_MAP[pos.toLowerCase()] || pos;
@@ -102,18 +125,29 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
+  const [filterLowDistractors, setFilterLowDistractors] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
 
   const filteredWords = words.filter((word) => {
     const matchesSearch =
       word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getMeaningDisplay(word.meaning_ko).includes(searchTerm);
+      getMeaningDisplay(word.meaning_ko).includes(searchTerm) ||
+      getMeaningDisplay(word.meaning_en).includes(searchTerm);
     const matchesLanguage = filterLanguage === 'all' || word.lang_code === filterLanguage;
-    return matchesSearch && matchesLanguage;
+    const matchesLowDistractors = !filterLowDistractors || (word.distractor_count ?? 0) < 6;
+    return matchesSearch && matchesLanguage && matchesLowDistractors;
   });
 
-  const paginatedWords = filteredWords.slice(
+  const sortedWords = [...filteredWords].sort((a, b) => {
+    if (sortOrder === 'none') return 0;
+    const countA = a.sentence_count || 0;
+    const countB = b.sentence_count || 0;
+    return sortOrder === 'asc' ? countA - countB : countB - countA;
+  });
+
+  const paginatedWords = sortedWords.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -129,6 +163,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     setCurrentPage(1);
   };
 
+  const toggleLowDistractorsFilter = () => {
+    setFilterLowDistractors(!filterLowDistractors);
+    setCurrentPage(1);
+  };
+
 
   const handleUpdate = async (id: number) => {
     if (!formData.word || !formData.meaning_ko || !formData.lang_code) {
@@ -138,6 +177,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
     setLoading(true);
     try {
+      const posList = formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [];
+      const primaryPos = posList.length > 0 ? posList[0].toLowerCase() : 'general';
+      const meaningKoArray = [formData.meaning_ko.trim()].filter(Boolean);
+      const meaningEnArray = [formData.meaning_en.trim()].filter(Boolean);
+
       const res = await fetch('/api/admin/words', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -145,10 +189,10 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           id,
           word: formData.word,
           lang_code: formData.lang_code,
-          meaning_ko: { ko: [formData.meaning_ko] },
-          meaning_en: { en: [formData.meaning_en] },
+          meaning_ko: { [primaryPos]: meaningKoArray },
+          meaning_en: { [primaryPos]: meaningEnArray },
           gender: formData.gender || null,
-          pos: formData.pos_input ? formData.pos_input.split(',').map(s => s.trim()) : [],
+          pos: posList,
         }),
       });
 
@@ -261,6 +305,31 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               ))}
             </select>
           </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filterLowDistractors}
+                onChange={toggleLowDistractorsFilter}
+                className="sr-only peer"
+              />
+              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ms-3 text-sm font-medium text-gray-700">오답 개수 부족 (6개 미만)</span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 font-medium whitespace-nowrap">문장 수 정렬:</span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as any)}
+                className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+              >
+                <option value="none">기본(최신순)</option>
+                <option value="asc">문장 적은 순</option>
+                <option value="desc">문장 많은 순</option>
+              </select>
+            </div>
+          </div>
         </div>
 
 
@@ -308,20 +377,25 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                     <div className="flex gap-2">
-                      <input
-                        type="text"
+                      <select
                         value={formData.gender}
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                        placeholder="성별 (M/F)"
-                        className="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={formData.pos_input}
+                        className="w-32 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      >
+                        {GENDER_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label.split(' ')[0]}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={formData.pos_input.split(',')[0].trim().toLowerCase()}
                         onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
-                        placeholder="품사 (쉼표 구분)"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      >
+                        <option value="">품사 선택</option>
+                        {POS_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label.split(' ')[0]}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex justify-end gap-2 pt-2 border-t border-gray-50">
                       <button
@@ -367,15 +441,24 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         )}
                       </h3>
 
-                      <p className="text-sm text-gray-600 font-medium">
-                        {getMeaningDisplay(word.meaning_ko)}
-                      </p>
+                      <div className="space-y-0.5">
+                        <p className="text-sm text-gray-600 font-medium">
+                          {getMeaningDisplay(word.meaning_ko)}
+                        </p>
+                        <p className="text-[11px] text-gray-400 italic">
+                          {getMeaningDisplay(word.meaning_en)}
+                        </p>
+                      </div>
 
                       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
                         <div className="flex gap-2">
                           <span>ID: {word.id}</span>
                           <span>•</span>
                           <span className="text-blue-500 font-medium">문장 {word.sentence_count || 0}</span>
+                          <span>•</span>
+                          <span className={`${(word.distractor_count ?? 0) < 6 ? 'text-red-500 font-bold' : 'text-gray-400'}`}>
+                            오답 {word.distractor_count || 0}
+                          </span>
                         </div>
                       </div>
                     </Link>

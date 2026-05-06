@@ -5,8 +5,6 @@ export type SupabaseWordSentenceMap = {
   word_id: number;
   sentence_id: number;
   used_as: string | null;
-  pos_key: string | null;
-  grammar_info: Record<string, any>;
   created_at: string;
 };
 
@@ -36,8 +34,6 @@ export async function insertMapping(input: {
   wordId: number;
   sentenceId: number;
   usedAs?: string | null;
-  posKey?: string | null;
-  grammarInfo?: Record<string, any>;
 }): Promise<number> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -45,9 +41,7 @@ export async function insertMapping(input: {
     .insert({
       word_id: input.wordId,
       sentence_id: input.sentenceId,
-      used_as: input.usedAs ?? null,
-      pos_key: input.posKey ?? null,
-      grammar_info: input.grammarInfo ?? {}
+      used_as: input.usedAs ?? null
     })
     .select('id')
     .single();

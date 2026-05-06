@@ -98,9 +98,7 @@ async def process_and_store_sentence(
         supabase.table("word_sentence_map").insert({
             "word_id": word_id,
             "sentence_id": sentence_id,
-            "used_as": token.text,
-            "pos_key": token.pos,
-            "grammar_info": token.morph
+            "used_as": token.text
         }).execute()
 
         # 5. 번들 아이템에 단어 추가
@@ -152,7 +150,8 @@ async def process_distractors(limit: int = 100):
             insert_data.append({
                 "word_id": word_id,
                 "distractor": d.get("word"),
-                "meaning_ko": d.get("meaning")
+                "meaning_ko": d.get("meaning_ko") or d.get("meaning"),
+                "meaning_en": d.get("meaning_en")
             })
             
         if insert_data:

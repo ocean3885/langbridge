@@ -44,6 +44,28 @@ const PERSON_ORDER: Record<string, number> = {
   '1p': 4, '2p': 5, '3p': 6,
 };
 
+const POS_OPTIONS = [
+  { value: 'noun', label: '명사 (Noun)' },
+  { value: 'verb', label: '동사 (Verb)' },
+  { value: 'adjective', label: '형용사 (Adjective)' },
+  { value: 'adverb', label: '부사 (Adverb)' },
+  { value: 'pronoun', label: '대명사 (Pronoun)' },
+  { value: 'preposition', label: '전치사 (Preposition)' },
+  { value: 'conjunction', label: '접속사 (Conjunction)' },
+  { value: 'article', label: '관사 (Article)' },
+  { value: 'numeral', label: '수사 (Numeral)' },
+  { value: 'particle', label: '조사 (Particle)' },
+  { value: 'auxiliary', label: '조동사 (Auxiliary)' },
+  { value: 'propn', label: '고유명사 (Proper Noun)' },
+];
+
+const GENDER_OPTIONS = [
+  { value: '', label: '없음 (None)' },
+  { value: 'M', label: '남성 (Masculine)' },
+  { value: 'F', label: '여성 (Feminine)' },
+  { value: 'N', label: '중성 (Neuter)' },
+];
+
 function formatGrammarKey(key: string): string {
   const lowerKey = key.toLowerCase().trim();
   if (GRAMMAR_LABEL_MAP[lowerKey]) return GRAMMAR_LABEL_MAP[lowerKey];
@@ -100,7 +122,7 @@ function getFullAudioUrl(path: string | null): string | null {
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path.replace(/^\/+/, '')}`;
 }
 
-function extractMeaningKo(meaning: any): string {
+function extractMeaningString(meaning: any): string {
   if (!meaning) return '';
   
   let data = meaning;
@@ -115,7 +137,6 @@ function extractMeaningKo(meaning: any): string {
   if (Array.isArray(data)) return data.join(', ');
   
   if (typeof data === 'object' && data !== null) {
-    // 모든 키의 값을 합쳐서 반환 (VERB, NOUN 등 어떤 키라도 대응)
     return Object.values(data)
       .map(val => Array.isArray(val) ? val.join(', ') : String(val))
       .filter(val => val && val !== 'null')
@@ -131,11 +152,19 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ttsLoading, setTtsLoading] = useState(false);
+  const [isGeneratingDistractors, setIsGeneratingDistractors] = useState(false);
+  const [editingDistractorId, setEditingDistractorId] = useState<number | null>(null);
+  const [distractorEditForm, setDistractorEditForm] = useState({
+    distractor: '',
+    meaning_ko: '',
+    meaning_en: ''
+  });
   
   const [formData, setFormData] = useState({
     word: initialWord.word,
     lang_code: initialWord.lang_code,
-    meaning_ko: extractMeaningKo(initialWord.meaning_ko),
+    meaning_ko: extractMeaningString(initialWord.meaning_ko),
+    meaning_en: extractMeaningString(initialWord.meaning_en),
     gender: initialWord.gender || '',
     pos_input: initialWord.pos?.join(', ') || '',
   });
@@ -146,7 +175,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     setFormData({
       word: initialWord.word,
       lang_code: initialWord.lang_code,
-      meaning_ko: extractMeaningKo(initialWord.meaning_ko),
+      meaning_ko: extractMeaningString(initialWord.meaning_ko),
+      meaning_en: extractMeaningString(initialWord.meaning_en),
       gender: initialWord.gender || '',
       pos_input: initialWord.pos?.join(', ') || '',
     });
@@ -158,7 +188,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       setFormData({
         word: word.word,
         lang_code: word.lang_code,
-        meaning_ko: extractMeaningKo(word.meaning_ko),
+        meaning_ko: extractMeaningString(word.meaning_ko),
+        meaning_en: extractMeaningString(word.meaning_en),
         gender: word.gender || '',
         pos_input: word.pos?.join(', ') || '',
       });
@@ -173,10 +204,12 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
 
     setLoading(true);
     try {
-      // 기존 meaning의 첫 번째 키를 유지하거나 없으면 'ko' 사용
-      const existingMeaning = typeof word.meaning_ko === 'string' ? JSON.parse(word.meaning_ko || '{}') : (word.meaning_ko || {});
-      const existingKeys = Object.keys(existingMeaning);
-      const targetKey = existingKeys.length > 0 ? existingKeys[0] : 'ko';
+      // Prepare meaning objects
+      const posList = formData.pos_input ? formData.pos_input.split(',').map((s: string) => s.trim()) : [];
+      const primaryPos = posList.length > 0 ? posList[0].toLowerCase() : 'general';
+      
+      const meaningKoArray = [formData.meaning_ko.trim()].filter(Boolean);
+      const meaningEnArray = [formData.meaning_en.trim()].filter(Boolean);
 
       const res = await fetch('/api/admin/words', {
         method: 'PUT',
@@ -185,9 +218,11 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           id: word.id,
           word: formData.word,
           lang_code: formData.lang_code,
-          meaning_ko: { [targetKey]: formData.meaning_ko },
+          meaning_ko: { [primaryPos]: meaningKoArray },
+          meaning_en: { [primaryPos]: meaningEnArray },
           gender: formData.gender || null,
-          pos: formData.pos_input ? formData.pos_input.split(',').map((s: string) => s.trim()) : [],
+          pos: posList,
+          audio_url: word.audio_url
         }),
       });
 
@@ -242,6 +277,88 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       alert('오디오 생성 중 오류가 발생했습니다.');
     } finally {
       setTtsLoading(false);
+    }
+  };
+  
+  const handleDeleteDistractor = async (distractorId: number) => {
+    if (!confirm('정말 이 혼동 어휘를 삭제하시겠습니까?')) return;
+    
+    try {
+      const res = await fetch(`/api/admin/words/distractors?id=${distractorId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) throw new Error('삭제 실패');
+      
+      // Update local state
+      setWord({
+        ...word,
+        distractors: word.distractors.filter((d: any) => d.id !== distractorId)
+      });
+    } catch (e) {
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleGenerateDistractors = async () => {
+    if (isGeneratingDistractors) return;
+    
+    const countToGenerate = 6;
+
+    setIsGeneratingDistractors(true);
+    try {
+      const res = await fetch('/api/admin/words/generate-distractors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wordId: word.id,
+          count: countToGenerate
+        })
+      });
+
+      if (!res.ok) throw new Error('생성 실패');
+      
+      const newDistractors = await res.json();
+      setWord({
+        ...word,
+        distractors: [...(word.distractors || []), ...newDistractors]
+      });
+      alert(`${newDistractors.length}개의 혼동 어휘가 생성되었습니다.`);
+    } catch (e) {
+      alert('생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGeneratingDistractors(false);
+    }
+  };
+
+  const startEditingDistractor = (d: any) => {
+    setEditingDistractorId(d.id);
+    setDistractorEditForm({
+      distractor: d.distractor,
+      meaning_ko: d.meaning_ko || '',
+      meaning_en: d.meaning_en || ''
+    });
+  };
+
+  const handleUpdateDistractor = async (id: number) => {
+    try {
+      const res = await fetch('/api/admin/words/distractors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...distractorEditForm })
+      });
+
+      if (!res.ok) throw new Error('수정 실패');
+
+      setWord({
+        ...word,
+        distractors: word.distractors.map((d: any) => 
+          d.id === id ? { ...d, ...distractorEditForm } : d
+        )
+      });
+      setEditingDistractorId(null);
+    } catch (e) {
+      alert('수정 중 오류가 발생했습니다.');
     }
   };
 
@@ -308,8 +425,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                   ))}
                 </select>
               </div>
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">의미 (품사별 또는 전체)</label>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">의미 (한국어)</label>
                 <input
                   type="text"
                   value={formData.meaning_ko}
@@ -318,22 +435,38 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">성별 (M/F/N 등)</label>
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">의미 (영어)</label>
                 <input
                   type="text"
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  value={formData.meaning_en}
+                  onChange={(e) => setFormData({ ...formData, meaning_en: e.target.value })}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">품사 (쉼표 구분)</label>
-                <input
-                  type="text"
-                  value={formData.pos_input}
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">성별</label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
+                >
+                  {GENDER_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">품사</label>
+                <select
+                  value={formData.pos_input.split(',')[0].trim().toLowerCase()}
                   onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none"
-                />
+                >
+                  <option value="">품사 선택</option>
+                  {POS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="md:col-span-2 py-2">
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
@@ -436,27 +569,43 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       {!isEditing && (
         <div className="space-y-6">
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-blue-500" />
               뜻과 의미
             </h2>
-            <div className="space-y-4">
-              {Object.entries(word.meaning_ko || {}).map(([lang, meanings]: [string, any]) => (
-                <div key={lang} className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest flex items-center gap-2">
-                    <Tag className="w-3 h-3" />
-                    {lang === 'ko' ? '한국어' : lang === 'en' ? '영어' : lang}
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
-                      <li key={idx} className="text-lg text-gray-800 font-medium leading-relaxed">
-                        {m}
-                      </li>
-                    )) : (
-                      <li className="text-lg text-gray-800 font-medium">{meanings}</li>
-                    )}
-                  </ul>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {[
+                { data: word.meaning_ko, title: '한국어 (Korean)', color: 'blue' },
+                { data: word.meaning_en, title: '영어 (English)', color: 'gray' }
+              ].map((mObj, objIdx) => (
+                mObj.data && Object.keys(mObj.data).length > 0 && (
+                  <div key={objIdx} className="space-y-4">
+                    <h3 className={`text-[11px] font-black ${mObj.color === 'blue' ? 'text-blue-500' : 'text-gray-400'} uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-gray-50`}>
+                      <Tag className="w-3 h-3" />
+                      {mObj.title}
+                    </h3>
+                    <div className="space-y-5">
+                      {Object.entries(mObj.data).map(([type, meanings]: [string, any]) => (
+                        <div key={type} className="group">
+                          {type !== 'ko' && type !== 'en' && (
+                            <span className="text-[10px] font-bold text-gray-300 uppercase mb-1 block group-hover:text-blue-400 transition-colors">
+                              {formatPOS(type)}
+                            </span>
+                          )}
+                          <ul className="space-y-1.5">
+                            {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
+                              <li key={idx} className="text-lg text-gray-800 font-medium leading-tight">
+                                {m}
+                              </li>
+                            )) : (
+                              <li className="text-lg text-gray-800 font-medium">{meanings}</li>
+                            )}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           </section>
@@ -526,19 +675,96 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           )}
 
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500" />
-              혼동 어휘 (Distractors)
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-500" />
+                혼동 어휘 (Distractors)
+              </h2>
+              <button
+                onClick={handleGenerateDistractors}
+                disabled={isGeneratingDistractors}
+                className="px-3 py-1.5 bg-yellow-50 text-yellow-700 text-xs font-bold rounded-lg border border-yellow-100 hover:bg-yellow-100 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isGeneratingDistractors ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RotateCw className="w-3.5 h-3.5" />
+                )}
+                AI로 6개 추가 생성
+              </button>
+            </div>
             {word.distractors && word.distractors.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {word.distractors.map((d: any, idx: number) => (
-                  <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-yellow-100 transition-colors group">
-                    <p className="text-lg font-bold text-gray-900 group-hover:text-yellow-700 transition-colors">
-                      {d.distractor}
-                    </p>
-                    {d.meaning_ko && (
-                      <p className="text-sm text-gray-600 mt-1">{d.meaning_ko}</p>
+                  <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-yellow-100 transition-colors group relative">
+                    {editingDistractorId === d.id ? (
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={distractorEditForm.distractor}
+                          onChange={(e) => setDistractorEditForm({ ...distractorEditForm, distractor: e.target.value })}
+                          className="w-full px-3 py-2 text-sm font-bold border rounded-lg"
+                          placeholder="단어"
+                        />
+                        <input
+                          type="text"
+                          value={distractorEditForm.meaning_ko}
+                          onChange={(e) => setDistractorEditForm({ ...distractorEditForm, meaning_ko: e.target.value })}
+                          className="w-full px-3 py-2 text-xs border rounded-lg"
+                          placeholder="한국어 뜻"
+                        />
+                        <input
+                          type="text"
+                          value={distractorEditForm.meaning_en}
+                          onChange={(e) => setDistractorEditForm({ ...distractorEditForm, meaning_en: e.target.value })}
+                          className="w-full px-3 py-2 text-xs border rounded-lg"
+                          placeholder="영어 뜻"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setEditingDistractorId(null)}
+                            className="px-3 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-md"
+                          >
+                            취소
+                          </button>
+                          <button
+                            onClick={() => handleUpdateDistractor(d.id)}
+                            className="px-3 py-1 text-xs bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
+                          >
+                            저장
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-lg font-bold text-gray-900 group-hover:text-yellow-700 transition-colors">
+                            {d.distractor}
+                          </p>
+                          {d.meaning_ko && (
+                            <p className="text-sm text-gray-600 mt-1">{d.meaning_ko}</p>
+                          )}
+                          {d.meaning_en && (
+                            <p className="text-xs text-gray-400 italic mt-0.5">{d.meaning_en}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => startEditingDistractor(d)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="수정"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDistractor(d.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}

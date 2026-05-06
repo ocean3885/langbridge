@@ -53,7 +53,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { id, word, lang_code, pos, meaning_ko, gender, declensions, conjugations, audio_url } = await request.json();
+    const { id, word, lang_code, pos, meaning_ko, meaning_en, gender, declensions, conjugations, audio_url } = await request.json();
 
     if (!id || !word || !lang_code) {
       return NextResponse.json({ error: 'ID, 단어, 언어 코드는 필수입니다.' }, { status: 400 });
@@ -64,10 +64,11 @@ export async function PUT(request: NextRequest) {
       langCode: lang_code,
       pos: pos || [],
       meaning_ko: meaning_ko || {},
-      gender: gender || null,
+      meaning_en: meaning_en || {},
+      gender: gender !== undefined ? gender : undefined,
       declensions: declensions || {},
       conjugations: conjugations || {},
-      audioUrl: audio_url || null,
+      audioUrl: audio_url !== undefined ? audio_url : undefined,
     });
 
     const updated = await getWordById(Number(id));

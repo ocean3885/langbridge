@@ -15,12 +15,13 @@ export type SupabaseWord = {
   created_at: string;
   updated_at: string;
   sentence_count?: number;
+  distractor_count?: number;
   distractors?: any[];
 };
 
 export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   const supabase = createAdminClient();
-  let query = supabase.from('words').select('*, word_sentence_map(id)');
+  let query = supabase.from('words').select('*, word_sentence_map(id), words_distractor(id)');
   
   if (langCode) {
     query = query.eq('lang_code', langCode);
@@ -32,7 +33,8 @@ export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   
   return data.map(row => ({
     ...row,
-    sentence_count: Array.isArray(row.word_sentence_map) ? row.word_sentence_map.length : 0
+    sentence_count: Array.isArray(row.word_sentence_map) ? row.word_sentence_map.length : 0,
+    distractor_count: Array.isArray(row.words_distractor) ? row.words_distractor.length : 0
   })) as SupabaseWord[];
 }
 
@@ -40,7 +42,7 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('words')
-    .select('*, word_sentence_map(id), words_distractor(*)')
+    .select('*, word_sentence_map(id), words_distractor(id)')
     .eq('id', id)
     .maybeSingle();
     
@@ -49,6 +51,7 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
   return {
     ...data,
     sentence_count: Array.isArray(data.word_sentence_map) ? data.word_sentence_map.length : 0,
+    distractor_count: Array.isArray(data.words_distractor) ? data.words_distractor.length : 0,
     distractors: data.words_distractor || []
   } as SupabaseWord;
 }
@@ -67,9 +70,7 @@ export async function getWordWithSentences(id: number) {
     ...data,
     sentences: (data.word_sentence_map || []).map((m: any) => ({
       ...m.sentences,
-      used_as: m.used_as,
-      pos_key: m.pos_key,
-      grammar_info: m.grammar_info
+      used_as: m.used_as
     })),
     distractors: data.words_distractor || []
   };
@@ -168,4 +169,37 @@ export async function deleteWord(id: number): Promise<void> {
       console.error(`Storage 삭제 처리 중 오류 (word id: ${id}):`, err);
     }
   }
+}
+
+export async function deleteDistractor(id: number): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from('words_distractor').delete().eq('id', id);
+  if (error) throw new Error(`혼동 어휘 삭제 실패: ${error.message}`);
+}
+
+export async function getWordByText(word: string, langCode: string): Promise<SupabaseWord | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('words')
+    .select('*')
+    .eq('word', word.toLowerCase().trim())
+    .eq('lang_code', langCode)
+    .maybeSingle();
+    
+  if (error || !data) return null;
+  return data as SupabaseWord;
+}
+
+export async function updateDistractor(id: number, input: {
+  distractor?: string;
+  meaning_ko?: string;
+  meaning_en?: string;
+}): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('words_distractor')
+    .update(input)
+    .eq('id', id);
+    
+  if (error) throw new Error(`혼동 어휘 수정 실패: ${error.message}`);
 }
