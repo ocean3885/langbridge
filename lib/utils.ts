@@ -59,3 +59,14 @@ export function formatDate(iso: string | null): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}. ${m}. ${d}.`;
 }
+/**
+ * Supabase Storage의 경로를 공개 URL로 변환합니다.
+ */
+export function getPublicUrl(path: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const bucket = 'langbridge';
+  if (!supabaseUrl) return path;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path.replace(/^\/+/, '')}`;
+}

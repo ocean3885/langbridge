@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, AudioLines, LogOut, Video, BookOpen, Globe, MessageSquare } from 'lucide-react';
+import { User as UserIcon, AudioLines, LogOut, Video, BookOpen, Globe, MessageSquare, Layers } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -31,6 +31,7 @@ const translations = {
     login: '로그인',
     myAccount: '내 계정',
     lbVideos: 'LB 영상',
+    bundles: '학습 번들',
     myVideos: '내 영상',
     profile: '프로필',
     logout: '로그아웃',
@@ -43,6 +44,7 @@ const translations = {
     login: 'Login',
     myAccount: 'My Account',
     lbVideos: 'LB Videos',
+    bundles: 'Learning Bundles',
     myVideos: 'My Videos',
     profile: 'Profile',
     logout: 'Logout',
@@ -168,6 +170,12 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                     <Link href="/lb-videos" className="flex items-center gap-2 cursor-pointer">
                       <Globe className="w-4 h-4" />
                       <span>{t.lbVideos}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/bundles" className="flex items-center gap-2 cursor-pointer">
+                      <Layers className="w-4 h-4" />
+                      <span>{t.bundles}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

@@ -13,6 +13,8 @@ import EduVideoSection, { type EduVideo } from '@/components/home/EduVideoSectio
 import LBVideoSection, { type LBVideo } from '@/components/home/LBVideoSection';
 
 import MyVideoSection, { type UserVideo, type VideoCategory } from '@/components/home/MyVideoSection';
+import BundleSection, { type Bundle } from '@/components/home/BundleSection';
+import { listBundles } from '@/lib/supabase/services/bundles';
 
 export default async function HomePage() {
   const user = await getAppUserFromServer();
@@ -155,6 +157,20 @@ export default async function HomePage() {
   }));
 
 
+  // ── 추천 학습 번들 (최신 4개) ──────────────────────
+  const allBundles = await listBundles();
+  const recentBundles: Bundle[] = allBundles
+    .filter((b: any) => b.is_published)
+    .slice(0, 4)
+    .map((b: any) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      thumbnail_url: b.thumbnail_url,
+      level: b.level,
+      created_at: b.created_at,
+      category_name: b.bundle_category?.name,
+    }));
 
   return (
     <div className="space-y-11">
@@ -176,6 +192,7 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <BundleSection bundles={recentBundles} />
       <EduVideoSection videos={learningVideos} />
       <LBVideoSection videos={lbVideos} />
 
