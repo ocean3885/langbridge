@@ -66,13 +66,22 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">번들 관리</h1>
             <p className="text-gray-500 mt-1">학습 컨텐츠를 번들 단위로 구성하고 관리합니다.</p>
           </div>
-          <button 
-            onClick={() => setIsCategoryModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-100 hover:bg-gray-50 text-gray-700 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
-          >
-            <Settings2 className="w-5 h-5" />
-            카테고리 관리
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white border border-gray-100 hover:bg-gray-50 text-gray-700 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
+            >
+              <Settings2 className="w-5 h-5" />
+              카테고리 관리
+            </button>
+            <Link 
+              href="/admin/bundles/new"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-sm active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              번들 생성
+            </Link>
+          </div>
         </div>
 
         {/* Filters and Search */}

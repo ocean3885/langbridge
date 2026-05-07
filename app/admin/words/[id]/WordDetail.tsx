@@ -587,11 +587,6 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                     <div className="space-y-5">
                       {Object.entries(mObj.data).map(([type, meanings]: [string, any]) => (
                         <div key={type} className="group">
-                          {type !== 'ko' && type !== 'en' && (
-                            <span className="text-[10px] font-bold text-gray-300 uppercase mb-1 block group-hover:text-blue-400 transition-colors">
-                              {formatPOS(type)}
-                            </span>
-                          )}
                           <ul className="space-y-1.5">
                             {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
                               <li key={idx} className="text-lg text-gray-800 font-medium leading-tight">

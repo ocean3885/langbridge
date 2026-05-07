@@ -5,7 +5,7 @@ import { CalendarDays, Eye, Globe, Play, StickyNote, Video } from 'lucide-react'
 import BackButton from '@/components/common/BackButton';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { Button } from '@/components/ui/button';
-import { SqliteEduVideo } from '@/lib/sqlite/edu-videos';
+import { SupabaseEduVideo } from '@/lib/supabase/services/edu-videos';
 import { saveEduVideoSummaryMemo, recordEduVideoStudy } from '@/app/actions/edu-video-progress';
 import { updateEduVideoDuration } from '@/app/actions/edu-video';
 
@@ -32,7 +32,7 @@ type LearningProgress = {
 
 interface EduVideoLearningClientProps {
   youtubeId: string;
-  video: SqliteEduVideo;
+  video: SupabaseEduVideo;
   isLoggedIn: boolean;
   initialProgress: LearningProgress | null;
 }

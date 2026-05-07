@@ -1,3 +1,5 @@
+'use server';
+
 import { createAdminClient } from './supabase/admin';
 import { getStorageBucket } from './supabase/storage';
 import { ACTIVE_LANGUAGE } from './utils';
@@ -12,7 +14,8 @@ import { ACTIVE_LANGUAGE } from './utils';
 export async function generateTTS(
   text: string,
   folder: string = 'sentences',
-  lang: string = ACTIVE_LANGUAGE
+  lang: string = ACTIVE_LANGUAGE,
+  speakingRate: number = 0.9 // 기본 속도를 0.9로 설정하여 약간 천천히 읽도록 함
 ): Promise<string | null> {
   if (!text) return null;
 
@@ -36,7 +39,10 @@ export async function generateTTS(
             // 스페인어인 경우 표준 여성 목소리 사용 (예: es-ES-Standard-A)
             name: lang.includes('es') ? (lang === 'es' ? 'es-ES-Standard-A' : `${lang}-Standard-A`) : undefined
           },
-          audioConfig: { audioEncoding: 'MP3' }
+          audioConfig: { 
+            audioEncoding: 'MP3',
+            speakingRate: speakingRate // 음성 속도 설정 (0.25 ~ 4.0)
+          }
         })
       }
     );

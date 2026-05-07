@@ -1,5 +1,9 @@
+'use server';
+
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStorageBucket } from '@/lib/supabase/storage';
+import { generateTTS } from '@/lib/tts';
+import { deleteFileFromPublicUrl } from './storage';
 
 export type SupabaseSentence = {
   id: number;
@@ -162,4 +166,38 @@ export async function deleteSentence(id: number): Promise<void> {
       console.error(`Storage 삭제 처리 중 오류 (sentence id: ${id}):`, err);
     }
   }
+}
+
+export async function regenerateSentenceTTS(id: number, text: string) {
+  // 1. 새 TTS 생성
+  const newAudioUrl = await generateTTS(text);
+  if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
+
+  const supabase = createAdminClient();
+  
+  // 2. 기존 오디오 정보 조회 (삭제를 위해)
+  const { data: sentence } = await supabase
+    .from('sentences')
+    .select('audio_url')
+    .eq('id', id)
+    .single();
+
+  const oldAudioUrl = sentence?.audio_url;
+
+  // 3. DB 업데이트
+  const { error: updateError } = await supabase
+    .from('sentences')
+    .update({ audio_url: newAudioUrl, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (updateError) throw updateError;
+
+  // 4. 기존 파일 삭제 (비동기로 진행해도 무방)
+  if (oldAudioUrl) {
+    deleteFileFromPublicUrl(oldAudioUrl).catch(err => 
+      console.error('Failed to delete old audio file:', err)
+    );
+  }
+
+  return newAudioUrl;
 }

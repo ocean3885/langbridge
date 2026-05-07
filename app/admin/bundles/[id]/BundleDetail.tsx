@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud, Volume2, ExternalLink } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { updateBundle, deleteBundle, listCategories } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
@@ -370,37 +370,80 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                     {(idx + 1).toString().padStart(2, '0')}
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    {item.words ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px] font-black uppercase">
-                            <Tag className="w-3 h-3" />
-                            WORD
-                          </span>
-                          <span className="text-xs text-gray-400 uppercase font-bold tracking-tighter">{item.words.lang_code}</span>
+                    <div className="flex-1 min-w-0">
+                      {item.words ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px] font-black uppercase">
+                                <Tag className="w-3 h-3" />
+                                WORD
+                              </span>
+                              <span className="text-xs text-gray-400 uppercase font-bold tracking-tighter">{item.words.lang_code}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {item.words.audio_url && (
+                                <button 
+                                  onClick={() => new Audio(item.words.audio_url).play()}
+                                  className="p-1.5 bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 rounded-lg transition-colors"
+                                  title="재생"
+                                >
+                                  <Volume2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <Link 
+                                href={`/admin/words/${item.words.id}`}
+                                className="p-1.5 bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors"
+                                title="상세 정보"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-800 tracking-tight">{item.words.word}</h3>
+                          <p className="text-gray-500 font-medium">{getMeaningDisplay(item.words.meaning_ko)}</p>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-800 tracking-tight">{item.words.word}</h3>
-                        <p className="text-gray-500 font-medium">{getMeaningDisplay(item.words.meaning_ko)}</p>
-                      </div>
-                    ) : item.sentences ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-black uppercase">
-                            <MessageCircle className="w-3 h-3" />
-                            SENTENCE
-                          </span>
+                      ) : item.sentences ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-black uppercase">
+                                <MessageCircle className="w-3 h-3" />
+                                SENTENCE
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {item.sentences.audio_url && (
+                                <button 
+                                  onClick={() => new Audio(item.sentences.audio_url).play()}
+                                  className="p-1.5 bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 rounded-lg transition-colors"
+                                  title="재생"
+                                >
+                                  <Volume2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <Link 
+                                href={`/admin/sentences/${item.sentences.id}`}
+                                className="p-1.5 bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors"
+                                title="상세 정보"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-800 tracking-tight leading-snug">{item.sentences.sentence}</h3>
+                          <p className="text-gray-500 font-medium leading-snug">{item.sentences.translation}</p>
+                          {item.sentences.translation_en && (
+                            <p className="text-xs text-blue-500/60 font-medium italic leading-snug mt-1 flex items-center gap-1">
+                              <span className="w-1 h-1 bg-blue-200 rounded-full" />
+                              {item.sentences.translation_en}
+                            </p>
+                          )}
                         </div>
-                        <h3 className="text-lg font-bold text-gray-800 tracking-tight leading-snug">{item.sentences.sentence}</h3>
-                        <p className="text-gray-500 font-medium leading-snug">{item.sentences.translation}</p>
-                        {item.sentences.translation_en && (
-                          <p className="text-xs text-gray-400 italic leading-snug">{item.sentences.translation_en}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="py-2 text-gray-400 italic">데이터 정보 없음</div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="py-2 text-gray-400 italic">데이터 정보 없음</div>
+                      )}
+                    </div>
                 </div>
               ))}
             </div>

@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '../admin';
+import { generateTTS } from '@/lib/tts';
 
 export async function listBundles() {
   const supabase = createAdminClient();
@@ -26,8 +27,8 @@ export async function listBundleItems(bundleId: string) {
     .from('bundle_items')
     .select(`
       *,
-      words(id, word, meaning_ko, lang_code),
-      sentences(id, sentence, translation)
+      words(*),
+      sentences(*)
     `)
     .eq('bundle_id', bundleId)
     .order('order_index', { ascending: true });
@@ -120,6 +121,228 @@ export async function deleteCategory(id: string) {
   }
 
   return true;
+}
+
+export async function createBundleWithItems(
+  bundleMeta: {
+    title: string;
+    description: string;
+    level: number;
+    category_id: string | null;
+    is_published: boolean;
+  },
+  items: {
+    sentence: string;
+    translation: string;
+    translation_en: string;
+    wordJson: string;
+    imageUrl: string | null;
+  }[]
+) {
+  const supabase = createAdminClient();
+
+  // 1. 번들 생성
+  const { data: bundle, error: bundleError } = await supabase
+    .from('bundle')
+    .insert([{
+      title: bundleMeta.title,
+      description: bundleMeta.description,
+      level: bundleMeta.level,
+      category_id: bundleMeta.category_id || null,
+      is_published: bundleMeta.is_published,
+      thumbnail_url: items[0]?.imageUrl || null // 첫 번째 이미지를 썸네일로 자동 설정 (선택 사항)
+    }])
+    .select()
+    .single();
+
+  if (bundleError) {
+    console.error('Error creating bundle:', bundleError);
+    throw new Error('번들 생성에 실패했습니다.');
+  }
+
+  // 2. 각 아이템 처리
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    try {
+      // a. 문장 생성 (또는 검색) & TTS 생성
+      const { data: existingSentence } = await supabase
+        .from('sentences')
+        .select('*')
+        .eq('sentence', item.sentence.trim())
+        .maybeSingle();
+
+      let sentenceId: number;
+      let audioUrl = existingSentence?.audio_url;
+
+      // 오디오가 없는 경우 TTS 생성
+      if (!audioUrl) {
+        audioUrl = await generateTTS(item.sentence);
+      }
+
+      if (existingSentence) {
+        sentenceId = existingSentence.id;
+        // 기존 문장에 오디오가 없었다면 업데이트
+        if (!existingSentence.audio_url && audioUrl) {
+          await supabase
+            .from('sentences')
+            .update({ audio_url: audioUrl })
+            .eq('id', sentenceId);
+        }
+      } else {
+        const { data: newSentence, error: sError } = await supabase
+          .from('sentences')
+          .insert({
+            sentence: item.sentence,
+            translation: item.translation,
+            translation_en: item.translation_en,
+            audio_url: audioUrl
+          })
+          .select()
+          .single();
+
+        if (sError) throw sError;
+        sentenceId = newSentence.id;
+      }
+
+      // b. 단어 정보 처리 (있는 경우)
+      if (item.wordJson) {
+        try {
+          const parsed = JSON.parse(item.wordJson);
+          const words = parsed.words;
+          
+          if (words) {
+            for (const [originalText, wordInfo] of Object.entries(words) as [string, any]) {
+              // 단어 검색 또는 생성 & TTS 생성
+              const { data: existingWord } = await supabase
+                .from('words')
+                .select('*')
+                .eq('word', wordInfo.word.toLowerCase().trim())
+                .eq('lang_code', 'es')
+                .maybeSingle();
+
+              let wordId: number;
+              let wordAudioUrl = existingWord?.audio_url;
+
+              // 단어 오디오가 없는 경우 TTS 생성
+              if (!wordAudioUrl) {
+                wordAudioUrl = await generateTTS(wordInfo.word, 'words');
+              }
+
+              if (existingWord) {
+                wordId = existingWord.id;
+                // 기존 단어에 오디오가 없었다면 업데이트
+                if (!existingWord.audio_url && wordAudioUrl) {
+                  await supabase
+                    .from('words')
+                    .update({ audio_url: wordAudioUrl })
+                    .eq('id', wordId);
+                }
+              } else {
+                const { data: newWord, error: wError } = await supabase
+                  .from('words')
+                  .insert({
+                    word: wordInfo.word,
+                    lang_code: 'es',
+                    pos: wordInfo.pos || [],
+                    meaning_ko: wordInfo.meaning_ko || {},
+                    meaning_en: wordInfo.meaning_en || {},
+                    gender: wordInfo.gender || null,
+                    conjugations: wordInfo.conjugations || {},
+                    declensions: wordInfo.declensions || {},
+                    audio_url: wordAudioUrl
+                  })
+                  .select()
+                  .single();
+                
+                if (wError) {
+                  console.error('Error creating word:', wError);
+                  continue;
+                }
+                wordId = newWord.id;
+              }
+
+              // 단어-문장 매핑 (중복 확인 후 생성)
+              const { data: existingMap } = await supabase
+                .from('word_sentence_map')
+                .select('id')
+                .eq('word_id', wordId)
+                .eq('sentence_id', sentenceId)
+                .maybeSingle();
+
+              if (!existingMap) {
+                await supabase
+                  .from('word_sentence_map')
+                  .insert({
+                    word_id: wordId,
+                    sentence_id: sentenceId,
+                    used_as: originalText
+                  });
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error processing word JSON:', err);
+        }
+      }
+
+      // c. 번들 아이템 생성 (이미지 포함)
+      const { error: biError } = await supabase
+        .from('bundle_items')
+        .insert({
+          bundle_id: bundle.id,
+          sentence_id: sentenceId,
+          order_index: i,
+          image_url: item.imageUrl
+        });
+
+      if (biError) throw biError;
+
+    } catch (err) {
+      console.error(`Error processing bundle item ${i}:`, err);
+      // 개별 아이템 에러 시 전체 롤백은 지원되지 않으므로 로그 남기고 진행하거나
+      // 실제 프로젝트에서는 RPC/Database Function을 사용하는 것이 안전합니다.
+    }
+  }
+
+  return bundle;
+}
+
+export async function listBundlesForSentence(sentenceId: number) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_items')
+    .select(`
+      bundle_id,
+      bundle (
+        id,
+        title,
+        description,
+        level,
+        thumbnail_url,
+        is_published,
+        created_at,
+        bundle_category (
+          id,
+          name
+        )
+      )
+    `)
+    .eq('sentence_id', sentenceId);
+
+  if (error) {
+    console.error('Error fetching bundles for sentence:', error);
+    return [];
+  }
+
+  // 중복 제거 및 번들 정보 추출
+  const bundles = data
+    .map((item: any) => item.bundle)
+    .filter((bundle: any, index: number, self: any[]) => 
+      bundle && self.findIndex(b => b.id === bundle.id) === index
+    );
+
+  return bundles;
 }
 
 export async function updateBundle(id: string, updates: any) {

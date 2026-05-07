@@ -39,3 +39,34 @@ export async function uploadThumbnail(formData: FormData) {
 
   return publicUrl;
 }
+/**
+ * 공개 URL로부터 파일 경로를 추출하여 스토리지에서 삭제합니다.
+ */
+export async function deleteFileFromPublicUrl(url: string) {
+  if (!url) return;
+  
+  const supabase = createAdminClient();
+  const bucket = 'langbridge';
+  
+  try {
+    let storagePath = url;
+    
+    // URL에서 경로 추출 (e.g., https://.../storage/v1/object/public/bucket/path/to/file.mp3)
+    if (url.startsWith('http')) {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      // public/bucket/ 이후의 경로가 실제 파일 경로임
+      const bucketIndex = pathParts.findIndex(p => p === bucket);
+      if (bucketIndex !== -1 && bucketIndex + 1 < pathParts.length) {
+        storagePath = decodeURIComponent(pathParts.slice(bucketIndex + 1).join('/'));
+      }
+    }
+    
+    const { error } = await supabase.storage.from(bucket).remove([storagePath]);
+    if (error) {
+      console.error('File deletion error:', error);
+    }
+  } catch (err) {
+    console.error('Error parsing URL for deletion:', err);
+  }
+}

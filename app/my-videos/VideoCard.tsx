@@ -3,11 +3,11 @@ import Image from 'next/image';
 import { Video, Clock, Tag } from 'lucide-react';
 import { formatDuration, relativeFromNowKo } from '@/lib/utils';
 import type { VideoItem } from './types';
-import type { SqliteVideoProgress } from '@/lib/sqlite/video-progress';
+import type { SupabaseVideoProgress } from '@/lib/supabase/services/video-progress';
 
 interface VideoCardProps {
   video: VideoItem;
-  progress?: SqliteVideoProgress;
+  progress?: SupabaseVideoProgress;
   priority?: boolean;
 }
 
@@ -49,11 +49,10 @@ export default function VideoCard({ video, progress, priority = false }: VideoCa
           {/* 카테고리 배지 */}
           <div className="flex items-center mb-2">
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full border ${
-                video.category_name
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full border ${video.category_name
                   ? 'bg-blue-50 text-blue-700 border-blue-100'
                   : 'bg-gray-50 text-gray-500 border-gray-200'
-              }`}
+                }`}
             >
               <Tag className="w-3 h-3" />
               {video.category_name || '미지정'}
