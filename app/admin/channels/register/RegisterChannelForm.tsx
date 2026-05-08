@@ -53,9 +53,9 @@ export default function RegisterChannelForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
+    <form onSubmit={onSubmit} className="space-y-6 bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-800">
       <div>
-        <label className="block text-sm font-medium mb-2">채널명 *</label>
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">채널명 *</label>
         <input
           type="text"
           name="channelName"
@@ -63,53 +63,53 @@ export default function RegisterChannelForm() {
           onChange={onChange}
           required
           placeholder="예: TED-Ed (English)"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">채널 URL</label>
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">채널 URL</label>
         <input
           type="url"
           name="channelUrl"
           value={form.channelUrl}
           onChange={onChange}
           placeholder="https://www.youtube.com/@..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">썸네일 URL</label>
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">썸네일 URL</label>
         <input
           type="url"
           name="thumbnailUrl"
           value={form.thumbnailUrl}
           onChange={onChange}
           placeholder="https://.../image.png"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">설명</label>
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">설명</label>
         <textarea
           name="channelDescription"
           value={form.channelDescription}
           onChange={onChange}
           rows={3}
           placeholder="채널에 대한 설명"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white resize-none"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all resize-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">언어</label>
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">언어</label>
         <select
           name="languageId"
           value={form.languageId}
           onChange={onChange}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
         >
           <option value="">선택안함</option>
           {languages.map(l => (
@@ -130,7 +130,7 @@ export default function RegisterChannelForm() {
           type="button"
           onClick={() => history.back()}
           disabled={isSubmitting}
-          className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+          className="px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
         >
           취소
         </button>

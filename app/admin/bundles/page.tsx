@@ -22,7 +22,7 @@ export default async function BundlesPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <BundlesManager initialBundles={bundles} />
     </>
   );

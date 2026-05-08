@@ -139,14 +139,14 @@ export default function SentenceDetailContent({
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setIsEditing(!isEditing)}
-            className={`p-2 rounded-xl transition-all ${isEditing ? 'bg-gray-200 text-gray-700' : 'bg-white border border-gray-100 text-gray-600 hover:bg-gray-50 shadow-sm'}`}
+            className={`p-2 rounded-xl transition-all ${isEditing ? 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm'}`}
           >
             {isEditing ? <X className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
           </button>
           <button 
             disabled={isDeleting}
             onClick={handleDelete}
-            className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-all shadow-sm shadow-red-100 disabled:opacity-50"
+            className="p-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-all shadow-sm shadow-red-100 dark:shadow-none disabled:opacity-50"
           >
             {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
           </button>
@@ -155,27 +155,27 @@ export default function SentenceDetailContent({
 
       <div className="space-y-8">
         {/* Main Content Card */}
-        <section className="bg-white rounded-3xl shadow-sm border border-gray-100">
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="p-8">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-50">
               <div className="flex items-center gap-3">
-                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                   <MessageSquare className="w-3 h-3" />
                   문장 상세 정보
                 </span>
                 {sentence.audio_url && (
                   <button 
                     onClick={() => new Audio(getFullAudioUrl(sentence.audio_url)!).play()}
-                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all active:scale-90"
+                    className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90"
                     title="음성 재생"
                   >
                     <Volume2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
+              <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500 font-medium">
                 <span>ID: {sentence.id}</span>
-                <span className="w-px h-3 bg-gray-100" />
+                <span className="w-px h-3 bg-gray-100 dark:bg-gray-800" />
                 <span>등록일: {formatDate(sentence.created_at)}</span>
               </div>
             </div>
@@ -188,7 +188,7 @@ export default function SentenceDetailContent({
                     type="text"
                     value={editForm.sentence}
                     onChange={(e) => setEditForm({...editForm, sentence: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold text-xl"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none transition-all font-bold text-xl text-gray-900 dark:text-white"
                   />
                 </div>
                 <div className="space-y-2">
@@ -197,7 +197,7 @@ export default function SentenceDetailContent({
                     type="text"
                     value={editForm.translation}
                     onChange={(e) => setEditForm({...editForm, translation: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none transition-all text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
@@ -206,10 +206,10 @@ export default function SentenceDetailContent({
                     type="text"
                     value={editForm.translation_en}
                     onChange={(e) => setEditForm({...editForm, translation_en: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 outline-none transition-all font-serif"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none transition-all font-serif text-gray-900 dark:text-gray-100"
                   />
                 </div>
-                <div className="flex flex-wrap justify-between items-center gap-4 pt-4 border-t border-gray-50 mt-4">
+                <div className="flex flex-wrap justify-between items-center gap-4 pt-4 border-t border-gray-50 dark:border-gray-800 mt-4">
                   <TTSRegenerator 
                     text={editForm.sentence}
                     onGenerate={handleRegenerateTTS}
@@ -218,7 +218,7 @@ export default function SentenceDetailContent({
                   <div className="flex gap-2">
                     <button 
                       onClick={() => setIsEditing(false)}
-                      className="px-6 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all"
+                      className="px-6 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
                     >
                       취소
                     </button>
@@ -236,10 +236,10 @@ export default function SentenceDetailContent({
             ) : (
               <div className="space-y-4">
                 <div>
-                  <h1 className="text-4xl font-black text-gray-900 mb-2 leading-tight">{sentence.sentence}</h1>
-                  <p className="text-xl text-gray-600 font-medium mb-1">{sentence.translation}</p>
+                  <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2 leading-tight">{sentence.sentence}</h1>
+                  <p className="text-xl text-gray-600 dark:text-gray-400 font-medium mb-1">{sentence.translation}</p>
                   {sentence.translation_en && (
-                    <p className="text-lg text-blue-500/60 font-medium italic">{sentence.translation_en}</p>
+                    <p className="text-lg text-blue-500/60 dark:text-blue-400/60 font-medium italic">{sentence.translation_en}</p>
                   )}
                 </div>
               </div>
@@ -248,8 +248,8 @@ export default function SentenceDetailContent({
         </section>
 
         {/* Word List Section */}
-        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-8">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-blue-500" />
             포함된 단어 ({sentence.words?.length || 0})
           </h2>
@@ -258,15 +258,15 @@ export default function SentenceDetailContent({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {sentence.words.map((w: any, idx: number) => (
                 <Link href={`/admin/words/${w.id}`} key={idx} className="block">
-                  <div className="p-5 rounded-2xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                  <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <p className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {w.word}
                         </p>
                         <div className="flex gap-1">
                           {(w.pos || []).map((p: string, i: number) => (
-                            <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                            <span key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
                               {formatPOS(p)}
                             </span>
                           ))}
@@ -274,16 +274,16 @@ export default function SentenceDetailContent({
                       </div>
                     </div>
                     <div className="mt-auto">
-                      <p className="text-sm text-gray-600 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
-                      <p className="text-xs text-gray-400 italic">{getMeaningDisplay(w.meaning_en)}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 italic">{getMeaningDisplay(w.meaning_en)}</p>
                     </div>
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 mb-8">
-              <p className="text-gray-400 font-medium">연결된 단어가 없습니다.</p>
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 mb-8">
+              <p className="text-gray-400 dark:text-gray-500 font-medium">연결된 단어가 없습니다.</p>
             </div>
           )}
 
@@ -300,8 +300,8 @@ export default function SentenceDetailContent({
         </section>
 
         {/* Related Bundles Section */}
-        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-8">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
             <Layout className="w-5 h-5 text-amber-500" />
             연결된 번들 ({relatedBundles.length})
           </h2>
@@ -310,7 +310,7 @@ export default function SentenceDetailContent({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {relatedBundles.map((b: any) => (
                 <Link href={`/admin/bundles/${b.id}`} key={b.id} className="group">
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 group-hover:border-amber-200 transition-all shadow-sm group-hover:shadow-md">
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 group-hover:border-amber-200 dark:group-hover:border-amber-900 transition-all shadow-sm group-hover:shadow-md">
                     <div className="w-16 aspect-video rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                       {b.thumbnail_url ? (
                         <img src={b.thumbnail_url} alt={b.title} className="w-full h-full object-cover" />
@@ -321,11 +321,11 @@ export default function SentenceDetailContent({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-bold text-gray-900 truncate group-hover:text-amber-600 transition-colors">{b.title}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{b.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-black text-amber-600 uppercase">Lv.{b.level}</span>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase">Lv.{b.level}</span>
                         {b.bundle_category && (
-                          <span className="text-[10px] text-gray-400 font-bold">| {b.bundle_category.name}</span>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold">| {b.bundle_category.name}</span>
                         )}
                       </div>
                     </div>
@@ -334,8 +334,8 @@ export default function SentenceDetailContent({
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-              <p className="text-gray-400 font-medium">이 문장이 포함된 번들이 없습니다.</p>
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
+              <p className="text-gray-400 dark:text-gray-500 font-medium">이 문장이 포함된 번들이 없습니다.</p>
             </div>
           )}
         </section>

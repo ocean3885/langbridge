@@ -34,7 +34,7 @@ export default async function SentencesPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <SentencesManager initialSentences={sentences} languages={[]} />
     </>
   );

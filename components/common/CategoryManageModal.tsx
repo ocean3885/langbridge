@@ -219,29 +219,29 @@ export default function CategoryManageModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-gray-100 dark:border-gray-800">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-bold">카테고리 관리</h2>
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">카테고리 관리</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         {/* 본문 */}
         <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
           {/* 새 카테고리 추가 */}
-          <div className="bg-blue-50 rounded-lg p-3 sm:p-4 space-y-3">
-            <h3 className="font-semibold text-blue-900 text-sm sm:text-base">새 카테고리 추가</h3>
+          <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg p-3 sm:p-4 space-y-3">
+            <h3 className="font-semibold text-blue-900 dark:text-blue-300 text-sm sm:text-base">새 카테고리 추가</h3>
             <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={selectedLanguageId ?? ''}
                 onChange={(e) => setSelectedLanguageId(parseInt(e.target.value))}
                 disabled={isAdding}
-                className="w-full sm:w-auto border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                className="w-full sm:w-auto border border-gray-300 dark:border-gray-700 rounded-md px-2 sm:px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 {languages.map((lang) => (
                   <option key={lang.id} value={lang.id}>
@@ -255,7 +255,7 @@ export default function CategoryManageModal({
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="카테고리 이름"
                 disabled={isAdding}
-                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                className="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -276,16 +276,16 @@ export default function CategoryManageModal({
 
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-red-800 text-sm">❌ {error}</p>
+            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 rounded-md p-4">
+              <p className="text-red-800 dark:text-red-400 text-sm">❌ {error}</p>
             </div>
           )}
 
           {/* 카테고리 목록 */}
           {loading ? (
-            <div className="text-center py-8 text-gray-500">로딩 중...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩 중...</div>
           ) : categories.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               카테고리가 없습니다. 위에서 추가해보세요.
             </div>
           ) : (
@@ -294,14 +294,14 @@ export default function CategoryManageModal({
                 const language = languages.find(l => l.id === parseInt(langId));
                 return (
                   <div key={langId} className="space-y-2">
-                    <h4 className="font-semibold text-gray-700 text-xs sm:text-sm">
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
                       {language ? language.name_ko : '언어 미지정'}
                     </h4>
                     <div className="space-y-2">
                       {cats.map((category) => (
                         <div
                           key={category.id}
-                          className="flex flex-col bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+                          className="flex flex-col bg-gray-50 dark:bg-gray-800/50 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
                           <div className="flex items-center gap-2 p-2 sm:p-3">
                             {editingId === category.id ? (
@@ -310,7 +310,7 @@ export default function CategoryManageModal({
                                   type="text"
                                   value={editingName}
                                   onChange={(e) => setEditingName(e.target.value)}
-                                  className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="flex-1 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                       handleEdit(category.id, editingName);
@@ -335,20 +335,20 @@ export default function CategoryManageModal({
                               </>
                             ) : (
                               <>
-                                <span className="flex-1 font-medium text-sm sm:text-base break-all">{category.name}</span>
+                                <span className="flex-1 font-medium text-sm sm:text-base break-all text-gray-900 dark:text-gray-100">{category.name}</span>
                                 <button
                                   onClick={() => startEdit(category)}
-                                  className="p-2 hover:bg-blue-100 rounded transition-colors"
+                                  className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors"
                                   title="수정"
                                 >
-                                  <Pencil className="w-4 h-4 text-blue-600" />
+                                  <Pencil className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                 </button>
                                 <button
                                   onClick={() => handleDelete(category.id)}
-                                  className="p-2 hover:bg-red-100 rounded transition-colors"
+                                  className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                                   title="삭제"
                                 >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                  <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                                 </button>
                               </>
                             )}
@@ -364,10 +364,10 @@ export default function CategoryManageModal({
         </div>
 
         {/* 푸터 */}
-        <div className="sticky bottom-0 bg-gray-50 border-t px-3 sm:px-6 py-3 sm:py-4 flex justify-end">
+        <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-100 dark:border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex justify-end">
           <button
             onClick={onClose}
-            className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium text-sm"
+            className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium text-sm transition-colors"
           >
             닫기
           </button>

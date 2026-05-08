@@ -46,6 +46,7 @@ export default async function VideoPage({ params }: VideoPageProps) {
         lastPositionSeconds: progress.last_position_seconds,
         summaryMemo: progress.summary_memo,
       } : null}
+      language={user?.displayLanguage || 'ko'}
     />
   );
 }

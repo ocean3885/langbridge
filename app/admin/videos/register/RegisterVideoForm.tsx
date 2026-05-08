@@ -97,17 +97,17 @@ export default function RegisterVideoForm() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">영상 등록</h1>
-          <p className="text-gray-600 mt-2">학습용 YouTube 영상을 edu_videos 테이블에 등록합니다.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">영상 등록</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">학습용 YouTube 영상을 edu_videos 테이블에 등록합니다.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-800">
         {/* YouTube URL */}
         <div>
-          <label htmlFor="youtubeUrl" className="block text-sm font-medium mb-2">
+          <label htmlFor="youtubeUrl" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             YouTube URL *
           </label>
           <input
@@ -118,16 +118,16 @@ export default function RegisterVideoForm() {
             onChange={handleChange}
             required
             placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
           />
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             YouTube 영상 URL을 입력하세요 (예: https://www.youtube.com/watch?v=dQw4w9WgXcQ)
           </p>
         </div>
 
         {/* 제목 */}
         <div>
-          <label htmlFor="title" className="block text-sm font-medium mb-2">
+          <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             제목 *
           </label>
           <input
@@ -138,13 +138,13 @@ export default function RegisterVideoForm() {
             onChange={handleChange}
             required
             placeholder="영상 제목"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
           />
         </div>
 
         {/* 설명 */}
         <div>
-          <label htmlFor="description" className="block text-sm font-medium mb-2">
+          <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             설명
           </label>
           <textarea
@@ -154,19 +154,19 @@ export default function RegisterVideoForm() {
             onChange={handleChange}
             rows={3}
             placeholder="영상 설명 (선택사항)"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 resize-none"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all resize-none"
           />
         </div>
 
         {/* 채널 */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="channelId" className="block text-sm font-medium">채널</label>
-            <a href="/admin/channels/register" className="text-xs text-blue-600 hover:underline">채널 추가</a>
+            <label htmlFor="channelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">채널</label>
+            <a href="/admin/channels/register" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">채널 추가</a>
           </div>
           {channels.length === 0 ? (
-            <div className="text-sm text-gray-600 mb-2">
-              등록된 채널이 없습니다. <a href="/admin/channels/register" className="text-blue-600 hover:underline">채널 추가 페이지</a>에서 먼저 채널을 등록해주세요.
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              등록된 채널이 없습니다. <a href="/admin/channels/register" className="text-blue-600 dark:text-blue-400 hover:underline">채널 추가 페이지</a>에서 먼저 채널을 등록해주세요.
             </div>
           ) : null}
           <select
@@ -174,7 +174,7 @@ export default function RegisterVideoForm() {
             name="channelId"
             value={formData.channelId}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
           >
             <option value="">채널 선택 (선택사항)</option>
             {channels.map(c => (
@@ -185,7 +185,7 @@ export default function RegisterVideoForm() {
 
         {/* 영상 언어 */}
         <div>
-          <label htmlFor="videoLanguageId" className="block text-sm font-medium mb-2">
+          <label htmlFor="videoLanguageId" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             영상 언어
           </label>
           <select
@@ -193,7 +193,7 @@ export default function RegisterVideoForm() {
             name="videoLanguageId"
             value={formData.videoLanguageId}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
           >
             <option value="">언어 선택</option>
             {languages.map(l => (
@@ -204,13 +204,13 @@ export default function RegisterVideoForm() {
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label htmlFor="categoryId" className="block text-sm font-medium">
+            <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               교육 영상 카테고리
             </label>
             <button
               type="button"
               onClick={() => setShowManageModal(true)}
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               <Settings className="h-3.5 w-3.5" />
               카테고리 관리
@@ -221,7 +221,7 @@ export default function RegisterVideoForm() {
             name="categoryId"
             value={formData.categoryId}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
           >
             <option value="">카테고리 미지정</option>
             {filteredCategories.map((category) => (
@@ -243,7 +243,7 @@ export default function RegisterVideoForm() {
             type="button"
             onClick={() => router.back()}
             disabled={isSubmitting}
-            className="px-6 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
+            className="px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             취소
           </button>

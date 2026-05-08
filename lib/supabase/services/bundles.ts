@@ -113,9 +113,9 @@ export async function listCategories() {
 
 export async function createCategory(category: { 
   name: string; 
-  name_en?: string; 
-  description?: string; 
-  description_en?: string; 
+  name_en?: string | null; 
+  description?: string | null; 
+  description_en?: string | null; 
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -135,9 +135,9 @@ export async function createCategory(category: {
 
 export async function updateCategory(id: string, updates: { 
   name?: string; 
-  name_en?: string; 
-  description?: string; 
-  description_en?: string; 
+  name_en?: string | null; 
+  description?: string | null; 
+  description_en?: string | null; 
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -174,9 +174,9 @@ export async function deleteCategory(id: string) {
 export async function createBundleWithItems(
   bundleMeta: {
     title: string;
-    title_en?: string;
+    title_en?: string | null;
     description: string;
-    description_en?: string;
+    description_en?: string | null;
     level: number;
     category_id: string | null;
     is_published: boolean;

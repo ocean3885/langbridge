@@ -84,7 +84,7 @@ export default function BundlePlayerClient({
     setCurrentRepeat(0);
     setEditingMemoId(null);
     if (isPlayingRef.current && currentItem) {
-      setTimeout(() => playAudio(), 50);
+      setTimeout(() => playAudio(), 1000);
     }
   }, [currentIndex]);
 
@@ -142,7 +142,7 @@ export default function BundlePlayerClient({
         if (isPlayingRef.current) {
           playAudio();
         }
-      }, 500);
+      }, 1000);
     } else {
       if (currentIndex < items.length - 1) {
         setCurrentIndex((prev) => prev + 1);
@@ -227,9 +227,9 @@ export default function BundlePlayerClient({
 
   if (!items || items.length === 0) {
     return (
-      <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200 mt-8">
-        <Info className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500 font-bold">{t.noItems}</p>
+      <div className="text-center py-20 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 mt-8">
+        <Info className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+        <p className="text-gray-500 dark:text-gray-400 font-bold">{t.noItems}</p>
       </div>
     );
   }
@@ -245,7 +245,7 @@ export default function BundlePlayerClient({
       />
 
       {/* Left Column: Player Main Section */}
-      <div className="w-full md:w-1/2 lg:w-[45%] shrink-0 bg-white rounded-3xl shadow-2xl md:shadow-lg border border-gray-100 overflow-hidden sticky top-2 sm:top-20 md:top-24 z-40 md:z-10 transition-shadow">
+      <div className="w-full md:w-1/2 lg:w-[45%] shrink-0 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl md:shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden sticky top-2 sm:top-20 md:top-24 z-40 md:z-10 transition-shadow">
         
         {/* Video Area */}
         <div className="relative w-full aspect-[4/3] sm:aspect-video bg-black flex flex-col justify-end overflow-hidden group">
@@ -312,9 +312,9 @@ export default function BundlePlayerClient({
         </div>
 
         {/* Controls Area */}
-        <div className="p-4 md:p-6 lg:p-8 bg-white relative">
+        <div className="p-4 md:p-6 lg:p-8 bg-white dark:bg-gray-900 relative">
           {/* Progress Bar */}
-          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-6">
+          <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-6">
             <div 
               className="h-full bg-blue-600 transition-all duration-300 ease-out"
               style={{ width: `${((currentIndex + 1) / items.length) * 100}%` }}
@@ -324,35 +324,35 @@ export default function BundlePlayerClient({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-0">
             {/* Language Toggles */}
             <div className="hidden sm:flex flex-1 justify-start">
-              <div className="flex gap-1 bg-gray-50 border border-gray-100 rounded-full p-1 shadow-sm">
-                <button onClick={() => setShowEs(!showEs)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showEs ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>ES</button>
-                {language === 'ko' && <button onClick={() => setShowKo(!showKo)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showKo ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>KO</button>}
-                <button onClick={() => setShowEn(!showEn)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showEn ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>EN</button>
+              <div className="flex gap-1 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-full p-1 shadow-sm">
+                <button onClick={() => setShowEs(!showEs)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showEs ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400'}`}>ES</button>
+                {language === 'ko' && <button onClick={() => setShowKo(!showKo)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showKo ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400'}`}>KO</button>}
+                <button onClick={() => setShowEn(!showEn)} className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${showEn ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400'}`}>EN</button>
               </div>
             </div>
 
             {/* Play Controls */}
             <div className="flex items-center justify-center gap-4 sm:gap-6 shrink-0">
-              <button onClick={() => {setCurrentIndex(0); updateIsPlaying(true);}} disabled={currentIndex === 0} className="p-2 text-gray-400 hover:text-blue-600 disabled:opacity-30 transition-colors"><SkipBack className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-              <button onClick={handlePrev} disabled={currentIndex === 0} className="p-2 text-gray-400 hover:text-blue-600 disabled:opacity-30 transition-colors"><ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" /></button>
-              <button onClick={togglePlay} className="p-2 text-gray-800 hover:text-blue-600 transition-colors active:scale-95">
+              <button onClick={() => {setCurrentIndex(0); updateIsPlaying(true);}} disabled={currentIndex === 0} className="p-2 text-gray-400 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-30 transition-colors"><SkipBack className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+              <button onClick={handlePrev} disabled={currentIndex === 0} className="p-2 text-gray-400 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-30 transition-colors"><ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" /></button>
+              <button onClick={togglePlay} className="p-2 text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors active:scale-95">
                 {isPlaying ? <Pause className="w-8 h-8 sm:w-9 sm:h-9 fill-current" /> : <Play className="w-8 h-8 sm:w-9 sm:h-9 fill-current" />}
               </button>
-              <button onClick={handleNext} disabled={currentIndex === items.length - 1} className="p-2 text-gray-400 hover:text-blue-600 disabled:opacity-30 transition-colors"><ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" /></button>
+              <button onClick={handleNext} disabled={currentIndex === items.length - 1} className="p-2 text-gray-400 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-30 transition-colors"><ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" /></button>
             </div>
 
             {/* Repeat Settings */}
             <div className="hidden sm:flex flex-1 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 p-2 px-3 text-gray-500 hover:text-blue-600 transition-colors bg-gray-50 hover:bg-gray-100 rounded-full border border-gray-100 shadow-sm">
+                  <button className="flex items-center gap-1.5 p-2 px-3 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
                     <Repeat className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="text-xs sm:text-sm font-bold w-4 text-center">{repeatCount === Infinity ? '∞' : repeatCount}</span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
                   {REPEAT_OPTIONS.map((count) => (
-                    <DropdownMenuItem key={count} onClick={() => {setRepeatCount(count); setCurrentRepeat(0);}} className={repeatCount === count ? 'text-blue-600 font-bold bg-blue-50' : ''}>
+                    <DropdownMenuItem key={count} onClick={() => {setRepeatCount(count); setCurrentRepeat(0);}} className={repeatCount === count ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30' : 'dark:text-gray-200 dark:hover:bg-gray-700'}>
                       {count === Infinity ? t.infiniteRepeat : t.repeatTimes(count)}
                     </DropdownMenuItem>
                   ))}
@@ -364,9 +364,9 @@ export default function BundlePlayerClient({
       </div>
 
       {/* Right Column: Playlist Section */}
-      <div className="w-full md:w-1/2 lg:w-[55%] flex-grow bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6 lg:p-8">
-        <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-blue-500" />
+      <div className="w-full md:w-1/2 lg:w-[55%] flex-grow bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 md:p-6 lg:p-8">
+        <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-4 md:mb-6 flex items-center gap-2">
+          <Layers className="w-5 h-5 text-blue-500 dark:text-blue-400" />
           {t.fullList} ({items.length})
         </h3>
         <div className="space-y-3">
@@ -382,21 +382,21 @@ export default function BundlePlayerClient({
                 onClick={() => {setCurrentIndex(index); updateIsPlaying(true);}}
                 className={`group w-full flex flex-col p-3 md:p-4 rounded-2xl transition-all text-left cursor-pointer border ${
                   isCurrent 
-                    ? 'bg-blue-50 border-blue-100 shadow-sm' 
-                    : 'bg-white border-transparent hover:bg-gray-50'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30 shadow-sm' 
+                    : 'bg-white dark:bg-gray-900 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
                 <div className="flex items-start gap-3 md:gap-4 w-full">
                   <div className={`w-8 h-8 mt-0.5 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${
-                    isCurrent ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                    isCurrent ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                   }`}>
                     {isCurrent && isPlaying ? <Volume2 className="w-4 h-4" /> : index + 1}
                   </div>
                   <div className="flex-grow min-w-0 relative pr-10">
-                    <p className={`font-bold leading-relaxed ${isCurrent ? 'text-blue-900' : 'text-gray-900'}`}>
+                    <p className={`font-bold leading-relaxed ${isCurrent ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-gray-100'}`}>
                       {item.sentences?.sentence}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1.5 leading-relaxed break-words">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed break-words">
                       {language === 'en' ? item.sentences?.translation_en : item.sentences?.translation}
                     </p>
 
@@ -407,8 +407,8 @@ export default function BundlePlayerClient({
                             onClick={(e) => handleTogglePin(e, item.sentence_id)}
                             className={`p-1.5 rounded-lg transition-all ${
                               interaction?.is_pinned 
-                                ? 'text-amber-500 bg-amber-50' 
-                                : 'text-gray-300 hover:text-gray-400 hover:bg-gray-100 opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                                ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' 
+                                : 'text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 opacity-100 md:opacity-0 md:group-hover:opacity-100'
                             }`}
                           >
                             <Bookmark className={`w-4 h-4 ${interaction?.is_pinned ? 'fill-current' : ''}`} />
@@ -418,8 +418,8 @@ export default function BundlePlayerClient({
                             onClick={(e) => handleStartEditMemo(e, index, item.sentence_id, interaction?.memo)}
                             className={`p-1.5 rounded-lg transition-all ${
                               interaction?.memo 
-                                ? 'text-blue-500 bg-blue-50' 
-                                : 'text-gray-300 hover:text-gray-400 hover:bg-gray-100 opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                                ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                : 'text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 opacity-100 md:opacity-0 md:group-hover:opacity-100'
                             }`}
                           >
                             <StickyNote className={`w-4 h-4 ${interaction?.memo ? 'fill-current' : ''}`} />
@@ -437,29 +437,29 @@ export default function BundlePlayerClient({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
                         <StickyNote className="w-3 h-3" />
                         Edit Memo
                       </span>
                       <button 
                         onClick={(e) => { e.stopPropagation(); setEditingMemoId(null); }} 
-                        className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
                       >
-                        <X className="w-4 h-4 text-gray-400" />
+                        <X className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                       </button>
                     </div>
                     <textarea 
                       value={tempMemo}
                       onChange={(e) => setTempMemo(e.target.value)}
                       placeholder={t.memoPlaceholder}
-                      className="w-full p-3 bg-white border border-blue-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none text-sm transition-all shadow-sm"
+                      className="w-full p-3 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-xl resize-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 focus:border-blue-400 dark:focus:border-blue-700 outline-none text-sm dark:text-gray-100 transition-all shadow-sm"
                       rows={2}
                       autoFocus
                     />
                     <div className="flex justify-end gap-2 mt-3">
                       <button 
                         onClick={(e) => { e.stopPropagation(); setEditingMemoId(null); }}
-                        className="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                        className="px-4 py-1.5 text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                       >
                         {t.cancel}
                       </button>
@@ -476,8 +476,8 @@ export default function BundlePlayerClient({
 
                 {/* Display Memo (when not editing) */}
                 {!isEditingThisMemo && interaction?.memo && (
-                  <div className="mt-3 ml-11 md:ml-12 pl-3 border-l-2 border-blue-200 py-1">
-                    <p className="text-xs text-blue-800/80 leading-relaxed italic whitespace-pre-wrap">
+                  <div className="mt-3 ml-11 md:ml-12 pl-3 border-l-2 border-blue-200 dark:border-blue-800 py-1">
+                    <p className="text-xs text-blue-800/80 dark:text-blue-300/80 leading-relaxed italic whitespace-pre-wrap">
                       {interaction.memo}
                     </p>
                   </div>

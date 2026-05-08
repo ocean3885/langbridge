@@ -124,12 +124,12 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">언어 관리</h1>
-            <p className="text-gray-600 mt-2">학습할 수 있는 언어를 관리합니다.</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">언어 관리</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">학습할 수 있는 언어를 관리합니다.</p>
           </div>
           <button
             onClick={() => setIsAdding(true)}
@@ -143,37 +143,37 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
 
         {/* 추가 폼 */}
         {isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">새 언어 추가</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6 mb-6 border-2 border-blue-500">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">새 언어 추가</h2>
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">영어 이름</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">영어 이름</label>
                 <input
                   type="text"
                   value={formData.name_en}
                   onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
                   placeholder="English"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">한국어 이름</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">한국어 이름</label>
                 <input
                   type="text"
                   value={formData.name_ko}
                   onChange={(e) => setFormData({ ...formData, name_ko: e.target.value })}
                   placeholder="영어"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">언어 코드</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">언어 코드</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase() })}
                   placeholder="en"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -199,29 +199,29 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
         )}
 
         {/* 언어 목록 */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden border border-gray-100 dark:border-gray-800">
           <table className="w-full">
-            <thead className="bg-gray-100 border-b">
+            <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">ID</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">영어 이름</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">한국어 이름</th>
-                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">코드</th>
-                <th className="text-right px-6 py-3 text-sm font-semibold text-gray-700">작업</th>
+                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">ID</th>
+                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">영어 이름</th>
+                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">한국어 이름</th>
+                <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">코드</th>
+                <th className="text-right px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">작업</th>
               </tr>
             </thead>
             <tbody>
               {languages.map((language) => (
-                <tr key={language.id} className="border-b hover:bg-gray-50">
+                <tr key={language.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   {editingId === language.id ? (
                     <>
-                      <td className="px-6 py-4 text-sm text-gray-700">{language.id}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{language.id}</td>
                       <td className="px-6 py-4">
                         <input
                           type="text"
                           value={formData.name_en}
                           onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         />
                       </td>
                       <td className="px-6 py-4">
@@ -229,7 +229,7 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
                           type="text"
                           value={formData.name_ko}
                           onChange={(e) => setFormData({ ...formData, name_ko: e.target.value })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         />
                       </td>
                       <td className="px-6 py-4">
@@ -237,7 +237,7 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
                           type="text"
                           value={formData.code}
                           onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase() })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         />
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -259,11 +259,11 @@ export default function LanguagesManager({ initialLanguages }: LanguagesManagerP
                     </>
                   ) : (
                     <>
-                      <td className="px-6 py-4 text-sm text-gray-700">{language.id}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{language.name_en}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{language.name_ko}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        <code className="bg-gray-100 px-2 py-1 rounded">{language.code}</code>
+                      <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{language.id}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{language.name_en}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{language.name_ko}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                        <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{language.code}</code>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

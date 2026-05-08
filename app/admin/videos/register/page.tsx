@@ -21,7 +21,7 @@ export default async function RegisterVideoPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <RegisterVideoForm />
     </>
   );

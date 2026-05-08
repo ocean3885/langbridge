@@ -166,17 +166,17 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">문장 관리</h1>
-            <p className="text-gray-600 mt-2">학습할 문장을 관리합니다.</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">문장 관리</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">학습할 문장을 관리합니다.</p>
           </div>
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row gap-4 items-stretch md:items-center">
           <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -184,7 +184,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                 value={searchTerm}
                 onChange={handleSearchChange}
                 placeholder="문장 또는 번역 검색..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
             <div className="flex items-center justify-between md:justify-start gap-2 bg-gray-50 md:bg-transparent p-2 md:p-0 rounded-lg">
@@ -198,8 +198,8 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                     setCurrentPage(1);
                   }}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                <span className="ml-3 text-sm font-medium text-gray-700 whitespace-nowrap">번들없는문장</span>
+                <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">번들없는문장</span>
               </label>
               
               <div className="md:hidden text-[10px] text-gray-400 font-medium">
@@ -208,39 +208,39 @@ export default function SentencesManager({ initialSentences, languages }: Senten
             </div>
         </div>
         {filteredSentences.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">
             {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedSentences.map((sentence) => (
-              <div key={sentence.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group flex flex-col">
+              <div key={sentence.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-all duration-200 overflow-hidden group flex flex-col">
                 {editingId === sentence.id ? (
                   <div className="p-4 flex flex-col h-full space-y-3">
                     <textarea
                       value={formData.sentence}
                       onChange={(e) => setFormData({ ...formData, sentence: e.target.value })}
                       rows={3}
-                      className="w-full px-2 py-1.5 text-base border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none"
+                      className="w-full px-2 py-1.5 text-base border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                     <textarea
                       value={formData.translation}
                       onChange={(e) => setFormData({ ...formData, translation: e.target.value })}
                       rows={3}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                     <textarea
                       value={formData.translation_en}
                       onChange={(e) => setFormData({ ...formData, translation_en: e.target.value })}
                       placeholder="영어 번역 (선택 사항)"
                       rows={2}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
-                    <div className="mt-auto pt-2 border-t border-gray-50 flex justify-end gap-2">
+                    <div className="mt-auto pt-2 border-t border-gray-50 dark:border-gray-800 flex justify-end gap-2">
                       <button
                         onClick={() => handleUpdate(sentence.id)}
                         disabled={loading}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                         title="저장"
                       >
                         <Save className="w-5 h-5" />
@@ -248,7 +248,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                       <button
                         onClick={cancelEdit}
                         disabled={loading}
-                        className="p-1.5 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         title="취소"
                       >
                         <X className="w-5 h-5" />
@@ -259,43 +259,43 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                   <div className="relative h-full">
                     <Link 
                       href={`/admin/sentences/${sentence.id}`}
-                      className="p-4 flex flex-col h-full hover:bg-gray-50/50 transition-colors"
+                      className="p-4 flex flex-col h-full hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <div className="flex-1 space-y-3 mb-4 pr-16">
-                        <h3 className="text-base font-bold text-gray-900 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap break-words group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {sentence.sentence}
                         </h3>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed break-words">
+                        <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed break-words">
                           {sentence.translation}
                         </p>
                         {sentence.translation_en && (
-                          <p className="text-xs text-gray-400 whitespace-pre-wrap leading-relaxed break-words italic">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-pre-wrap leading-relaxed break-words italic">
                             {sentence.translation_en}
                           </p>
                         )}
                       </div>
                       
-                      <div className="mt-auto pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                      <div className="mt-auto pt-3 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between text-[10px] text-gray-400">
                         <div className="flex gap-2">
                           <span>ID: {sentence.id}</span>
                           <span>•</span>
-                          <span className="text-blue-500 font-medium">단어 {sentence.word_count || 0}</span>
+                          <span className="text-blue-500 dark:text-blue-400 font-medium">단어 {sentence.word_count || 0}</span>
                           <span>•</span>
-                          <span className={`${(sentence.bundle_count || 0) > 0 ? 'text-green-600' : 'text-orange-500'} font-medium`}>
+                          <span className={`${(sentence.bundle_count || 0) > 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-500 dark:text-orange-400'} font-medium`}>
                             번들 {sentence.bundle_count || 0}
                           </span>
                         </div>
                       </div>
                     </Link>
 
-                    <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md shadow-sm border border-gray-100 z-10">
+                    <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-md shadow-sm border border-gray-100 dark:border-gray-700 z-10">
                       <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           startEdit(sentence);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors"
                         title="수정"
                       >
                         <Pencil className="w-4 h-4" />
@@ -306,7 +306,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                           e.stopPropagation();
                           handleDelete(sentence.id);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-md transition-colors"
                         title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -324,7 +324,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               이전
             </button>
@@ -345,7 +345,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                     className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                       currentPage === pageNum
                         ? 'bg-blue-600 text-white border border-blue-600'
-                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     {pageNum}
@@ -356,14 +356,14 @@ export default function SentencesManager({ initialSentences, languages }: Senten
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               다음
             </button>
           </div>
         )}
         
-        <div className="mt-4 text-sm text-gray-600 text-center">
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 text-center">
           전체 {sentences.length}개 중 {filteredSentences.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredSentences.length)})
         </div>
       </div>

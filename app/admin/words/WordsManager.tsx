@@ -270,17 +270,17 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">단어 관리</h1>
-            <p className="text-gray-600 mt-2">학습할 단어를 관리합니다.</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">단어 관리</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">학습할 단어를 관리합니다.</p>
           </div>
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-800">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -289,13 +289,13 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 value={searchTerm}
                 onChange={handleSearchChange}
                 placeholder="단어 또는 의미 검색..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
             <select
               value={filterLanguage}
               onChange={handleFilterLanguageChange}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               <option value="all">모든 언어</option>
               {languages.map((lang) => (
@@ -313,8 +313,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 onChange={toggleLowDistractorsFilter}
                 className="sr-only peer"
               />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-gray-700">오답 개수 부족 (6개 미만)</span>
+              <div className="relative w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">오답 개수 부족 (6개 미만)</span>
             </label>
 
             <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as any)}
-                className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="none">기본(최신순)</option>
                 <option value="asc">문장 적은 순</option>
@@ -335,20 +335,20 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
         {/* 단어 목록 (카드 그리드) */}
         {filteredWords.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">
             {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedWords.map((word) => (
-              <div key={word.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group relative">
+              <div key={word.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-all duration-200 overflow-hidden group relative">
                 {editingId === word.id ? (
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
                       <select
                         value={formData.lang_code}
                         onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       >
                         {languages.map((lang) => (
                           <option key={lang.id} value={lang.code}>{lang.name_ko}</option>
@@ -359,7 +359,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         value={formData.word}
                         onChange={(e) => setFormData({ ...formData, word: e.target.value })}
                         placeholder="단어"
-                        className="flex-2 w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                        className="flex-2 w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       />
                     </div>
                     <input
@@ -367,20 +367,20 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       value={formData.meaning_ko}
                       onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
                       placeholder="의미 (한국어)"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                     <input
                       type="text"
                       value={formData.meaning_en}
                       onChange={(e) => setFormData({ ...formData, meaning_en: e.target.value })}
                       placeholder="Meaning (English)"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                     <div className="flex gap-2">
                       <select
                         value={formData.gender}
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                        className="w-32 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                        className="w-32 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       >
                         {GENDER_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label.split(' ')[0]}</option>
@@ -389,7 +389,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       <select
                         value={formData.pos_input.split(',')[0].trim().toLowerCase()}
                         onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       >
                         <option value="">품사 선택</option>
                         {POS_OPTIONS.map(opt => (
@@ -397,11 +397,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         ))}
                       </select>
                     </div>
-                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-50">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-50 dark:border-gray-800">
                       <button
                         onClick={() => handleUpdate(word.id)}
                         disabled={loading}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                         title="저장"
                       >
                         <Save className="w-5 h-5" />
@@ -409,7 +409,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       <button
                         onClick={cancelEdit}
                         disabled={loading}
-                        className="p-1.5 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
                         title="취소"
                       >
                         <X className="w-5 h-5" />
@@ -418,14 +418,14 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                   </div>
                 ) : (
                   <>
-                    <Link href={`/admin/words/${word.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                    <Link href={`/admin/words/${word.id}`} className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex flex-wrap gap-1.5">
-                          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                             {word.lang_code}
                           </span>
                           {word.pos.map((p, idx) => (
-                            <span key={idx} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-medium">
+                            <span key={idx} className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full text-[10px] font-medium">
                               {formatPOS(p)}
                             </span>
                           ))}
@@ -434,7 +434,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         <div className="w-6 h-6" />
                       </div>
 
-                      <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-baseline gap-2">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-baseline gap-2">
                         {word.word}
                         {word.gender && (
                           <span className="text-xs font-normal text-gray-400">({word.gender})</span>
@@ -442,7 +442,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                       </h3>
 
                       <div className="space-y-0.5">
-                        <p className="text-sm text-gray-600 font-medium">
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
                           {getMeaningDisplay(word.meaning_ko)}
                         </p>
                         <p className="text-[11px] text-gray-400 italic">
@@ -450,13 +450,13 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                         </p>
                       </div>
 
-                      <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-[10px] text-gray-400">
+                      <div className="mt-3 pt-3 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between text-[10px] text-gray-400">
                         <div className="flex gap-2">
                           <span>ID: {word.id}</span>
                           <span>•</span>
-                          <span className="text-blue-500 font-medium">문장 {word.sentence_count || 0}</span>
+                          <span className="text-blue-500 dark:text-blue-400 font-medium">문장 {word.sentence_count || 0}</span>
                           <span>•</span>
-                          <span className={`${(word.distractor_count ?? 0) < 6 ? 'text-red-500 font-bold' : 'text-gray-400'}`}>
+                          <span className={`${(word.distractor_count ?? 0) < 6 ? 'text-red-500 font-bold' : 'text-gray-400 dark:text-gray-500'}`}>
                             오답 {word.distractor_count || 0}
                           </span>
                         </div>
@@ -470,7 +470,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                           e.stopPropagation();
                           handleDelete(word.id);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -488,7 +488,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               이전
             </button>
@@ -508,7 +508,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
                         ? 'bg-blue-600 text-white border border-blue-600'
-                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                   >
                     {pageNum}
@@ -519,14 +519,14 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               다음
             </button>
           </div>
         )}
 
-        <div className="mt-4 text-sm text-gray-600 text-center">
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 text-center">
           전체 {words.length}개 중 {filteredWords.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredWords.length)})
         </div>
       </div>

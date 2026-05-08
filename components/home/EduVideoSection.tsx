@@ -24,7 +24,7 @@ export default function EduVideoSection({ videos }: EduVideoSectionProps) {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Video className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-900">어학 강의 영상</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">어학 강의 영상</h2>
         </div>
         <Link 
           href="/videos" 
@@ -41,9 +41,9 @@ export default function EduVideoSection({ videos }: EduVideoSectionProps) {
           <Link
             key={video.id}
             href={`/videos/${video.id}`}
-            className="group bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+            className="group bg-white dark:bg-gray-900 rounded-lg shadow-md dark:shadow-none dark:border dark:border-gray-800 hover:shadow-xl dark:hover:border-gray-700 transition-all duration-300 overflow-hidden"
           >
-            <div className="relative w-full aspect-video bg-gray-200">
+            <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-800">
               {video.thumbnail_url ? (
                 <Image
                   src={video.thumbnail_url}
@@ -60,19 +60,19 @@ export default function EduVideoSection({ videos }: EduVideoSectionProps) {
             </div>
 
             <div className="p-4">
-              <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {video.title}
               </h3>
 
               {video.channel_name && (
                 <div className="flex items-center gap-1 mb-2">
-                  <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">
                     {video.channel_name}
                   </span>
                 </div>
               )}
 
-              <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>
                   {new Date(video.created_at).toLocaleDateString('ko-KR', {
                     year: 'numeric',

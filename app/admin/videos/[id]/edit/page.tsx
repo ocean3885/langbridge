@@ -40,7 +40,7 @@ export default async function EditEduVideoPage({ params }: EditEduVideoPageProps
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <EditEduVideoForm video={video} languages={languages} categories={categories} channels={channels} />
     </>
   );

@@ -35,6 +35,7 @@ interface EduVideoLearningClientProps {
   video: SupabaseEduVideo;
   isLoggedIn: boolean;
   initialProgress: LearningProgress | null;
+  language?: 'ko' | 'en';
 }
 
 const FLUSH_INTERVAL_MS = 15000;
@@ -60,6 +61,7 @@ export default function EduVideoLearningClient({
   video,
   isLoggedIn,
   initialProgress,
+  language = 'ko',
 }: EduVideoLearningClientProps) {
   const [progress, setProgress] = useState<LearningProgress>({
     lastStudiedAt: initialProgress?.lastStudiedAt ?? null,
@@ -211,7 +213,7 @@ export default function EduVideoLearningClient({
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      <BackButton />
+      <BackButton language={language} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(360px,1.1fr)] lg:items-stretch xl:grid-cols-[minmax(0,1.5fr)_minmax(420px,1.1fr)]">
         <div className="space-y-4">

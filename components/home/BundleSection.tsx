@@ -43,22 +43,22 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
   const t = translations[lang];
 
   return (
-    <section className="py-12 bg-white">
+    <section className="py-12 bg-white dark:bg-transparent">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-end justify-between mb-10">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
+              <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 dark:shadow-none">
                 <Layers className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-black text-blue-600 uppercase tracking-widest">{t.section}</span>
+              <span className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{t.section}</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{t.title}</h2>
-            <p className="mt-3 text-gray-500 font-medium">{t.subtitle}</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight">{t.title}</h2>
+            <p className="mt-3 text-gray-500 dark:text-gray-400 font-medium">{t.subtitle}</p>
           </div>
           <Link
             href="/bundles"
-            className="hidden sm:flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-blue-600 transition-colors group"
+            className="hidden sm:flex items-center gap-2 text-sm font-bold text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
           >
             {t.viewAll}
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -75,9 +75,9 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
               <Link
                 key={bundle.id}
                 href={`/bundles/${bundle.id}`}
-                className="group bg-white rounded-2xl border border-gray-100 hover:border-blue-100 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden"
+                className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-100 dark:hover:border-blue-900/50 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden"
               >
-                <div className="relative aspect-[4/3] overflow-hidden bg-gray-50">
+                <div className="relative aspect-[4/3] overflow-hidden bg-gray-50 dark:bg-gray-800">
                   {bundle.thumbnail_url ? (
                     <Image
                       src={bundle.thumbnail_url}
@@ -87,12 +87,12 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-200">
+                    <div className="w-full h-full flex items-center justify-center text-gray-200 dark:text-gray-700">
                       <Layers className="w-12 h-12" />
                     </div>
                   )}
                   <div className="absolute top-3 left-3">
-                    <span className="px-2.5 py-0.5 bg-white/90 backdrop-blur-sm text-blue-600 text-[10px] font-black rounded-full shadow-sm uppercase tracking-wider">
+                    <span className="px-2.5 py-0.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-full shadow-sm uppercase tracking-wider">
                       Lv.{bundle.level || 1}
                     </span>
                   </div>
@@ -105,20 +105,20 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
                         {displayCategory}
                       </span>
                     )}
-                    <h3 className="font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       {displayTitle}
                     </h3>
-                    <p className="mt-2 text-xs text-gray-400 font-medium line-clamp-2 min-h-[2rem]">
+                    <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 font-medium line-clamp-2 min-h-[2rem]">
                       {displayDesc || (lang === 'ko' ? '설명이 없습니다.' : 'No description.')}
                     </p>
                   </div>
 
-                  <div className="mt-auto pt-4 flex items-center justify-between border-t border-gray-50">
-                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-medium">
+                  <div className="mt-auto pt-4 flex items-center justify-between border-t border-gray-50 dark:border-gray-800">
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium">
                       <Clock className="w-3 h-3" />
                       {new Date(bundle.created_at).toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US')}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-600 transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-600 dark:hover:text-blue-400 transition-colors" />
                   </div>
                 </div>
               </Link>
@@ -129,7 +129,7 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
         <div className="mt-10 sm:hidden">
           <Link
             href="/bundles"
-            className="flex items-center justify-center w-full py-4 bg-gray-50 rounded-2xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center w-full py-4 bg-gray-50 dark:bg-gray-800 rounded-2xl text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             {t.mobileViewAll}
           </Link>

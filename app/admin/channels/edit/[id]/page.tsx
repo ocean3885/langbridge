@@ -24,7 +24,7 @@ export default async function EditChannelPage({ params }: PageProps) {
   if (!channel) {
     return (
       <>
-        <AdminSidebar userEmail={user.email ?? ''} />
+        <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
         <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
           <div className="max-w-3xl mx-auto">
             <div className="text-red-600">채널을 찾을 수 없습니다.</div>

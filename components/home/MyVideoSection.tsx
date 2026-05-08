@@ -32,7 +32,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Video className="w-6 h-6 text-cyan-600" />
-          <h2 className="text-2xl font-bold text-gray-900">내 학습 영상</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">내 학습 영상</h2>
         </div>
         {isLoggedIn && categories.length > 0 && (
           <Link
@@ -49,25 +49,25 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
 
       {/* 비로그인 */}
       {!isLoggedIn && (
-        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-4">
-          <h3 className="text-xl font-bold text-gray-800">엄선된 교육 영상으로 실전 표현을 넓혀보세요</h3>
-          <p className="text-sm text-gray-600 leading-relaxed">
+        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20 border border-cyan-100 dark:border-cyan-900 rounded-xl p-8 text-center space-y-4">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">엄선된 교육 영상으로 실전 표현을 넓혀보세요</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             공개 어학 강의 영상에서는 주제별 교육 영상을 바로 재생하며 표현과 맥락을 익힐 수 있습니다.<br />
             가입 후에는 개인 영상 업로드와 별도로 나만의 학습 콘텐츠도 함께 관리할 수 있습니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth/sign-up" className="px-6 py-3 rounded-lg bg-cyan-600 text-white font-semibold shadow hover:bg-cyan-700 transition">무료로 가입하기</Link>
-            <Link href="/videos" className="px-6 py-3 rounded-lg bg-white border border-gray-300 text-gray-800 font-semibold hover:bg-gray-50 transition">영상 둘러보기</Link>
+            <Link href="/videos" className="px-6 py-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition">영상 둘러보기</Link>
           </div>
         </div>
       )}
 
       {/* 로그인 + 빈 상태 */}
       {isLoggedIn && categories.length === 0 && (
-        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-8 text-center space-y-6">
+        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20 border border-cyan-100 dark:border-cyan-900 rounded-xl p-8 text-center space-y-6">
           <div className="space-y-2">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-800">첫 영상을 등록하여 영상 학습을 시작해보세요</h3>
-            <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">첫 영상을 등록하여 영상 학습을 시작해보세요</h3>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
               YouTube 영상을 등록해 나만의 영상 컬렉션을 만들고, 공개 어학 강의 영상과 함께 활용해보세요.
             </p>
           </div>
@@ -82,7 +82,7 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
               지금 영상 등록
             </Link>
           </div>
-          <p className="text-xs text-gray-500">영상은 언제든 삭제할 수 있어요. 실전 어학 학습을 시작해보세요!</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">영상은 언제든 삭제할 수 있어요. 실전 어학 학습을 시작해보세요!</p>
         </div>
       )}
 
@@ -102,9 +102,9 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
               <Link
                 key={video.id}
                 href={`/my-videos/${video.id}`}
-                className="group bg-white rounded-lg shadow border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+                className="group bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
               >
-                <div className="relative w-full aspect-video bg-gray-200">
+                <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-800">
                   {video.thumbnail_url ? (
                     <Image
                       src={video.thumbnail_url}
@@ -133,20 +133,20 @@ export default function MyVideoSection({ isLoggedIn, categories }: MyVideoSectio
                         : video.videoLanguageName;
                       
                       return displayLanguage && (
-                        <span className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-[11px] font-semibold border border-cyan-100">
+                        <span className="px-2 py-0.5 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded text-[11px] font-semibold border border-cyan-100 dark:border-cyan-800/50">
                           {displayLanguage}
                         </span>
                       );
                     })()}
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
+                    <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded text-[11px] font-medium border border-gray-200 dark:border-gray-700">
                       {video.categoryName}
                     </span>
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-cyan-600 transition-colors">
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-1 line-clamp-2 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                     {video.title}
                   </h3>
                   <div className="mt-auto pt-2">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(video.created_at).toLocaleDateString('ko-KR', {
                         year: 'numeric',
                         month: 'short',

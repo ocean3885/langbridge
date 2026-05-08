@@ -17,14 +17,16 @@ import {
   FolderTree,
   Video,
   Menu,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 
 interface AdminSidebarProps {
   userEmail: string;
+  language?: 'ko' | 'en';
 }
 
-export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
+export default function AdminSidebar({ userEmail, language = 'ko' }: AdminSidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -59,13 +61,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
       {/* Sidebar Content */}
       <div className={`
-        fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 overflow-y-auto z-[60] transition-transform duration-300
+        fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-y-auto z-[60] transition-transform duration-300
         md:top-[5rem] md:h-[calc(100vh-5rem)] md:z-40
         ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0 md:shadow-none'}
       `}>
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-800">운영관리</h2>
-          <p className="text-xs text-gray-500 mt-1 break-all">{userEmail}</p>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">운영관리</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 break-all">{userEmail}</p>
         </div>
         
         <nav className="p-4 space-y-2">
@@ -81,8 +83,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                   ${isActive 
-                    ? 'bg-blue-50 text-blue-600 font-medium' 
-                    : 'text-gray-700 hover:bg-gray-100'}
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
                 `}
               >
                 <Icon className="w-5 h-5" />
@@ -92,6 +94,18 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
             );
           })}
         </nav>
+        
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800 mt-auto">
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium text-sm">
+              {language === 'ko' ? '사이트로 돌아가기' : 'Back to site'}
+            </span>
+          </Link>
+        </div>
       </div>
     </>
   );

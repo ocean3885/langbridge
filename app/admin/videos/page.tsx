@@ -59,13 +59,13 @@ export default async function AdminVideosPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
-      <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">영상 관리</h1>
-              <p className="text-gray-600 mt-2">edu_videos 학습 영상을 관리합니다.</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">영상 관리</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">edu_videos 학습 영상을 관리합니다.</p>
             </div>
             <div className="flex items-center gap-3">
               <EduVideoCategoryManageButton
@@ -87,7 +87,7 @@ export default async function AdminVideosPage() {
           </div>
 
       {videos.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           등록된 edu_videos 영상이 없습니다.
         </div>
       ) : (
@@ -96,8 +96,8 @@ export default async function AdminVideosPage() {
             <div key={language}>
               {/* 언어 헤더 */}
               <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                  <Tag className="w-6 h-6 text-blue-600" />
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <Tag className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   {language}
                 </h2>
                 <div className="h-1 bg-gradient-to-r from-blue-500 to-transparent mt-2 rounded"></div>
@@ -106,7 +106,7 @@ export default async function AdminVideosPage() {
               {/* 채널별 섹션 */}
               {Object.entries(channelGroups).map(([channelName, channelVideos]) => (
                 <div key={channelName} className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3 pl-2 border-l-4 border-blue-400">
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3 pl-2 border-l-4 border-blue-400">
                     {channelName} ({channelVideos.length})
                   </h3>
                   

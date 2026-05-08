@@ -26,7 +26,7 @@ export default function LBVideoSection({ videos }: LBVideoSectionProps) {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Globe className="w-6 h-6 text-emerald-600" />
-          <h2 className="text-2xl font-bold text-gray-900">LB 학습 영상</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">LB 학습 영상</h2>
         </div>
         <Link
           href="/lb-videos"
@@ -43,9 +43,9 @@ export default function LBVideoSection({ videos }: LBVideoSectionProps) {
           <Link
             key={video.id}
             href={`/lb-videos/${video.id}`}
-            className="group bg-white rounded-lg shadow border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+            className="group bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
           >
-            <div className="relative w-full aspect-video bg-gray-200">
+            <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-800">
               {video.thumbnail_url ? (
                 <Image
                   src={video.thumbnail_url}
@@ -68,24 +68,24 @@ export default function LBVideoSection({ videos }: LBVideoSectionProps) {
             </div>
 
             <div className="p-4 flex flex-col flex-grow">
-              <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-2 line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {video.title}
               </h3>
 
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 {video.channel_name && (
-                  <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-800/50">
                     {video.channel_name}
                   </span>
                 )}
                 {video.language_name && (
-                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
                     {video.language_name}
                   </span>
                 )}
               </div>
 
-              <div className="mt-auto pt-2 text-xs text-gray-500">
+              <div className="mt-auto pt-2 text-xs text-gray-500 dark:text-gray-400">
                 <span>
                   {new Date(video.created_at).toLocaleDateString('ko-KR', {
                     year: 'numeric',

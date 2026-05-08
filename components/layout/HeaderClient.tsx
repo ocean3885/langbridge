@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, AudioLines, LogOut, Video, BookOpen, Globe, MessageSquare, Layers } from 'lucide-react';
+import { User as UserIcon, AudioLines, LogOut, Video, BookOpen, Globe, MessageSquare, Layers, Sun, Moon } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -56,9 +56,23 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
   const supabase = createClient();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
   useEffect(() => {
     setMounted(true);
+    // 초기 테마 확인
+    if (document.documentElement.classList.contains('dark')) {
+      setTheme('dark');
+    }
   }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const handleLogout = async () => {
     try {
@@ -151,6 +165,15 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   </Link>
                 )}
               </div>
+
+              {/* 테마 토글 */}
+              <button
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors flex-shrink-0 border border-gray-600"
+                title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4 text-amber-300" /> : <Sun className="w-4 h-4 text-yellow-400" />}
+              </button>
 
               {/* 오른쪽 계정/로그인 영역 */}
               {isLoggedIn ? (

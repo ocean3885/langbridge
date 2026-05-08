@@ -30,8 +30,8 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
-      <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
         <SentenceDetailContent sentence={sentenceData} relatedBundles={relatedBundles} />
       </div>
     </>

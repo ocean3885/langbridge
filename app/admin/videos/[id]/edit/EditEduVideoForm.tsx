@@ -84,16 +84,16 @@ export default function EditEduVideoForm({ video, languages, categories, channel
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">교육 영상 수정</h1>
-          <p className="text-gray-600 mt-2">edu_videos 메타데이터를 수정합니다.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">교육 영상 수정</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">edu_videos 메타데이터를 수정합니다.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-lg shadow p-6">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-800">
           <div>
-            <label htmlFor="youtubeUrl" className="block text-sm font-medium mb-2">YouTube URL *</label>
+            <label htmlFor="youtubeUrl" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">YouTube URL *</label>
             <input
               type="text"
               id="youtubeUrl"
@@ -101,12 +101,12 @@ export default function EditEduVideoForm({ video, languages, categories, channel
               value={formData.youtubeUrl}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
             />
           </div>
 
           <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-2">제목 *</label>
+            <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">제목 *</label>
             <input
               type="text"
               id="title"
@@ -114,31 +114,31 @@ export default function EditEduVideoForm({ video, languages, categories, channel
               value={formData.title}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-2">설명</label>
+            <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">설명</label>
             <textarea
               id="description"
               name="description"
               rows={4}
               value={formData.description}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white resize-none"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none resize-none transition-all"
             />
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
             <div>
-              <label htmlFor="languageId" className="block text-sm font-medium mb-2">언어</label>
+              <label htmlFor="languageId" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">언어</label>
               <select
                 id="languageId"
                 name="languageId"
                 value={formData.languageId}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
               >
                 <option value="">언어 미지정</option>
                 {languages.map((language) => (
@@ -151,11 +151,11 @@ export default function EditEduVideoForm({ video, languages, categories, channel
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="categoryId" className="block text-sm font-medium">교육 영상 카테고리</label>
+                <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">교육 영상 카테고리</label>
                 <button
                   type="button"
                   onClick={() => setShowManageModal(true)}
-                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   <Settings className="h-3.5 w-3.5" />
                   카테고리 관리
@@ -166,7 +166,7 @@ export default function EditEduVideoForm({ video, languages, categories, channel
                 name="categoryId"
                 value={formData.categoryId}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
               >
                 <option value="">카테고리 미지정</option>
                 {filteredCategories.map((category) => (
@@ -176,13 +176,13 @@ export default function EditEduVideoForm({ video, languages, categories, channel
             </div>
 
             <div>
-              <label htmlFor="channelId" className="block text-sm font-medium mb-2">채널</label>
+              <label htmlFor="channelId" className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">채널</label>
               <select
                 id="channelId"
                 name="channelId"
                 value={formData.channelId}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 transition-all"
               >
                 <option value="">채널 미지정</option>
                 {channels.map((channel) => (
@@ -204,7 +204,7 @@ export default function EditEduVideoForm({ video, languages, categories, channel
               type="button"
               onClick={() => router.back()}
               disabled={isSubmitting}
-              className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+              className="px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
             >
               취소
             </button>

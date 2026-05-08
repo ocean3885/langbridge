@@ -58,7 +58,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
   if (!bundle) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">{t.bundleNotFound}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.bundleNotFound}</h1>
         <Link href="/bundles" className="text-blue-600 hover:underline mt-4 inline-block">
           {t.backToList}
         </Link>
@@ -69,7 +69,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
   return (
     <div className="max-w-7xl mx-auto px-2 md:px-4 py-4 md:py-8">
       <div className="mb-4 md:mb-8 px-2 md:px-0">
-        <BackButton />
+        <BackButton language={lang} />
       </div>
 
       {/* 번들 헤더 */}

@@ -38,7 +38,7 @@ export default async function WordsPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <WordsManager initialWords={words} languages={languages} />
     </>
   );

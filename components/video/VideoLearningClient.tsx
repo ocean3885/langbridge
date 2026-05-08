@@ -10,6 +10,7 @@ import type { VideoVisibility } from '@/lib/supabase/services/videos';
 import type { SupabaseVideoProgress as SqliteVideoProgress } from '@/lib/supabase/services/video-progress';
 import { Edit3, ArrowLeft, Trash2, Settings2, FolderTree, Plus, Download } from 'lucide-react';
 import CategoryManagerModal from '@/components/common/CategoryManagerModal';
+import BackButton from '@/components/common/BackButton';
 
 
 interface TranscriptWithTranslation {
@@ -47,6 +48,7 @@ interface VideoLearningClientProps {
   allCategories: { id: number; name: string; language_id: number | null }[];
   selectedCategoryIds: number[];
   enlargeTranscriptTextOnDesktop?: boolean;
+  language?: 'ko' | 'en';
 }
 
 export default function VideoLearningClient({
@@ -70,6 +72,7 @@ export default function VideoLearningClient({
   allCategories: initialCategories,
   selectedCategoryIds,
   enlargeTranscriptTextOnDesktop = false,
+  language = 'ko',
 }: VideoLearningClientProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedTranscriptIndex, setSelectedTranscriptIndex] = useState<number | null>(null);
@@ -297,14 +300,7 @@ export default function VideoLearningClient({
       <div className={`flex justify-end mb-2 ${
         isMobile && isPlaying ? 'hidden' : ''
       }`}>
-        <button
-          onClick={() => router.push(backUrl)}
-          className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
-          title="목록으로"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">목록으로</span>
-        </button>
+        <BackButton language={language} href={backUrl} />
       </div>
 
       {/* 모바일: 비디오 섹션 (고정) */}

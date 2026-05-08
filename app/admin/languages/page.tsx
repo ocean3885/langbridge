@@ -24,7 +24,7 @@ export default async function LanguagesPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <LanguagesManager initialLanguages={languages.map((language) => ({
         id: language.id,
         name_en: language.name_en ?? '',

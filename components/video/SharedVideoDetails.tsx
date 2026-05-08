@@ -86,6 +86,7 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
       allCategories={allCategories}
       selectedCategoryIds={selectedCategoryIds}
       enlargeTranscriptTextOnDesktop
+      language={user?.displayLanguage || 'ko'}
     />
   );
 }

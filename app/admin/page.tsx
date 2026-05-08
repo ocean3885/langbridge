@@ -21,7 +21,7 @@ export default async function AdminPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
       <AdminDashboard />
     </>
   );

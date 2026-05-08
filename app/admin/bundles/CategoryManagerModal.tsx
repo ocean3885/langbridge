@@ -113,32 +113,32 @@ export default function CategoryManagerModal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
           >
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">카테고리 관리</h2>
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">카테고리 관리</h2>
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
             <div className="p-6 space-y-6">
               {/* Create Input */}
-              <div className="bg-gray-50 p-4 rounded-2xl space-y-3">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input 
                     type="text"
                     placeholder="카테고리 이름 (KO)"
                     value={newCategory.name}
                     onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                    className="px-4 py-2 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-sm"
+                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-sm text-gray-900 dark:text-gray-100"
                   />
                   <input 
                     type="text"
                     placeholder="Category Name (EN)"
                     value={newCategory.name_en}
                     onChange={(e) => setNewCategory({ ...newCategory, name_en: e.target.value })}
-                    className="px-4 py-2 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all text-sm"
+                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-sm text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <button 
@@ -158,10 +158,10 @@ export default function CategoryManagerModal({
                     <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                   </div>
                 ) : categories.length === 0 ? (
-                  <p className="text-center py-10 text-gray-400">카테고리가 없습니다.</p>
+                  <p className="text-center py-10 text-gray-400 dark:text-gray-500">카테고리가 없습니다.</p>
                 ) : (
                   categories.map(cat => (
-                    <div key={cat.id} className="bg-white border border-gray-100 rounded-2xl p-4 hover:border-blue-200 transition-all group">
+                    <div key={cat.id} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 hover:border-blue-200 dark:hover:border-blue-900 transition-all group">
                       {editingId === cat.id ? (
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -170,19 +170,19 @@ export default function CategoryManagerModal({
                               type="text"
                               value={editCategory.name}
                               onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })}
-                              className="px-3 py-1.5 bg-gray-50 border border-blue-200 rounded-lg outline-none text-sm"
+                              className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-lg outline-none text-sm text-gray-900 dark:text-gray-100"
                               placeholder="이름 (KO)"
                             />
                             <input 
                               type="text"
                               value={editCategory.name_en}
                               onChange={(e) => setEditCategory({ ...editCategory, name_en: e.target.value })}
-                              className="px-3 py-1.5 bg-gray-50 border border-blue-200 rounded-lg outline-none text-sm"
+                              className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-lg outline-none text-sm text-gray-900 dark:text-gray-100"
                               placeholder="Name (EN)"
                             />
                           </div>
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingId(null)} className="px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                            <button onClick={() => setEditingId(null)} className="px-3 py-1 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                               취소
                             </button>
                             <button onClick={() => handleUpdate(cat.id)} className="px-3 py-1 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors">
@@ -193,9 +193,9 @@ export default function CategoryManagerModal({
                       ) : (
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-900 truncate">{cat.name}</div>
+                            <div className="font-bold text-gray-900 dark:text-gray-100 truncate">{cat.name}</div>
                             {cat.name_en && (
-                              <div className="text-xs text-gray-400 font-medium truncate">{cat.name_en}</div>
+                              <div className="text-xs text-gray-400 dark:text-gray-500 font-medium truncate">{cat.name_en}</div>
                             )}
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -210,7 +210,7 @@ export default function CategoryManagerModal({
                             </button>
                             <button 
                               onClick={() => handleDelete(cat.id)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
