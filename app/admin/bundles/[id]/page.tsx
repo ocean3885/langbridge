@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getBundle, listBundleItems, getBundleWords } from '@/lib/supabase/services/bundles';
 import AdminSidebar from '../../AdminSidebar';
 import BundleDetail from './BundleDetail';
 
@@ -26,11 +26,12 @@ export default async function BundleDetailPage({ params }: { params: Promise<{ i
   }
   
   const items = await listBundleItems(id);
+  const words = await getBundleWords(id);
   
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} />
-      <BundleDetail bundle={bundle} items={items} />
+      <BundleDetail bundle={bundle} items={items} words={words} />
     </>
   );
 }

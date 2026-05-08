@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { getStorageBucket } from '@/lib/supabase/storage';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -13,45 +12,40 @@ import { execa } from 'execa';
 // 시스템 ffmpeg 사용
 const ffmpeg = 'ffmpeg';
 
-// Google TTS 클라이언트 초기화
-function getGoogleTTSClient() {
-  const credsBase64 = process.env.GOOGLE_CREDENTIALS_BASE64;
-  if (!credsBase64) {
-    throw new Error("GOOGLE_CREDENTIALS_BASE64 환경 변수가 설정되지 않았습니다.");
+// TTS 생성 함수 (ElevenLabs API 사용)
+async function generateTTS(text: string, languageCode: string): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error("ELEVENLABS_API_KEY 환경 변수가 설정되지 않았습니다.");
   }
 
-  try {
-    const credsJson = Buffer.from(credsBase64, 'base64').toString('utf-8');
-    const credentials = JSON.parse(credsJson);
-    return new TextToSpeechClient({ credentials });
-  } catch {
-    throw new Error("Google 인증 정보가 잘못되었습니다.");
-  }
-}
+  // 기본 목소리 설정 (Rachel)
+  const voiceId = "21m00Tcm4TlvDq8ikWAM"; 
 
-// TTS 생성 함수
-async function generateTTS(client: TextToSpeechClient, text: string, languageCode: string) {
-  // 언어 코드를 TTS 형식으로 변환 (예: 'es' -> 'es-ES', 'en' -> 'en-US')
-  const languageCodeMap: Record<string, string> = {
-    'es': 'es-ES',
-    'en': 'en-US',
-    'fr': 'fr-FR',
-    'de': 'de-DE',
-    'it': 'it-IT',
-    'pt': 'pt-PT',
-    'ja': 'ja-JP',
-    'ko': 'ko-KR',
-    'zh': 'zh-CN',
-  };
-
-  const ttsLanguageCode = languageCodeMap[languageCode] || languageCode;
-
-  const [response] = await client.synthesizeSpeech({
-    input: { text },
-    voice: { languageCode: ttsLanguageCode, ssmlGender: 'NEUTRAL' },
-    audioConfig: { audioEncoding: 'MP3', speakingRate: 0.8 },
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'audio/mpeg',
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text: text,
+      model_id: 'eleven_multilingual_v2', // 다국어 지원 모델
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+      }
+    }),
   });
-  return response.audioContent as Buffer;
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ElevenLabs API 오류: ${response.status} ${errorText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 // MP3 파라미터 정규화
@@ -89,12 +83,11 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
       return { success: false, error: '권한이 없습니다.' };
     }
 
-    const ttsClient = getGoogleTTSClient();
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sentence-tts-'));
 
     try {
       // TTS 생성
-      const audioBuf = await generateTTS(ttsClient, text, languageCode);
+      const audioBuf = await generateTTS(text, languageCode);
       const rawPath = path.join(tempDir, 'raw.mp3');
       const normalizedPath = path.join(tempDir, 'normalized.mp3');
       

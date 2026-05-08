@@ -165,11 +165,14 @@ export default async function HomePage() {
     .map((b: any) => ({
       id: b.id,
       title: b.title,
+      title_en: b.title_en,
       description: b.description,
+      description_en: b.description_en,
       thumbnail_url: b.thumbnail_url,
       level: b.level,
       created_at: b.created_at,
       category_name: b.bundle_category?.name,
+      category_name_en: b.bundle_category?.name_en,
     }));
 
   return (
@@ -192,7 +195,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <BundleSection bundles={recentBundles} />
+      <BundleSection bundles={recentBundles} lang={user?.displayLanguage || 'ko'} />
       <EduVideoSection videos={learningVideos} />
       <LBVideoSection videos={lbVideos} />
 

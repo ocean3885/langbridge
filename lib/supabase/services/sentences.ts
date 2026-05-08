@@ -15,6 +15,7 @@ export type SupabaseSentence = {
   created_at: string;
   updated_at: string;
   word_count?: number;
+  bundle_count?: number;
 };
 
 export async function listSentences(): Promise<SupabaseSentence[]> {
@@ -35,10 +36,23 @@ export async function listSentences(): Promise<SupabaseSentence[]> {
     acc[row.sentence_id] = (acc[row.sentence_id] || 0) + 1;
     return acc;
   }, {} as Record<number, number>);
+
+  // Fetch bundle counts
+  const { data: bundleCounts, error: bundleCountError } = await supabase
+    .from('bundle_items')
+    .select('sentence_id');
+
+  const bundleCountMap = (bundleCounts || []).reduce((acc, row) => {
+    if (row.sentence_id) {
+      acc[row.sentence_id] = (acc[row.sentence_id] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<number, number>);
     
   return sentences.map(row => ({
     ...row,
-    word_count: countMap[row.id] || 0
+    word_count: countMap[row.id] || 0,
+    bundle_count: bundleCountMap[row.id] || 0
   })) as SupabaseSentence[];
 }
 
@@ -168,9 +182,14 @@ export async function deleteSentence(id: number): Promise<void> {
   }
 }
 
-export async function regenerateSentenceTTS(id: number, text: string) {
+export async function regenerateSentenceTTS(id: number, text: string, options?: {
+  provider: 'google' | 'elevenlabs';
+  model: string;
+  voice: string;
+  speed: number;
+}) {
   // 1. 새 TTS 생성
-  const newAudioUrl = await generateTTS(text);
+  const newAudioUrl = await generateTTS(text, 'sentences', 'es', options?.speed, options);
   if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
 
   const supabase = createAdminClient();
@@ -200,4 +219,97 @@ export async function regenerateSentenceTTS(id: number, text: string) {
   }
 
   return newAudioUrl;
+}
+
+export async function importWordsFromJson(sentenceId: number, json: string, langCode: string = 'es') {
+  const supabase = createAdminClient();
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch (e) {
+    throw new Error('JSON 형식이 올바르지 않습니다.');
+  }
+  
+  const words = parsed.words;
+  if (!words) throw new Error('올바른 JSON 형식이 아닙니다. "words" 키가 필요합니다.');
+
+  const results = [];
+
+  for (const [originalText, wordInfo] of Object.entries(words) as [string, any]) {
+    // 1. 단어 검색 또는 생성
+    const { data: existingWord } = await supabase
+      .from('words')
+      .select('id, audio_url')
+      .eq('word', wordInfo.word.toLowerCase().trim())
+      .eq('lang_code', langCode)
+      .maybeSingle();
+
+    let wordId: number;
+    if (existingWord) {
+      wordId = existingWord.id;
+    } else {
+      // Insert new word
+      let wordAudioUrl = null;
+      try {
+        wordAudioUrl = await generateTTS(wordInfo.word, 'words', langCode);
+      } catch (e) {
+        console.error('Error generating TTS for word:', wordInfo.word, e);
+      }
+
+      // Convert single string meanings to arrays if they are strings
+      const mKo = { ...wordInfo.meaning_ko };
+      for (const k in mKo) {
+        if (typeof mKo[k] === 'string') mKo[k] = [mKo[k]];
+      }
+      const mEn = { ...wordInfo.meaning_en };
+      for (const k in mEn) {
+        if (typeof mEn[k] === 'string') mEn[k] = [mEn[k]];
+      }
+
+      const { data: newWord, error: wError } = await supabase
+        .from('words')
+        .insert({
+          word: wordInfo.word.toLowerCase().trim(),
+          lang_code: langCode,
+          pos: wordInfo.pos || [],
+          meaning_ko: mKo,
+          meaning_en: mEn,
+          gender: wordInfo.gender === 'null' ? null : (wordInfo.gender || null),
+          conjugations: wordInfo.conjugations || {},
+          declensions: wordInfo.declensions || {},
+          audio_url: wordAudioUrl
+        })
+        .select('id')
+        .single();
+      
+      if (wError) {
+        console.error('Error creating word:', wError, wordInfo);
+        continue;
+      }
+      wordId = newWord.id;
+    }
+
+    // 2. 단어-문장 매핑 (중복 확인 후 생성)
+    const { data: existingMap } = await supabase
+      .from('word_sentence_map')
+      .select('id')
+      .eq('word_id', wordId)
+      .eq('sentence_id', sentenceId)
+      .maybeSingle();
+
+    if (!existingMap) {
+      const { error: mapError } = await supabase
+        .from('word_sentence_map')
+        .insert({
+          word_id: wordId,
+          sentence_id: sentenceId,
+          used_as: originalText
+        });
+      if (mapError) console.error('Error mapping word to sentence:', mapError);
+    }
+    
+    results.push({ wordId, originalText });
+  }
+  
+  return results;
 }

@@ -20,6 +20,7 @@ export interface Sentence {
   audio_url: string | null;
   languages?: Language;
   word_count?: number;
+  bundle_count?: number;
 }
 
 interface SentencesManagerProps {
@@ -37,6 +38,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterNoBundle, setFilterNoBundle] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
 
@@ -45,7 +47,10 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       sentence.sentence.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sentence.translation.includes(searchTerm) ||
       (sentence.translation_en || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    
+    const matchesBundleFilter = !filterNoBundle || (sentence.bundle_count || 0) === 0;
+
+    return matchesSearch && matchesBundleFilter;
   });
 
   const paginatedSentences = filteredSentences.slice(
@@ -161,7 +166,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
+    <div className="min-h-screen bg-gray-50 md:ml-64 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -171,21 +176,37 @@ export default function SentencesManager({ initialSentences, languages }: Senten
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="relative">
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+          <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={handleSearchChange}
                 placeholder="문장 또는 번역 검색..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
             </div>
+            <div className="flex items-center justify-between md:justify-start gap-2 bg-gray-50 md:bg-transparent p-2 md:p-0 rounded-lg">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={filterNoBundle}
+                  onChange={(e) => {
+                    setFilterNoBundle(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700 whitespace-nowrap">번들없는문장</span>
+              </label>
+              
+              <div className="md:hidden text-[10px] text-gray-400 font-medium">
+                총 {filteredSentences.length}개
+              </div>
+            </div>
         </div>
-
-
-        {/* 문장 목록 (카드 그리드) */}
         {filteredSentences.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-500">
             {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다.'}
@@ -259,6 +280,10 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                           <span>ID: {sentence.id}</span>
                           <span>•</span>
                           <span className="text-blue-500 font-medium">단어 {sentence.word_count || 0}</span>
+                          <span>•</span>
+                          <span className={`${(sentence.bundle_count || 0) > 0 ? 'text-green-600' : 'text-orange-500'} font-medium`}>
+                            번들 {sentence.bundle_count || 0}
+                          </span>
                         </div>
                       </div>
                     </Link>

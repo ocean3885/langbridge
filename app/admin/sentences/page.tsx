@@ -28,6 +28,7 @@ export default async function SentencesPage() {
     translation_en: sentence.translation_en ?? null,
     audio_url: sentence.audio_url,
     word_count: sentence.word_count,
+    bundle_count: sentence.bundle_count,
     languages: undefined,
   }));
   

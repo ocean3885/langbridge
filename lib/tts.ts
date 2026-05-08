@@ -15,45 +15,84 @@ export async function generateTTS(
   text: string,
   folder: string = 'sentences',
   lang: string = ACTIVE_LANGUAGE,
-  speakingRate: number = 0.9 // 기본 속도를 0.9로 설정하여 약간 천천히 읽도록 함
+  speakingRate: number = 0.8,
+  options?: {
+    provider?: 'google' | 'elevenlabs';
+    model?: string;
+    voice?: string;
+    speed?: number;
+  }
 ): Promise<string | null> {
   if (!text) return null;
 
   try {
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error('API 키(GOOGLE_API_KEY 또는 GEMINI_API_KEY)가 설정되지 않았습니다.');
-      return null;
-    }
+    let audioBuffer: Buffer;
 
-    // 1. Google TTS API 호출 (REST 방식)
-    const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text },
-          voice: {
-            languageCode: lang,
-            // 스페인어인 경우 표준 여성 목소리 사용 (예: es-ES-Standard-A)
-            name: lang.includes('es') ? (lang === 'es' ? 'es-ES-Standard-A' : `${lang}-Standard-A`) : undefined
+    const provider = options?.provider || 'elevenlabs';
+
+    if (provider === 'elevenlabs') {
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) throw new Error('ELEVENLABS_API_KEY가 설정되지 않았습니다.');
+      
+      const voiceId = options?.voice || '2Lb1en5ujrODDIqmp7F3';
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'xi-api-key': apiKey,
+            'Content-Type': 'application/json',
           },
-          audioConfig: { 
-            audioEncoding: 'MP3',
-            speakingRate: speakingRate // 음성 속도 설정 (0.25 ~ 4.0)
-          }
-        })
+          body: JSON.stringify({
+            text,
+            model_id: options?.model || 'eleven_multilingual_v2',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+            }
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`ElevenLabs API 오류: ${errorData}`);
       }
-    );
+      
+      const arrayBuffer = await response.arrayBuffer();
+      audioBuffer = Buffer.from(arrayBuffer);
+    } else {
+      const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('API 키(GOOGLE_API_KEY)가 설정되지 않았습니다.');
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Google TTS API 오류: ${JSON.stringify(errorData)}`);
+      const response = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: { text },
+            voice: {
+              languageCode: lang,
+              name: options?.voice || (lang.includes('es') ? (lang === 'es' ? 'es-ES-Standard-A' : `${lang}-Standard-A`) : undefined)
+            },
+            audioConfig: {
+              audioEncoding: 'MP3',
+              speakingRate: options?.speed || speakingRate
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Google TTS API 오류: ${JSON.stringify(errorData)}`);
+      }
+
+      const { audioContent } = await response.json();
+      audioBuffer = Buffer.from(audioContent, 'base64');
     }
-
-    const { audioContent } = await response.json();
-    const audioBuffer = Buffer.from(audioContent, 'base64');
 
     // 2. Supabase 스토리지 업로드
     const supabase = createAdminClient();

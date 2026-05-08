@@ -5,10 +5,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud, Volume2, ExternalLink } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { updateBundle, deleteBundle, listCategories } from '@/lib/supabase/services/bundles';
+import { updateBundle, deleteBundle, listCategories, updateBundleItemImage } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
+import BundleImageMapper from './BundleImageMapper';
 
-export default function BundleDetail({ bundle: initialBundle, items }: { bundle: any; items: any[] }) {
+export default function BundleDetail({ 
+  bundle: initialBundle, 
+  items, 
+  words = [] 
+}: { 
+  bundle: any; 
+  items: any[]; 
+  words?: any[] 
+}) {
   const router = useRouter();
   const [bundle, setBundle] = useState(initialBundle);
   const [isEditing, setIsEditing] = useState(false);
@@ -19,12 +28,18 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
   // Edit Form State
   const [editForm, setEditForm] = useState({
     title: initialBundle.title,
+    title_en: initialBundle.title_en || '',
     description: initialBundle.description || '',
+    description_en: initialBundle.description_en || '',
     level: initialBundle.level,
     is_published: initialBundle.is_published,
     category_id: initialBundle.category_id,
     thumbnail_url: initialBundle.thumbnail_url || ''
   });
+
+  const [itemMappings, setItemMappings] = useState<{ [key: string]: string | null }>(
+    items.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {})
+  );
   
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -57,14 +72,36 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
   const handleUpdate = async () => {
     setIsLoading(true);
     try {
-      const updated = await updateBundle(bundle.id, editForm);
-      // Join logic might be needed to get category name if changed
+      // 1. 번들 기본 정보 업데이트
+      const updated = await updateBundle(bundle.id, {
+        ...editForm,
+        title_en: editForm.title_en || null,
+        description_en: editForm.description_en || null
+      });
+      
+      // 2. 각 아이템 이미지 업데이트 (변경된 것만)
+      const itemUpdatePromises = Object.entries(itemMappings).map(([itemId, imageUrl]) => {
+        const originalItem = items.find(it => it.id === itemId);
+        if (originalItem && originalItem.image_url !== imageUrl) {
+          return updateBundleItemImage(itemId, imageUrl);
+        }
+        return Promise.resolve(null);
+      });
+      
+      await Promise.all(itemUpdatePromises);
+      
       const selectedCat = categories.find(c => c.id === editForm.category_id);
       setBundle({ 
         ...bundle, 
         ...updated, 
-        bundle_category: selectedCat ? { id: selectedCat.id, name: selectedCat.name } : null 
+        bundle_category: selectedCat ? { 
+          id: selectedCat.id, 
+          name: selectedCat.name,
+          name_en: selectedCat.name_en 
+        } : null 
       });
+      
+      router.refresh();
       setIsEditing(false);
     } catch (e) {
       alert('수정 중 오류가 발생했습니다.');
@@ -149,13 +186,43 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 ml-1">번들 제목</label>
+                  <label className="text-sm font-bold text-gray-700 ml-1">번들 제목 (KO)</label>
                   <input 
                     type="text"
                     value={editForm.title}
                     onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-                    placeholder="번들 제목을 입력하세요"
+                    placeholder="한국어 제목"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Bundle Title (EN)</label>
+                  <input 
+                    type="text"
+                    value={editForm.title_en}
+                    onChange={(e) => setEditForm({...editForm, title_en: e.target.value})}
+                    placeholder="English Title"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">설명 (KO)</label>
+                  <textarea 
+                    rows={2}
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                    placeholder="한국어 설명"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">Description (EN)</label>
+                  <textarea 
+                    rows={2}
+                    value={editForm.description_en}
+                    onChange={(e) => setEditForm({...editForm, description_en: e.target.value})}
+                    placeholder="English Description"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -167,19 +234,9 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                   >
                     <option value="">카테고리 없음</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      <option key={cat.id} value={cat.id}>{cat.name} {cat.name_en ? `(${cat.name_en})` : ''}</option>
                     ))}
                   </select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-bold text-gray-700 ml-1">설명</label>
-                  <textarea 
-                    rows={3}
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-                    placeholder="번들에 대한 상세 설명을 입력하세요"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none transition-all"
-                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 ml-1">학습 레벨 (1-10)</label>
@@ -266,22 +323,6 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-6 border-t border-gray-50">
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  className="px-8 py-3.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
-                >
-                  취소
-                </button>
-                <button 
-                  disabled={isLoading}
-                  onClick={handleUpdate}
-                  className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2 active:scale-95"
-                >
-                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                  설정 저장
-                </button>
-              </div>
             </div>
           ) : (
             <div className="md:flex">
@@ -306,7 +347,7 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                 <div className="flex flex-wrap items-center gap-3 mb-6">
                   {bundle.bundle_category && (
                     <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
-                      {bundle.bundle_category.name}
+                      {bundle.bundle_category.name} {bundle.bundle_category.name_en ? `(${bundle.bundle_category.name_en})` : ''}
                     </span>
                   )}
                   <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">
@@ -323,10 +364,19 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                   )}
                 </div>
                 
-                <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tight">{bundle.title}</h1>
-                <p className="text-gray-500 text-lg leading-relaxed mb-10 max-w-2xl">
-                  {bundle.description || '추가 설명이 없습니다.'}
-                </p>
+                <h1 className="text-4xl font-black text-gray-900 mb-1 tracking-tight">{bundle.title}</h1>
+                {bundle.title_en && <p className="text-xl text-gray-400 font-bold mb-4">{bundle.title_en}</p>}
+                
+                <div className="space-y-4 mb-10">
+                  <p className="text-gray-500 text-lg leading-relaxed max-w-2xl">
+                    {bundle.description || '추가 설명이 없습니다.'}
+                  </p>
+                  {bundle.description_en && (
+                    <p className="text-gray-400 text-base italic leading-relaxed max-w-2xl border-l-2 border-gray-100 pl-4">
+                      {bundle.description_en}
+                    </p>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-2 gap-8 text-sm pt-6 border-t border-gray-50">
                   <div className="flex flex-col">
@@ -342,6 +392,33 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
             </div>
           )}
         </div>
+
+        {/* Image Mapper Section (Edit Mode) */}
+        {isEditing && (
+          <div className="space-y-4">
+            <BundleImageMapper 
+              items={items} 
+              onItemsUpdate={(newMappings) => setItemMappings(newMappings)} 
+            />
+            {/* Buttons moved here */}
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setIsEditing(false)}
+                className="px-8 py-3.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
+              >
+                취소
+              </button>
+              <button 
+                disabled={isLoading}
+                onClick={handleUpdate}
+                className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2 active:scale-95"
+              >
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                모든 변경사항 저장
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Bundle Items Section */}
         <div className="space-y-4">
@@ -443,8 +520,70 @@ export default function BundleDetail({ bundle: initialBundle, items }: { bundle:
                       ) : (
                         <div className="py-2 text-gray-400 italic">데이터 정보 없음</div>
                       )}
+
+                      {!isEditing && item.image_url && (
+                        <div className="mt-3 relative w-32 aspect-video rounded-xl overflow-hidden border border-gray-100">
+                          <img src={item.image_url} alt="Item" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Key Vocabulary Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <Book className="w-5 h-5 text-purple-500" />
+              핵심 어휘 ({words.length})
+            </h2>
+          </div>
+
+          {words.length === 0 ? (
+            <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 text-center">
+              <p className="text-gray-400 font-medium">연결된 단어가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {words.map((w) => (
+                <Link href={`/admin/words/${w.id}`} key={w.id} className="group">
+                  <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all h-full flex flex-col">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {w.word}
+                        </span>
+                        <div className="flex gap-1">
+                          {(w.pos || []).map((p: string, i: number) => (
+                            <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {w.audio_url && (
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            new Audio(w.audio_url).play();
+                          }}
+                          className="p-1.5 bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 rounded-lg transition-colors"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-auto">
+                      <p className="text-sm text-gray-600 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
+                      {w.meaning_en && (
+                        <p className="text-xs text-gray-400 italic mt-0.5">{getMeaningDisplay(w.meaning_en)}</p>
+                      )}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           )}

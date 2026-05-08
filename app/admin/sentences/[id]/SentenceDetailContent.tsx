@@ -10,6 +10,8 @@ import {
 import { updateSentence, deleteSentence, regenerateSentenceTTS } from '@/lib/supabase/services/sentences';
 import { generateTTS } from '@/lib/tts';
 import WordExtractor from './WordExtractor';
+import JSONWordImporter from './JSONWordImporter';
+import TTSRegenerator from '@/components/admin/TTSRegenerator';
 import { ACTIVE_LANGUAGE, formatDate } from '@/lib/utils';
 
 const POS_MAP: Record<string, string> = {
@@ -87,12 +89,17 @@ export default function SentenceDetailContent({
     }
   };
 
-  const handleRegenerateTTS = async () => {
+  const handleRegenerateTTS = async (options: {
+    provider: 'google' | 'elevenlabs';
+    model: string;
+    voice: string;
+    speed: number;
+  }) => {
     if (!confirm('새로운 TTS 음성을 생성하시겠습니까? 기존 파일은 삭제됩니다.')) return;
     
     setIsGenerating(true);
     try {
-      const newAudioUrl = await regenerateSentenceTTS(sentence.id, editForm.sentence);
+      const newAudioUrl = await regenerateSentenceTTS(sentence.id, editForm.sentence, options);
       
       setSentence({ ...sentence, audio_url: newAudioUrl });
       alert('음성이 성공적으로 재생성되었습니다.');
@@ -148,7 +155,7 @@ export default function SentenceDetailContent({
 
       <div className="space-y-8">
         {/* Main Content Card */}
-        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <section className="bg-white rounded-3xl shadow-sm border border-gray-100">
           <div className="p-8">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-50">
               <div className="flex items-center gap-3">
@@ -203,15 +210,11 @@ export default function SentenceDetailContent({
                   />
                 </div>
                 <div className="flex flex-wrap justify-between items-center gap-4 pt-4 border-t border-gray-50 mt-4">
-                  <button 
-                    type="button"
-                    disabled={isGenerating}
-                    onClick={handleRegenerateTTS}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 font-bold rounded-xl hover:bg-amber-100 transition-all text-sm border border-amber-100 disabled:opacity-50"
-                  >
-                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
-                    음성 재생성 (TTS)
-                  </button>
+                  <TTSRegenerator 
+                    text={editForm.sentence}
+                    onGenerate={handleRegenerateTTS}
+                    isGenerating={isGenerating}
+                  />
                   <div className="flex gap-2">
                     <button 
                       onClick={() => setIsEditing(false)}
@@ -288,6 +291,11 @@ export default function SentenceDetailContent({
             sentenceId={sentence.id} 
             sentenceText={sentence.sentence} 
             langCode={sentence.lang_code || ACTIVE_LANGUAGE} 
+          />
+
+          <JSONWordImporter 
+            sentenceId={sentence.id}
+            langCode={sentence.lang_code || ACTIVE_LANGUAGE}
           />
         </section>
 

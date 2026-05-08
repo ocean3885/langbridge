@@ -9,7 +9,7 @@ export async function listBundles() {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name)
+      bundle_category(id, name, name_en)
     `)
     .order('created_at', { ascending: false });
 
@@ -41,13 +41,49 @@ export async function listBundleItems(bundleId: string) {
   return data;
 }
 
+export async function getBundleWords(bundleId: string) {
+  const supabase = createAdminClient();
+  
+  // 1. 번들에 포함된 모든 문장 ID 가져오기
+  const { data: items, error: itemsError } = await supabase
+    .from('bundle_items')
+    .select('sentence_id')
+    .eq('bundle_id', bundleId)
+    .not('sentence_id', 'is', null);
+
+  if (itemsError || !items || items.length === 0) return [];
+
+  const sentenceIds = items.map(item => item.sentence_id);
+
+  // 2. 문장에 연결된 단어들 가져오기 (word_sentence_map 조인)
+  const { data: words, error: wordsError } = await supabase
+    .from('word_sentence_map')
+    .select(`
+      word_id,
+      words:words(*)
+    `)
+    .in('sentence_id', sentenceIds);
+
+  if (wordsError || !words) return [];
+
+  // 3. 중복 단어 제거 및 가공
+  const uniqueWordsMap = new Map();
+  words.forEach((item: any) => {
+    if (item.words && !uniqueWordsMap.has(item.words.id)) {
+      uniqueWordsMap.set(item.words.id, item.words);
+    }
+  });
+
+  return Array.from(uniqueWordsMap.values());
+}
+
 export async function getBundle(bundleId: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name)
+      bundle_category(id, name, name_en)
     `)
     .eq('id', bundleId)
     .single();
@@ -75,7 +111,13 @@ export async function listCategories() {
   return data;
 }
 
-export async function createCategory(category: { name: string; description?: string; order_index?: number }) {
+export async function createCategory(category: { 
+  name: string; 
+  name_en?: string; 
+  description?: string; 
+  description_en?: string; 
+  order_index?: number 
+}) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bundle_category')
@@ -91,7 +133,13 @@ export async function createCategory(category: { name: string; description?: str
   return data;
 }
 
-export async function updateCategory(id: string, updates: { name?: string; description?: string; order_index?: number }) {
+export async function updateCategory(id: string, updates: { 
+  name?: string; 
+  name_en?: string; 
+  description?: string; 
+  description_en?: string; 
+  order_index?: number 
+}) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bundle_category')
@@ -126,7 +174,9 @@ export async function deleteCategory(id: string) {
 export async function createBundleWithItems(
   bundleMeta: {
     title: string;
+    title_en?: string;
     description: string;
+    description_en?: string;
     level: number;
     category_id: string | null;
     is_published: boolean;
@@ -146,7 +196,9 @@ export async function createBundleWithItems(
     .from('bundle')
     .insert([{
       title: bundleMeta.title,
+      title_en: bundleMeta.title_en || null,
       description: bundleMeta.description,
+      description_en: bundleMeta.description_en || null,
       level: bundleMeta.level,
       category_id: bundleMeta.category_id || null,
       is_published: bundleMeta.is_published,
@@ -300,8 +352,6 @@ export async function createBundleWithItems(
 
     } catch (err) {
       console.error(`Error processing bundle item ${i}:`, err);
-      // 개별 아이템 에러 시 전체 롤백은 지원되지 않으므로 로그 남기고 진행하거나
-      // 실제 프로젝트에서는 RPC/Database Function을 사용하는 것이 안전합니다.
     }
   }
 
@@ -317,14 +367,17 @@ export async function listBundlesForSentence(sentenceId: number) {
       bundle (
         id,
         title,
+        title_en,
         description,
+        description_en,
         level,
         thumbnail_url,
         is_published,
         created_at,
         bundle_category (
           id,
-          name
+          name,
+          name_en
         )
       )
     `)
@@ -375,4 +428,21 @@ export async function deleteBundle(id: string) {
   }
 
   return true;
+}
+
+export async function updateBundleItemImage(itemId: string, imageUrl: string | null) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_items')
+    .update({ image_url: imageUrl })
+    .eq('id', itemId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating bundle item image:', error);
+    throw error;
+  }
+
+  return data;
 }

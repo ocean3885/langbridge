@@ -11,7 +11,9 @@ export interface Bundle {
   id: string;
   category_id: string | null;
   title: string;
+  title_en: string | null;
   description: string | null;
+  description_en: string | null;
   level: number;
   thumbnail_url: string | null;
   is_published: boolean;
@@ -20,6 +22,7 @@ export interface Bundle {
   bundle_category?: {
     id: string;
     name: string;
+    name_en: string | null;
   } | null;
 }
 
@@ -54,7 +57,9 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
 
   const filteredBundles = bundles.filter(bundle => 
     bundle.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bundle.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    (bundle.title_en || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bundle.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bundle.description_en?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -160,9 +165,14 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                 {/* Content Area */}
                 <div className="p-6 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                      {bundle.title}
-                    </h3>
+                    <div className="flex flex-col gap-0.5">
+                      <h3 className="text-xl font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                        {bundle.title}
+                      </h3>
+                      {bundle.title_en && (
+                        <p className="text-xs text-gray-400 font-medium line-clamp-1">{bundle.title_en}</p>
+                      )}
+                    </div>
                   </div>
                   
                   <p className="text-gray-500 text-sm line-clamp-2 mb-6 flex-1">

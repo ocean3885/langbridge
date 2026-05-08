@@ -89,15 +89,15 @@ export default async function BundlesPage() {
               <div className="p-6 flex flex-col flex-grow">
                 <div className="mb-3">
                   <span className="text-[11px] font-black text-blue-500 uppercase tracking-widest mb-1 block">
-                    {bundle.bundle_category?.name || t.general}
+                    {(lang === 'en' ? bundle.bundle_category?.name_en : bundle.bundle_category?.name) || bundle.bundle_category?.name || t.general}
                   </span>
                   <h3 className="text-xl font-bold text-gray-900 leading-tight group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
-                    {bundle.title}
+                    {(lang === 'en' ? bundle.title_en : bundle.title) || bundle.title}
                   </h3>
                 </div>
                 
                 <p className="text-sm text-gray-500 line-clamp-2 mb-6 flex-grow">
-                  {bundle.description || t.noBundleDescription}
+                  {(lang === 'en' ? bundle.description_en : bundle.description) || bundle.description || t.noBundleDescription}
                 </p>
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">

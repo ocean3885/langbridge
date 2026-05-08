@@ -1,4 +1,5 @@
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import { getPublicUrl, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -38,6 +39,19 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
   const items = await listBundleItems(id);
   
   const user = await getAppUserFromServer();
+  
+  // 유저 상호작용 정보 가져오기 (문장 아이템에 대해서만)
+  let interactions: any[] = [];
+  if (user) {
+    const sentenceIds = items
+      .filter(item => item.sentence_id)
+      .map(item => item.sentence_id as number);
+    
+    if (sentenceIds.length > 0) {
+      interactions = await listUserSentenceInteractions(user.id, sentenceIds);
+    }
+  }
+
   const lang = user?.displayLanguage === 'en' ? 'en' : 'ko';
   const t = translations[lang];
 
@@ -62,8 +76,13 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
       <BundleHeaderClient bundle={bundle} itemsCount={items.length} language={lang} />
 
       {/* 학습 플레이어 영역 */}
-      <BundlePlayerClient bundle={bundle} items={items} language={lang} />
+      <BundlePlayerClient 
+        bundle={bundle} 
+        items={items} 
+        language={lang} 
+        initialInteractions={interactions}
+        user={user}
+      />
     </div>
   );
 }
-

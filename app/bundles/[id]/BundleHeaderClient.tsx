@@ -38,7 +38,7 @@ export default function BundleHeaderClient({ bundle, itemsCount, language }: Bun
             Level {bundle.level || 1}
           </span>
           <span className="px-2 py-0.5 md:px-3 md:py-1 bg-gray-50 text-gray-600 text-[10px] md:text-xs font-bold rounded-full">
-            {bundle.bundle_category?.name || t.general}
+            {(language === 'en' ? bundle.bundle_category?.name_en : bundle.bundle_category?.name) || bundle.bundle_category?.name || t.general}
           </span>
           <span className="hidden md:inline-block w-1 h-1 bg-gray-300 rounded-full mx-1"></span>
           <div className="flex items-center gap-1 md:gap-2 text-[10px] md:text-xs text-gray-400 font-medium">
@@ -50,7 +50,7 @@ export default function BundleHeaderClient({ bundle, itemsCount, language }: Bun
         
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
-            {bundle.title}
+            {(language === 'en' ? bundle.title_en : bundle.title) || bundle.title}
           </h1>
           <button 
             onClick={() => setIsExpanded(!isExpanded)}
@@ -63,7 +63,7 @@ export default function BundleHeaderClient({ bundle, itemsCount, language }: Bun
 
         {isExpanded && (
           <p className="mt-4 text-sm md:text-base lg:text-lg text-gray-600 leading-relaxed border-t border-gray-50 pt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            {bundle.description || t.noDescription}
+            {(language === 'en' ? bundle.description_en : bundle.description) || bundle.description || t.noDescription}
           </p>
         )}
       </div>
