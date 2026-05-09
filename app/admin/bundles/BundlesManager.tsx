@@ -5,6 +5,7 @@ import { Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2 } from 'l
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import CategoryManagerModal from './CategoryManagerModal';
+import BundleTypeManagerModal from './BundleTypeManagerModal';
 import { listBundles } from '@/lib/supabase/services/bundles';
 
 export interface Bundle {
@@ -49,6 +50,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
   const [bundles, setBundles] = useState<Bundle[]>(initialBundles);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
 
   const refreshBundles = async () => {
     const data = await listBundles();
@@ -74,10 +76,17 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsCategoryModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
             >
               <Settings2 className="w-5 h-5" />
-              카테고리 관리
+              카테고리
+            </button>
+            <button 
+              onClick={() => setIsTypeModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
+            >
+              <Layers className="w-5 h-5" />
+              번들 타입
             </button>
             <Link 
               href="/admin/bundles/new"
@@ -125,7 +134,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                 className="group bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden flex flex-col"
               >
                 {/* Thumbnail Area */}
-                <div className="relative h-48 overflow-hidden bg-gray-100">
+                <div className="relative aspect-video overflow-hidden bg-gray-50 dark:bg-gray-800">
                   {bundle.thumbnail_url ? (
                     <img 
                       src={bundle.thumbnail_url} 
@@ -200,6 +209,12 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
       <CategoryManagerModal 
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
+        onRefresh={refreshBundles}
+      />
+
+      <BundleTypeManagerModal 
+        isOpen={isTypeModalOpen}
+        onClose={() => setIsTypeModalOpen(false)}
         onRefresh={refreshBundles}
       />
     </div>

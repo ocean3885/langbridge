@@ -16,9 +16,17 @@ export interface LBVideo {
 
 interface LBVideoSectionProps {
   videos: LBVideo[];
+  lang?: 'ko' | 'en';
 }
 
-export default function LBVideoSection({ videos }: LBVideoSectionProps) {
+const translations = {
+  ko: { title: 'LB 학습 영상', viewAll: '전체 보기' },
+  en: { title: 'LB Learning Videos', viewAll: 'View All' }
+};
+
+export default function LBVideoSection({ videos, lang = 'ko' }: LBVideoSectionProps) {
+  const t = translations[lang];
+
   if (videos.length === 0) return null;
 
   return (
@@ -26,13 +34,13 @@ export default function LBVideoSection({ videos }: LBVideoSectionProps) {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Globe className="w-6 h-6 text-emerald-600" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">LB 학습 영상</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t.title}</h2>
         </div>
         <Link
           href="/lb-videos"
           className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition flex items-center gap-1"
         >
-          전체 보기
+          {t.viewAll}
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

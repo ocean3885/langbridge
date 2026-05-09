@@ -15,13 +15,26 @@ import {
   UploadCloud,
   Trash2,
   Loader2,
+  ImagePlus,
   Save,
   RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
-import { listCategories, createBundleWithItems } from '@/lib/supabase/services/bundles';
+import { listCategories, listBundleTypes, createBundleWithItems } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
-import { saveAdminDraft, getAdminDraft, deleteAdminDraft } from '@/lib/supabase/services/admin-drafts';
+import { 
+  saveAdminDraft, 
+  getAdminDraft, 
+  deleteAdminDraft,
+  listAdminDrafts,
+  deleteAdminDraftById
+} from '@/lib/supabase/services/admin-drafts';
+import { 
+  Clock,
+  X,
+  FileText,
+  History
+} from 'lucide-react';
 
 interface BundleItemInput {
   sentence: string;
@@ -49,31 +62,46 @@ export default function BundleCreateForm({ userId }: Props) {
   
   // Step 3 State
   const [categories, setCategories] = useState<any[]>([]);
+  const [bundleTypes, setBundleTypes] = useState<any[]>([]);
   const [bundleMeta, setBundleMeta] = useState({
     title: '',
+    title_en: '',
     description: '',
+    description_en: '',
     level: 1,
     category_id: '',
+    type_id: '',
+    thumbnail_url: '',
     is_published: false
   });
-  const [uploadedImages, setUploadedImages] = useState<{file: File, url: string}[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<{file?: File, previewUrl: string, remoteUrl?: string}[]>([]);
   const [itemImageMappings, setItemImageMappings] = useState<(number | null)[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [tempTitle, setTempTitle] = useState('');
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [draftsList, setDraftsList] = useState<any[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
 
   const DRAFT_TYPE = 'bundle_create';
 
   useEffect(() => {
-    const fetchCats = async () => {
+    const fetchData = async () => {
       try {
-        const data = await listCategories();
-        setCategories(data);
+        const [cats, types] = await Promise.all([
+          listCategories(),
+          listBundleTypes()
+        ]);
+        setCategories(cats);
+        setBundleTypes(types);
       } catch (err) {
-        console.error('Failed to fetch categories', err);
+        console.error('Failed to fetch initial data', err);
       }
     };
-    fetchCats();
+    fetchData();
 
     // DB에서 초안 로드 시도
     const fetchDraft = async () => {
@@ -92,18 +120,50 @@ export default function BundleCreateForm({ userId }: Props) {
   const saveDraft = async () => {
     setIsSaving(true);
     try {
+      // 1. Upload main thumbnail if pending
+      let finalThumbnailUrl = bundleMeta.thumbnail_url;
+      if (thumbnailFile) {
+        const formData = new FormData();
+        formData.append('file', thumbnailFile);
+        finalThumbnailUrl = await uploadThumbnail(formData);
+        setThumbnailFile(null);
+      }
+
+      // 2. Upload any pending local images first
+      const updatedImages = [...uploadedImages];
+      for (let i = 0; i < updatedImages.length; i++) {
+        const img = updatedImages[i];
+        if (img.file && !img.remoteUrl) {
+          const formData = new FormData();
+          formData.append('file', img.file);
+          const url = await uploadThumbnail(formData);
+          updatedImages[i] = {
+            ...img,
+            remoteUrl: url,
+            previewUrl: url,
+            file: undefined
+          };
+        }
+      }
+      setUploadedImages(updatedImages);
+
+      // 3. Prepare draft data with remote URLs
       const draftData = {
         step,
+        tempTitle,
         jsonInput,
         parsedData,
         wordJsons,
-        bundleMeta,
+        bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
         itemImageMappings,
+        savedImages: updatedImages.map(img => img.remoteUrl).filter(Boolean)
       };
       
-      const saved = await saveAdminDraft(userId, DRAFT_TYPE, draftData);
+      const saved = await saveAdminDraft(userId, DRAFT_TYPE, draftData, currentDraftId || undefined);
+      setBundleMeta(prev => ({ ...prev, thumbnail_url: finalThumbnailUrl }));
       setLastSaved(saved.updated_at);
-      alert('서버에 임시 저장되었습니다. 다른 기기에서도 이어서 작업할 수 있습니다.');
+      setCurrentDraftId(saved.id);
+      alert('서버에 임시 저장되었습니다. (이미지 업로드 포함)');
     } catch (err: any) {
       console.error('Failed to save draft', err);
       alert('임시 저장 중 오류가 발생했습니다: ' + err.message);
@@ -112,50 +172,107 @@ export default function BundleCreateForm({ userId }: Props) {
     }
   };
 
-  const loadDraft = async () => {
-    if (!confirm('저장된 임시 데이터를 서버에서 불러오시겠습니까? 현재 작성 중인 내용은 사라집니다.')) {
+  const fetchDraftsList = async () => {
+    setIsLoadingDrafts(true);
+    try {
+      const list = await listAdminDrafts(userId, DRAFT_TYPE);
+      setDraftsList(list);
+    } catch (err) {
+      console.error('Failed to fetch drafts list', err);
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  };
+
+  const openLoadModal = async () => {
+    await fetchDraftsList();
+    setIsLoadModalOpen(true);
+  };
+
+  const loadSpecificDraft = async (draftRecord: any) => {
+    if (!confirm('선택한 임시 데이터를 불러오시겠습니까? 현재 작성 중인 내용은 사라집니다.')) {
       return;
     }
 
     try {
-      const draftRecord = await getAdminDraft(userId, DRAFT_TYPE);
-      if (!draftRecord) {
-        alert('저장된 임시 데이터가 없습니다.');
-        return;
-      }
-
       const draft = draftRecord.data;
       setStep(draft.step || 1);
+      setTempTitle(draft.tempTitle || '');
       setJsonInput(draft.jsonInput || '');
       setParsedData(draft.parsedData || null);
       setWordJsons(draft.wordJsons || []);
-      setBundleMeta(draft.bundleMeta || {
+      
+      const defaultMeta = {
         title: '',
+        title_en: '',
         description: '',
+        description_en: '',
         level: 1,
         category_id: '',
+        type_id: '',
+        thumbnail_url: '',
         is_published: false
-      });
-      setItemImageMappings(draft.itemImageMappings || []);
-      setLastSaved(draftRecord.updated_at);
+      };
+      setBundleMeta({ ...defaultMeta, ...(draft.bundleMeta || {}) });
       
-      if (draft.itemImageMappings?.some((m: any) => m !== null)) {
-        alert('텍스트 데이터는 복구되었으나, 이미지는 보안상 다시 업로드해야 합니다.');
+      setItemImageMappings(draft.itemImageMappings || []);
+      
+      // Restore images from draft
+      if (draft.savedImages && Array.isArray(draft.savedImages)) {
+        setUploadedImages(draft.savedImages.map((url: string) => ({
+          previewUrl: url,
+          remoteUrl: url
+        })));
+      } else {
+        setUploadedImages([]);
       }
+
+      setLastSaved(draftRecord.updated_at);
+      setCurrentDraftId(draftRecord.id);
+      setIsLoadModalOpen(false);
     } catch (e) {
       console.error('Failed to load draft', e);
       alert('데이터 로드 중 오류가 발생했습니다.');
     }
   };
 
-  const clearDraft = async () => {
-    if (confirm('서버에 저장된 임시 데이터를 삭제하시겠습니까?')) {
-      try {
-        await deleteAdminDraft(userId, DRAFT_TYPE);
+  const deleteDraft = async (id: string) => {
+    if (!confirm('이 임시 저장 데이터를 삭제하시겠습니까?')) return;
+    
+    try {
+      await deleteAdminDraftById(id, userId);
+      if (currentDraftId === id) {
+        setCurrentDraftId(null);
         setLastSaved(null);
-      } catch (err: any) {
-        alert('삭제 중 오류가 발생했습니다: ' + err.message);
       }
+      await fetchDraftsList();
+    } catch (err: any) {
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const createNewDraft = () => {
+    if (confirm('현재 작업 중인 내용을 초기화하고 새로 작성하시겠습니까?')) {
+      setStep(1);
+      setTempTitle('');
+      setJsonInput('');
+      setParsedData(null);
+      setWordJsons([]);
+      setBundleMeta({
+        title: '',
+        title_en: '',
+        description: '',
+        description_en: '',
+        level: 1,
+        category_id: '',
+        type_id: '',
+        thumbnail_url: '',
+        is_published: false
+      });
+      setThumbnailFile(null);
+      setItemImageMappings([]);
+      setLastSaved(null);
+      setCurrentDraftId(null);
     }
   };
 
@@ -232,7 +349,7 @@ export default function BundleCreateForm({ userId }: Props) {
 
     const newImages = Array.from(files).map(file => ({
       file,
-      url: URL.createObjectURL(file)
+      previewUrl: URL.createObjectURL(file)
     }));
 
     setUploadedImages([...uploadedImages, ...newImages]);
@@ -240,7 +357,9 @@ export default function BundleCreateForm({ userId }: Props) {
 
   const removeImage = (index: number) => {
     const newImages = [...uploadedImages];
-    URL.revokeObjectURL(newImages[index].url);
+    if (newImages[index].file) {
+      URL.revokeObjectURL(newImages[index].previewUrl);
+    }
     newImages.splice(index, 1);
     setUploadedImages(newImages);
 
@@ -266,16 +385,28 @@ export default function BundleCreateForm({ userId }: Props) {
 
     setIsSubmitting(true);
     try {
-      // 1. Upload unique images
-      const imageUrls: string[] = [];
-      for (const img of uploadedImages) {
+      // 1. Upload main thumbnail if pending
+      let finalThumbnailUrl = bundleMeta.thumbnail_url;
+      if (thumbnailFile) {
         const formData = new FormData();
-        formData.append('file', img.file);
-        const url = await uploadThumbnail(formData);
-        imageUrls.push(url);
+        formData.append('file', thumbnailFile);
+        finalThumbnailUrl = await uploadThumbnail(formData);
       }
 
-      // 2. Prepare items with mapped image URLs
+      // 2. Upload only pending local images
+      const imageUrls: string[] = [];
+      for (const img of uploadedImages) {
+        if (img.remoteUrl) {
+          imageUrls.push(img.remoteUrl);
+        } else if (img.file) {
+          const formData = new FormData();
+          formData.append('file', img.file);
+          const url = await uploadThumbnail(formData);
+          imageUrls.push(url);
+        }
+      }
+
+      // 3. Prepare items with mapped image URLs
       const itemsToCreate = parsedData!.items.map((item, idx) => {
         const imageIndex = itemImageMappings[idx];
         return {
@@ -285,8 +416,8 @@ export default function BundleCreateForm({ userId }: Props) {
         };
       });
 
-      // 3. Create bundle with items
-      const bundle = await createBundleWithItems(bundleMeta, itemsToCreate);
+      // 4. Create bundle with items
+      const bundle = await createBundleWithItems({ ...bundleMeta, thumbnail_url: finalThumbnailUrl }, itemsToCreate);
 
       alert('번들이 성공적으로 생성되었습니다!');
       await deleteAdminDraft(userId, DRAFT_TYPE);
@@ -326,70 +457,78 @@ export default function BundleCreateForm({ userId }: Props) {
   return (
     <div className="md:ml-64 p-4 md:p-8 pt-20 md:pt-8 bg-gray-50 dark:bg-background min-h-[calc(100vh-5rem)]">
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="flex items-center gap-4">
-          <Link 
-            href="/admin/bundles"
-            className="p-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-100 dark:hover:border-blue-900 transition-all shadow-sm group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">새 번들 생성</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">학습 번들을 단계별로 구성합니다.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/admin/bundles"
+              className="p-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-100 dark:hover:border-blue-900 transition-all shadow-sm group shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight truncate">새 번들 생성</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm truncate">학습 번들을 단계별로 구성합니다.</p>
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             {lastSaved && (
-              <div className="hidden sm:block text-right mr-2">
+              <div className="hidden lg:block text-right mr-2">
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">마지막 저장</p>
-                <p className="text-xs text-gray-500">{new Date(lastSaved).toLocaleString()}</p>
+                <p className="text-xs text-gray-500">{new Date(lastSaved).toLocaleTimeString()}</p>
               </div>
             )}
             <button
-              onClick={loadDraft}
-              disabled={!lastSaved}
-              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-              title="임시저장 불러오기"
+              onClick={openLoadModal}
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-sm"
             >
               <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">불러오기</span>
+              <span>불러오기</span>
             </button>
             <button
               onClick={saveDraft}
               disabled={isSaving}
               className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/20 disabled:opacity-50"
-              title="임시저장"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isSaving ? '저장 중...' : '임시저장'}</span>
+              <span>{isSaving ? '저장 중...' : '임시저장'}</span>
             </button>
-            {lastSaved && (
-              <button
-                onClick={clearDraft}
-                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                title="임시저장 삭제"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              onClick={createNewDraft}
+              className="p-2 text-gray-400 hover:text-blue-500 transition-colors shrink-0"
+              title="새로 작성 (초기화)"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto no-scrollbar">
-          <div className={`flex items-center gap-3 px-4 py-2 shrink-0 ${step >= 1 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-2xl font-bold`}>
-            <div className={`w-8 h-8 rounded-full ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-sm`}>1</div>
+        <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-2xl md:rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
+          <button 
+            onClick={() => setStep(1)}
+            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 shrink-0 ${step >= 1 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-xl md:rounded-2xl font-bold transition-all text-xs md:text-sm`}
+          >
+            <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-[10px] md:text-sm shrink-0`}>1</div>
             <span>문장 데이터</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
-          <div className={`flex items-center gap-3 px-4 py-2 shrink-0 ${step >= 2 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-2xl font-bold`}>
-            <div className={`w-8 h-8 rounded-full ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-sm`}>2</div>
+          </button>
+          <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+          <button 
+            onClick={() => parsedData && setStep(2)}
+            disabled={!parsedData}
+            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 shrink-0 ${step >= 2 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-xl md:rounded-2xl font-bold transition-all text-xs md:text-sm ${parsedData ? '' : 'opacity-50 cursor-not-allowed'}`}
+          >
+            <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-[10px] md:text-sm shrink-0`}>2</div>
             <span>단어 데이터</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
-          <div className={`flex items-center gap-3 px-4 py-2 shrink-0 ${step >= 3 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-2xl font-bold`}>
-            <div className={`w-8 h-8 rounded-full ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-sm`}>3</div>
-            <span>번들 설정 & 이미지</span>
-          </div>
+          </button>
+          <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+          <button 
+            onClick={() => parsedData && setStep(3)}
+            disabled={!parsedData}
+            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 shrink-0 ${step >= 3 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} rounded-xl md:rounded-2xl font-bold transition-all text-xs md:text-sm ${parsedData ? '' : 'opacity-50 cursor-not-allowed'}`}
+          >
+            <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'} flex items-center justify-center text-[10px] md:text-sm shrink-0`}>3</div>
+            <span>번들 설정</span>
+          </button>
         </div>
 
         {step === 1 && (
@@ -405,6 +544,7 @@ export default function BundleCreateForm({ userId }: Props) {
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setJsonInput(exampleJson)}
                 className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg transition-colors"
               >
@@ -414,6 +554,16 @@ export default function BundleCreateForm({ userId }: Props) {
             
             <form onSubmit={handleJsonSubmit} className="p-8 space-y-6">
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 제목 (임시)</label>
+                  <input 
+                    type="text"
+                    value={tempTitle}
+                    onChange={(e) => setTempTitle(e.target.value)}
+                    placeholder="임시 저장 시 식별할 제목을 입력하세요"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                  />
+                </div>
                 <div className="relative">
                   <div className="absolute top-4 right-4 flex items-center gap-2">
                     <Code2 className="w-4 h-4 text-gray-300" />
@@ -529,18 +679,119 @@ export default function BundleCreateForm({ userId }: Props) {
                 <Tag className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <h2 className="font-bold text-gray-900 dark:text-white">번들 정보 설정</h2>
               </div>
-              <div className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 제목</label>
-                    <input 
-                      type="text"
-                      value={bundleMeta.title}
-                      onChange={(e) => setBundleMeta({...bundleMeta, title: e.target.value})}
-                      placeholder="번들 제목을 입력하세요"
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                    />
+              <div className="p-8 space-y-10">
+                {/* 1. Thumbnail Section (Dedicated Row) */}
+                <div className="space-y-4 max-w-sm mx-auto">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex justify-center items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                    번들 대표 썸네일
+                  </label>
+                  <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-200 dark:border-gray-700 group hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-inner">
+                    {bundleMeta.thumbnail_url || thumbnailFile ? (
+                      <>
+                        <img 
+                          src={thumbnailFile ? URL.createObjectURL(thumbnailFile) : bundleMeta.thumbnail_url} 
+                          className="w-full h-full object-cover" 
+                          alt="Bundle Thumbnail" 
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <label className="p-2 bg-white text-blue-600 rounded-full cursor-pointer hover:bg-blue-50 transition-colors shadow-lg">
+                            <ImagePlus className="w-5 h-5" />
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setThumbnailFile(file);
+                              }}
+                            />
+                          </label>
+                          <button 
+                            onClick={() => {
+                              setThumbnailFile(null);
+                              setBundleMeta({...bundleMeta, thumbnail_url: ''});
+                            }}
+                            className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50 transition-colors shadow-lg"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer">
+                        <div className="w-12 h-12 bg-white dark:bg-gray-900 rounded-2xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <ImagePlus className="w-6 h-6 text-blue-500" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-400">대표 이미지 업로드</span>
+                        <p className="text-[10px] text-gray-400 mt-1">이미지 미설정 시 첫 번째 문장의 이미지가 사용됩니다.</p>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setThumbnailFile(file);
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
+                </div>
+
+                {/* 2. Metadata Fields Section */}
+                <div className="space-y-6 pt-6 border-t border-gray-50 dark:border-gray-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Title Group */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 제목 (국문)</label>
+                      <input 
+                        type="text"
+                        value={bundleMeta.title}
+                        onChange={(e) => setBundleMeta({...bundleMeta, title: e.target.value})}
+                        placeholder="국문 제목을 입력하세요"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 제목 (영문)</label>
+                      <input 
+                        type="text"
+                        value={bundleMeta.title_en}
+                        onChange={(e) => setBundleMeta({...bundleMeta, title_en: e.target.value})}
+                        placeholder="Bundle title in English"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+
+                    {/* Description Group */}
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 설명 (국문)</label>
+                      <textarea 
+                        rows={2}
+                        value={bundleMeta.description}
+                        onChange={(e) => setBundleMeta({...bundleMeta, description: e.target.value})}
+                        placeholder="번들에 대한 상세 설명을 입력하세요"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none resize-none transition-all text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 설명 (영문)</label>
+                      <textarea 
+                        rows={2}
+                        value={bundleMeta.description_en}
+                        onChange={(e) => setBundleMeta({...bundleMeta, description_en: e.target.value})}
+                        placeholder="Bundle description in English"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none resize-none transition-all text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-50 dark:border-gray-800 pt-6">
+                  {/* Other Settings */}
+
+                  {/* Other Settings */}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">카테고리</label>
                     <select 
@@ -554,15 +805,18 @@ export default function BundleCreateForm({ userId }: Props) {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 설명</label>
-                    <textarea 
-                      rows={3}
-                      value={bundleMeta.description}
-                      onChange={(e) => setBundleMeta({...bundleMeta, description: e.target.value})}
-                      placeholder="번들에 대한 상세 설명을 입력하세요"
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none resize-none transition-all text-gray-900 dark:text-gray-100"
-                    />
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 타입 (레이아웃)</label>
+                    <select 
+                      value={bundleMeta.type_id}
+                      onChange={(e) => setBundleMeta({...bundleMeta, type_id: e.target.value})}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">타입 선택 (기본값: 문장 학습형)</option>
+                      {bundleTypes.map(type => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">학습 레벨 (1-10)</label>
@@ -632,9 +886,10 @@ export default function BundleCreateForm({ userId }: Props) {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {uploadedImages.map((img, idx) => (
                       <div key={idx} className="group relative aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
-                        <img src={img.url} alt={`Uploaded ${idx}`} className="w-full h-full object-cover" />
+                        <img src={img.previewUrl} alt={`Uploaded ${idx}`} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button 
+                            type="button"
                             onClick={() => removeImage(idx)}
                             className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                           >
@@ -643,6 +898,7 @@ export default function BundleCreateForm({ userId }: Props) {
                         </div>
                         <div className="absolute top-2 left-2 px-2 py-1 bg-white/90 dark:bg-gray-800/90 text-gray-900 dark:text-gray-100 text-[10px] font-bold rounded-lg shadow-sm">
                           #{idx + 1}
+                          {img.remoteUrl && <span className="ml-1 text-[8px] text-green-500">● SAVED</span>}
                         </div>
                       </div>
                     ))}
@@ -692,7 +948,7 @@ export default function BundleCreateForm({ userId }: Props) {
                           {itemImageMappings[index] !== null ? (
                             <div className="w-24 aspect-video rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-gray-100 dark:bg-gray-800">
                               <img 
-                                src={uploadedImages[itemImageMappings[index]!].url} 
+                                src={uploadedImages[itemImageMappings[index]!].previewUrl} 
                                 alt="Preview" 
                                 className="w-full h-full object-cover"
                               />
@@ -738,6 +994,99 @@ export default function BundleCreateForm({ userId }: Props) {
           </div>
         )}
       </div>
+
+      {/* Load Draft Modal */}
+      {isLoadModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+            onClick={() => setIsLoadModalOpen(false)}
+          />
+          <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-300">
+            <div className="p-8 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">
+                  <History className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">임시 저장 데이터 불러오기</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">저장된 초안 중 하나를 선택하여 이어서 작업하세요.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsLoadModalOpen(false)}
+                className="p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl text-gray-400 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-4 max-h-[500px] overflow-y-auto no-scrollbar">
+              {isLoadingDrafts ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                  <p className="text-sm font-medium text-gray-400">데이터를 불러오는 중...</p>
+                </div>
+              ) : draftsList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-3xl flex items-center justify-center">
+                    <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-400">저장된 임시 데이터가 없습니다.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 p-2">
+                  {draftsList.map((draft) => (
+                    <div 
+                      key={draft.id}
+                      className={`group flex items-center justify-between p-5 rounded-3xl border transition-all cursor-pointer ${currentDraftId === draft.id ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/20 dark:hover:bg-blue-900/10'}`}
+                      onClick={() => loadSpecificDraft(draft)}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentDraftId === draft.id ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:text-blue-600'}`}>
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="truncate">
+                          <h3 className={`font-bold truncate ${currentDraftId === draft.id ? 'text-blue-700 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                            {draft.data.tempTitle || '제목 없는 임시 저장'}
+                          </h3>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                              <Clock className="w-3 h-3" />
+                              {new Date(draft.updated_at).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full font-bold">
+                              단계 {draft.data.step || 1}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteDraft(draft.id);
+                        }}
+                        className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all ml-4"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-8 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-50 dark:border-gray-800">
+              <button 
+                onClick={() => setIsLoadModalOpen(false)}
+                className="w-full py-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-bold rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

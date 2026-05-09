@@ -1,4 +1,4 @@
-// langbridge/app/layout.tsx
+import { cookies } from 'next/headers';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 
 import { Inter } from 'next/font/google'; 
@@ -15,14 +15,14 @@ export const metadata: Metadata = {
 // 폰트 설정
 const inter = Inter({ subsets: ['latin'] });
 
-// **Root Layout Component**
+// Root Layout Component
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAppUserFromServer();
-  const lang = user?.displayLanguage || 'ko';
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('lb_display_language')?.value === 'en' ? 'en' : 'ko');
 
   return (
     <html lang={lang}>

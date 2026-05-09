@@ -14,9 +14,17 @@ export interface EduVideo {
 
 interface EduVideoSectionProps {
   videos: EduVideo[];
+  lang?: 'ko' | 'en';
 }
 
-export default function EduVideoSection({ videos }: EduVideoSectionProps) {
+const translations = {
+  ko: { title: '어학 강의 영상', viewAll: '전체 보기' },
+  en: { title: 'Language Learning Videos', viewAll: 'View All' }
+};
+
+export default function EduVideoSection({ videos, lang = 'ko' }: EduVideoSectionProps) {
+  const t = translations[lang];
+
   if (videos.length === 0) return null;
 
   return (
@@ -24,13 +32,13 @@ export default function EduVideoSection({ videos }: EduVideoSectionProps) {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Video className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">어학 강의 영상</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t.title}</h2>
         </div>
         <Link 
           href="/videos" 
           className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1"
         >
-          전체 보기
+          {t.viewAll}
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

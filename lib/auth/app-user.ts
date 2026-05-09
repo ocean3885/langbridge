@@ -8,7 +8,6 @@ export type AppUser = {
   id: string;
   email: string | null;
   createdAt: string | null;
-  displayLanguage: 'ko' | 'en';
   source: 'supabase';
 };
 
@@ -24,7 +23,6 @@ export async function getAppUserFromServer(): Promise<AppUser | null> {
     id: userId,
     email: profile.email,
     createdAt: profile.created_at,
-    displayLanguage: profile.display_language || 'ko',
     source: 'supabase',
   };
 }
@@ -42,7 +40,6 @@ export async function getAppUserFromRequest(
     id: userId,
     email: profile.email,
     createdAt: profile.created_at,
-    displayLanguage: profile.display_language || 'ko',
     source: 'supabase',
   };
 }

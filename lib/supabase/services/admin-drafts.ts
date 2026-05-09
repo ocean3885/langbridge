@@ -2,21 +2,15 @@
 
 import { createAdminClient } from '../admin';
 
-export async function saveAdminDraft(userId: string, type: string, data: any) {
+export async function saveAdminDraft(userId: string, type: string, data: any, draftId?: string) {
   const supabase = createAdminClient();
   
-  const { data: existing } = await supabase
-    .from('admin_drafts')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('type', type)
-    .maybeSingle();
-
-  if (existing) {
+  if (draftId) {
     const { data: updated, error } = await supabase
       .from('admin_drafts')
       .update({ data, updated_at: new Date().toISOString() })
-      .eq('id', existing.id)
+      .eq('id', draftId)
+      .eq('user_id', userId)
       .select()
       .single();
     
@@ -34,6 +28,23 @@ export async function saveAdminDraft(userId: string, type: string, data: any) {
   }
 }
 
+export async function listAdminDrafts(userId: string, type: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('admin_drafts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.error('Error listing admin drafts:', error);
+    return [];
+  }
+
+  return data;
+}
+
 export async function getAdminDraft(userId: string, type: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -41,6 +52,8 @@ export async function getAdminDraft(userId: string, type: string) {
     .select('*')
     .eq('user_id', userId)
     .eq('type', type)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -61,6 +74,22 @@ export async function deleteAdminDraft(userId: string, type: string) {
 
   if (error) {
     console.error('Error deleting admin draft:', error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function deleteAdminDraftById(id: string, userId: string) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('admin_drafts')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error deleting specific admin draft:', error);
     throw error;
   }
 

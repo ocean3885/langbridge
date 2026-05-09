@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud, Volume2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud, Volume2, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { updateBundle, deleteBundle, listCategories, updateBundleItemImage } from '@/lib/supabase/services/bundles';
+import { updateBundle, deleteBundle, listCategories, updateBundleItemImage, deleteBundleItemsBulk } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
 import BundleImageMapper from './BundleImageMapper';
 
@@ -24,6 +24,12 @@ export default function BundleDetail({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Selection Mode State
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [currentItems, setCurrentItems] = useState(items);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   // Edit Form State
   const [editForm, setEditForm] = useState({
@@ -140,6 +146,38 @@ export default function BundleDetail({
     }
     return '-';
   }
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`선택한 ${selectedItems.length}개의 아이템을 삭제하시겠습니까?`)) return;
+    
+    setIsBulkDeleting(true);
+    try {
+      await deleteBundleItemsBulk(bundle.id, selectedItems);
+      
+      // Update local state
+      const remainingItems = currentItems
+        .filter(item => !selectedItems.includes(item.id))
+        .map((item, index) => ({ ...item, order_index: index }));
+      
+      setCurrentItems(remainingItems);
+      setSelectedItems([]);
+      setIsSelectMode(false);
+      
+      router.refresh();
+      alert('성공적으로 삭제되었습니다.');
+    } catch (e) {
+      console.error(e);
+      alert('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
 
   return (
     <div className="md:ml-64 p-4 md:p-8 pt-20 md:pt-8 bg-gray-50 dark:bg-background min-h-screen">
@@ -325,67 +363,76 @@ export default function BundleDetail({
               </div>
             </div>
           ) : (
-            <div className="md:flex">
-              {bundle.thumbnail_url ? (
-                <div className="md:w-1/3 h-64 md:h-auto relative">
-                  <img 
-                    src={bundle.thumbnail_url} 
-                    alt={bundle.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                </div>
-              ) : (
-                <div className="md:w-1/3 h-64 md:h-auto bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center relative overflow-hidden">
-                  <Layout className="w-20 h-20 text-white/20 relative z-10" />
-                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-                  <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-400/20 rounded-full blur-2xl" />
-                </div>
-              )}
+            <div className="flex flex-col">
+              {/* 1. Thumbnail Row (Independent & Centered) */}
+              <div className="p-6 md:p-8 pb-0 flex justify-center">
+                {bundle.thumbnail_url ? (
+                  <div className="w-full max-w-xl aspect-video rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 shrink-0">
+                    <img 
+                      src={bundle.thumbnail_url} 
+                      alt={bundle.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full max-w-xl aspect-video bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center rounded-3xl overflow-hidden shrink-0">
+                    <Layout className="w-16 h-16 text-white/20" />
+                  </div>
+                )}
+              </div>
               
-              <div className="p-6 md:p-10 flex-1">
+              {/* 2. Content Row */}
+              <div className="p-8 md:p-12 pt-8">
                 <div className="flex flex-wrap items-center gap-3 mb-6">
                   {bundle.bundle_category && (
-                    <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs font-bold uppercase tracking-wider">
-                      {bundle.bundle_category.name} {bundle.bundle_category.name_en ? `(${bundle.bundle_category.name_en})` : ''}
+                    <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
+                      {bundle.bundle_category.name}
                     </span>
                   )}
-                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full text-xs font-bold">
+                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg text-[10px] font-bold">
                     Lv. {bundle.level}
                   </span>
                   {bundle.is_published ? (
-                    <span className="px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs font-bold">
+                    <span className="px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg text-[10px] font-bold">
                       공개됨
                     </span>
                   ) : (
-                    <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full text-xs font-bold">
+                    <span className="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg text-[10px] font-bold">
                       비공개
                     </span>
                   )}
                 </div>
                 
-                <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-1 tracking-tight">{bundle.title}</h1>
-                {bundle.title_en && <p className="text-xl text-gray-400 dark:text-gray-500 font-bold mb-4">{bundle.title_en}</p>}
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">{bundle.title}</h1>
+                {bundle.title_en && <p className="text-lg text-gray-400 dark:text-gray-500 font-bold mb-8">{bundle.title_en}</p>}
                 
-                <div className="space-y-4 mb-10">
-                  <p className="text-gray-500 dark:text-gray-400 text-lg leading-relaxed max-w-2xl">
+                <div className="space-y-6 mb-12">
+                  <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
                     {bundle.description || '추가 설명이 없습니다.'}
                   </p>
                   {bundle.description_en && (
-                    <p className="text-gray-400 dark:text-gray-500 text-base italic leading-relaxed max-w-2xl border-l-2 border-gray-100 dark:border-gray-800 pl-4">
+                    <p className="text-gray-400 dark:text-gray-500 text-base italic leading-relaxed border-l-4 border-gray-100 dark:border-gray-800 pl-6 py-2">
                       {bundle.description_en}
                     </p>
                   )}
                 </div>
                 
-                <div className="grid grid-cols-2 gap-8 text-sm pt-6 border-t border-gray-50 dark:border-gray-800">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm pt-8 border-t border-gray-50 dark:border-gray-800">
                   <div className="flex flex-col">
-                    <span className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-widest text-[10px]">생성일</span>
-                    <span className="font-bold text-gray-700 dark:text-gray-300 text-base">{formatDate(bundle.created_at)}</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-bold mb-1 uppercase tracking-widest text-[10px]">생성일</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{formatDate(bundle.created_at)}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-widest text-[10px]">학습 컨텐츠</span>
-                    <span className="font-bold text-gray-700 dark:text-gray-300 text-base">{items.length}개 아이템</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-bold mb-1 uppercase tracking-widest text-[10px]">학습 컨텐츠</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{currentItems.length}개 아이템</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-gray-400 dark:text-gray-500 font-bold mb-1 uppercase tracking-widest text-[10px]">최종 수정</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{formatDate(bundle.updated_at)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-gray-400 dark:text-gray-500 font-bold mb-1 uppercase tracking-widest text-[10px]">언어</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">Spanish</span>
                   </div>
                 </div>
               </div>
@@ -397,7 +444,7 @@ export default function BundleDetail({
         {isEditing && (
           <div className="space-y-4">
             <BundleImageMapper 
-              items={items} 
+              items={currentItems} 
               onItemsUpdate={(newMappings) => setItemMappings(newMappings)} 
             />
             {/* Buttons moved here */}
@@ -427,9 +474,39 @@ export default function BundleDetail({
               <Book className="w-5 h-5 text-blue-500" />
               번들 아이템 구성
             </h2>
+            <div className="flex items-center gap-2">
+              {isSelectMode ? (
+                <>
+                  <button 
+                    disabled={selectedItems.length === 0 || isBulkDeleting}
+                    onClick={handleBulkDelete}
+                    className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isBulkDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    삭제 ({selectedItems.length})
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsSelectMode(false);
+                      setSelectedItems([]);
+                    }}
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                  >
+                    취소
+                  </button>
+                </>
+              ) : (
+                <button 
+                  onClick={() => setIsSelectMode(true)}
+                  className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
+                >
+                  선택
+                </button>
+              )}
+            </div>
           </div>
 
-          {items.length === 0 ? (
+          {currentItems.length === 0 ? (
             <div className="bg-white dark:bg-gray-900 p-20 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 text-center">
               <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Book className="w-8 h-8 text-gray-300 dark:text-gray-600" />
@@ -438,14 +515,21 @@ export default function BundleDetail({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {items.map((item, idx) => (
+              {currentItems.map((item, idx) => (
                 <div 
                   key={item.id} 
-                  className="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all flex items-start gap-4 group"
+                  onClick={() => isSelectMode && toggleSelectItem(item.id)}
+                  className={`bg-white dark:bg-gray-900 p-5 rounded-3xl border ${selectedItems.includes(item.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-gray-100 dark:border-gray-800'} shadow-sm hover:shadow-md transition-all flex items-start gap-4 group cursor-pointer`}
                 >
-                  <div className="flex-shrink-0 w-10 h-10 bg-gray-50 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 rounded-2xl flex items-center justify-center text-gray-400 dark:text-gray-500 font-black transition-colors">
-                    {(idx + 1).toString().padStart(2, '0')}
-                  </div>
+                  {isSelectMode ? (
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${selectedItems.includes(item.id) ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-300'}`}>
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 w-10 h-10 bg-gray-50 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-500 rounded-2xl flex items-center justify-center text-gray-400 dark:text-gray-500 font-black transition-colors">
+                      {(idx + 1).toString().padStart(2, '0')}
+                    </div>
+                  )}
                   
                     <div className="flex-1 min-w-0">
                       {item.words ? (

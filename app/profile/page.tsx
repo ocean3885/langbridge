@@ -1,7 +1,7 @@
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import LanguageSelector from './LanguageSelector';
+import { cookies } from 'next/headers';
 
 const translations = {
   ko: {
@@ -10,9 +10,6 @@ const translations = {
     accountDesc: '현재 로그인된 계정의 정보입니다.',
     email: '이메일',
     joinDate: '가입일',
-    settings: '서비스 설정',
-    settingsDesc: '애플리케이션 전반에 걸쳐 사용될 언어를 설정합니다.',
-    displayLang: '표시 언어 (Display Language)',
     footerNote: '향후 프로필 편집, 비밀번호 변경 등이 추가될 예정입니다.',
     loginRequired: '로그인이 필요합니다.',
     goToLogin: '로그인 페이지로 이동',
@@ -24,9 +21,6 @@ const translations = {
     accountDesc: 'Details of the currently logged-in account.',
     email: 'Email',
     joinDate: 'Joined Date',
-    settings: 'Service Settings',
-    settingsDesc: 'Set the language to be used across the application.',
-    displayLang: 'Display Language',
     footerNote: 'Profile editing and password changes will be added in the future.',
     loginRequired: 'Login required.',
     goToLogin: 'Go to Login Page',
@@ -37,6 +31,8 @@ const translations = {
 // 프로필 페이지
 export default async function ProfilePage() {
   const user = await getAppUserFromServer();
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('lb_display_language')?.value === 'en' ? 'en' : 'ko') as 'ko' | 'en';
 
   if (!user) {
     return (
@@ -48,7 +44,6 @@ export default async function ProfilePage() {
     );
   }
 
-  const lang = user.displayLanguage || 'ko';
   const t = translations[lang];
 
   return (
@@ -71,19 +66,6 @@ export default async function ProfilePage() {
               <p className="text-sm text-gray-600">
                 {user.createdAt ? new Date(user.createdAt).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US') : t.unknown}
               </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t.settings}</CardTitle>
-            <CardDescription>{t.settingsDesc}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-2">{t.displayLang}</p>
-              <LanguageSelector currentLanguage={lang} />
             </div>
           </CardContent>
         </Card>

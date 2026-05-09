@@ -9,7 +9,8 @@ export async function listBundles() {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en)
+      bundle_category(id, name, name_en),
+      bundle_type(id, name, code)
     `)
     .order('created_at', { ascending: false });
 
@@ -83,7 +84,8 @@ export async function getBundle(bundleId: string) {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en)
+      bundle_category(id, name, name_en),
+      bundle_type(id, name, code)
     `)
     .eq('id', bundleId)
     .single();
@@ -109,6 +111,77 @@ export async function listCategories() {
   }
 
   return data;
+}
+
+export async function listBundleTypes() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_type')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching bundle types:', error);
+    return [];
+  }
+
+  return data;
+}
+
+export async function createBundleType(type: { 
+  name: string; 
+  code: string;
+  description?: string | null; 
+}) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_type')
+    .insert([type])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating bundle type:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateBundleType(id: string, updates: { 
+  name?: string; 
+  code?: string;
+  description?: string | null; 
+}) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_type')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating bundle type:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function deleteBundleType(id: string) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('bundle_type')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting bundle type:', error);
+    throw error;
+  }
+
+  return true;
 }
 
 export async function createCategory(category: { 
@@ -179,6 +252,8 @@ export async function createBundleWithItems(
     description_en?: string | null;
     level: number;
     category_id: string | null;
+    type_id: string | null;
+    thumbnail_url?: string | null;
     is_published: boolean;
   },
   items: {
@@ -201,8 +276,9 @@ export async function createBundleWithItems(
       description_en: bundleMeta.description_en || null,
       level: bundleMeta.level,
       category_id: bundleMeta.category_id || null,
+      type_id: bundleMeta.type_id || null,
       is_published: bundleMeta.is_published,
-      thumbnail_url: items[0]?.imageUrl || null // 첫 번째 이미지를 썸네일로 자동 설정 (선택 사항)
+      thumbnail_url: bundleMeta.thumbnail_url || items[0]?.imageUrl || null
     }])
     .select()
     .single();
@@ -378,6 +454,11 @@ export async function listBundlesForSentence(sentenceId: number) {
           id,
           name,
           name_en
+        ),
+        bundle_type (
+          id,
+          name,
+          code
         )
       )
     `)
@@ -445,4 +526,36 @@ export async function updateBundleItemImage(itemId: string, imageUrl: string | n
   }
 
   return data;
+}
+
+export async function deleteBundleItemsBulk(bundleId: string, itemIds: string[]) {
+  const supabase = createAdminClient();
+
+  // 1. Delete items
+  const { error: deleteError } = await supabase
+    .from('bundle_items')
+    .delete()
+    .in('id', itemIds);
+
+  if (deleteError) throw deleteError;
+
+  // 2. Get remaining items to re-order
+  const { data: remainingItems, error: fetchError } = await supabase
+    .from('bundle_items')
+    .select('id')
+    .eq('bundle_id', bundleId)
+    .order('order_index', { ascending: true });
+
+  if (fetchError) throw fetchError;
+
+  // 3. Update order_index sequentially
+  const updatePromises = remainingItems.map((item, index) => 
+    supabase
+      .from('bundle_items')
+      .update({ order_index: index })
+      .eq('id', item.id)
+  );
+
+  await Promise.all(updatePromises);
+  return true;
 }

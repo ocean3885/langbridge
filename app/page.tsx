@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import { listVideos, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
@@ -17,6 +18,10 @@ import BundleSection, { type Bundle } from '@/components/home/BundleSection';
 import { listBundles } from '@/lib/supabase/services/bundles';
 
 export default async function HomePage() {
+  const cookieStore = await cookies();
+  const guestLang = cookieStore.get('lb_display_language')?.value;
+  const lang = (guestLang === 'en' ? 'en' : 'ko') as 'ko' | 'en';
+
   const user = await getAppUserFromServer();
   const userCount = await countAuthUsers();
   const languages = await listLanguages();
@@ -177,14 +182,14 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-11">
-      <HeroSection userCount={userCount} />
+      <HeroSection userCount={userCount} lang={lang} />
 
       {/* 메인 이미지 */}
       <section className="w-full">
         <div className="max-w-7xl mx-auto">
           <Image
             src="/images/main.png"
-            alt="LangBridge 소개 이미지"
+            alt={lang === 'ko' ? 'LangBridge 소개 이미지' : 'LangBridge Introduction Image'}
             width={1600}
             height={640}
             priority
@@ -195,11 +200,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <BundleSection bundles={recentBundles} lang={user?.displayLanguage || 'ko'} />
-      <EduVideoSection videos={learningVideos} />
-      <LBVideoSection videos={lbVideos} />
+      <BundleSection bundles={recentBundles} lang={lang} />
+      <EduVideoSection videos={learningVideos} lang={lang} />
+      <LBVideoSection videos={lbVideos} lang={lang} />
 
-      <MyVideoSection isLoggedIn={!!user} categories={videoCategories} />
+      <MyVideoSection isLoggedIn={!!user} categories={videoCategories} lang={lang} />
     </div>
   );
 }
