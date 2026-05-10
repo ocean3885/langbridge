@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { getAppUserFromServer } from '@/lib/auth/app-user';
 
-import { Inter } from 'next/font/google'; 
+import { Inter, Noto_Sans_KR } from 'next/font/google'; 
 import Header from '@/components/layout/Header'; 
 import Footer from '@/components/layout/Footer'; 
 import './globals.css'; 
@@ -13,7 +13,16 @@ export const metadata: Metadata = {
 };
 
 // 폰트 설정
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
+
+const noto = Noto_Sans_KR({ 
+  subsets: ['latin'],
+  weight: ['100', '300', '400', '500', '700', '900'],
+  variable: '--font-noto',
+});
 
 // Root Layout Component
 export default async function RootLayout({
@@ -26,8 +35,8 @@ export default async function RootLayout({
 
   return (
     <html lang={lang}>
-      {/* 💡 개선: 폰트 클래스와 안티-앨리어싱(antialiased) 적용 */}
-      <body className={`${inter.className} antialiased`}> 
+      {/* 💡 개선: 폰트 변수와 안티-앨리어싱 적용 */}
+      <body className={`${inter.variable} ${noto.variable} font-sans antialiased`}> 
         
         {/* 전체 컨테이너: flex-col 및 min-h-screen 유지 */}
         <div className="flex flex-col min-h-screen">

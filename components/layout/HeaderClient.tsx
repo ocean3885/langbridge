@@ -100,10 +100,15 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
         
         {/* Left: Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
-          <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-gradient-to-br from-[#E27D60] to-[#d16d51] flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            H
+          <div className="relative h-8 w-8 overflow-hidden rounded-xl shadow-sm">
+            <Image
+              src="/images/logo_bg.png"
+              alt="Logo Background"
+              fill
+              className="object-cover"
+            />
           </div>
-          <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-[#E27D60] transition-colors">
+          <span className="text-2xl font-bold tracking-tighter text-zinc-900 dark:text-zinc-100 group-hover:text-[#E27D60] transition-colors">
             HolaLingo
           </span>
         </Link>
