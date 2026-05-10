@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, LogOut, Video, Globe, Layers, Sun, Moon } from 'lucide-react';
+import { User as UserIcon, LogOut, Video, Globe, Layers, Sun, Moon, Menu, X } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -58,6 +58,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -76,195 +77,183 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
 
   const handleLogout = async () => {
     try {
-      const logoutRes = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      if (!logoutRes.ok) {
-        const body = await logoutRes.json().catch(() => ({}));
-        throw new Error(body?.error || '로그아웃 처리 실패');
-      }
-
+      const logoutRes = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!logoutRes.ok) throw new Error('로그아웃 처리 실패');
       await supabase.auth.signOut();
       window.location.href = '/';
     } catch (err) {
-      console.error('Logout exception:', err);
-      alert(language === 'ko' ? '로그아웃 중 오류가 발생했습니다.' : 'Error during logout.');
+      console.error(err);
+      alert(language === 'ko' ? '로그아웃 중 오류 발생' : 'Error during logout.');
     }
   };
 
   const handleLangUpdate = (newLang: 'ko' | 'en') => {
-    // 회원/비회원 구분 없이 브라우저 쿠키에 언어 설정 저장 (1년 유지)
     document.cookie = `lb_display_language=${newLang}; path=/; max-age=31536000`;
-    // 부드러운 서버 컴포넌트 리렌더링 (하드 새로고침 방지)
     router.refresh();
   };
 
-  // --- UI Fragment Renderers ---
-
-  const renderLogo = (isMobile: boolean) => (
-    <Link href="/" className={`flex items-center shrink-0 group transition-transform active:scale-95 ${isMobile ? 'gap-2' : 'gap-2.5 md:gap-3'}`}>
-      <div className={`relative ${isMobile ? 'h-9 w-9' : 'h-12 w-12 md:h-14 md:w-14'}`}>
-        <Image 
-          src="/images/logo_bg.png" 
-          alt="Logo" 
-          fill
-          priority
-          sizes="(max-width: 640px) 36px, 56px"
-          className="object-contain drop-shadow-xl" 
-        />
-      </div>
-      <span className={`font-black tracking-tighter text-white ${isMobile ? 'text-lg' : 'text-2xl md:text-3xl'}`}>
-        LangBridge
-      </span>
-    </Link>
-  );
-
-  const renderToggles = (isMobile: boolean) => (
-    <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-2.5'}`}>
-      {/* Language */}
-      <div className={`flex items-center bg-gray-800 rounded-full border border-gray-700 shadow-inner ${isMobile ? 'p-1' : 'p-1'}`}>
-        <button 
-          onClick={() => handleLangUpdate('ko')}
-          className={`font-black rounded-full transition-all duration-200 ${language === 'ko' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'} ${isMobile ? 'text-[10px] px-2.5 py-1' : 'text-[11px] px-3 py-1'}`}
-        >
-          KO
-        </button>
-        <button 
-          onClick={() => handleLangUpdate('en')}
-          className={`font-black rounded-full transition-all duration-200 ${language === 'en' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'} ${isMobile ? 'text-[10px] px-2.5 py-1' : 'text-[11px] px-3 py-1'}`}
-        >
-          EN
-        </button>
-      </div>
-      {/* Theme */}
-      <button
-        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        className={`flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 transition-all border border-gray-700 font-black uppercase tracking-tighter shadow-inner ${isMobile ? 'p-1' : 'gap-2 p-1 pl-3 pr-1 text-[11px]'}`}
-      >
-        {!isMobile && <span className="text-gray-400">{theme === 'light' ? 'Light' : 'Dark'}</span>}
-        <div className={`flex items-center justify-center rounded-full shadow-sm ${theme === 'light' ? 'bg-amber-400' : 'bg-blue-600'} ${isMobile ? 'p-1' : 'p-1'}`}>
-          {theme === 'light' ? <Sun className={`text-white ${isMobile ? 'w-3.5 h-3.5' : 'w-3.5 h-3.5'}`} /> : <Moon className={`text-white ${isMobile ? 'w-3.5 h-3.5' : 'w-3.5 h-3.5'}`} />}
-        </div>
-      </button>
-    </div>
-  );
-
-  const renderMenu = (isMobile: boolean) => (
-    <div className={`flex items-center font-bold tracking-tighter text-gray-400 ${isMobile ? 'gap-4 text-sm uppercase' : 'gap-5 md:gap-8 text-sm md:text-base'}`}>
-      <Link href="/my-videos" className="hover:text-white transition-colors whitespace-nowrap">{t.study}</Link>
-      <Link href="/upload" className="hover:text-white transition-colors whitespace-nowrap">{t.create}</Link>
-      <Link href="/board" className="hover:text-white transition-colors whitespace-nowrap">{t.board}</Link>
-      {isAdmin && (
-        <Link href="/admin" className="hover:text-white transition-colors whitespace-nowrap">{t.admin}</Link>
-      )}
-    </div>
-  );
-
-  const renderAccount = (isMobile: boolean) => (
-    <div className="shrink-0">
-      {isLoggedIn ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className={`flex items-center bg-blue-600 hover:bg-blue-700 rounded-full transition-all shadow-lg shadow-blue-500/20 active:scale-95 ${isMobile ? 'gap-1.5 py-1.5 px-2.5' : 'gap-2 py-1.5 px-3'}`}>
-              <div className={`rounded-full bg-white flex items-center justify-center text-blue-600 ${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`}>
-                <UserIcon className={isMobile ? 'w-3.5 h-3.5' : 'w-3.5 h-3.5'} strokeWidth={3} />
-              </div>
-              <span className={`hidden xs:inline font-bold truncate ${isMobile ? 'text-[11px] max-w-[70px]' : 'text-xs max-w-[100px]'}`}>{userEmail}</span>
-            </button>
-
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 mt-2">
-            <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-gray-400">{t.myAccount}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/lb-videos" className="flex items-center gap-2 cursor-pointer py-2">
-                <Globe className="w-4 h-4 text-blue-500" />
-                <span className="font-bold">{t.lbVideos}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/bundles" className="flex items-center gap-2 cursor-pointer py-2">
-                <Layers className="w-4 h-4 text-purple-500" />
-                <span className="font-bold">{t.bundles}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/my-videos" className="flex items-center gap-2 cursor-pointer py-2">
-                <Video className="w-4 h-4 text-green-500" />
-                <span className="font-bold">{t.myVideos}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/profile" className="flex items-center gap-2 cursor-pointer py-2">
-                <UserIcon className="w-4 h-4 text-orange-500" />
-                <span className="font-bold">{t.profile}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-500 focus:text-red-500 cursor-pointer py-2">
-              <LogOut className="w-4 h-4" />
-              <span className="font-bold">{t.logout}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <Link href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`} className={`bg-blue-600 hover:bg-blue-700 rounded-full font-bold shadow-lg shadow-blue-500/20 active:scale-95 ${isMobile ? 'py-1 px-3 text-[10px]' : 'py-1.5 px-4 text-xs'}`}>
-          {t.login}
-        </Link>
-      )}
-    </div>
-  );
-
-  if (!mounted) {
-    return (
-      <header className="bg-gray-900 text-white shadow-xl sm:sticky sm:top-0 z-50 border-b border-gray-800">
-        <nav className="container mx-auto px-4 py-3 sm:py-5">
-          <div className="flex items-center justify-between">
-            <div className="w-8 h-8 sm:w-14 sm:h-14 bg-gray-800 animate-pulse rounded-lg" />
-            <div className="w-24 sm:w-32 h-6 bg-gray-800 animate-pulse rounded" />
-          </div>
-        </nav>
-      </header>
-    );
-  }
+  if (!mounted) return <div className="h-16 bg-[#F9F7F2] dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800" />;
 
   return (
-    <header className="bg-gray-900 text-white shadow-xl sm:sticky sm:top-0 z-50 border-b border-gray-800">
-      {/* 1. Mobile Layout (< 640px) */}
-      <nav className="container mx-auto px-3 py-2 sm:hidden flex flex-col gap-2.5">
-        {/* Mobile Row 1 */}
-        <div className="flex items-center justify-between">
-          {renderLogo(true)}
-          {renderToggles(true)}
-        </div>
-        {/* Mobile Row 2 */}
-        <div className="flex items-center justify-between">
-          {renderMenu(true)}
-          {renderAccount(true)}
-        </div>
-      </nav>
-
-      {/* 2. Tablet & Desktop Layout (>= 640px) */}
-      <nav className="container mx-auto px-4 py-3 md:py-4 hidden sm:flex items-stretch gap-6 md:gap-10">
-        {/* Left: Large Spanning Logo */}
-        {renderLogo(false)}
+    <header className="sticky top-0 z-50 w-full bg-[#F9F7F2]/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         
-        {/* Right: Multi-row Content */}
-        <div className="flex-1 flex flex-col justify-center gap-2 md:gap-3 min-w-0 py-0.5">
-          {/* Top Row: Settings & Account */}
-          <div className="flex items-center justify-end gap-3 md:gap-4">
-            {renderToggles(false)}
-            <div className="ml-1 md:ml-2">
-              {renderAccount(false)}
-            </div>
+        {/* Left: Logo */}
+        <Link href="/" className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
+          <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-gradient-to-br from-[#E27D60] to-[#d16d51] flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            H
           </div>
-          {/* Bottom Row: Main Menu */}
-          <div className="flex items-center justify-end">
-            {renderMenu(false)}
+          <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-[#E27D60] transition-colors">
+            HolaLingo
+          </span>
+        </Link>
+
+        {/* Center: Desktop Nav */}
+        <nav className="hidden md:flex items-center gap-8">
+          {[
+            { name: t.study, href: '/my-videos' },
+            { name: t.create, href: '/upload' },
+            { name: t.board, href: '/board' },
+            ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
+          ].map((item) => (
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={`text-sm font-semibold transition-colors hover:text-[#E27D60] ${pathname === item.href ? 'text-[#E27D60]' : 'text-zinc-500 dark:text-zinc-400'}`}
+            >
+              {item.name}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-3">
+          {/* Language Toggle (Slim) */}
+          <div className="hidden sm:flex items-center bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full border border-zinc-300/30 dark:border-zinc-700/30">
+            <button 
+              onClick={() => handleLangUpdate('ko')}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            >
+              KO
+            </button>
+            <button 
+              onClick={() => handleLangUpdate('en')}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            >
+              EN
+            </button>
           </div>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className="p-2 rounded-full hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors text-zinc-600 dark:text-zinc-400"
+          >
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          </button>
+
+          {/* User Account / Login */}
+          <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-800 hidden xs:block mx-1" />
+
+          {isLoggedIn ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 p-1 pl-1 pr-3 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all active:scale-95">
+                  <div className="w-7 h-7 rounded-full bg-[#85A094] flex items-center justify-center text-white">
+                    <UserIcon size={14} strokeWidth={3} />
+                  </div>
+                  <span className="hidden sm:inline text-xs font-bold text-zinc-700 dark:text-zinc-300 max-w-[100px] truncate">{userEmail}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="end" 
+                className="w-64 mt-2 p-2 rounded-[1.5rem] shadow-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 animate-in fade-in zoom-in-95 duration-200"
+              >
+                <DropdownMenuLabel className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  {t.myAccount}
+                </DropdownMenuLabel>
+                
+                <DropdownMenuSeparator className="mx-2 mb-2 bg-zinc-100 dark:bg-zinc-800" />
+                
+                {[
+                  { name: t.lbVideos, href: '/lb-videos', icon: <Globe size={18} />, color: 'text-blue-500', bg: 'hover:bg-blue-50 dark:hover:bg-blue-950/30' },
+                  { name: t.bundles, href: '/bundles', icon: <Layers size={18} />, color: 'text-purple-500', bg: 'hover:bg-purple-50 dark:hover:bg-purple-950/30' },
+                  { name: t.myVideos, href: '/my-videos', icon: <Video size={18} />, color: 'text-emerald-500', bg: 'hover:bg-emerald-50 dark:hover:bg-emerald-950/30' },
+                  { name: t.profile, href: '/profile', icon: <UserIcon size={18} />, color: 'text-[#E27D60]', bg: 'hover:bg-orange-50 dark:hover:bg-orange-950/30' }
+                ].map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link 
+                      href={item.href} 
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 ${item.bg}`}
+                    >
+                      <div className={`${item.color}`}>
+                        {item.icon}
+                      </div>
+                      <span className="font-bold text-sm text-zinc-700 dark:text-zinc-200">{item.name}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+                
+                <DropdownMenuSeparator className="mx-2 my-2 bg-zinc-100 dark:bg-zinc-800" />
+                
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  className="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-red-500 focus:text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
+                >
+                  <LogOut size={18} />
+                  <span className="font-bold text-sm">{t.logout}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link 
+              href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`} 
+              className="bg-[#E27D60] hover:bg-[#d16d51] text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95"
+            >
+              {t.login}
+            </Link>
+          )}
+
+          {/* Mobile Menu Toggle */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+            className="md:hidden p-2 text-zinc-600 dark:text-zinc-400"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-      </nav>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-zinc-200 dark:border-zinc-800 bg-[#F9F7F2] dark:bg-zinc-950 animate-in slide-in-from-top duration-300">
+          <nav className="flex flex-col p-4 gap-4">
+            {[
+              { name: t.study, href: '/my-videos' },
+              { name: t.create, href: '/upload' },
+              { name: t.board, href: '/board' },
+              ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
+            ].map((item) => (
+              <Link 
+                key={item.href} 
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-lg font-bold px-2 py-1 text-zinc-700 dark:text-zinc-300"
+              >
+                {item.name}
+              </Link>
+            ))}
+            <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-2" />
+            <div className="flex items-center justify-between px-2">
+              <span className="text-sm font-medium text-zinc-500">{language === 'ko' ? '언어 설정' : 'Language Settings'}</span>
+              <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full">
+                <button onClick={() => handleLangUpdate('ko')} className={`px-4 py-1.5 rounded-full text-xs font-bold ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60]' : ''}`}>KO</button>
+                <button onClick={() => handleLangUpdate('en')} className={`px-4 py-1.5 rounded-full text-xs font-bold ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60]' : ''}`}>EN</button>
+              </div>
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

@@ -8,8 +8,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'LangBridge - 언어 학습 플랫폼',
-  description: '문장 배열, 영상 스크립트, 반복 학습으로 외국어를 효과적으로 익히는 언어 학습 플랫폼',
+  title: 'HolaLingo - 즐거운 스페인어 학습 플랫폼',
+  description: 'AI 튜터와 함께 실시간 대화하며 배우는 나만의 스페인어 마스터 플랫폼, HolaLingo',
 };
 
 // 폰트 설정

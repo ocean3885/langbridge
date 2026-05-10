@@ -43,11 +43,11 @@ export default async function HomePage() {
     // 매핑된 모든 영상들의 세부 정보 가져오기 (업로드하지 않은 저장된 영상 포함)
     const mappedVideoIds = allMyMappings.map(m => m.video_id);
     const progressVideoIds = allMyProgress.map(p => p.video_id);
-    
+
     // 유저 업로드 영상이 아니면서, 매핑이나 학습 기록이 있는 영상 ID들
     const otherVideoIds = Array.from(new Set([...mappedVideoIds, ...progressVideoIds]))
       .filter(id => !userUploads.some(v => v.id === id));
-    
+
     let allRelevantVideos = [...userUploads];
     if (otherVideoIds.length > 0) {
       const savedVideoDetails = await listVideos({ videoIds: otherVideoIds });
@@ -72,7 +72,7 @@ export default async function HomePage() {
 
       const key = String(m.category_id);
       if (!videoGroups[key]) videoGroups[key] = [];
-      
+
       videoGroups[key].push({
         id: v.id,
         title: v.title,
@@ -94,7 +94,7 @@ export default async function HomePage() {
       // 본인 업로드이거나 학습 기록이 있는 경우에만 포함
       const isUploader = v.uploader_id === user.id;
       const hasProgress = allMyProgress.some(p => p.video_id === v.id);
-      
+
       if (!isUploader && !hasProgress) return;
 
       const key = 'uncategorized';
@@ -183,27 +183,9 @@ export default async function HomePage() {
   return (
     <div className="space-y-11">
       <HeroSection userCount={userCount} lang={lang} />
-
-      {/* 메인 이미지 */}
-      <section className="w-full">
-        <div className="max-w-7xl mx-auto">
-          <Image
-            src="/images/main.png"
-            alt={lang === 'ko' ? 'LangBridge 소개 이미지' : 'LangBridge Introduction Image'}
-            width={1600}
-            height={640}
-            priority
-            className="w-full h-[320px] sm:h-[420px] object-cover rounded-xl shadow-lg"
-            sizes="100vw"
-            quality={90}
-          />
-        </div>
-      </section>
-
       <BundleSection bundles={recentBundles} lang={lang} />
       <EduVideoSection videos={learningVideos} lang={lang} />
       <LBVideoSection videos={lbVideos} lang={lang} />
-
       <MyVideoSection isLoggedIn={!!user} categories={videoCategories} lang={lang} />
     </div>
   );
