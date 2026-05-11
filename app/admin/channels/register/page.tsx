@@ -18,7 +18,7 @@ export default async function RegisterChannelPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
       <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-6">

@@ -1,4 +1,4 @@
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { cookies } from 'next/headers';
@@ -31,8 +31,7 @@ const translations = {
 // 프로필 페이지
 export default async function ProfilePage() {
   const user = await getAppUserFromServer();
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('lb_display_language')?.value === 'en' ? 'en' : 'ko') as 'ko' | 'en';
+  const lang = await getDisplayLanguage();
 
   if (!user) {
     return (

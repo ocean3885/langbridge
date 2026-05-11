@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listEduVideoChannelsWithVideoCount } from '@/lib/supabase/services/edu-video-channels';
 import { listLanguages } from '@/lib/supabase/services/languages';
@@ -10,6 +10,7 @@ import { Plus, Edit, ImageIcon } from 'lucide-react';
 
 export default async function AdminChannelsPage() {
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
@@ -23,7 +24,7 @@ export default async function AdminChannelsPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-6">

@@ -8,7 +8,7 @@ import AudioButton from '@/components/AudioButton';
 import BackButton from '@/components/common/BackButton';
 import BundlePlayerClient from './BundlePlayerClient';
 import BundleHeaderClient from './BundleHeaderClient';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 
 interface BundleDetailsPageProps {
   params: Promise<{
@@ -52,7 +52,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
     }
   }
 
-  const lang = user?.displayLanguage === 'en' ? 'en' : 'ko';
+  const lang = await getDisplayLanguage();
   const t = translations[lang];
 
   if (!bundle) {

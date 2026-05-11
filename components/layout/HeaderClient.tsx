@@ -51,7 +51,7 @@ const translations = {
   }
 };
 
-export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'ko' }: Props) {
+export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'en' }: Props) {
   const t = translations[language];
   const supabase = createClient();
   const pathname = usePathname();

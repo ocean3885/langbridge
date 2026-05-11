@@ -30,7 +30,7 @@ export default async function BundleDetailPage({ params }: { params: Promise<{ i
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
       <BundleDetail bundle={bundle} items={items} words={words} />
     </>
   );

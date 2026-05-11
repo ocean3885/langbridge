@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listLanguages } from '@/lib/supabase/services/languages';
 import { listWords } from '@/lib/supabase/services/words';
@@ -9,6 +9,7 @@ import AdminSidebar from '../AdminSidebar';
 export default async function WordsPage() {
   // 인증 확인
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/words');
@@ -38,7 +39,7 @@ export default async function WordsPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <WordsManager initialWords={words} languages={languages} />
     </>
   );

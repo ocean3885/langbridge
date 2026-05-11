@@ -26,7 +26,7 @@ interface AdminSidebarProps {
   language?: 'ko' | 'en';
 }
 
-export default function AdminSidebar({ userEmail, language = 'ko' }: AdminSidebarProps) {
+export default function AdminSidebar({ userEmail, language = 'en' }: AdminSidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 

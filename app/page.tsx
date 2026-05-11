@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { DEFAULT_LEARNING_CATEGORY_NAME } from '@/lib/learning-category';
 import { listVideos, listAllUserCategoryVideos } from '@/lib/supabase/services/videos';
 import { listEduVideos } from '@/lib/supabase/services/edu-videos';
@@ -19,9 +19,7 @@ import { listBundles } from '@/lib/supabase/services/bundles';
 import InteractiveLearningSection from '@/components/home/InteractiveLearningSection';
 
 export default async function HomePage() {
-  const cookieStore = await cookies();
-  const guestLang = cookieStore.get('lb_display_language')?.value;
-  const lang = (guestLang === 'en' ? 'en' : 'ko') as 'ko' | 'en';
+  const lang = await getDisplayLanguage();
 
   const user = await getAppUserFromServer();
   const userCount = await countAuthUsers();

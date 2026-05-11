@@ -2,7 +2,7 @@ import { listBundles } from '@/lib/supabase/services/bundles';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, Bookmark, Clock, ChevronRight } from 'lucide-react';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,7 @@ export default async function BundlesPage() {
   const publishedBundles = allBundles.filter((b: any) => b.is_published);
   
   const user = await getAppUserFromServer();
-  const lang = user?.displayLanguage === 'en' ? 'en' : 'ko';
+  const lang = await getDisplayLanguage();
   const t = translations[lang];
 
   return (

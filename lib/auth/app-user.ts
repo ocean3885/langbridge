@@ -8,7 +8,6 @@ export type AppUser = {
   id: string;
   email: string | null;
   createdAt: string | null;
-  displayLanguage: 'ko' | 'en';
   source: 'supabase';
 };
 
@@ -22,15 +21,18 @@ export async function getAppUserFromServer(): Promise<AppUser | null> {
   const profile = await getUserProfileById(userId);
   if (!profile) return null;
 
-  const displayLanguage = (cookieStore.get(LANG_COOKIE)?.value as 'ko' | 'en') || 'ko';
-
   return {
     id: userId,
     email: profile.email,
     createdAt: profile.created_at,
-    displayLanguage,
     source: 'supabase',
   };
+}
+
+export async function getDisplayLanguage(): Promise<'ko' | 'en'> {
+  const cookieStore = await cookies();
+  const lang = cookieStore.get(LANG_COOKIE)?.value;
+  return (lang === 'ko' ? 'ko' : 'en');
 }
 
 export async function getAppUserFromRequest(
@@ -42,13 +44,10 @@ export async function getAppUserFromRequest(
   const profile = await getUserProfileById(userId);
   if (!profile) return null;
 
-  const displayLanguage = (request.cookies.get(LANG_COOKIE)?.value as 'ko' | 'en') || 'ko';
-
   return {
     id: userId,
     email: profile.email,
     createdAt: profile.created_at,
-    displayLanguage,
     source: 'supabase',
   };
 }

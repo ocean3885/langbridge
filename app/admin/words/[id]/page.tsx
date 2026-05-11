@@ -32,7 +32,7 @@ export default async function WordDetailPage({ params }: WordDetailPageProps) {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
       <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-4 md:p-6 pt-20 md:pt-6">
         <WordDetail word={word} languages={languages} />
       </div>

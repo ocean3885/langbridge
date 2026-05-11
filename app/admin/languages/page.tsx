@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listLanguagesByEnglishName } from '@/lib/supabase/services/languages';
 import LanguagesManager from './LanguagesManager';
@@ -8,6 +8,7 @@ import AdminSidebar from '../AdminSidebar';
 export default async function LanguagesPage() {
   // 인증 확인
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/languages');
@@ -24,7 +25,7 @@ export default async function LanguagesPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <LanguagesManager initialLanguages={languages.map((language) => ({
         id: language.id,
         name_en: language.name_en ?? '',

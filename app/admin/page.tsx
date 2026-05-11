@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import AdminDashboard from './AdminDashboard';
 import AdminSidebar from './AdminSidebar';
@@ -7,6 +7,7 @@ import AdminSidebar from './AdminSidebar';
 export default async function AdminPage() {
   // 인증 확인
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin');
@@ -21,7 +22,7 @@ export default async function AdminPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <AdminDashboard />
     </>
   );

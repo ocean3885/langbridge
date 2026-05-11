@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listSentences } from '@/lib/supabase/services/sentences';
 import SentencesManager, { Sentence, Language } from './SentencesManager';
@@ -8,6 +8,7 @@ import AdminSidebar from '../AdminSidebar';
 export default async function SentencesPage() {
   // 인증 확인
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/sentences');
@@ -34,7 +35,7 @@ export default async function SentencesPage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <SentencesManager initialSentences={sentences} languages={[]} />
     </>
   );

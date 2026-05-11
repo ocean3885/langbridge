@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import EduVideoLearningClient from '@/components/edu-video/EduVideoLearningClient';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getVideoWithTranscripts, incrementVideoViewCount } from '@/lib/supabase/services/videos';
 import { getEduVideoProgress } from '@/lib/supabase/services/edu-video-progress';
 import { cookies } from 'next/headers';
@@ -13,8 +13,7 @@ interface VideoPageProps {
 
 export default async function VideoPage({ params }: VideoPageProps) {
   const { id } = await params;
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('lb_display_language')?.value === 'en' ? 'en' : 'ko') as 'ko' | 'en';
+  const lang = await getDisplayLanguage();
 
   const { video, transcripts } = await getVideoWithTranscripts(id);
   if (!video) {

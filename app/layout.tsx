@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 
 import { Inter, Noto_Sans_KR } from 'next/font/google'; 
 import Header from '@/components/layout/Header'; 
@@ -8,8 +8,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'HolaLingo - 즐거운 스페인어 학습 플랫폼',
-  description: 'AI 튜터와 함께 실시간 대화하며 배우는 나만의 스페인어 마스터 플랫폼, HolaLingo',
+  title: 'HolaLingo - Fun Spanish Learning Platform',
+  description: 'Your own Spanish master platform where you learn through real-time conversations with AI tutors, HolaLingo',
 };
 
 // 폰트 설정
@@ -30,8 +30,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('lb_display_language')?.value === 'en' ? 'en' : 'ko');
+  const lang = await getDisplayLanguage();
 
   return (
     <html lang={lang}>

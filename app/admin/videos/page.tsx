@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listEduVideoChannels } from '@/lib/supabase/services/edu-video-channels';
 import { listEduVideos } from '@/lib/supabase/services/edu-videos';
@@ -14,6 +14,7 @@ import VideoCard from './VideoCard';
 export default async function AdminVideosPage() {
   // 인증 확인
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/videos');
@@ -59,7 +60,7 @@ export default async function AdminVideosPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">

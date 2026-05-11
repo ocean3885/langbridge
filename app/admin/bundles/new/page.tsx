@@ -19,7 +19,7 @@ export default async function NewBundlePage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'ko'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
       <BundleCreateForm userId={user.id} />
     </>
   );
