@@ -97,7 +97,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#F9F7F2]/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        
+
         {/* Left: Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
           <div className="relative h-8 w-8 overflow-hidden rounded-xl shadow-sm">
@@ -106,9 +106,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               alt="Logo Background"
               fill
               className="object-cover"
+              sizes="32px"
             />
           </div>
-          <span className="text-2xl font-bold tracking-tighter text-zinc-900 dark:text-zinc-100 group-hover:text-[#E27D60] transition-colors">
+          <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-[#E27D60] transition-colors">
             HolaLingo
           </span>
         </Link>
@@ -121,8 +122,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
             { name: t.board, href: '/board' },
             ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
           ].map((item) => (
-            <Link 
-              key={item.href} 
+            <Link
+              key={item.href}
               href={item.href}
               className={`text-sm font-semibold transition-colors hover:text-[#E27D60] ${pathname === item.href ? 'text-[#E27D60]' : 'text-zinc-500 dark:text-zinc-400'}`}
             >
@@ -135,13 +136,13 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
         <div className="flex items-center gap-3">
           {/* Language Toggle (Slim) */}
           <div className="hidden sm:flex items-center bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full border border-zinc-300/30 dark:border-zinc-700/30">
-            <button 
+            <button
               onClick={() => handleLangUpdate('ko')}
               className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
               KO
             </button>
-            <button 
+            <button
               onClick={() => handleLangUpdate('en')}
               className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
@@ -170,16 +171,16 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   <span className="hidden sm:inline text-xs font-bold text-zinc-700 dark:text-zinc-300 max-w-[100px] truncate">{userEmail}</span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end" 
+              <DropdownMenuContent
+                align="end"
                 className="w-64 mt-2 p-2 rounded-[1.5rem] shadow-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 animate-in fade-in zoom-in-95 duration-200"
               >
                 <DropdownMenuLabel className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
                   {t.myAccount}
                 </DropdownMenuLabel>
-                
+
                 <DropdownMenuSeparator className="mx-2 mb-2 bg-zinc-100 dark:bg-zinc-800" />
-                
+
                 {[
                   { name: t.lbVideos, href: '/lb-videos', icon: <Globe size={18} />, color: 'text-blue-500', bg: 'hover:bg-blue-50 dark:hover:bg-blue-950/30' },
                   { name: t.bundles, href: '/bundles', icon: <Layers size={18} />, color: 'text-purple-500', bg: 'hover:bg-purple-50 dark:hover:bg-purple-950/30' },
@@ -187,8 +188,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   { name: t.profile, href: '/profile', icon: <UserIcon size={18} />, color: 'text-[#E27D60]', bg: 'hover:bg-orange-50 dark:hover:bg-orange-950/30' }
                 ].map((item) => (
                   <DropdownMenuItem key={item.href} asChild>
-                    <Link 
-                      href={item.href} 
+                    <Link
+                      href={item.href}
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 ${item.bg}`}
                     >
                       <div className={`${item.color}`}>
@@ -198,11 +199,11 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                     </Link>
                   </DropdownMenuItem>
                 ))}
-                
+
                 <DropdownMenuSeparator className="mx-2 my-2 bg-zinc-100 dark:bg-zinc-800" />
-                
-                <DropdownMenuItem 
-                  onClick={handleLogout} 
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
                   className="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-red-500 focus:text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
                 >
                   <LogOut size={18} />
@@ -211,8 +212,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link 
-              href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`} 
+            <Link
+              href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
               className="bg-[#E27D60] hover:bg-[#d16d51] text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95"
             >
               {t.login}
@@ -220,8 +221,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
           )}
 
           {/* Mobile Menu Toggle */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-2 text-zinc-600 dark:text-zinc-400"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -239,8 +240,8 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               { name: t.board, href: '/board' },
               ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
             ].map((item) => (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="text-lg font-bold px-2 py-1 text-zinc-700 dark:text-zinc-300"

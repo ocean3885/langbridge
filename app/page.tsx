@@ -16,6 +16,7 @@ import LBVideoSection, { type LBVideo } from '@/components/home/LBVideoSection';
 import MyVideoSection, { type UserVideo, type VideoCategory } from '@/components/home/MyVideoSection';
 import BundleSection, { type Bundle } from '@/components/home/BundleSection';
 import { listBundles } from '@/lib/supabase/services/bundles';
+import InteractiveLearningSection from '@/components/home/InteractiveLearningSection';
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -181,8 +182,9 @@ export default async function HomePage() {
     }));
 
   return (
-    <div className="space-y-11">
+    <div className="flex flex-col">
       <HeroSection userCount={userCount} lang={lang} />
+      <InteractiveLearningSection lang={lang} />
       <BundleSection bundles={recentBundles} lang={lang} />
       <EduVideoSection videos={learningVideos} lang={lang} />
       <LBVideoSection videos={lbVideos} lang={lang} />
