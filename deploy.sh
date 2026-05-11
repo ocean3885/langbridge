@@ -28,9 +28,9 @@ ssh $REMOTE_USER@$SERVER_IP << EOF
   echo "Installing dependencies..."
   # Default: keep using npm install
   # Alternative for clean lockfile-based installs:
-  # rm -rf node_modules
-  # npm ci
-  npm install
+  rm -rf node_modules
+  npm ci
+  # npm install
   
   # Update caniuse-lite
   npx update-browserslist-db@latest -y
