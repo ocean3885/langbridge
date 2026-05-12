@@ -140,22 +140,22 @@ export default function InteractiveLearningSection({
     const t = translations[lang];
 
     return (
-        <section className="relative overflow-hidden bg-[#f8f5f1] pt-12 pb-24">
+        <section className="relative overflow-hidden bg-[#f8f5f1] dark:bg-zinc-950 pt-12 pb-12 transition-colors duration-300">
             <div className="mx-auto max-w-7xl px-6 lg:px-8">
                 {/* Top Badge */}
                 <div className="flex justify-center">
-                    <div className="rounded-full border border-[#8BAA8C]/40 bg-[#eef6ee] px-5 py-2 text-sm font-medium text-[#5F7D60]">
+                    <div className="rounded-full border border-[#8BAA8C]/40 dark:border-emerald-500/20 bg-[#eef6ee] dark:bg-emerald-500/10 px-5 py-2 text-sm font-medium text-[#5F7D60] dark:text-emerald-300">
                         {t.badge}
                     </div>
                 </div>
 
                 {/* Heading */}
                 <div className="mx-auto mt-8 max-w-4xl text-center">
-                    <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-[#1c1c1c] md:text-5xl lg:text-6xl break-keep">
+                    <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-[#1c1c1c] dark:text-zinc-100 md:text-5xl lg:text-6xl break-keep">
                         {t.title}
                     </h2>
 
-                    <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-[#666] md:text-lg break-keep">
+                    <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-[#666] dark:text-zinc-400 md:text-lg break-keep">
                         {t.description}
                     </p>
                 </div>
@@ -197,37 +197,37 @@ export default function InteractiveLearningSection({
                 </div>
 
                 {/* Bottom Features */}
-                <div className="mt-16 grid gap-4 rounded-[32px] border border-white/60 bg-white/60 p-6 shadow-sm backdrop-blur md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-16 grid gap-4 rounded-[32px] border border-white/60 dark:border-zinc-500/40 bg-white/60 dark:bg-zinc-900/60 p-6 shadow-sm backdrop-blur md:grid-cols-2 xl:grid-cols-4">
                     <FeatureItem
                         icon={<CheckCircle2 className="h-5 w-5" />}
                         title={t.features[0].title}
                         desc={t.features[0].desc}
-                        iconBg="bg-blue-50"
-                        iconColor="text-blue-600"
+                        iconBg="bg-blue-50 dark:bg-blue-500/10"
+                        iconColor="text-blue-600 dark:text-blue-400"
                     />
 
                     <FeatureItem
                         icon={<Repeat className="h-5 w-5" />}
                         title={t.features[1].title}
                         desc={t.features[1].desc}
-                        iconBg="bg-emerald-50"
-                        iconColor="text-emerald-600"
+                        iconBg="bg-emerald-50 dark:bg-emerald-500/10"
+                        iconColor="text-emerald-600 dark:text-emerald-400"
                     />
 
                     <FeatureItem
                         icon={<BarChart3 className="h-5 w-5" />}
                         title={t.features[2].title}
                         desc={t.features[2].desc}
-                        iconBg="bg-amber-50"
-                        iconColor="text-amber-600"
+                        iconBg="bg-amber-50 dark:bg-amber-500/10"
+                        iconColor="text-amber-600 dark:text-amber-400"
                     />
 
                     <FeatureItem
                         icon={<Trophy className="h-5 w-5" />}
                         title={t.features[3].title}
                         desc={t.features[3].desc}
-                        iconBg="bg-rose-50"
-                        iconColor="text-rose-600"
+                        iconBg="bg-rose-50 dark:bg-rose-500/10"
+                        iconColor="text-rose-600 dark:text-rose-400"
                     />
                 </div>
             </div>
@@ -256,18 +256,18 @@ function LearningCard({
 }) {
     const styles = {
         orange: {
-            border: "border-[#f5d7c8]",
-            bg: "bg-[#fff8f4]",
+            border: "border-[#f5d7c8] dark:border-orange-400/60",
+            bg: "bg-[#fff8f4] dark:bg-orange-950/20",
             badge: "bg-[#f07f53]",
         },
         green: {
-            border: "border-[#d7e8d7]",
-            bg: "bg-[#f6fbf6]",
+            border: "border-[#d7e8d7] dark:border-emerald-400/60",
+            bg: "bg-[#f6fbf6] dark:bg-emerald-950/20",
             badge: "bg-[#6C9B6E]",
         },
         yellow: {
-            border: "border-[#f3e2b6]",
-            bg: "bg-[#fffaf0]",
+            border: "border-[#f3e2b6] dark:border-amber-400/60",
+            bg: "bg-[#fffaf0] dark:bg-amber-950/20",
             badge: "bg-[#f2b632]",
         },
     };
@@ -284,12 +284,12 @@ function LearningCard({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="text-[#444]">{icon}</div>
-                    <h3 className="text-lg font-bold text-[#1c1c1c]">{title}</h3>
+                    <div className="text-[#444] dark:text-zinc-300">{icon}</div>
+                    <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-zinc-100">{title}</h3>
                 </div>
             </div>
 
-            <p className="mt-3 text-sm leading-relaxed text-[#666] break-keep min-h-[40px]">
+            <p className="mt-3 text-sm leading-relaxed text-[#666] dark:text-zinc-400 break-keep min-h-[40px]">
                 {description}
             </p>
 
@@ -305,20 +305,20 @@ function LearningCard({
 function SentenceArrangementPreview({ lang }: { lang: "ko" | "en" }) {
     const t = translations[lang].previews;
     return (
-        <div className="rounded-[24px] bg-white p-4 shadow-sm">
+        <div className="rounded-[24px] bg-white dark:bg-zinc-900 p-4 shadow-sm">
             {/* Prompt */}
             <div className="mb-3">
                 <span className="text-[9px] font-black uppercase tracking-widest text-[#f07f53]">Translation Quiz</span>
-                <p className="mt-0.5 text-base font-bold text-[#1c1c1c] break-keep">
+                <p className="mt-0.5 text-base font-bold text-[#1c1c1c] dark:text-zinc-100 break-keep">
                     {t.quizPrompt}
                 </p>
                 {lang === "ko" && (
-                    <p className="text-[11px] text-[#888] italic leading-tight">I have a meeting in the morning.</p>
+                    <p className="text-[11px] text-[#888] dark:text-zinc-500 italic leading-tight">I have a meeting in the morning.</p>
                 )}
             </div>
 
             {/* Answer Area (Slots) */}
-            <div className="mt-3 min-h-[52px] rounded-xl border-2 border-dashed border-[#f5d7c8] bg-[#fffaf8] p-2">
+            <div className="mt-3 min-h-[52px] rounded-xl border-2 border-dashed border-[#f5d7c8] dark:border-orange-500/40 bg-[#fffaf8] dark:bg-zinc-950/50 p-2">
                 <div className="flex flex-wrap gap-1.5">
                     {["Tengo", "una", "reunión"].map((word, i) => (
                         <div
@@ -341,7 +341,7 @@ function SentenceArrangementPreview({ lang }: { lang: "ko" | "en" }) {
                     {["mañana", "en"].map((word) => (
                         <button
                             key={word}
-                            className="rounded-lg border-2 border-[#f0f0f0] bg-white px-3 py-1.5 text-xs font-bold text-[#444] shadow-sm transition-all hover:border-[#f07f53] hover:text-[#f07f53] active:scale-95"
+                            className="rounded-lg border-2 border-[#f0f0f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-xs font-bold text-[#444] dark:text-zinc-200 shadow-sm transition-all hover:border-[#f07f53] hover:text-[#f07f53] active:scale-95"
                         >
                             {word}
                         </button>
@@ -350,7 +350,7 @@ function SentenceArrangementPreview({ lang }: { lang: "ko" | "en" }) {
                     {["Tengo", "una", "reunión"].map((word) => (
                         <div
                             key={word}
-                            className="rounded-lg bg-[#f5f5f5] px-3 py-1.5 text-xs font-bold text-[#ccc] cursor-default"
+                            className="rounded-lg bg-[#f5f5f5] dark:bg-zinc-950 px-3 py-1.5 text-xs font-bold text-[#ccc] dark:text-zinc-700 cursor-default"
                         >
                             {word}
                         </div>
@@ -364,38 +364,38 @@ function SentenceArrangementPreview({ lang }: { lang: "ko" | "en" }) {
 function FillBlankPreview({ lang }: { lang: "ko" | "en" }) {
     const t = translations[lang].previews;
     return (
-        <div className="rounded-[24px] bg-white p-4 shadow-sm">
+        <div className="rounded-[24px] bg-white dark:bg-zinc-900 p-4 shadow-sm">
             <div className="flex gap-1.5">
                 <div className="h-1.5 w-10 rounded-full bg-[#6CBE72]" />
                 <div className="h-1.5 w-10 rounded-full bg-[#6CBE72]" />
-                <div className="h-1.5 w-10 rounded-full bg-[#E5E5E5]" />
-                <div className="h-1.5 w-10 rounded-full bg-[#E5E5E5]" />
+                <div className="h-1.5 w-10 rounded-full bg-[#E5E5E5] dark:bg-zinc-800" />
+                <div className="h-1.5 w-10 rounded-full bg-[#E5E5E5] dark:bg-zinc-800" />
             </div>
 
-            <p className="mt-4 text-lg font-medium text-[#222]">
+            <p className="mt-4 text-lg font-medium text-[#222] dark:text-zinc-200">
                 Me gusta tomar ____ por la mañana.
             </p>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-                <button className="rounded-xl border border-[#93d29a] bg-[#e8f8ea] px-2 py-2 text-sm font-medium text-[#3d8a45]">
+                <button className="rounded-xl border border-[#93d29a] dark:border-emerald-500/50 bg-[#e8f8ea] dark:bg-emerald-950/30 px-2 py-2 text-sm font-medium text-[#3d8a45] dark:text-emerald-400">
                     café
                 </button>
 
-                <button className="rounded-xl border border-[#e6e6e6] bg-white px-2 py-2 text-sm font-medium">
+                <button className="rounded-xl border border-[#e6e6e6] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-300">
                     casa
                 </button>
 
-                <button className="rounded-xl border border-[#e6e6e6] bg-white px-2 py-2 text-sm font-medium">
+                <button className="rounded-xl border border-[#e6e6e6] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-300">
                     libro
                 </button>
             </div>
 
-            <div className="mt-4 rounded-xl bg-[#f3fbf4] p-3 text-xs text-[#4c8a52]">
+            <div className="mt-4 rounded-xl bg-[#f3fbf4] dark:bg-emerald-950/20 p-3 text-xs text-[#4c8a52] dark:text-emerald-400">
                 {t.blankFeedback}
             </div>
 
-            <div className="mt-3 p-2 bg-[#f0f9f0] rounded-lg border border-[#d1e9d3]">
-                <p className="text-[10px] text-[#4c8a52] leading-tight font-medium">
+            <div className="mt-3 p-2 bg-[#f0f9f0] dark:bg-emerald-950/10 rounded-lg border border-[#d1e9d3] dark:border-emerald-900/30">
+                <p className="text-[10px] text-[#4c8a52] dark:text-emerald-400 leading-tight font-medium">
                     {t.blankTip}
                 </p>
             </div>
@@ -406,32 +406,32 @@ function FillBlankPreview({ lang }: { lang: "ko" | "en" }) {
 function FlashCardPreview({ lang }: { lang: "ko" | "en" }) {
     const t = translations[lang].previews;
     return (
-        <div className="rounded-[24px] bg-white p-6 shadow-sm">
+        <div className="rounded-[24px] bg-white dark:bg-zinc-900 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
-                <div className="text-[11px] text-[#888]">1 / 20</div>
+                <div className="text-[11px] text-[#888] dark:text-zinc-500">1 / 20</div>
                 <div className="flex gap-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#f2b632]" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-zinc-800" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-zinc-800" />
                 </div>
             </div>
 
             <div className="text-center py-2">
-                <h4 className="text-4xl font-bold text-[#222]">viaje</h4>
-                <p className="mt-1 text-base text-[#666]">{t.flashMeaning}</p>
-                <p className="mt-2 text-[11px] text-[#999] italic">{t.flashExample}</p>
+                <h4 className="text-4xl font-bold text-[#222] dark:text-zinc-100">viaje</h4>
+                <p className="mt-1 text-base text-[#666] dark:text-zinc-400">{t.flashMeaning}</p>
+                <p className="mt-2 text-[11px] text-[#999] dark:text-zinc-500 italic">{t.flashExample}</p>
             </div>
 
             <div className="mt-4 flex gap-2">
-                <button className="flex-1 py-1.5 rounded-lg bg-[#f0f9f0] border border-[#d1e9d3] text-[10px] font-bold text-[#4c8a52] hover:bg-[#e1f2e3]">
+                <button className="flex-1 py-1.5 rounded-lg bg-[#f0f9f0] dark:bg-emerald-950/20 border border-[#d1e9d3] dark:border-emerald-900/30 text-[10px] font-bold text-[#4c8a52] dark:text-emerald-400 hover:bg-[#e1f2e3] dark:hover:bg-emerald-950/40">
                     {t.flashKnow}
                 </button>
-                <button className="flex-1 py-1.5 rounded-lg bg-[#fff1f2] border border-[#fecdd3] text-[10px] font-bold text-[#be123c] hover:bg-[#ffe4e6]">
+                <button className="flex-1 py-1.5 rounded-lg bg-[#fff1f2] dark:bg-rose-950/20 border border-[#fecdd3] dark:border-rose-900/30 text-[10px] font-bold text-[#be123c] dark:text-rose-400 hover:bg-[#ffe4e6] dark:hover:bg-rose-950/40">
                     {t.flashUnknown}
                 </button>
             </div>
 
-            <div className="mt-5 border-t border-dashed border-[#ddd] pt-3 text-center text-[10px] text-[#888]">
+            <div className="mt-5 border-t border-dashed border-[#ddd] dark:border-zinc-700 pt-3 text-center text-[10px] text-[#888] dark:text-zinc-500">
                 {t.flashHint}
             </div>
         </div>
@@ -456,14 +456,14 @@ function FeatureItem({
     iconColor: string;
 }) {
     return (
-        <div className="flex gap-4 rounded-2xl p-3">
+        <div className="flex gap-4 rounded-2xl p-3 border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50 hover:bg-white/40 dark:hover:bg-white/[0.02] transition-all duration-200">
             <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${iconBg} ${iconColor}`}>
                 {icon}
             </div>
 
             <div>
-                <h4 className="font-semibold text-[#1c1c1c]">{title}</h4>
-                <p className="mt-1 text-sm leading-relaxed text-[#666] break-keep">{desc}</p>
+                <h4 className="font-semibold text-[#1c1c1c] dark:text-zinc-200">{title}</h4>
+                <p className="mt-1 text-sm leading-relaxed text-[#666] dark:text-zinc-400 break-keep">{desc}</p>
             </div>
         </div>
     );

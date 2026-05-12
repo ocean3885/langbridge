@@ -100,7 +100,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
 
         {/* Left: Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
-          <div className="relative h-8 w-8 overflow-hidden rounded-xl shadow-sm">
+          <div className="relative h-7 w-8 overflow-hidden shadow-sm">
             <Image
               src="/images/logo_bg.png"
               alt="Logo Background"
@@ -115,7 +115,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
         </Link>
 
         {/* Center: Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-2">
           {[
             { name: t.study, href: '/my-videos' },
             { name: t.create, href: '/upload' },
@@ -125,7 +125,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
             <Link
               key={item.href}
               href={item.href}
-              className={`text-sm font-semibold transition-colors hover:text-[#E27D60] ${pathname === item.href ? 'text-[#E27D60]' : 'text-zinc-500 dark:text-zinc-400'}`}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${pathname === item.href
+                ? 'text-[#E27D60] bg-orange-50 dark:bg-orange-950/20'
+                : 'text-zinc-600 dark:text-zinc-300 hover:text-[#E27D60]'
+                }`}
             >
               {item.name}
             </Link>
@@ -134,21 +137,23 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
 
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
-          {/* Language Toggle (Slim) */}
-          <div className="hidden sm:flex items-center bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full border border-zinc-300/30 dark:border-zinc-700/30">
-            <button
-              onClick={() => handleLangUpdate('ko')}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          {/* Language Toggle (Switch Style) */}
+          <button
+            onClick={() => handleLangUpdate(language === 'ko' ? 'en' : 'ko')}
+            className="hidden sm:flex items-center bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full border border-zinc-300/30 dark:border-zinc-700/30 cursor-pointer hover:bg-zinc-300/50 dark:hover:bg-zinc-700/50 transition-colors group"
+            title={language === 'ko' ? 'Switch to English' : '한국어로 변경'}
+          >
+            <span
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300'}`}
             >
               KO
-            </button>
-            <button
-              onClick={() => handleLangUpdate('en')}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            </span>
+            <span
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300'}`}
             >
               EN
-            </button>
-          </div>
+            </span>
+          </button>
 
           {/* Theme Toggle */}
           <button
@@ -252,10 +257,13 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
             <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-2" />
             <div className="flex items-center justify-between px-2">
               <span className="text-sm font-medium text-zinc-500">{language === 'ko' ? '언어 설정' : 'Language Settings'}</span>
-              <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full">
-                <button onClick={() => handleLangUpdate('ko')} className={`px-4 py-1.5 rounded-full text-xs font-bold ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60]' : ''}`}>KO</button>
-                <button onClick={() => handleLangUpdate('en')} className={`px-4 py-1.5 rounded-full text-xs font-bold ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60]' : ''}`}>EN</button>
-              </div>
+              <button
+                onClick={() => handleLangUpdate(language === 'ko' ? 'en' : 'ko')}
+                className="flex bg-zinc-200/50 dark:bg-zinc-800/50 p-1 rounded-full border border-zinc-300/10 dark:border-zinc-700/10"
+              >
+                <span className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${language === 'ko' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500'}`}>KO</span>
+                <span className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${language === 'en' ? 'bg-white dark:bg-zinc-700 text-[#E27D60] shadow-sm' : 'text-zinc-500'}`}>EN</span>
+              </button>
             </div>
           </nav>
         </div>

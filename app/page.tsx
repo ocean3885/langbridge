@@ -17,6 +17,7 @@ import MyVideoSection, { type UserVideo, type VideoCategory } from '@/components
 import BundleSection, { type Bundle } from '@/components/home/BundleSection';
 import { listBundles } from '@/lib/supabase/services/bundles';
 import InteractiveLearningSection from '@/components/home/InteractiveLearningSection';
+import BundleCategoriesSection from '@/components/home/BundleCategoriesSection';
 
 export default async function HomePage() {
   const lang = await getDisplayLanguage();
@@ -183,10 +184,11 @@ export default async function HomePage() {
     <div className="flex flex-col">
       <HeroSection userCount={userCount} lang={lang} />
       <InteractiveLearningSection lang={lang} />
-      <BundleSection bundles={recentBundles} lang={lang} />
-      <EduVideoSection videos={learningVideos} lang={lang} />
-      <LBVideoSection videos={lbVideos} lang={lang} />
-      <MyVideoSection isLoggedIn={!!user} categories={videoCategories} lang={lang} />
+      <BundleCategoriesSection lang={lang} />
+      {/* <BundleSection bundles={recentBundles} lang={lang} /> */}
+      {/* <EduVideoSection videos={learningVideos} lang={lang} /> */}
+      {/* <LBVideoSection videos={lbVideos} lang={lang} /> */}
+      {/* <MyVideoSection isLoggedIn={!!user} categories={videoCategories} lang={lang} /> */}
     </div>
   );
 }

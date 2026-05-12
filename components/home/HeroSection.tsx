@@ -61,15 +61,15 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
   const t = translations[lang];
 
   return (
-    <section className="relative overflow-hidden px-4 pt-12 pb-8 sm:pt-20 sm:pb-12 transition-colors duration-300">
+    <section className="relative overflow-hidden px-6 pt-12 pb-8 sm:pt-20 sm:pb-12 transition-colors duration-300">
 
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* Left: Content */}
         <div className="space-y-6 text-center lg:text-left relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-[#85A094] text-xs sm:text-sm font-medium border border-emerald-100 dark:border-emerald-800/30">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-[#85A094] dark:text-emerald-300 text-xs sm:text-sm font-medium border border-emerald-100 dark:border-emerald-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#85A094]"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#85A094] dark:bg-emerald-400"></span>
             </span>
             {t.badge}
           </div>
@@ -94,6 +94,7 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
               alt="Learning Spanish"
               fill
               className="object-cover"
+              priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
