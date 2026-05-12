@@ -279,7 +279,7 @@ export default function BundleCategoriesSection({ lang = 'ko' }: { lang?: 'ko' |
                     src={bundle.image}
                     alt={bundle.title}
                     fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover rounded-t-[2rem]"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
 

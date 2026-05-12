@@ -61,13 +61,13 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
 
       {/* Sidebar Content */}
       <div className={`
-        fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-y-auto z-[60] transition-transform duration-300
+        fixed left-0 top-0 h-full w-64 bg-[#F9F7F2] dark:bg-gray-900 border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto z-[60] transition-transform duration-300
         md:top-[5rem] md:h-[calc(100vh-5rem)] md:z-40
         ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0 md:shadow-none'}
       `}>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">운영관리</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 break-all">{userEmail}</p>
+        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+          <h2 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">운영관리</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 break-all">{userEmail}</p>
         </div>
         
         <nav className="p-4 space-y-2">
@@ -83,8 +83,8 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                   ${isActive 
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
+                    ? 'bg-[#EEF7EF] dark:bg-emerald-500/10 text-[#5B8A61] dark:text-emerald-400 font-medium' 
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'}
                 `}
               >
                 <Icon className="w-5 h-5" />
@@ -95,10 +95,10 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
           })}
         </nav>
         
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 mt-auto">
+        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
           <Link
             href="/"
-            className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+            className="flex items-center gap-3 px-4 py-3 text-zinc-600 dark:text-zinc-400 hover:text-[#5B8A61] dark:hover:text-emerald-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-lg transition-colors group"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="font-medium text-sm">

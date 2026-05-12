@@ -9,52 +9,52 @@ import {
 
 export default function AdminDashboard() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-background">
+    <div className="min-h-screen bg-[#F9F7F2] dark:bg-zinc-950">
       {/* 메인 콘텐츠 영역 */}
       <div className="md:ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">관리자 대시보드</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">시스템 현황을 확인하고 관리할 수 있습니다.</p>
+            <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">관리자 대시보드</h1>
+            <p className="text-zinc-600 dark:text-zinc-400 mt-2">시스템 현황을 확인하고 관리할 수 있습니다.</p>
           </div>
 
           {/* 통계 카드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">전체 사용자</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">-</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 사용자</p>
+                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
                 </div>
                 <Users className="w-10 h-10 text-blue-500" />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">전체 단어</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">-</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 단어</p>
+                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
                 </div>
                 <BookOpen className="w-10 h-10 text-green-500" />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">카테고리</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">-</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">카테고리</p>
+                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
                 </div>
                 <FolderTree className="w-10 h-10 text-purple-500" />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-800">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">전체 문장</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">-</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 문장</p>
+                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
                 </div>
                 <MessageSquare className="w-10 h-10 text-orange-500" />
               </div>
@@ -62,12 +62,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* 최근 활동 */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-800">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">최근 활동</h2>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
+            <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">최근 활동</h2>
             </div>
             <div className="p-6">
-              <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+              <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">
                 기능을 하나씩 추가할 예정입니다.
               </p>
             </div>
