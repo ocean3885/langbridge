@@ -1,4 +1,4 @@
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { redirect, notFound } from 'next/navigation';
 import { getSentenceWithWords } from '@/lib/supabase/services/sentences';
@@ -15,6 +15,7 @@ interface SentenceDetailPageProps {
 export default async function SentenceDetailPage({ params }: SentenceDetailPageProps) {
   const { id } = await params;
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   if (!user) redirect(`/auth/login?redirectTo=/admin/sentences/${id}`);
 
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
@@ -30,7 +31,7 @@ export default async function SentenceDetailPage({ params }: SentenceDetailPageP
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
         <SentenceDetailContent sentence={sentenceData} relatedBundles={relatedBundles} />
       </div>

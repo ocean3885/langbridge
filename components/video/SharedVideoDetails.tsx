@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getVideoWithTranscripts, incrementVideoViewCount, listUserCategoriesForVideo } from '@/lib/supabase/services/videos';
 import { getAllUserNotesForVideo } from '@/lib/supabase/services/user-notes';
 import VideoLearningClient from '@/components/video/VideoLearningClient';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getVideoProgress } from '@/lib/supabase/services/video-progress';
 import { listCategories, listUserCategoriesWithCount } from '@/lib/supabase/services/categories';
@@ -20,6 +20,7 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
   }
 
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   let userNotes: Record<string, { id: string; content: string }> = {};
   if (user) {
@@ -86,7 +87,7 @@ export default async function SharedVideoDetails({ id, backUrl }: SharedVideoDet
       allCategories={allCategories}
       selectedCategoryIds={selectedCategoryIds}
       enlargeTranscriptTextOnDesktop
-      language={user?.displayLanguage || 'ko'}
+      language={lang}
     />
   );
 }

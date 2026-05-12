@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import AdminSidebar from '../../AdminSidebar';
 import BundleCreateForm from './BundleCreateForm';
 
 export default async function NewBundlePage() {
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/bundles/new');
@@ -19,7 +20,7 @@ export default async function NewBundlePage() {
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <BundleCreateForm userId={user.id} />
     </>
   );

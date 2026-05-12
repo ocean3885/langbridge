@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getEduVideoChannelById } from '@/lib/supabase/services/edu-video-channels';
 import AdminSidebar from '@/app/admin/AdminSidebar';
@@ -14,6 +14,7 @@ interface PageProps {
 export default async function EditChannelPage({ params }: PageProps) {
   const { id } = await params;
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   if (!user) redirect('/auth/login?redirectTo=/admin/channels');
 
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email ?? null });
@@ -24,7 +25,7 @@ export default async function EditChannelPage({ params }: PageProps) {
   if (!channel) {
     return (
       <>
-        <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+        <AdminSidebar userEmail={user.email ?? ''} language={lang} />
         <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
           <div className="max-w-3xl mx-auto">
             <div className="text-red-600">채널을 찾을 수 없습니다.</div>
@@ -39,7 +40,7 @@ export default async function EditChannelPage({ params }: PageProps) {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
         <div className="max-w-3xl mx-auto">
           <Link

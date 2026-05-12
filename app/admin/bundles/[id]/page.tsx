@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getBundle, listBundleItems, getBundleWords } from '@/lib/supabase/services/bundles';
 import AdminSidebar from '../../AdminSidebar';
@@ -8,6 +8,7 @@ import BundleDetail from './BundleDetail';
 export default async function BundleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   
   if (!user) {
     redirect(`/auth/login?redirectTo=/admin/bundles/${id}`);
@@ -30,7 +31,7 @@ export default async function BundleDetailPage({ params }: { params: Promise<{ i
   
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <BundleDetail bundle={bundle} items={items} words={words} />
     </>
   );

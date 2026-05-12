@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getEduVideoById } from '@/lib/supabase/services/edu-videos';
 import { listLanguages } from '@/lib/supabase/services/languages';
@@ -17,6 +17,7 @@ interface EditEduVideoPageProps {
 
 export default async function EditEduVideoPage({ params }: EditEduVideoPageProps) {
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/videos');
   }
@@ -40,7 +41,7 @@ export default async function EditEduVideoPage({ params }: EditEduVideoPageProps
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <EditEduVideoForm video={video} languages={languages} categories={categories} channels={channels} />
     </>
   );

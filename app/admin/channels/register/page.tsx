@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getAppUserFromServer } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import AdminSidebar from '../../AdminSidebar';
 import RegisterChannelForm from './RegisterChannelForm';
 
 export default async function RegisterChannelPage() {
   const user = await getAppUserFromServer();
+  const lang = await getDisplayLanguage();
   if (!user) {
     redirect('/auth/login?redirectTo=/admin/channels/register');
   }
@@ -18,7 +19,7 @@ export default async function RegisterChannelPage() {
 
   return (
     <>
-      <AdminSidebar userEmail={user.email ?? ''} language={user.displayLanguage || 'en'} />
+      <AdminSidebar userEmail={user.email ?? ''} language={lang} />
       <div className="min-h-screen bg-gray-50 md:ml-64 p-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-6">
