@@ -197,7 +197,7 @@ export default function InteractiveLearningSection({
                 </div>
 
                 {/* Bottom Features */}
-                <div className="mt-16 grid gap-4 rounded-[32px] border border-white/60 dark:border-zinc-500/40 bg-white/60 dark:bg-zinc-900/60 p-6 shadow-sm backdrop-blur md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-16 grid gap-4 rounded-[32px] border border-white/60 dark:border-zinc-700/40 bg-white/60 dark:bg-zinc-900/60 p-6 shadow-sm backdrop-blur md:grid-cols-2 xl:grid-cols-4">
                     <FeatureItem
                         icon={<CheckCircle2 className="h-5 w-5" />}
                         title={t.features[0].title}
@@ -256,17 +256,17 @@ function LearningCard({
 }) {
     const styles = {
         orange: {
-            border: "border-[#f5d7c8] dark:border-orange-400/60",
+            border: "border-[#f5d7c8] dark:border-orange-400/30",
             bg: "bg-[#fff8f4] dark:bg-orange-950/20",
             badge: "bg-[#f07f53]",
         },
         green: {
-            border: "border-[#d7e8d7] dark:border-emerald-400/60",
+            border: "border-[#d7e8d7] dark:border-emerald-400/30",
             bg: "bg-[#f6fbf6] dark:bg-emerald-950/20",
             badge: "bg-[#6C9B6E]",
         },
         yellow: {
-            border: "border-[#f3e2b6] dark:border-amber-400/60",
+            border: "border-[#f3e2b6] dark:border-amber-400/30",
             bg: "bg-[#fffaf0] dark:bg-amber-950/20",
             badge: "bg-[#f2b632]",
         },
