@@ -50,6 +50,60 @@ interface Props {
   userId: string;
 }
 
+const sentenceJsonFields = ['sentence', 'translation', 'translation_en'] as const;
+
+function escapeLooseJsonStringValue(value: string) {
+  let escaped = '';
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+
+    if (char === '\\') {
+      escaped += char;
+      if (i + 1 < value.length) {
+        escaped += value[i + 1];
+        i++;
+      }
+      continue;
+    }
+
+    escaped += char === '"' ? '\\"' : char;
+  }
+
+  return escaped;
+}
+
+function repairBundleJsonInput(input: string): BundleJsonInput | null {
+  const repairedLines = input.split('\n').map((line) => {
+    for (const field of sentenceJsonFields) {
+      const match = line.match(new RegExp(`^(\\s*"${field}"\\s*:\\s*)"(.*)"(\\s*,?\\s*)$`));
+
+      if (match) {
+        return `${match[1]}"${escapeLooseJsonStringValue(match[2])}"${match[3]}`;
+      }
+    }
+
+    return line;
+  });
+
+  let repaired = repairedLines.join('\n').trim();
+  repaired = repaired.replace(/,\s*$/, '');
+  repaired = repaired.replace(/,\s*([}\]])/g, '$1');
+
+  const hasItemsArray = /"items"\s*:/.test(repaired);
+  const hasSentenceFields = sentenceJsonFields.every((field) => new RegExp(`"${field}"\\s*:`).test(repaired));
+
+  if (!hasItemsArray && hasSentenceFields) {
+    repaired = `{\n  "items": [\n${repaired}\n  ]\n}`;
+  }
+
+  try {
+    return JSON.parse(repaired);
+  } catch {
+    return null;
+  }
+}
+
 export default function BundleCreateForm({ userId }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -281,7 +335,21 @@ export default function BundleCreateForm({ userId }: Props) {
     setError(null);
     
     try {
-      const parsed = JSON.parse(jsonInput);
+      let parsed: BundleJsonInput;
+      let repairedInput = false;
+
+      try {
+        parsed = JSON.parse(jsonInput);
+      } catch {
+        const repaired = repairBundleJsonInput(jsonInput);
+
+        if (!repaired) {
+          throw new Error('Invalid JSON format.');
+        }
+
+        parsed = repaired;
+        repairedInput = true;
+      }
       
       if (!parsed.items || !Array.isArray(parsed.items)) {
         throw new Error('JSON must contain an "items" array.');
@@ -292,12 +360,30 @@ export default function BundleCreateForm({ userId }: Props) {
       }
       
       for (const item of parsed.items) {
-        if (!item.sentence || !item.translation) {
-          throw new Error('Each item must have at least "sentence" and "translation".');
+        if (
+          typeof item.sentence !== 'string' ||
+          typeof item.translation !== 'string' ||
+          typeof item.translation_en !== 'string' ||
+          !item.sentence.trim() ||
+          !item.translation.trim() ||
+          !item.translation_en.trim()
+        ) {
+          throw new Error('각 item에는 "sentence", "translation", "translation_en" 문자열 값이 모두 필요합니다.');
         }
       }
       
-      setParsedData(parsed);
+      const normalized = {
+        items: parsed.items.map((item: BundleItemInput) => ({
+          sentence: item.sentence.trim(),
+          translation: item.translation.trim(),
+          translation_en: item.translation_en.trim()
+        }))
+      };
+
+      setParsedData(normalized);
+      if (repairedInput) {
+        setJsonInput(JSON.stringify(normalized, null, 2));
+      }
       setWordJsons(new Array(parsed.items.length).fill(''));
       setWordErrors(new Array(parsed.items.length).fill(null));
       setItemImageMappings(new Array(parsed.items.length).fill(null));
@@ -572,7 +658,7 @@ export default function BundleCreateForm({ userId }: Props) {
                   <textarea
                     value={jsonInput}
                     onChange={(e) => setJsonInput(e.target.value)}
-                    placeholder='{"items": [{"sentence": "...", "translation": "..."}]}'
+                    placeholder='{"items": [{"sentence": "...", "translation": "...", "translation_en": "..."}]}'
                     className={`w-full h-96 p-6 font-mono text-sm bg-gray-900 text-gray-300 rounded-3xl border-0 focus:ring-4 ${error ? 'focus:ring-red-500/10 border-red-500' : 'focus:ring-blue-500/10'} outline-none transition-all resize-none shadow-inner`}
                   />
                 </div>
@@ -629,6 +715,7 @@ export default function BundleCreateForm({ userId }: Props) {
                     </div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{item.sentence}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{item.translation}</p>
+                    <p className="text-xs text-blue-500/70 dark:text-blue-400/70 italic mt-1">{item.translation_en}</p>
                   </div>
                   <div className="p-6">
                     <div className="relative">
@@ -931,6 +1018,7 @@ export default function BundleCreateForm({ userId }: Props) {
                         <td className="px-6 py-6">
                           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">{item.sentence}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p>
+                          <p className="text-xs text-blue-500/70 dark:text-blue-400/70 italic mt-1">{item.translation_en}</p>
                         </td>
                         <td className="px-6 py-6">
                           <select 

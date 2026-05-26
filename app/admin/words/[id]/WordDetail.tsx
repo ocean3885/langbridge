@@ -152,7 +152,10 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ttsLoading, setTtsLoading] = useState(false);
-  const [isGeneratingDistractors, setIsGeneratingDistractors] = useState(false);
+  const [isDistractorModalOpen, setIsDistractorModalOpen] = useState(false);
+  const [isSavingDistractors, setIsSavingDistractors] = useState(false);
+  const [distractorJsonInput, setDistractorJsonInput] = useState('');
+  const [distractorJsonError, setDistractorJsonError] = useState<string | null>(null);
   const [editingDistractorId, setEditingDistractorId] = useState<number | null>(null);
   const [distractorEditForm, setDistractorEditForm] = useState({
     distractor: '',
@@ -300,34 +303,82 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     }
   };
 
-  const handleGenerateDistractors = async () => {
-    if (isGeneratingDistractors) return;
-    
-    const countToGenerate = 6;
+  const openDistractorModal = () => {
+    setDistractorJsonInput('');
+    setDistractorJsonError(null);
+    setIsDistractorModalOpen(true);
+  };
 
-    setIsGeneratingDistractors(true);
+  const handleCreateDistractors = async () => {
+    if (isSavingDistractors) return;
+
+    let parsed: any;
     try {
-      const res = await fetch('/api/admin/words/generate-distractors', {
+      parsed = JSON.parse(distractorJsonInput);
+    } catch {
+      setDistractorJsonError('유효한 JSON 배열 형식이 아닙니다.');
+      return;
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      setDistractorJsonError('최상위 값은 1개 이상의 항목을 가진 JSON 배열이어야 합니다.');
+      return;
+    }
+
+    let items: { word: string; meaning_ko: string; meaning_en: string }[];
+    try {
+      items = parsed.map((item, index) => {
+        if (
+          typeof item.word !== 'string' ||
+          typeof item.meaning_ko !== 'string' ||
+          typeof item.meaning_en !== 'string' ||
+          !item.word.trim() ||
+          !item.meaning_ko.trim() ||
+          !item.meaning_en.trim()
+        ) {
+          throw new Error(`${index + 1}번째 항목의 word, meaning_ko, meaning_en 값을 모두 입력해주세요.`);
+        }
+
+        return {
+          word: item.word.trim(),
+          meaning_ko: item.meaning_ko.trim(),
+          meaning_en: item.meaning_en.trim(),
+        };
+      });
+    } catch (e: any) {
+      setDistractorJsonError(e.message || 'JSON 항목 형식이 올바르지 않습니다.');
+      return;
+    }
+
+    setIsSavingDistractors(true);
+    setDistractorJsonError(null);
+    try {
+      const res = await fetch('/api/admin/words/distractors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wordId: word.id,
-          count: countToGenerate
+          items
         })
       });
 
-      if (!res.ok) throw new Error('생성 실패');
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        throw new Error(errorBody?.error || '등록 실패');
+      }
       
       const newDistractors = await res.json();
       setWord({
         ...word,
         distractors: [...(word.distractors || []), ...newDistractors]
       });
-      alert(`${newDistractors.length}개의 혼동 어휘가 생성되었습니다.`);
-    } catch (e) {
-      alert('생성 중 오류가 발생했습니다.');
+      setIsDistractorModalOpen(false);
+      setDistractorJsonInput('');
+      alert(`${newDistractors.length}개의 혼동 어휘가 등록되었습니다.`);
+    } catch (e: any) {
+      setDistractorJsonError(e.message || '등록 중 오류가 발생했습니다.');
     } finally {
-      setIsGeneratingDistractors(false);
+      setIsSavingDistractors(false);
     }
   };
 
@@ -676,16 +727,11 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                 혼동 어휘 (Distractors)
               </h2>
               <button
-                onClick={handleGenerateDistractors}
-                disabled={isGeneratingDistractors}
+                onClick={openDistractorModal}
                 className="px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-xs font-bold rounded-lg border border-yellow-100 dark:border-yellow-900 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-all flex items-center gap-1.5 disabled:opacity-50"
               >
-                {isGeneratingDistractors ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RotateCw className="w-3.5 h-3.5" />
-                )}
-                AI로 6개 추가 생성
+                <RotateCw className="w-3.5 h-3.5" />
+                혼동 어휘 생성
               </button>
             </div>
             {word.distractors && word.distractors.length > 0 ? (
@@ -802,6 +848,76 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
               </div>
             )}
           </section>
+        </div>
+      )}
+
+      {isDistractorModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            onClick={() => !isSavingDistractors && setIsDistractorModalOpen(false)}
+          />
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between gap-4 px-6 py-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">혼동 어휘 JSON 등록</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {word.word}에 연결할 혼동 어휘 배열을 입력하세요.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsDistractorModalOpen(false)}
+                disabled={isSavingDistractors}
+                className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-50"
+                title="닫기"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-150px)]">
+              <textarea
+                value={distractorJsonInput}
+                onChange={(e) => {
+                  setDistractorJsonInput(e.target.value);
+                  setDistractorJsonError(null);
+                }}
+                className="w-full h-[420px] p-4 font-mono text-xs sm:text-sm bg-gray-900 text-gray-200 rounded-xl border-0 outline-none resize-none focus:ring-4 focus:ring-yellow-500/20"
+                spellCheck={false}
+                placeholder={`[
+  {
+    "word": "혼동어휘",
+    "meaning_ko": "한국어 뜻",
+    "meaning_en": "English meaning"
+  }
+]`}
+              />
+
+              {distractorJsonError && (
+                <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 text-sm font-medium text-red-700 dark:text-red-400">
+                  {distractorJsonError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+              <button
+                onClick={() => setIsDistractorModalOpen(false)}
+                disabled={isSavingDistractors}
+                className="px-5 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleCreateDistractors}
+                disabled={isSavingDistractors || !distractorJsonInput.trim()}
+                className="inline-flex items-center gap-2 px-5 py-2 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 transition-colors disabled:opacity-50"
+              >
+                {isSavingDistractors ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                등록하기
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

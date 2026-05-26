@@ -310,11 +310,26 @@ export async function createBundleWithItems(
 
       if (existingSentence) {
         sentenceId = existingSentence.id;
-        // 기존 문장에 오디오가 없었다면 업데이트
+        const sentenceUpdates: {
+          audio_url?: string | null;
+          translation?: string;
+          translation_en?: string | null;
+        } = {};
+
         if (!existingSentence.audio_url && audioUrl) {
+          sentenceUpdates.audio_url = audioUrl;
+        }
+        if (!existingSentence.translation && item.translation) {
+          sentenceUpdates.translation = item.translation;
+        }
+        if (!existingSentence.translation_en && item.translation_en) {
+          sentenceUpdates.translation_en = item.translation_en;
+        }
+
+        if (Object.keys(sentenceUpdates).length > 0) {
           await supabase
             .from('sentences')
-            .update({ audio_url: audioUrl })
+            .update(sentenceUpdates)
             .eq('id', sentenceId);
         }
       } else {
@@ -323,7 +338,7 @@ export async function createBundleWithItems(
           .insert({
             sentence: item.sentence,
             translation: item.translation,
-            translation_en: item.translation_en,
+            translation_en: item.translation_en || null,
             audio_url: audioUrl
           })
           .select()

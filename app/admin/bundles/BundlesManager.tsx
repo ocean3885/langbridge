@@ -139,7 +139,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                     <img 
                       src={bundle.thumbnail_url} 
                       alt={bundle.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-950 flex items-center justify-center">

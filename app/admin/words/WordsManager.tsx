@@ -126,6 +126,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [filterLowDistractors, setFilterLowDistractors] = useState(false);
+  const [filterMissingAudio, setFilterMissingAudio] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
@@ -137,7 +138,8 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
       getMeaningDisplay(word.meaning_en).includes(searchTerm);
     const matchesLanguage = filterLanguage === 'all' || word.lang_code === filterLanguage;
     const matchesLowDistractors = !filterLowDistractors || (word.distractor_count ?? 0) < 6;
-    return matchesSearch && matchesLanguage && matchesLowDistractors;
+    const matchesMissingAudio = !filterMissingAudio || !word.audio_url?.trim();
+    return matchesSearch && matchesLanguage && matchesLowDistractors && matchesMissingAudio;
   });
 
   const sortedWords = [...filteredWords].sort((a, b) => {
@@ -165,6 +167,11 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
   const toggleLowDistractorsFilter = () => {
     setFilterLowDistractors(!filterLowDistractors);
+    setCurrentPage(1);
+  };
+
+  const toggleMissingAudioFilter = () => {
+    setFilterMissingAudio(!filterMissingAudio);
     setCurrentPage(1);
   };
 
@@ -306,16 +313,29 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             </select>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filterLowDistractors}
-                onChange={toggleLowDistractorsFilter}
-                className="sr-only peer"
-              />
-              <div className="relative w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">오답 개수 부족 (6개 미만)</span>
-            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterLowDistractors}
+                  onChange={toggleLowDistractorsFilter}
+                  className="sr-only peer"
+                />
+                <div className="relative w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">오답 개수 부족 (6개 미만)</span>
+              </label>
+
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterMissingAudio}
+                  onChange={toggleMissingAudioFilter}
+                  className="sr-only peer"
+                />
+                <div className="relative w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">음성 데이터 없음</span>
+              </label>
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500 font-medium whitespace-nowrap">문장 수 정렬:</span>
@@ -336,7 +356,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         {/* 단어 목록 (카드 그리드) */}
         {filteredWords.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">
-            {searchTerm || filterLanguage !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
+            {searchTerm || filterLanguage !== 'all' || filterLowDistractors || filterMissingAudio ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

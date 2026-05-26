@@ -39,6 +39,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterNoBundle, setFilterNoBundle] = useState(false);
+  const [filterMissingAudio, setFilterMissingAudio] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
 
@@ -49,8 +50,9 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       (sentence.translation_en || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesBundleFilter = !filterNoBundle || (sentence.bundle_count || 0) === 0;
+    const matchesMissingAudio = !filterMissingAudio || !sentence.audio_url?.trim();
 
-    return matchesSearch && matchesBundleFilter;
+    return matchesSearch && matchesBundleFilter && matchesMissingAudio;
   });
 
   const paginatedSentences = filteredSentences.slice(
@@ -187,7 +189,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
-            <div className="flex items-center justify-between md:justify-start gap-2 bg-gray-50 md:bg-transparent p-2 md:p-0 rounded-lg">
+            <div className="flex flex-wrap items-center justify-between md:justify-start gap-4 bg-gray-50 md:bg-transparent p-2 md:p-0 rounded-lg">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
                   type="checkbox" 
@@ -201,6 +203,20 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                 <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">번들없는문장</span>
               </label>
+
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={filterMissingAudio}
+                  onChange={(e) => {
+                    setFilterMissingAudio(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">음성 데이터 없음</span>
+              </label>
               
               <div className="md:hidden text-[10px] text-gray-400 font-medium">
                 총 {filteredSentences.length}개
@@ -209,7 +225,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
         </div>
         {filteredSentences.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">
-            {searchTerm ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다.'}
+            {searchTerm || filterNoBundle || filterMissingAudio ? '검색 결과가 없습니다.' : '등록된 문장이 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
