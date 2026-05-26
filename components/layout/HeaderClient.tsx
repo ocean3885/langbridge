@@ -24,27 +24,27 @@ interface Props {
 
 const translations = {
   ko: {
-    study: '학습',
+    study: 'Learn',
     create: '생성',
     board: '게시판',
     admin: '운영관리',
     login: '로그인',
     myAccount: '내 계정',
     lbVideos: 'LB 영상',
-    bundles: '학습 번들',
+    bundles: 'Bundles',
     myVideos: '내 영상',
     profile: '프로필',
     logout: '로그아웃',
   },
   en: {
-    study: 'Study',
+    study: 'Learn',
     create: 'Create',
     board: 'Board',
     admin: 'Admin',
     login: 'Login',
     myAccount: 'My Account',
     lbVideos: 'LB Videos',
-    bundles: 'Learning Bundles',
+    bundles: 'Bundles',
     myVideos: 'My Videos',
     profile: 'Profile',
     logout: 'Logout',
@@ -59,6 +59,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isActiveNavItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     setMounted(true);
@@ -117,16 +118,15 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
         {/* Center: Desktop Nav */}
         <nav className="hidden md:flex items-center gap-2">
           {[
-            { name: t.study, href: '/my-videos' },
-            { name: t.create, href: '/upload' },
-            { name: t.board, href: '/board' },
+            { name: t.study, href: '/learn' },
+            { name: t.bundles, href: '/bundles' },
             ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
           ].map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${pathname === item.href
-                ? 'text-[#E27D60] bg-orange-50 dark:bg-orange-950/20'
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${isActiveNavItem(item.href)
+                ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'
                 : 'text-zinc-600 dark:text-zinc-300 hover:text-[#E27D60]'
                 }`}
             >
@@ -219,7 +219,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
           ) : (
             <Link
               href={`/auth/login?redirectTo=${encodeURIComponent(pathname)}`}
-              className="bg-[#E27D60] hover:bg-[#d16d51] text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95"
+              className="bg-[#E27D60] hover:bg-[#d16d51] text-white px-5 py-2 rounded-full text-xs font-bold transition-all active:scale-95"
             >
               {t.login}
             </Link>
@@ -240,16 +240,18 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
         <div className="md:hidden border-t border-zinc-200 dark:border-zinc-800 bg-[#F9F7F2] dark:bg-zinc-950 animate-in slide-in-from-top duration-300">
           <nav className="flex flex-col p-4 gap-4">
             {[
-              { name: t.study, href: '/my-videos' },
-              { name: t.create, href: '/upload' },
-              { name: t.board, href: '/board' },
+              { name: t.study, href: '/learn' },
+              { name: t.bundles, href: '/bundles' },
               ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
             ].map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg font-bold px-2 py-1 text-zinc-700 dark:text-zinc-300"
+                className={`rounded-xl px-4 py-3 text-lg font-bold transition-colors ${isActiveNavItem(item.href)
+                  ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'
+                  : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                  }`}
               >
                 {item.name}
               </Link>

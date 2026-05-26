@@ -27,8 +27,8 @@ const translations = {
       { title: 'Active Learning', desc: '직접 문장을 완성하며 체득하는 아웃풋 중심 설계' },
       { title: 'Step-by-Step', desc: '왕초보부터 고급까지 내 수준에 딱 맞는 맞춤형 구성' },
     ],
-    primaryCta: '무료로 학습 시작하기',
-    secondaryCta: '모든 카테고리 살펴보기',
+    primaryCta: '학습 시작하기',
+    secondaryCta: '번들 둘러보기',
     usersLearning: '명 함께 학습 중',
   },
   en: {
@@ -51,8 +51,8 @@ const translations = {
       { title: 'Active Learning', desc: 'Output-centric design focusing on completing sentences.' },
       { title: 'Step-by-Step', desc: 'Tailored content perfectly matching your current level.' },
     ],
-    primaryCta: 'Start Learning for Free',
-    secondaryCta: 'Browse All Categories',
+    primaryCta: 'Start Learning',
+    secondaryCta: 'Browse Bundles',
     usersLearning: ' users learning together',
   }
 };
