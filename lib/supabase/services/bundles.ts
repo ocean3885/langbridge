@@ -9,7 +9,7 @@ export async function listBundles() {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en),
+      bundle_category(id, name, name_en, icon_image_url),
       bundle_type(id, name, code)
     `)
     .order('created_at', { ascending: false });
@@ -84,7 +84,7 @@ export async function getBundle(bundleId: string) {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en),
+      bundle_category(id, name, name_en, icon_image_url),
       bundle_type(id, name, code)
     `)
     .eq('id', bundleId)
@@ -189,6 +189,7 @@ export async function createCategory(category: {
   name_en?: string | null; 
   description?: string | null; 
   description_en?: string | null; 
+  icon_image_url?: string | null;
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -211,6 +212,7 @@ export async function updateCategory(id: string, updates: {
   name_en?: string | null; 
   description?: string | null; 
   description_en?: string | null; 
+  icon_image_url?: string | null;
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -227,6 +229,27 @@ export async function updateCategory(id: string, updates: {
   }
 
   return data;
+}
+
+export async function updateCategoryOrder(updates: { id: string; order_index: number }[]) {
+  const supabase = createAdminClient();
+
+  const results = await Promise.all(
+    updates.map(({ id, order_index }) =>
+      supabase
+        .from('bundle_category')
+        .update({ order_index })
+        .eq('id', id)
+    )
+  );
+
+  const error = results.find((result) => result.error)?.error;
+  if (error) {
+    console.error('Error updating category order:', error);
+    throw error;
+  }
+
+  return true;
 }
 
 export async function deleteCategory(id: string) {
@@ -468,7 +491,8 @@ export async function listBundlesForSentence(sentenceId: number) {
         bundle_category (
           id,
           name,
-          name_en
+          name_en,
+          icon_image_url
         ),
         bundle_type (
           id,
