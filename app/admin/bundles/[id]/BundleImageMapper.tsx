@@ -1,32 +1,60 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ImageIcon, Trash2, Plus, Loader2, Check, UploadCloud, X } from 'lucide-react';
-import { uploadThumbnail, deleteFileFromPublicUrl } from '@/lib/supabase/services/storage';
+import { useState, useEffect, useMemo } from 'react';
+import { ImageIcon, Trash2, Plus, Loader2, Check, X } from 'lucide-react';
+import { uploadThumbnail, deleteFileFromPublicUrl, listPublicUrlsInFolder } from '@/lib/supabase/services/storage';
 
 interface BundleImageMapperProps {
   items: any[];
   onItemsUpdate: (updatedItems: { [key: string]: string | null }) => void;
+  uploadFolder?: string;
 }
 
-export default function BundleImageMapper({ items, onItemsUpdate }: BundleImageMapperProps) {
-  const [uniqueImages, setUniqueImages] = useState<string[]>([]);
+export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder = 'bundles' }: BundleImageMapperProps) {
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
+  const [folderImageUrls, setFolderImageUrls] = useState<string[]>([]);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [mappings, setMappings] = useState<{ [key: string]: string | null }>(
     items.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {})
   );
   const [isUploading, setIsUploading] = useState(false);
 
+  const uniqueImages = useMemo(() => {
+    const mappedImages = Object.values(mappings).filter(Boolean) as string[];
+    return Array.from(new Set([...mappedImages, ...folderImageUrls, ...uploadedImageUrls]));
+  }, [mappings, folderImageUrls, uploadedImageUrls]);
+
   useEffect(() => {
-    // Collect unique images from current mappings
-    const images = Array.from(new Set(Object.values(mappings).filter(url => !!url))) as string[];
-    setUniqueImages(images);
-    
-    // If no selected image but we have some, select the first one
-    if (!selectedImageUrl && images.length > 0) {
-      setSelectedImageUrl(images[0]);
+    let isMounted = true;
+
+    const loadFolderImages = async () => {
+      try {
+        const urls = await listPublicUrlsInFolder(uploadFolder);
+        if (isMounted) {
+          setFolderImageUrls(urls);
+        }
+      } catch (err) {
+        console.error('Failed to load bundle images:', err);
+      }
+    };
+
+    loadFolderImages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [uploadFolder]);
+
+  useEffect(() => {
+    if (!selectedImageUrl && uniqueImages.length > 0) {
+      setSelectedImageUrl(uniqueImages[0]);
+      return;
     }
-  }, [mappings]);
+
+    if (selectedImageUrl && !uniqueImages.includes(selectedImageUrl)) {
+      setSelectedImageUrl(uniqueImages[0] || null);
+    }
+  }, [selectedImageUrl, uniqueImages]);
 
   const handleToggleItem = (itemId: string) => {
     if (!selectedImageUrl) return;
@@ -41,6 +69,32 @@ export default function BundleImageMapper({ items, onItemsUpdate }: BundleImageM
     onItemsUpdate(newMappings);
   };
 
+  const handleConnectAll = () => {
+    if (!selectedImageUrl) return;
+
+    const newMappings = items.reduce(
+      (acc, item) => ({ ...acc, [item.id]: selectedImageUrl }),
+      {} as { [key: string]: string | null }
+    );
+
+    setMappings(newMappings);
+    onItemsUpdate(newMappings);
+  };
+
+  const handleDisconnectAll = () => {
+    if (!selectedImageUrl) return;
+
+    const newMappings = { ...mappings };
+    Object.keys(newMappings).forEach(itemId => {
+      if (newMappings[itemId] === selectedImageUrl) {
+        newMappings[itemId] = null;
+      }
+    });
+
+    setMappings(newMappings);
+    onItemsUpdate(newMappings);
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -50,16 +104,14 @@ export default function BundleImageMapper({ items, onItemsUpdate }: BundleImageM
     formData.append('file', file);
 
     try {
-      const url = await uploadThumbnail(formData);
+      const url = await uploadThumbnail(formData, uploadFolder);
       setSelectedImageUrl(url);
-      // New images automatically get added to uniqueImages via useEffect when mapped to something, 
-      // but if we just want it to show up, we might need a separate state for "orphan" images if needed.
-      // For now, let's just let it be selected.
-      setUniqueImages(prev => Array.from(new Set([...prev, url])));
+      setUploadedImageUrls(prev => Array.from(new Set([...prev, url])));
     } catch (err: any) {
       alert(err.message || '이미지 업로드에 실패했습니다.');
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -76,6 +128,8 @@ export default function BundleImageMapper({ items, onItemsUpdate }: BundleImageM
       
       setMappings(newMappings);
       onItemsUpdate(newMappings);
+      setUploadedImageUrls(prev => prev.filter(uploadedUrl => uploadedUrl !== url));
+      setFolderImageUrls(prev => prev.filter(folderUrl => folderUrl !== url));
       
       if (selectedImageUrl === url) {
         setSelectedImageUrl(null);
@@ -154,12 +208,28 @@ export default function BundleImageMapper({ items, onItemsUpdate }: BundleImageM
 
         {/* Right: Item Numbers Grid */}
         <div className="lg:w-1/2 space-y-4">
-          <div className="flex items-center justify-between px-1">
+          <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm font-bold text-gray-700">문장 연결 ({items.length})</span>
-            <div className="flex items-center gap-4 text-[10px]">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-blue-500 rounded-full" /> 선택됨</div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 bg-gray-300 rounded-full" /> 타 이미지</div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 border border-gray-300 rounded-full" /> 미연결</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                disabled={!selectedImageUrl || items.length === 0}
+                onClick={handleConnectAll}
+                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                전체 연결
+              </button>
+              <button
+                disabled={!selectedImageUrl || Object.values(mappings).every(url => url !== selectedImageUrl)}
+                onClick={handleDisconnectAll}
+                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                전체 해제
+              </button>
+              <div className="flex items-center gap-3 text-[10px]">
+                <div className="flex items-center gap-1"><div className="w-2 h-2 bg-blue-500 rounded-full" /> 선택됨</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 bg-gray-300 rounded-full" /> 타 이미지</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 border border-gray-300 rounded-full" /> 미연결</div>
+              </div>
             </div>
           </div>
 

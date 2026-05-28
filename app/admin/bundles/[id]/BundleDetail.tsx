@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Book, Layout, MessageCircle, Tag, Edit2, Trash2, Save, X, Loader2, ImageIcon, UploadCloud, Volume2, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { updateBundle, deleteBundle, listCategories, updateBundleItemImage, deleteBundleItemsBulk } from '@/lib/supabase/services/bundles';
+import { updateBundle, deleteBundle, listCategories, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
 import BundleImageMapper from './BundleImageMapper';
 
@@ -30,6 +30,10 @@ export default function BundleDetail({
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [currentItems, setCurrentItems] = useState(items);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isSortMode, setIsSortMode] = useState(false);
+  const [sortableItems, setSortableItems] = useState(items);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   
   // Edit Form State
   const [editForm, setEditForm] = useState({
@@ -57,6 +61,73 @@ export default function BundleDetail({
     fetchCats();
   }, []);
 
+  const buildMappingsFromItems = (sourceItems: any[]) =>
+    sourceItems.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {});
+
+  const handleCancelEdit = () => {
+    setEditForm({
+      title: bundle.title,
+      title_en: bundle.title_en || '',
+      description: bundle.description || '',
+      description_en: bundle.description_en || '',
+      level: bundle.level,
+      is_published: bundle.is_published,
+      category_id: bundle.category_id,
+      thumbnail_url: bundle.thumbnail_url || ''
+    });
+    setItemMappings(buildMappingsFromItems(currentItems));
+    setIsEditing(false);
+  };
+
+  const moveSortableItem = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= sortableItems.length || fromIndex === toIndex) return;
+
+    setSortableItems(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const enterSortMode = () => {
+    setSortableItems(currentItems);
+    setSelectedItems([]);
+    setIsSelectMode(false);
+    setIsSortMode(true);
+  };
+
+  const cancelSortMode = () => {
+    setSortableItems(currentItems);
+    setDraggedItemId(null);
+    setIsSortMode(false);
+  };
+
+  const handleSortDrop = (targetIndex: number) => {
+    if (!draggedItemId) return;
+
+    const fromIndex = sortableItems.findIndex(item => item.id === draggedItemId);
+    moveSortableItem(fromIndex, targetIndex);
+    setDraggedItemId(null);
+  };
+
+  const handleSaveOrder = async () => {
+    setIsSavingOrder(true);
+
+    try {
+      await updateBundleItemsOrder(bundle.id, sortableItems.map(item => item.id));
+      const orderedItems = sortableItems.map((item, index) => ({ ...item, order_index: index }));
+      setCurrentItems(orderedItems);
+      setSortableItems(orderedItems);
+      setIsSortMode(false);
+      router.refresh();
+    } catch (e) {
+      alert('순서 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -66,7 +137,7 @@ export default function BundleDetail({
     formData.append('file', file);
 
     try {
-      const url = await uploadThumbnail(formData);
+      const url = await uploadThumbnail(formData, `bundles/${bundle.id}/thumbnail`);
       setEditForm({ ...editForm, thumbnail_url: url });
     } catch (err: any) {
       alert(err.message || '이미지 업로드에 실패했습니다.');
@@ -87,7 +158,7 @@ export default function BundleDetail({
       
       // 2. 각 아이템 이미지 업데이트 (변경된 것만)
       const itemUpdatePromises = Object.entries(itemMappings).map(([itemId, imageUrl]) => {
-        const originalItem = items.find(it => it.id === itemId);
+        const originalItem = currentItems.find(it => it.id === itemId);
         if (originalItem && originalItem.image_url !== imageUrl) {
           return updateBundleItemImage(itemId, imageUrl);
         }
@@ -95,6 +166,11 @@ export default function BundleDetail({
       });
       
       await Promise.all(itemUpdatePromises);
+
+      const updatedItems = currentItems.map(item => ({
+        ...item,
+        image_url: itemMappings[item.id] || null
+      }));
       
       const selectedCat = categories.find(c => c.id === editForm.category_id);
       setBundle({ 
@@ -106,6 +182,8 @@ export default function BundleDetail({
           name_en: selectedCat.name_en 
         } : null 
       });
+      setCurrentItems(updatedItems);
+      setItemMappings(buildMappingsFromItems(updatedItems));
       
       router.refresh();
       setIsEditing(false);
@@ -160,6 +238,7 @@ export default function BundleDetail({
         .map((item, index) => ({ ...item, order_index: index }));
       
       setCurrentItems(remainingItems);
+      setItemMappings(buildMappingsFromItems(remainingItems));
       setSelectedItems([]);
       setIsSelectMode(false);
       
@@ -194,7 +273,13 @@ export default function BundleDetail({
           
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={() => {
+                if (isEditing) {
+                  handleCancelEdit();
+                } else {
+                  setIsEditing(true);
+                }
+              }}
               title={isEditing ? '취소' : '정보 수정'}
               className={`inline-flex items-center justify-center w-10 h-10 rounded-xl transition-all ${isEditing ? 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm'}`}
             >
@@ -446,11 +531,12 @@ export default function BundleDetail({
             <BundleImageMapper 
               items={currentItems} 
               onItemsUpdate={(newMappings) => setItemMappings(newMappings)} 
+              uploadFolder={`bundles/${bundle.id}/items`}
             />
             {/* Buttons moved here */}
             <div className="flex justify-end gap-3">
               <button 
-                onClick={() => setIsEditing(false)}
+                onClick={handleCancelEdit}
                 className="px-8 py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95"
               >
                 취소
@@ -475,7 +561,25 @@ export default function BundleDetail({
               번들 아이템 구성
             </h2>
             <div className="flex items-center gap-2">
-              {isSelectMode ? (
+              {isSortMode ? (
+                <>
+                  <button 
+                    disabled={isSavingOrder}
+                    onClick={cancelSortMode}
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button 
+                    disabled={isSavingOrder}
+                    onClick={handleSaveOrder}
+                    className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSavingOrder ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                    순서 저장
+                  </button>
+                </>
+              ) : isSelectMode ? (
                 <>
                   <button 
                     disabled={selectedItems.length === 0 || isBulkDeleting}
@@ -496,17 +600,26 @@ export default function BundleDetail({
                   </button>
                 </>
               ) : (
-                <button 
-                  onClick={() => setIsSelectMode(true)}
-                  className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
-                >
-                  선택
-                </button>
+                <>
+                  <button 
+                    onClick={enterSortMode}
+                    className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm flex items-center gap-2"
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                    정렬
+                  </button>
+                  <button 
+                    onClick={() => setIsSelectMode(true)}
+                    className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
+                  >
+                    선택
+                  </button>
+                </>
               )}
             </div>
           </div>
 
-          {currentItems.length === 0 ? (
+          {(isSortMode ? sortableItems : currentItems).length === 0 ? (
             <div className="bg-white dark:bg-gray-900 p-20 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 text-center">
               <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Book className="w-8 h-8 text-gray-300 dark:text-gray-600" />
@@ -515,13 +628,60 @@ export default function BundleDetail({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {currentItems.map((item, idx) => (
+              {(isSortMode ? sortableItems : currentItems).map((item, idx) => (
                 <div 
                   key={item.id} 
+                  draggable={isSortMode}
+                  onDragStart={(e) => {
+                    if (!isSortMode) return;
+                    setDraggedItemId(item.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    if (!isSortMode) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    if (!isSortMode) return;
+                    e.preventDefault();
+                    handleSortDrop(idx);
+                  }}
+                  onDragEnd={() => setDraggedItemId(null)}
                   onClick={() => isSelectMode && toggleSelectItem(item.id)}
-                  className={`bg-white dark:bg-gray-900 p-5 rounded-3xl border ${selectedItems.includes(item.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-gray-100 dark:border-gray-800'} shadow-sm hover:shadow-md transition-all flex items-start gap-4 group cursor-pointer`}
+                  className={`bg-white dark:bg-gray-900 p-5 rounded-3xl border ${selectedItems.includes(item.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : draggedItemId === item.id ? 'border-blue-300 opacity-60' : 'border-gray-100 dark:border-gray-800'} shadow-sm hover:shadow-md transition-all flex items-start gap-4 group ${isSortMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                 >
-                  {isSelectMode ? (
+                  {isSortMode ? (
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                      <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-2xl flex items-center justify-center">
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          disabled={idx === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSortableItem(idx, idx - 1);
+                          }}
+                          className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-blue-500 rounded-lg disabled:opacity-30"
+                          title="위로 이동"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          disabled={idx === sortableItems.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSortableItem(idx, idx + 1);
+                          }}
+                          className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-blue-500 rounded-lg disabled:opacity-30"
+                          title="아래로 이동"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : isSelectMode ? (
                     <div className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${selectedItems.includes(item.id) ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-800 text-gray-300'}`}>
                       <CheckCircle2 className="w-6 h-6" />
                     </div>

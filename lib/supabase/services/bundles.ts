@@ -269,6 +269,7 @@ export async function deleteCategory(id: string) {
 
 export async function createBundleWithItems(
   bundleMeta: {
+    id?: string;
     title: string;
     title_en?: string | null;
     description: string;
@@ -293,6 +294,7 @@ export async function createBundleWithItems(
   const { data: bundle, error: bundleError } = await supabase
     .from('bundle')
     .insert([{
+      ...(bundleMeta.id ? { id: bundleMeta.id } : {}),
       title: bundleMeta.title,
       title_en: bundleMeta.title_en || null,
       description: bundleMeta.description,
@@ -596,5 +598,27 @@ export async function deleteBundleItemsBulk(bundleId: string, itemIds: string[])
   );
 
   await Promise.all(updatePromises);
+  return true;
+}
+
+export async function updateBundleItemsOrder(bundleId: string, orderedItemIds: string[]) {
+  const supabase = createAdminClient();
+
+  const updatePromises = orderedItemIds.map((itemId, index) =>
+    supabase
+      .from('bundle_items')
+      .update({ order_index: index })
+      .eq('id', itemId)
+      .eq('bundle_id', bundleId)
+  );
+
+  const results = await Promise.all(updatePromises);
+  const error = results.find(result => result.error)?.error;
+
+  if (error) {
+    console.error('Error updating bundle item order:', error);
+    throw error;
+  }
+
   return true;
 }

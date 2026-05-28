@@ -2,10 +2,18 @@
 
 import { createAdminClient } from '../admin';
 
+function sanitizeStorageFolder(folder: string) {
+  return folder
+    .split('/')
+    .map(part => part.replace(/[^a-zA-Z0-9_-]/g, ''))
+    .filter(Boolean)
+    .join('/');
+}
+
 /**
  * 이미지를 Supabase Storage의 'langbridge' 버킷에 업로드합니다.
  */
-export async function uploadThumbnail(formData: FormData) {
+export async function uploadThumbnail(formData: FormData, folder = 'bundles') {
   const file = formData.get('file') as File;
   if (!file) throw new Error('파일이 없습니다.');
   
@@ -14,7 +22,8 @@ export async function uploadThumbnail(formData: FormData) {
   // 파일 확장자 추출
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `bundles/${fileName}`;
+  const safeFolder = sanitizeStorageFolder(folder) || 'bundles';
+  const filePath = `${safeFolder}/${fileName}`;
 
   // ArrayBuffer를 Buffer로 변환하여 업로드 (서버 사이드)
   const arrayBuffer = await file.arrayBuffer();
@@ -69,4 +78,90 @@ export async function deleteFileFromPublicUrl(url: string) {
   } catch (err) {
     console.error('Error parsing URL for deletion:', err);
   }
+}
+
+export async function deleteFilesInFolder(folder: string) {
+  const supabase = createAdminClient();
+  const bucket = 'langbridge';
+  const safeFolder = sanitizeStorageFolder(folder);
+
+  if (!safeFolder) return true;
+
+  async function collectPaths(prefix: string): Promise<string[]> {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit: 1000
+    });
+
+    if (error) {
+      console.error('Folder listing error:', error);
+      throw error;
+    }
+
+    const paths: string[] = [];
+
+    for (const entry of data || []) {
+      const entryPath = `${prefix}/${entry.name}`;
+      if (entry.metadata) {
+        paths.push(entryPath);
+      } else {
+        paths.push(...await collectPaths(entryPath));
+      }
+    }
+
+    return paths;
+  }
+
+  const paths = await collectPaths(safeFolder);
+  if (paths.length === 0) return true;
+
+  const { error } = await supabase.storage.from(bucket).remove(paths);
+  if (error) {
+    console.error('Folder deletion error:', error);
+    throw error;
+  }
+
+  return true;
+}
+
+export async function listPublicUrlsInFolder(folder: string) {
+  const supabase = createAdminClient();
+  const bucket = 'langbridge';
+  const safeFolder = sanitizeStorageFolder(folder);
+
+  if (!safeFolder) return [];
+
+  async function collectPaths(prefix: string): Promise<string[]> {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit: 1000,
+      sortBy: { column: 'created_at', order: 'asc' }
+    });
+
+    if (error) {
+      console.error('Folder listing error:', error);
+      throw error;
+    }
+
+    const paths: string[] = [];
+
+    for (const entry of data || []) {
+      const entryPath = `${prefix}/${entry.name}`;
+      if (entry.metadata) {
+        paths.push(entryPath);
+      } else {
+        paths.push(...await collectPaths(entryPath));
+      }
+    }
+
+    return paths;
+  }
+
+  const paths = await collectPaths(safeFolder);
+
+  return paths.map(path => {
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(path);
+
+    return publicUrl;
+  });
 }

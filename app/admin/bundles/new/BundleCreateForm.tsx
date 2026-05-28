@@ -9,6 +9,7 @@ import {
   CheckCircle2, 
   AlertCircle,
   Code2,
+  Copy,
   Tag,
   ImageIcon,
   Plus,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { listCategories, listBundleTypes, createBundleWithItems } from '@/lib/supabase/services/bundles';
-import { uploadThumbnail } from '@/lib/supabase/services/storage';
+import { deleteFileFromPublicUrl, deleteFilesInFolder, uploadThumbnail } from '@/lib/supabase/services/storage';
 import { 
   saveAdminDraft, 
   getAdminDraft, 
@@ -48,6 +49,16 @@ interface BundleJsonInput {
 
 interface Props {
   userId: string;
+}
+
+function createPendingBundleId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, char =>
+    (Number(char) ^ Math.floor(Math.random() * 16) >> Number(char) / 4).toString(16)
+  );
 }
 
 const sentenceJsonFields = ['sentence', 'translation', 'translation_en'] as const;
@@ -106,6 +117,7 @@ function repairBundleJsonInput(input: string): BundleJsonInput | null {
 
 export default function BundleCreateForm({ userId }: Props) {
   const router = useRouter();
+  const [pendingBundleId, setPendingBundleId] = useState(createPendingBundleId);
   const [step, setStep] = useState(1);
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +151,7 @@ export default function BundleCreateForm({ userId }: Props) {
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [draftsList, setDraftsList] = useState<any[]>([]);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [copiedSentenceIndex, setCopiedSentenceIndex] = useState<number | null>(null);
 
   const DRAFT_TYPE = 'bundle_create';
 
@@ -179,7 +192,7 @@ export default function BundleCreateForm({ userId }: Props) {
       if (thumbnailFile) {
         const formData = new FormData();
         formData.append('file', thumbnailFile);
-        finalThumbnailUrl = await uploadThumbnail(formData);
+        finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);
         setThumbnailFile(null);
       }
 
@@ -190,7 +203,7 @@ export default function BundleCreateForm({ userId }: Props) {
         if (img.file && !img.remoteUrl) {
           const formData = new FormData();
           formData.append('file', img.file);
-          const url = await uploadThumbnail(formData);
+          const url = await uploadThumbnail(formData, `bundles/${pendingBundleId}/items`);
           updatedImages[i] = {
             ...img,
             remoteUrl: url,
@@ -209,6 +222,7 @@ export default function BundleCreateForm({ userId }: Props) {
         parsedData,
         wordJsons,
         bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
+        pendingBundleId,
         itemImageMappings,
         savedImages: updatedImages.map(img => img.remoteUrl).filter(Boolean)
       };
@@ -255,6 +269,7 @@ export default function BundleCreateForm({ userId }: Props) {
       setJsonInput(draft.jsonInput || '');
       setParsedData(draft.parsedData || null);
       setWordJsons(draft.wordJsons || []);
+      setPendingBundleId(draft.pendingBundleId || createPendingBundleId());
       
       const defaultMeta = {
         title: '',
@@ -290,14 +305,31 @@ export default function BundleCreateForm({ userId }: Props) {
     }
   };
 
-  const deleteDraft = async (id: string) => {
+  const deleteDraft = async (draftRecord: any) => {
     if (!confirm('이 임시 저장 데이터를 삭제하시겠습니까?')) return;
     
     try {
+      const pendingId = draftRecord.data?.pendingBundleId;
+      if (pendingId) {
+        await deleteFilesInFolder(`bundles/${pendingId}`);
+      } else {
+        const urls = new Set<string>();
+        const thumbnailUrl = draftRecord.data?.bundleMeta?.thumbnail_url;
+        if (thumbnailUrl) urls.add(thumbnailUrl);
+        if (Array.isArray(draftRecord.data?.savedImages)) {
+          draftRecord.data.savedImages.forEach((url: string) => urls.add(url));
+        }
+        await Promise.all(Array.from(urls).map(url => deleteFileFromPublicUrl(url)));
+      }
+
+      const id = draftRecord.id;
       await deleteAdminDraftById(id, userId);
       if (currentDraftId === id) {
         setCurrentDraftId(null);
         setLastSaved(null);
+        setThumbnailFile(null);
+        setUploadedImages([]);
+        setBundleMeta(prev => ({ ...prev, thumbnail_url: '' }));
       }
       await fetchDraftsList();
     } catch (err: any) {
@@ -308,6 +340,7 @@ export default function BundleCreateForm({ userId }: Props) {
   const createNewDraft = () => {
     if (confirm('현재 작업 중인 내용을 초기화하고 새로 작성하시겠습니까?')) {
       setStep(1);
+      setPendingBundleId(createPendingBundleId());
       setTempTitle('');
       setJsonInput('');
       setParsedData(null);
@@ -429,6 +462,18 @@ export default function BundleCreateForm({ userId }: Props) {
     }
   };
 
+  const copySentence = async (sentence: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(sentence);
+      setCopiedSentenceIndex(index);
+      setTimeout(() => {
+        setCopiedSentenceIndex(current => current === index ? null : current);
+      }, 1200);
+    } catch (err) {
+      alert('문장 복사에 실패했습니다.');
+    }
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -476,7 +521,7 @@ export default function BundleCreateForm({ userId }: Props) {
       if (thumbnailFile) {
         const formData = new FormData();
         formData.append('file', thumbnailFile);
-        finalThumbnailUrl = await uploadThumbnail(formData);
+        finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);
       }
 
       // 2. Upload only pending local images
@@ -487,7 +532,7 @@ export default function BundleCreateForm({ userId }: Props) {
         } else if (img.file) {
           const formData = new FormData();
           formData.append('file', img.file);
-          const url = await uploadThumbnail(formData);
+          const url = await uploadThumbnail(formData, `bundles/${pendingBundleId}/items`);
           imageUrls.push(url);
         }
       }
@@ -503,7 +548,7 @@ export default function BundleCreateForm({ userId }: Props) {
       });
 
       // 4. Create bundle with items
-      const bundle = await createBundleWithItems({ ...bundleMeta, thumbnail_url: finalThumbnailUrl }, itemsToCreate);
+      const bundle = await createBundleWithItems({ ...bundleMeta, id: pendingBundleId, thumbnail_url: finalThumbnailUrl }, itemsToCreate);
 
       alert('번들이 성공적으로 생성되었습니다!');
       await deleteAdminDraft(userId, DRAFT_TYPE);
@@ -713,7 +758,21 @@ export default function BundleCreateForm({ userId }: Props) {
                         예시 채우기
                       </button>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{item.sentence}</h3>
+                    <div className="mb-1 flex items-start gap-2">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug">{item.sentence}</h3>
+                      <button
+                        type="button"
+                        onClick={() => copySentence(item.sentence, index)}
+                        className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-gray-900 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        title="스페인어 문장 복사"
+                      >
+                        {copiedSentenceIndex === index ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{item.translation}</p>
                     <p className="text-xs text-blue-500/70 dark:text-blue-400/70 italic mt-1">{item.translation_en}</p>
                   </div>
@@ -1152,7 +1211,7 @@ export default function BundleCreateForm({ userId }: Props) {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteDraft(draft.id);
+                          deleteDraft(draft);
                         }}
                         className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all ml-4"
                       >

@@ -118,7 +118,7 @@ export default function CategoryManagerModal({
     formData.append('file', file);
 
     try {
-      const url = await uploadThumbnail(formData);
+      const url = await uploadThumbnail(formData, 'bundle-categories');
       setNewCategory((prev) => ({ ...prev, icon_image_url: url }));
     } catch (err: any) {
       alert(err.message || '아이콘 이미지 업로드에 실패했습니다.');
@@ -137,7 +137,7 @@ export default function CategoryManagerModal({
     formData.append('file', file);
 
     try {
-      const url = await uploadThumbnail(formData);
+      const url = await uploadThumbnail(formData, 'bundle-categories');
       setEditCategory((prev) => ({ ...prev, icon_image_url: url }));
     } catch (err: any) {
       alert(err.message || '아이콘 이미지 업로드에 실패했습니다.');
