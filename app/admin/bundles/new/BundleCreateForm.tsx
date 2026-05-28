@@ -18,10 +18,11 @@ import {
   Loader2,
   ImagePlus,
   Save,
-  RotateCcw
+  RotateCcw,
+  Volume2
 } from 'lucide-react';
 import Link from 'next/link';
-import { listCategories, listBundleTypes, createBundleWithItems } from '@/lib/supabase/services/bundles';
+import { listCategories, listBundleTypes, createBundleWithItems, getBundle } from '@/lib/supabase/services/bundles';
 import { deleteFileFromPublicUrl, deleteFilesInFolder, uploadThumbnail } from '@/lib/supabase/services/storage';
 import { 
   saveAdminDraft, 
@@ -46,6 +47,56 @@ interface BundleItemInput {
 interface BundleJsonInput {
   items: BundleItemInput[];
 }
+
+type TTSProvider = 'google' | 'elevenlabs';
+
+interface TTSOption {
+  id: string;
+  name: string;
+}
+
+const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; voices: TTSOption[] }> = {
+  google: {
+    name: 'Google Cloud TTS',
+    models: [
+      { id: 'standard', name: 'Standard' },
+      { id: 'wavenet', name: 'WaveNet' },
+      { id: 'neural2', name: 'Neural2' },
+      { id: 'studio', name: 'Studio' },
+    ],
+    voices: [
+      { id: 'es-ES-Standard-A', name: 'es-ES-Standard-A (여성)' },
+      { id: 'es-ES-Standard-B', name: 'es-ES-Standard-B (남성)' },
+      { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)' },
+      { id: 'es-ES-Neural2-B', name: 'es-ES-Neural2-B (남성)' },
+      { id: 'es-ES-Wavenet-B', name: 'es-ES-Wavenet-B (남성)' },
+      { id: 'es-ES-Wavenet-C', name: 'es-ES-Wavenet-C (여성)' },
+    ]
+  },
+  elevenlabs: {
+    name: 'ElevenLabs',
+    models: [
+      { id: 'eleven_multilingual_v2', name: 'Multilingual v2' },
+      { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
+      { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
+    ],
+    voices: [
+      { id: '2Lb1en5ujrODDIqmp7F3', name: '선호 성우 (Custom)' },
+      { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (미국, 여성)' },
+      { id: '29vD33N1CtxCmqQRPOHJ', name: 'Drew (미국, 남성)' },
+      { id: 'pNInz6obpgDQGcFmaJcg', name: 'Antoni (미국, 남성)' },
+      { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella (미국, 여성)' },
+      { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi (미국, 여성)' },
+    ]
+  }
+};
+
+const defaultSentenceTtsOptions = {
+  provider: 'elevenlabs' as TTSProvider,
+  model: TTS_PROVIDERS.elevenlabs.models[0].id,
+  voice: TTS_PROVIDERS.elevenlabs.voices[0].id,
+  speed: 0.8,
+};
 
 interface Props {
   userId: string;
@@ -140,6 +191,7 @@ export default function BundleCreateForm({ userId }: Props) {
     thumbnail_url: '',
     is_published: false
   });
+  const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultSentenceTtsOptions);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploadedImages, setUploadedImages] = useState<{file?: File, previewUrl: string, remoteUrl?: string}[]>([]);
   const [itemImageMappings, setItemImageMappings] = useState<(number | null)[]>([]);
@@ -222,6 +274,7 @@ export default function BundleCreateForm({ userId }: Props) {
         parsedData,
         wordJsons,
         bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
+        sentenceTtsOptions,
         pendingBundleId,
         itemImageMappings,
         savedImages: updatedImages.map(img => img.remoteUrl).filter(Boolean)
@@ -283,6 +336,10 @@ export default function BundleCreateForm({ userId }: Props) {
         is_published: false
       };
       setBundleMeta({ ...defaultMeta, ...(draft.bundleMeta || {}) });
+      setSentenceTtsOptions({
+        ...defaultSentenceTtsOptions,
+        ...(draft.sentenceTtsOptions || {})
+      });
       
       setItemImageMappings(draft.itemImageMappings || []);
       
@@ -310,9 +367,11 @@ export default function BundleCreateForm({ userId }: Props) {
     
     try {
       const pendingId = draftRecord.data?.pendingBundleId;
-      if (pendingId) {
+      const completedBundle = pendingId ? await getBundle(pendingId) : null;
+
+      if (pendingId && !completedBundle) {
         await deleteFilesInFolder(`bundles/${pendingId}`);
-      } else {
+      } else if (!completedBundle) {
         const urls = new Set<string>();
         const thumbnailUrl = draftRecord.data?.bundleMeta?.thumbnail_url;
         if (thumbnailUrl) urls.add(thumbnailUrl);
@@ -356,6 +415,7 @@ export default function BundleCreateForm({ userId }: Props) {
         thumbnail_url: '',
         is_published: false
       });
+      setSentenceTtsOptions(defaultSentenceTtsOptions);
       setThumbnailFile(null);
       setItemImageMappings([]);
       setLastSaved(null);
@@ -508,6 +568,15 @@ export default function BundleCreateForm({ userId }: Props) {
     setItemImageMappings(newMappings);
   };
 
+  const handleSentenceTtsProviderChange = (provider: TTSProvider) => {
+    setSentenceTtsOptions({
+      provider,
+      model: TTS_PROVIDERS[provider].models[0].id,
+      voice: TTS_PROVIDERS[provider].voices[0].id,
+      speed: sentenceTtsOptions.speed,
+    });
+  };
+
   const handleSubmit = async () => {
     if (!bundleMeta.title) {
       alert('번들 제목을 입력해주세요.');
@@ -548,7 +617,11 @@ export default function BundleCreateForm({ userId }: Props) {
       });
 
       // 4. Create bundle with items
-      const bundle = await createBundleWithItems({ ...bundleMeta, id: pendingBundleId, thumbnail_url: finalThumbnailUrl }, itemsToCreate);
+      const bundle = await createBundleWithItems(
+        { ...bundleMeta, id: pendingBundleId, thumbnail_url: finalThumbnailUrl },
+        itemsToCreate,
+        sentenceTtsOptions
+      );
 
       alert('번들이 성공적으로 생성되었습니다!');
       await deleteAdminDraft(userId, DRAFT_TYPE);
@@ -996,6 +1069,73 @@ export default function BundleCreateForm({ userId }: Props) {
                         />
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">비공개</span>
                       </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6 border-t border-gray-50 dark:border-gray-800 pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center">
+                      <Volume2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">문장 TTS 생성 설정</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">새 문장이거나 기존 문장에 오디오가 없을 때 적용됩니다.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">API 제공자</label>
+                      <select
+                        value={sentenceTtsOptions.provider}
+                        onChange={(e) => handleSentenceTtsProviderChange(e.target.value as TTSProvider)}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="elevenlabs">ElevenLabs</option>
+                        <option value="google">Google Cloud TTS</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">모델</label>
+                      <select
+                        value={sentenceTtsOptions.model}
+                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, model: e.target.value })}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                      >
+                        {TTS_PROVIDERS[sentenceTtsOptions.provider].models.map(model => (
+                          <option key={model.id} value={model.id}>{model.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">목소리</label>
+                      <select
+                        value={sentenceTtsOptions.voice}
+                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, voice: e.target.value })}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                      >
+                        {TTS_PROVIDERS[sentenceTtsOptions.provider].voices.map(voice => (
+                          <option key={voice.id} value={voice.id}>{voice.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">재생 속도</label>
+                      <input
+                        type="number"
+                        min="0.7"
+                        max="1.2"
+                        step="0.1"
+                        value={sentenceTtsOptions.speed}
+                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, speed: parseFloat(e.target.value) || 0.8 })}
+                        disabled={sentenceTtsOptions.provider !== 'google'}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">속도는 Google TTS 선택 시에만 적용됩니다.</p>
                     </div>
                   </div>
                 </div>

@@ -286,7 +286,18 @@ export async function createBundleWithItems(
     translation_en: string;
     wordJson: string;
     imageUrl: string | null;
-  }[]
+  }[],
+  sentenceTtsOptions: {
+    provider: 'google' | 'elevenlabs';
+    model: string;
+    voice: string;
+    speed: number;
+  } = {
+    provider: 'elevenlabs',
+    model: 'eleven_multilingual_v2',
+    voice: '2Lb1en5ujrODDIqmp7F3',
+    speed: 0.8,
+  }
 ) {
   const supabase = createAdminClient();
 
@@ -330,7 +341,7 @@ export async function createBundleWithItems(
 
       // 오디오가 없는 경우 TTS 생성
       if (!audioUrl) {
-        audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`);
+        audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`, 'es', 0.8, sentenceTtsOptions);
       }
 
       if (existingSentence) {
@@ -394,7 +405,10 @@ export async function createBundleWithItems(
 
               // 단어 오디오가 없는 경우 TTS 생성
               if (!wordAudioUrl) {
-                wordAudioUrl = await generateTTS(wordInfo.word, 'words');
+                wordAudioUrl = await generateTTS(wordInfo.word, 'words', 'es', 0.8, {
+                  provider: 'google',
+                  voice: 'es-ES-Standard-A',
+                });
               }
 
               if (existingWord) {
