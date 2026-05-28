@@ -330,7 +330,7 @@ export async function createBundleWithItems(
 
       // 오디오가 없는 경우 TTS 생성
       if (!audioUrl) {
-        audioUrl = await generateTTS(item.sentence);
+        audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`);
       }
 
       if (existingSentence) {

@@ -66,7 +66,7 @@ interface GenerateSentenceAudioParams {
   sentenceId?: number;
 }
 
-export async function generateSentenceAudio({ text, languageCode, sentenceId }: GenerateSentenceAudioParams) {
+export async function generateSentenceAudio({ text, languageCode }: GenerateSentenceAudioParams) {
   try {
     const supabase = await createClient();
     const storageBucket = getStorageBucket();
@@ -96,11 +96,7 @@ export async function generateSentenceAudio({ text, languageCode, sentenceId }: 
 
       // Supabase Storage에 업로드
       const finalBuf = await fs.readFile(normalizedPath);
-      const timestamp = Date.now();
-      const fileName = sentenceId 
-        ? `sentence_${sentenceId}_${timestamp}.mp3`
-        : `sentence_${timestamp}.mp3`;
-      const storagePath = `sentences/${user.id}/${fileName}`;
+      const storagePath = `sentences/standalone/${crypto.randomUUID()}.mp3`;
 
       const { error: uploadError } = await supabase.storage
         .from(storageBucket)

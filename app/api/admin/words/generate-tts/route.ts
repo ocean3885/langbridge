@@ -1,7 +1,8 @@
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { generateTTS } from '@/lib/tts';
-import { updateWord } from '@/lib/supabase/services/words';
+import { getWordById, updateWord } from '@/lib/supabase/services/words';
+import { deleteFileFromPublicUrl } from '@/lib/supabase/services/storage';
 import { getStorageBucket } from '@/lib/supabase/storage';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -17,15 +18,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { wordId, text, langCode, audio_url } = await request.json();
+    const { wordId, text, langCode } = await request.json();
 
     if (!wordId || !text || !langCode) {
       return NextResponse.json({ error: '필수 정보(wordId, text, langCode)가 누락되었습니다.' }, { status: 400 });
     }
 
+    const existingWord = await getWordById(Number(wordId));
+    if (!existingWord) {
+      return NextResponse.json({ error: '단어를 찾을 수 없습니다.' }, { status: 404 });
+    }
+    const oldAudioUrl = existingWord.audio_url;
+
     // 1. TTS 생성 및 업로드 (항상 새로 생성)
     console.log(`TTS를 생성합니다: ${text} (${langCode})`);
-    let finalAudioUrl = await generateTTS(text, 'words', langCode);
+    let finalAudioUrl = await generateTTS(text, 'words', 'es', 0.8, {
+      provider: 'google',
+      voice: 'es-ES-Standard-A',
+    });
 
     if (!finalAudioUrl) {
       return NextResponse.json({ error: 'TTS 생성 실패' }, { status: 500 });
@@ -48,9 +58,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. words 테이블 업데이트
-    await updateWord(Number(wordId), {
-      audioUrl: storagePath
-    });
+    try {
+      await updateWord(Number(wordId), {
+        audioUrl: storagePath
+      });
+    } catch (error) {
+      await deleteFileFromPublicUrl(storagePath);
+      throw error;
+    }
+
+    // 4. 기존 오디오 파일 삭제
+    if (oldAudioUrl && oldAudioUrl !== storagePath) {
+      deleteFileFromPublicUrl(oldAudioUrl).catch(err =>
+        console.error(`기존 단어 오디오 삭제 실패 (word id: ${wordId}):`, err)
+      );
+    }
 
     return NextResponse.json({ 
       success: true, 

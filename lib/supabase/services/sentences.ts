@@ -188,11 +188,23 @@ export async function regenerateSentenceTTS(id: number, text: string, options?: 
   voice: string;
   speed: number;
 }) {
-  // 1. 새 TTS 생성
-  const newAudioUrl = await generateTTS(text, 'sentences', 'es', options?.speed, options);
-  if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
-
   const supabase = createAdminClient();
+
+  const { data: bundleItem } = await supabase
+    .from('bundle_items')
+    .select('bundle_id')
+    .eq('sentence_id', id)
+    .order('order_index', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const folder = bundleItem?.bundle_id
+    ? `sentences/bundles/${bundleItem.bundle_id}`
+    : 'sentences';
+
+  // 1. 새 TTS 생성
+  const newAudioUrl = await generateTTS(text, folder, 'es', options?.speed, options);
+  if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
   
   // 2. 기존 오디오 정보 조회 (삭제를 위해)
   const { data: sentence } = await supabase

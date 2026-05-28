@@ -269,7 +269,7 @@ function LoggedInLearnPage({ name }: { name: string }) {
           <SectionHeader title="Continue Learning" href="/bundles" />
           <div className="mt-4 grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm md:grid-cols-[0.44fr_1fr]">
             <div className="relative min-h-64">
-              <Image src="/images/heroimg_land.jpg" alt="Travel Spanish lesson" fill className="object-cover" sizes="360px" priority />
+              <Image src="/images/heroimg_land.jpg" alt="Travel Spanish lesson" fill className="object-cover" sizes="360px" />
             </div>
             <div className="flex flex-col justify-center p-7">
               <p className="text-xs font-black uppercase tracking-widest text-[#4d8b4f]">Travel Bundle</p>

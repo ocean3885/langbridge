@@ -4,6 +4,35 @@ import { createAdminClient } from './supabase/admin';
 import { getStorageBucket } from './supabase/storage';
 import { ACTIVE_LANGUAGE } from './utils';
 
+function createAudioFileName(folder: string, text: string) {
+  const id = crypto.randomUUID();
+
+  if (folder !== 'words') {
+    const sentenceFolder = folder === 'sentences' ? 'sentences/standalone' : folder;
+    return `${sentenceFolder}/${id}.mp3`;
+  }
+
+  const wordPrefix = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFKC')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/g, 'n')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+  const firstChar = wordPrefix.charAt(0);
+  const subFolder = /^[a-z]$/.test(firstChar)
+    ? firstChar
+    : /^[0-9]$/.test(firstChar)
+      ? '0-9'
+      : 'misc';
+
+  return `${folder}/${subFolder}/${wordPrefix || 'word'}-${id}.mp3`;
+}
+
 /**
  * Google Cloud Text-to-Speech를 사용하여 음성을 생성하고 Supabase Storage에 업로드합니다.
  * @param text 음성으로 변환할 텍스트
@@ -97,7 +126,7 @@ export async function generateTTS(
     // 2. Supabase 스토리지 업로드
     const supabase = createAdminClient();
     const bucketName = getStorageBucket();
-    const fileName = `${folder}/${crypto.randomUUID()}.mp3`;
+    const fileName = createAudioFileName(folder, text);
 
     const { error: uploadError } = await supabase.storage
       .from(bucketName)

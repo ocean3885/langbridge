@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '../admin';
+import { getStorageBucket } from '../storage';
 
 function sanitizeStorageFolder(folder: string) {
   return folder
@@ -55,7 +56,7 @@ export async function deleteFileFromPublicUrl(url: string) {
   if (!url) return;
   
   const supabase = createAdminClient();
-  const bucket = 'langbridge';
+  const bucket = getStorageBucket();
   
   try {
     let storagePath = url;
