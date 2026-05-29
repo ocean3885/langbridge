@@ -5,9 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  Users, 
-  AudioLines, 
-  Settings,
   ChevronRight,
   Languages,
   BookOpen,
@@ -38,7 +35,6 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
     { id: 'bundles', label: '번들 관리', icon: BookMarked, href: '/admin/bundles' },
     { id: 'channels', label: '채널 관리', icon: FolderTree, href: '/admin/channels' },
     { id: 'videos', label: '영상 관리', icon: Video, href: '/admin/videos' },
-    { id: 'users', label: '사용자 관리', icon: Users, href: '/admin/users' },
   ];
 
   return (

@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { listCategories, listBundleTypes, createBundleWithItems, getBundle } from '@/lib/supabase/services/bundles';
 import { deleteFileFromPublicUrl, deleteFilesInFolder, uploadThumbnail } from '@/lib/supabase/services/storage';
+import { compressImageForUpload } from '@/lib/image-compression';
 import { 
   saveAdminDraft, 
   getAdminDraft, 
@@ -42,9 +43,33 @@ interface BundleItemInput {
   sentence: string;
   translation: string;
   translation_en: string;
+  speaker?: string;
+  speaker_key?: string;
+  speaker_name?: string;
+  speaker_role?: string;
+  metadata?: Record<string, any>;
 }
 
+interface ConversationSpeakerInput {
+  key: string;
+  name?: string | null;
+  role?: string | null;
+  voice?: string | null;
+  provider?: TTSProvider;
+  model?: string | null;
+  speed?: number;
+}
+
+type SpeakerTtsOptions = Record<string, {
+  provider: TTSProvider;
+  model: string;
+  voice: string;
+  speed: number;
+}>;
+
 interface BundleJsonInput {
+  type?: string;
+  speakers?: ConversationSpeakerInput[];
   items: BundleItemInput[];
 }
 
@@ -192,6 +217,7 @@ export default function BundleCreateForm({ userId }: Props) {
     is_published: false
   });
   const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultSentenceTtsOptions);
+  const [speakerTtsOptions, setSpeakerTtsOptions] = useState<SpeakerTtsOptions>({});
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploadedImages, setUploadedImages] = useState<{file?: File, previewUrl: string, remoteUrl?: string}[]>([]);
   const [itemImageMappings, setItemImageMappings] = useState<(number | null)[]>([]);
@@ -206,6 +232,14 @@ export default function BundleCreateForm({ userId }: Props) {
   const [copiedSentenceIndex, setCopiedSentenceIndex] = useState<number | null>(null);
 
   const DRAFT_TYPE = 'bundle_create';
+  const isConversationBundle = parsedData?.type === 'conversation';
+  const selectedBundleType = bundleTypes.find(type => type.id === bundleMeta.type_id);
+  const isConversationTypeSelected = selectedBundleType?.code === 'conversation';
+  const speakerMap = new Map((parsedData?.speakers || []).map(speaker => [speaker.key, speaker]));
+  const getSpeakerForItem = (item: BundleItemInput) => {
+    const speakerKey = item.speaker_key || item.speaker;
+    return speakerKey ? speakerMap.get(speakerKey) : undefined;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -236,14 +270,68 @@ export default function BundleCreateForm({ userId }: Props) {
     fetchDraft();
   }, [userId]);
 
+  useEffect(() => {
+    if (parsedData?.type !== 'conversation' || bundleMeta.type_id) return;
+
+    const conversationType = bundleTypes.find(type => type.code === 'conversation');
+    if (conversationType) {
+      setBundleMeta(prev => ({ ...prev, type_id: conversationType.id }));
+    }
+  }, [bundleMeta.type_id, bundleTypes, parsedData?.type]);
+
+  useEffect(() => {
+    if (!parsedData?.speakers?.length) {
+      setSpeakerTtsOptions({});
+      return;
+    }
+
+    setSpeakerTtsOptions(prev => {
+      const next: SpeakerTtsOptions = {};
+
+      for (const speaker of parsedData.speakers || []) {
+        const provider = speaker.provider || prev[speaker.key]?.provider || defaultSentenceTtsOptions.provider;
+        next[speaker.key] = {
+          provider,
+          model: speaker.model || prev[speaker.key]?.model || TTS_PROVIDERS[provider].models[0].id,
+          voice: speaker.voice || prev[speaker.key]?.voice || TTS_PROVIDERS[provider].voices[0].id,
+          speed: speaker.speed ?? prev[speaker.key]?.speed ?? defaultSentenceTtsOptions.speed,
+        };
+      }
+
+      return next;
+    });
+  }, [parsedData?.speakers]);
+
+  const updateSpeakerTtsOption = (
+    speakerKey: string,
+    updates: Partial<SpeakerTtsOptions[string]>
+  ) => {
+    setSpeakerTtsOptions(prev => {
+      const current = prev[speakerKey] || defaultSentenceTtsOptions;
+      const provider = updates.provider || current.provider;
+      const providerChanged = updates.provider && updates.provider !== current.provider;
+
+      return {
+        ...prev,
+        [speakerKey]: {
+          provider,
+          model: providerChanged ? TTS_PROVIDERS[provider].models[0].id : (updates.model || current.model),
+          voice: providerChanged ? TTS_PROVIDERS[provider].voices[0].id : (updates.voice || current.voice),
+          speed: updates.speed ?? current.speed,
+        }
+      };
+    });
+  };
+
   const saveDraft = async () => {
     setIsSaving(true);
     try {
       // 1. Upload main thumbnail if pending
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
+        const compressedFile = await compressImageForUpload(thumbnailFile);
         const formData = new FormData();
-        formData.append('file', thumbnailFile);
+        formData.append('file', compressedFile);
         finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);
         setThumbnailFile(null);
       }
@@ -253,8 +341,9 @@ export default function BundleCreateForm({ userId }: Props) {
       for (let i = 0; i < updatedImages.length; i++) {
         const img = updatedImages[i];
         if (img.file && !img.remoteUrl) {
+          const compressedFile = await compressImageForUpload(img.file);
           const formData = new FormData();
-          formData.append('file', img.file);
+          formData.append('file', compressedFile);
           const url = await uploadThumbnail(formData, `bundles/${pendingBundleId}/items`);
           updatedImages[i] = {
             ...img,
@@ -275,6 +364,7 @@ export default function BundleCreateForm({ userId }: Props) {
         wordJsons,
         bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
         sentenceTtsOptions,
+        speakerTtsOptions,
         pendingBundleId,
         itemImageMappings,
         savedImages: updatedImages.map(img => img.remoteUrl).filter(Boolean)
@@ -340,6 +430,7 @@ export default function BundleCreateForm({ userId }: Props) {
         ...defaultSentenceTtsOptions,
         ...(draft.sentenceTtsOptions || {})
       });
+      setSpeakerTtsOptions(draft.speakerTtsOptions || {});
       
       setItemImageMappings(draft.itemImageMappings || []);
       
@@ -416,6 +507,7 @@ export default function BundleCreateForm({ userId }: Props) {
         is_published: false
       });
       setSentenceTtsOptions(defaultSentenceTtsOptions);
+      setSpeakerTtsOptions({});
       setThumbnailFile(null);
       setItemImageMappings([]);
       setLastSaved(null);
@@ -452,6 +544,14 @@ export default function BundleCreateForm({ userId }: Props) {
         throw new Error('Items array cannot be empty.');
       }
       
+      const isConversationInput = parsed.type === 'conversation';
+      const parsedSpeakers = Array.isArray(parsed.speakers) ? parsed.speakers : [];
+      const parsedSpeakerKeys = new Set(parsedSpeakers.map(speaker => speaker.key).filter(Boolean));
+
+      if (isConversationInput && parsedSpeakers.length === 0) {
+        throw new Error('conversation 타입은 "speakers" 배열이 필요합니다.');
+      }
+
       for (const item of parsed.items) {
         if (
           typeof item.sentence !== 'string' ||
@@ -463,13 +563,33 @@ export default function BundleCreateForm({ userId }: Props) {
         ) {
           throw new Error('각 item에는 "sentence", "translation", "translation_en" 문자열 값이 모두 필요합니다.');
         }
+
+        const speakerKey = item.speaker_key || item.speaker;
+        if (isConversationInput && (!speakerKey || !parsedSpeakerKeys.has(speakerKey))) {
+          throw new Error('conversation item에는 speakers에 등록된 "speaker" 값이 필요합니다.');
+        }
       }
       
       const normalized = {
+        type: parsed.type === 'conversation' ? 'conversation' : parsed.type,
+        speakers: parsedSpeakers.map((speaker) => ({
+          key: speaker.key.trim(),
+          name: speaker.name?.trim() || speaker.key.trim(),
+          role: speaker.role?.trim() || null,
+          voice: speaker.voice?.trim() || undefined,
+          provider: speaker.provider,
+          model: speaker.model?.trim() || undefined,
+          speed: speaker.speed
+        })),
         items: parsed.items.map((item: BundleItemInput) => ({
+          speaker: item.speaker?.trim() || item.speaker_key?.trim() || undefined,
+          speaker_key: item.speaker_key?.trim() || item.speaker?.trim() || undefined,
+          speaker_name: item.speaker_name?.trim() || undefined,
+          speaker_role: item.speaker_role?.trim() || undefined,
           sentence: item.sentence.trim(),
           translation: item.translation.trim(),
-          translation_en: item.translation_en.trim()
+          translation_en: item.translation_en.trim(),
+          metadata: item.metadata || undefined
         }))
       };
 
@@ -583,13 +703,29 @@ export default function BundleCreateForm({ userId }: Props) {
       return;
     }
 
+    if (selectedBundleType?.code === 'conversation' && parsedData?.type !== 'conversation') {
+      alert('회화 실습형 번들은 대화형 JSON(type: "conversation", speakers, item별 speaker)이 필요합니다.');
+      return;
+    }
+
+    const hasConversationFields =
+      parsedData?.type === 'conversation' ||
+      Boolean(parsedData?.speakers?.length) ||
+      Boolean(parsedData?.items.some(item => item.speaker || item.speaker_key || item.speaker_name || item.speaker_role));
+
+    if (selectedBundleType?.code !== 'conversation' && hasConversationFields) {
+      alert('회화 실습형이 아닌 번들은 speakers/speaker 값이 없는 기본형 JSON을 사용해야 합니다.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Upload main thumbnail if pending
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
+        const compressedFile = await compressImageForUpload(thumbnailFile);
         const formData = new FormData();
-        formData.append('file', thumbnailFile);
+        formData.append('file', compressedFile);
         finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);
       }
 
@@ -599,8 +735,9 @@ export default function BundleCreateForm({ userId }: Props) {
         if (img.remoteUrl) {
           imageUrls.push(img.remoteUrl);
         } else if (img.file) {
+          const compressedFile = await compressImageForUpload(img.file);
           const formData = new FormData();
-          formData.append('file', img.file);
+          formData.append('file', compressedFile);
           const url = await uploadThumbnail(formData, `bundles/${pendingBundleId}/items`);
           imageUrls.push(url);
         }
@@ -609,10 +746,23 @@ export default function BundleCreateForm({ userId }: Props) {
       // 3. Prepare items with mapped image URLs
       const itemsToCreate = parsedData!.items.map((item, idx) => {
         const imageIndex = itemImageMappings[idx];
+        const speakerKey = item.speaker_key || item.speaker || null;
+        const speaker = speakerKey ? speakerMap.get(speakerKey) : undefined;
+        const speakerTts = speakerKey ? speakerTtsOptions[speakerKey] : undefined;
         return {
           ...item,
           wordJson: wordJsons[idx],
-          imageUrl: imageIndex !== null ? imageUrls[imageIndex] : null
+          imageUrl: imageIndex !== null ? imageUrls[imageIndex] : null,
+          speakerKey,
+          speakerName: item.speaker_name || speaker?.name || null,
+          speakerRole: item.speaker_role || speaker?.role || null,
+          metadata: item.metadata || null,
+          ttsOptions: speakerTts || (speaker ? {
+            provider: speaker.provider,
+            model: speaker.model || undefined,
+            voice: speaker.voice || undefined,
+            speed: speaker.speed
+          } : null)
         };
       });
 
@@ -640,6 +790,36 @@ export default function BundleCreateForm({ userId }: Props) {
       "sentence": "Hoy vengo a hablar de mis trabajos pasados.",
       "translation": "오늘은 나의 과거 직업들에 대해 이야기하러 왔어요.",
       "translation_en": "Today I come to talk about my past jobs."
+    }
+  ]
+}`;
+
+  const conversationExampleJson = `{
+  "type": "conversation",
+  "speakers": [
+    {
+      "key": "a",
+      "name": "María",
+      "role": "guest"
+    },
+    {
+      "key": "b",
+      "name": "Carlos",
+      "role": "host"
+    }
+  ],
+  "items": [
+    {
+      "speaker": "a",
+      "sentence": "Hola, ¿tienes tiempo ahora?",
+      "translation": "안녕, 지금 시간 있어?",
+      "translation_en": "Hi, do you have time now?"
+    },
+    {
+      "speaker": "b",
+      "sentence": "Sí, claro. ¿Qué pasa?",
+      "translation": "응, 물론이지. 무슨 일이야?",
+      "translation_en": "Yes, of course. What's up?"
     }
   ]
 }`;
@@ -747,13 +927,22 @@ export default function BundleCreateForm({ userId }: Props) {
                   <p className="text-xs text-gray-500 dark:text-gray-400">전체 문장 리스트 JSON을 입력하세요.</p>
                 </div>
               </div>
-              <button 
-                type="button"
-                onClick={() => setJsonInput(exampleJson)}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                예시 가져오기
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setJsonInput(exampleJson)}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  문장 예시
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setJsonInput(conversationExampleJson)}
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  대화 예시
+                </button>
+              </div>
             </div>
             
             <form onSubmit={handleJsonSubmit} className="p-8 space-y-6">
@@ -767,6 +956,52 @@ export default function BundleCreateForm({ userId }: Props) {
                     placeholder="임시 저장 시 식별할 제목을 입력하세요"
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
                   />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setJsonInput(exampleJson)}
+                    className="text-left rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-900/10 p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs font-black text-blue-700 dark:text-blue-300">기본형</span>
+                      <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">적용</span>
+                    </div>
+                    <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{`{
+  "items": [
+    {
+      "sentence": "...",
+      "translation": "...",
+      "translation_en": "..."
+    }
+  ]
+}`}</pre>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setJsonInput(conversationExampleJson)}
+                    className="text-left rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-900/10 p-4 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">대화형</span>
+                      <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400">적용</span>
+                    </div>
+                    <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{`{
+  "type": "conversation",
+  "speakers": [
+    { "key": "a", "name": "María", "role": "guest" },
+    { "key": "b", "name": "Carlos", "role": "host" }
+  ],
+  "items": [
+    {
+      "speaker": "a",
+      "sentence": "...",
+      "translation": "...",
+      "translation_en": "..."
+    }
+  ]
+}`}</pre>
+                  </button>
                 </div>
                 <div className="relative">
                   <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -814,7 +1049,7 @@ export default function BundleCreateForm({ userId }: Props) {
                 </div>
               </div>
               <div className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
-                총 {parsedData.items.length}개 문장
+                {isConversationBundle ? '대화형 · ' : ''}총 {parsedData.items.length}개 문장
               </div>
             </div>
 
@@ -823,7 +1058,14 @@ export default function BundleCreateForm({ userId }: Props) {
                 <div key={index} className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                   <div className="p-6 bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-50 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">문장 {index + 1}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">문장 {index + 1}</span>
+                        {isConversationBundle && (
+                          <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                            {getSpeakerForItem(item)?.name || item.speaker || item.speaker_key}
+                          </span>
+                        )}
+                      </div>
                       <button 
                         onClick={() => handleWordJsonChange(index, wordExampleJson)}
                         className="text-[10px] font-bold text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -1074,70 +1316,162 @@ export default function BundleCreateForm({ userId }: Props) {
                 </div>
 
                 <div className="space-y-6 border-t border-gray-50 dark:border-gray-800 pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center">
-                      <Volume2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">문장 TTS 생성 설정</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">새 문장이거나 기존 문장에 오디오가 없을 때 적용됩니다.</p>
-                    </div>
-                  </div>
+                  {!isConversationTypeSelected && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center">
+                          <Volume2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900 dark:text-white">문장 TTS 생성 설정</h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">새 문장이거나 기존 문장에 오디오가 없을 때 적용됩니다.</p>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">API 제공자</label>
-                      <select
-                        value={sentenceTtsOptions.provider}
-                        onChange={(e) => handleSentenceTtsProviderChange(e.target.value as TTSProvider)}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                      >
-                        <option value="elevenlabs">ElevenLabs</option>
-                        <option value="google">Google Cloud TTS</option>
-                      </select>
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">API 제공자</label>
+                          <select
+                            value={sentenceTtsOptions.provider}
+                            onChange={(e) => handleSentenceTtsProviderChange(e.target.value as TTSProvider)}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="elevenlabs">ElevenLabs</option>
+                            <option value="google">Google Cloud TTS</option>
+                          </select>
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">모델</label>
-                      <select
-                        value={sentenceTtsOptions.model}
-                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, model: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                      >
-                        {TTS_PROVIDERS[sentenceTtsOptions.provider].models.map(model => (
-                          <option key={model.id} value={model.id}>{model.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">모델</label>
+                          <select
+                            value={sentenceTtsOptions.model}
+                            onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, model: e.target.value })}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                          >
+                            {TTS_PROVIDERS[sentenceTtsOptions.provider].models.map(model => (
+                              <option key={model.id} value={model.id}>{model.name}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">목소리</label>
-                      <select
-                        value={sentenceTtsOptions.voice}
-                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, voice: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                      >
-                        {TTS_PROVIDERS[sentenceTtsOptions.provider].voices.map(voice => (
-                          <option key={voice.id} value={voice.id}>{voice.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">목소리</label>
+                          <select
+                            value={sentenceTtsOptions.voice}
+                            onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, voice: e.target.value })}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                          >
+                            {TTS_PROVIDERS[sentenceTtsOptions.provider].voices.map(voice => (
+                              <option key={voice.id} value={voice.id}>{voice.name}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">재생 속도</label>
-                      <input
-                        type="number"
-                        min="0.7"
-                        max="1.2"
-                        step="0.1"
-                        value={sentenceTtsOptions.speed}
-                        onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, speed: parseFloat(e.target.value) || 0.8 })}
-                        disabled={sentenceTtsOptions.provider !== 'google'}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">속도는 Google TTS 선택 시에만 적용됩니다.</p>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">재생 속도</label>
+                          <input
+                            type="number"
+                            min="0.7"
+                            max="1.2"
+                            step="0.1"
+                            value={sentenceTtsOptions.speed}
+                            onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, speed: parseFloat(e.target.value) || 0.8 })}
+                            disabled={sentenceTtsOptions.provider !== 'google'}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">속도는 Google TTS 선택 시에만 적용됩니다.</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {isConversationTypeSelected && parsedData?.speakers && parsedData.speakers.length > 0 && (
+                    <div className="space-y-4 rounded-3xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-900/10 p-5">
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">화자별 음성 설정</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">대화형 번들의 각 화자 목소리를 선택합니다.</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {parsedData.speakers.map((speaker) => {
+                          const options = speakerTtsOptions[speaker.key] || {
+                            provider: defaultSentenceTtsOptions.provider,
+                            model: TTS_PROVIDERS[defaultSentenceTtsOptions.provider].models[0].id,
+                            voice: TTS_PROVIDERS[defaultSentenceTtsOptions.provider].voices[0].id,
+                            speed: defaultSentenceTtsOptions.speed,
+                          };
+
+                          return (
+                            <div key={speaker.key} className="rounded-2xl border border-white/80 dark:border-emerald-900/30 bg-white/80 dark:bg-gray-900/60 p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-black text-gray-900 dark:text-gray-100">{speaker.name || speaker.key}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{speaker.role || speaker.key}</p>
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 rounded-full">
+                                  {speaker.key}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">API 제공자</label>
+                                  <select
+                                    value={options.provider}
+                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { provider: e.target.value as TTSProvider })}
+                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                                  >
+                                    <option value="elevenlabs">ElevenLabs</option>
+                                    <option value="google">Google Cloud TTS</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">모델</label>
+                                  <select
+                                    value={options.model}
+                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { model: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                                  >
+                                    {TTS_PROVIDERS[options.provider].models.map(model => (
+                                      <option key={model.id} value={model.id}>{model.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">목소리</label>
+                                  <select
+                                    value={options.voice}
+                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { voice: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                                  >
+                                    {TTS_PROVIDERS[options.provider].voices.map(voice => (
+                                      <option key={voice.id} value={voice.id}>{voice.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">재생 속도</label>
+                                  <input
+                                    type="number"
+                                    min="0.7"
+                                    max="1.2"
+                                    step="0.1"
+                                    value={options.speed}
+                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { speed: parseFloat(e.target.value) || 0.8 })}
+                                    disabled={options.provider !== 'google'}
+                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1215,6 +1549,11 @@ export default function BundleCreateForm({ userId }: Props) {
                           <span className="text-sm font-bold text-gray-400">#{index + 1}</span>
                         </td>
                         <td className="px-6 py-6">
+                          {isConversationBundle && (
+                            <span className="inline-flex mb-2 text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                              {getSpeakerForItem(item)?.name || item.speaker || item.speaker_key}
+                            </span>
+                          )}
                           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">{item.sentence}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{item.translation}</p>
                           <p className="text-xs text-blue-500/70 dark:text-blue-400/70 italic mt-1">{item.translation_en}</p>

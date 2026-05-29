@@ -234,7 +234,7 @@ export default function BundlePlayerClient({
     );
   }
 
-  const audioSrc = getPublicUrl(currentItem?.sentences?.audio_url);
+  const audioSrc = getPublicUrl(currentItem?.audio_url || currentItem?.sentences?.audio_url);
 
   return (
     <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 lg:gap-8 -mx-2 md:mx-0">

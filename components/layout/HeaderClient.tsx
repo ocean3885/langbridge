@@ -100,7 +100,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
 
         {/* Left: Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
+        <Link href="/" prefetch={false} className="flex items-center gap-2.5 shrink-0 active:scale-95 transition-transform group">
           <div className="relative h-7 w-8 overflow-hidden shadow-sm">
             <Image
               src="/images/logo_bg.png"
@@ -125,6 +125,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${isActiveNavItem(item.href)
                 ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'
                 : 'text-zinc-600 dark:text-zinc-300 hover:text-[#E27D60]'
@@ -195,6 +196,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   <DropdownMenuItem key={item.href} asChild>
                     <Link
                       href={item.href}
+                      prefetch={false}
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 ${item.bg}`}
                     >
                       <div className={`${item.color}`}>
@@ -247,6 +249,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`rounded-xl px-4 py-3 text-lg font-bold transition-colors ${isActiveNavItem(item.href)
                   ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'

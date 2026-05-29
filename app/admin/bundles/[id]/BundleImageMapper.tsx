@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ImageIcon, Trash2, Plus, Loader2, Check, X } from 'lucide-react';
 import { uploadThumbnail, deleteFileFromPublicUrl, listPublicUrlsInFolder } from '@/lib/supabase/services/storage';
+import { compressImageForUpload } from '@/lib/image-compression';
 
 interface BundleImageMapperProps {
   items: any[];
@@ -100,10 +101,12 @@ export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder =
     if (!file) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      const compressedFile = await compressImageForUpload(file);
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+
       const url = await uploadThumbnail(formData, uploadFolder);
       setSelectedImageUrl(url);
       setUploadedImageUrls(prev => Array.from(new Set([...prev, url])));

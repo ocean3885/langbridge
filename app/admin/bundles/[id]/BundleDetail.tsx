@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { updateBundle, deleteBundle, listCategories, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder } from '@/lib/supabase/services/bundles';
-import { uploadThumbnail } from '@/lib/supabase/services/storage';
+import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder } from '@/lib/supabase/services/bundles';
+import { deleteFileFromPublicUrl, uploadThumbnail } from '@/lib/supabase/services/storage';
+import { compressImageForUpload } from '@/lib/image-compression';
 import BundleImageMapper from './BundleImageMapper';
 
 export default function BundleDetail({ 
@@ -24,6 +25,7 @@ export default function BundleDetail({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const pendingThumbnailUploadsRef = useRef<string[]>([]);
   
   // Selection Mode State
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -44,6 +46,7 @@ export default function BundleDetail({
     level: initialBundle.level,
     is_published: initialBundle.is_published,
     category_id: initialBundle.category_id,
+    type_id: initialBundle.type_id,
     thumbnail_url: initialBundle.thumbnail_url || ''
   });
 
@@ -52,19 +55,33 @@ export default function BundleDetail({
   );
   
   const [categories, setCategories] = useState<any[]>([]);
+  const [bundleTypes, setBundleTypes] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchCats = async () => {
-      const data = await listCategories();
-      setCategories(data);
+    const fetchOptions = async () => {
+      const [categoryData, typeData] = await Promise.all([
+        listCategories(),
+        listBundleTypes()
+      ]);
+      setCategories(categoryData);
+      setBundleTypes(typeData);
     };
-    fetchCats();
+    fetchOptions();
   }, []);
 
   const buildMappingsFromItems = (sourceItems: any[]) =>
     sourceItems.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {});
 
-  const handleCancelEdit = () => {
+  const deleteThumbnailUrls = async (urls: string[]) => {
+    const uniqueUrls = Array.from(new Set(urls.filter(Boolean)));
+    await Promise.allSettled(uniqueUrls.map(url => deleteFileFromPublicUrl(url)));
+  };
+
+  const handleCancelEdit = async () => {
+    const pendingUploads = pendingThumbnailUploadsRef.current;
+    pendingThumbnailUploadsRef.current = [];
+    await deleteThumbnailUrls(pendingUploads);
+
     setEditForm({
       title: bundle.title,
       title_en: bundle.title_en || '',
@@ -73,6 +90,7 @@ export default function BundleDetail({
       level: bundle.level,
       is_published: bundle.is_published,
       category_id: bundle.category_id,
+      type_id: bundle.type_id,
       thumbnail_url: bundle.thumbnail_url || ''
     });
     setItemMappings(buildMappingsFromItems(currentItems));
@@ -133,12 +151,23 @@ export default function BundleDetail({
     if (!file) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      const compressedFile = await compressImageForUpload(file);
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+
       const url = await uploadThumbnail(formData, `bundles/${bundle.id}/thumbnail`);
-      setEditForm({ ...editForm, thumbnail_url: url });
+      const previousPendingUpload = pendingThumbnailUploadsRef.current.find(uploadedUrl => uploadedUrl === editForm.thumbnail_url);
+
+      if (previousPendingUpload) {
+        pendingThumbnailUploadsRef.current = pendingThumbnailUploadsRef.current.filter(uploadedUrl => uploadedUrl !== previousPendingUpload);
+        await deleteThumbnailUrls([previousPendingUpload]);
+      }
+
+      pendingThumbnailUploadsRef.current = [...pendingThumbnailUploadsRef.current, url];
+      setEditForm(prev => ({ ...prev, thumbnail_url: url }));
+      e.target.value = '';
     } catch (err: any) {
       alert(err.message || '이미지 업로드에 실패했습니다.');
     } finally {
@@ -149,6 +178,10 @@ export default function BundleDetail({
   const handleUpdate = async () => {
     setIsLoading(true);
     try {
+      const previousThumbnailUrl = bundle.thumbnail_url || '';
+      const nextThumbnailUrl = editForm.thumbnail_url || '';
+      const pendingUploads = pendingThumbnailUploadsRef.current;
+
       // 1. 번들 기본 정보 업데이트
       const updated = await updateBundle(bundle.id, {
         ...editForm,
@@ -173,6 +206,7 @@ export default function BundleDetail({
       }));
       
       const selectedCat = categories.find(c => c.id === editForm.category_id);
+      const selectedType = bundleTypes.find(t => t.id === editForm.type_id);
       setBundle({ 
         ...bundle, 
         ...updated, 
@@ -180,10 +214,27 @@ export default function BundleDetail({
           id: selectedCat.id, 
           name: selectedCat.name,
           name_en: selectedCat.name_en 
-        } : null 
+        } : null,
+        bundle_type: selectedType ? {
+          id: selectedType.id,
+          name: selectedType.name,
+          code: selectedType.code
+        } : null
       });
       setCurrentItems(updatedItems);
       setItemMappings(buildMappingsFromItems(updatedItems));
+
+      const stalePendingUploads = pendingUploads.filter(url => url !== nextThumbnailUrl);
+      const shouldDeletePreviousThumbnail =
+        previousThumbnailUrl &&
+        previousThumbnailUrl !== nextThumbnailUrl &&
+        !pendingUploads.includes(previousThumbnailUrl);
+
+      pendingThumbnailUploadsRef.current = [];
+      await deleteThumbnailUrls([
+        ...stalePendingUploads,
+        ...(shouldDeletePreviousThumbnail ? [previousThumbnailUrl] : [])
+      ]);
       
       router.refresh();
       setIsEditing(false);
@@ -358,6 +409,21 @@ export default function BundleDetail({
                     <option value="">카테고리 없음</option>
                     {categories.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name} {cat.name_en ? `(${cat.name_en})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">번들 타입</label>
+                  <select 
+                    value={editForm.type_id || ''}
+                    onChange={(e) => setEditForm({...editForm, type_id: e.target.value || null})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">타입 없음</option>
+                    {bundleTypes.map(type => (
+                      <option key={type.id} value={type.id}>
+                        {type.name} {type.code ? `(${type.code})` : ''}
+                      </option>
                     ))}
                   </select>
                 </div>

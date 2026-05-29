@@ -286,6 +286,17 @@ export async function createBundleWithItems(
     translation_en: string;
     wordJson: string;
     imageUrl: string | null;
+    speakerKey?: string | null;
+    speakerName?: string | null;
+    speakerRole?: string | null;
+    audioUrl?: string | null;
+    metadata?: Record<string, any> | null;
+    ttsOptions?: {
+      provider?: 'google' | 'elevenlabs';
+      model?: string;
+      voice?: string;
+      speed?: number;
+    } | null;
   }[],
   sentenceTtsOptions: {
     provider: 'google' | 'elevenlabs';
@@ -338,9 +349,10 @@ export async function createBundleWithItems(
 
       let sentenceId: number;
       let audioUrl = existingSentence?.audio_url;
+      const isConversationItem = Boolean(item.speakerKey);
 
       // 오디오가 없는 경우 TTS 생성
-      if (!audioUrl) {
+      if (!audioUrl && !isConversationItem) {
         audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`, 'es', 0.8, sentenceTtsOptions);
       }
 
@@ -382,6 +394,20 @@ export async function createBundleWithItems(
 
         if (sError) throw sError;
         sentenceId = newSentence.id;
+      }
+
+      let itemAudioUrl = item.audioUrl || null;
+      if (isConversationItem && !itemAudioUrl) {
+        itemAudioUrl = await generateTTS(
+          item.sentence,
+          `sentences/bundles/${bundle.id}/conversation`,
+          'es',
+          0.8,
+          {
+            ...sentenceTtsOptions,
+            ...(item.ttsOptions || {})
+          }
+        );
       }
 
       // b. 단어 정보 처리 (있는 경우)
@@ -475,7 +501,12 @@ export async function createBundleWithItems(
           bundle_id: bundle.id,
           sentence_id: sentenceId,
           order_index: i,
-          image_url: item.imageUrl
+          image_url: item.imageUrl,
+          speaker_key: item.speakerKey || null,
+          speaker_name: item.speakerName || null,
+          speaker_role: item.speakerRole || null,
+          audio_url: itemAudioUrl,
+          metadata: item.metadata || {}
         });
 
       if (biError) throw biError;
