@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '../admin';
 import { generateTTS } from '@/lib/tts';
+import { deleteFileFromPublicUrl } from './storage';
 
 export async function listBundles() {
   const supabase = createAdminClient();
@@ -296,6 +297,10 @@ export async function createBundleWithItems(
       model?: string;
       voice?: string;
       speed?: number;
+      stability?: number;
+      similarityBoost?: number;
+      style?: number;
+      useSpeakerBoost?: boolean;
     } | null;
   }[],
   sentenceTtsOptions: {
@@ -303,11 +308,19 @@ export async function createBundleWithItems(
     model: string;
     voice: string;
     speed: number;
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
   } = {
     provider: 'elevenlabs',
     model: 'eleven_multilingual_v2',
     voice: '2Lb1en5ujrODDIqmp7F3',
     speed: 0.8,
+    stability: 0.5,
+    similarityBoost: 0.75,
+    style: 0,
+    useSpeakerBoost: true,
   }
 ) {
   const supabase = createAdminClient();
@@ -410,6 +423,15 @@ export async function createBundleWithItems(
         );
       }
 
+      if (isConversationItem && itemAudioUrl && !audioUrl) {
+        await supabase
+          .from('sentences')
+          .update({ audio_url: itemAudioUrl })
+          .eq('id', sentenceId);
+
+        audioUrl = itemAudioUrl;
+      }
+
       // b. 단어 정보 처리 (있는 경우)
       if (item.wordJson) {
         try {
@@ -418,11 +440,21 @@ export async function createBundleWithItems(
           
           if (words) {
             for (const [originalText, wordInfo] of Object.entries(words) as [string, any]) {
+              const normalizedWord =
+                wordInfo && typeof wordInfo.word === 'string'
+                  ? wordInfo.word.toLowerCase().trim()
+                  : '';
+
+              if (!normalizedWord) {
+                console.warn('Skipping invalid word JSON entry:', { originalText, wordInfo });
+                continue;
+              }
+
               // 단어 검색 또는 생성 & TTS 생성
               const { data: existingWord } = await supabase
                 .from('words')
                 .select('*')
-                .eq('word', wordInfo.word.toLowerCase().trim())
+                .eq('word', normalizedWord)
                 .eq('lang_code', 'es')
                 .maybeSingle();
 
@@ -431,7 +463,7 @@ export async function createBundleWithItems(
 
               // 단어 오디오가 없는 경우 TTS 생성
               if (!wordAudioUrl) {
-                wordAudioUrl = await generateTTS(wordInfo.word, 'words', 'es', 0.8, {
+                wordAudioUrl = await generateTTS(normalizedWord, 'words', 'es', 0.8, {
                   provider: 'google',
                   voice: 'es-ES-Standard-A',
                 });
@@ -450,7 +482,7 @@ export async function createBundleWithItems(
                 const { data: newWord, error: wError } = await supabase
                   .from('words')
                   .insert({
-                    word: wordInfo.word,
+                    word: normalizedWord,
                     lang_code: 'es',
                     pos: wordInfo.pos || [],
                     meaning_ko: wordInfo.meaning_ko || {},
@@ -612,6 +644,88 @@ export async function updateBundleItemImage(itemId: string, imageUrl: string | n
   }
 
   return data;
+}
+
+export async function regenerateBundleItemSentenceTTS(itemId: string, options?: {
+  provider: 'google' | 'elevenlabs';
+  model: string;
+  voice: string;
+  speed: number;
+  stability?: number;
+  similarityBoost?: number;
+  style?: number;
+  useSpeakerBoost?: boolean;
+}) {
+  const supabase = createAdminClient();
+
+  const { data: item, error: itemError } = await supabase
+    .from('bundle_items')
+    .select(`
+      id,
+      bundle_id,
+      sentence_id,
+      audio_url,
+      sentences(*)
+    `)
+    .eq('id', itemId)
+    .maybeSingle();
+
+  if (itemError) throw itemError;
+
+  const sentence = Array.isArray(item?.sentences) ? item.sentences[0] : item?.sentences;
+
+  if (!item?.sentence_id || !sentence?.sentence) {
+    throw new Error('연결된 문장이 없는 번들 아이템입니다.');
+  }
+
+  const newAudioUrl = await generateTTS(
+    sentence.sentence,
+    `sentences/bundles/${item.bundle_id}/items`,
+    'es',
+    options?.speed,
+    options
+  );
+
+  if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
+
+  const oldAudioUrls = Array.from(new Set([
+    item.audio_url,
+    sentence.audio_url
+  ].filter((url): url is string => Boolean(url && url !== newAudioUrl))));
+
+  const { error: itemUpdateError } = await supabase
+    .from('bundle_items')
+    .update({ audio_url: newAudioUrl })
+    .eq('id', itemId);
+
+  if (itemUpdateError) {
+    await deleteFileFromPublicUrl(newAudioUrl);
+    throw itemUpdateError;
+  }
+
+  const { error: sentenceUpdateError } = await supabase
+    .from('sentences')
+    .update({ audio_url: newAudioUrl, updated_at: new Date().toISOString() })
+    .eq('id', item.sentence_id);
+
+  if (sentenceUpdateError) {
+    await supabase
+      .from('bundle_items')
+      .update({ audio_url: item.audio_url || null })
+      .eq('id', itemId);
+    await deleteFileFromPublicUrl(newAudioUrl);
+    throw sentenceUpdateError;
+  }
+
+  await Promise.all(
+    oldAudioUrls.map(url =>
+      deleteFileFromPublicUrl(url).catch(err =>
+        console.error('Failed to delete old bundle item audio file:', err)
+      )
+    )
+  );
+
+  return newAudioUrl;
 }
 
 export async function deleteBundleItemsBulk(bundleId: string, itemIds: string[]) {

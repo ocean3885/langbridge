@@ -187,6 +187,10 @@ export async function regenerateSentenceTTS(id: number, text: string, options?: 
   model: string;
   voice: string;
   speed: number;
+  stability?: number;
+  similarityBoost?: number;
+  style?: number;
+  useSpeakerBoost?: boolean;
 }) {
   const supabase = createAdminClient();
 
@@ -248,11 +252,21 @@ export async function importWordsFromJson(sentenceId: number, json: string, lang
   const results = [];
 
   for (const [originalText, wordInfo] of Object.entries(words) as [string, any]) {
+    const normalizedWord =
+      wordInfo && typeof wordInfo.word === 'string'
+        ? wordInfo.word.toLowerCase().trim()
+        : '';
+
+    if (!normalizedWord) {
+      console.warn('Skipping invalid word JSON entry:', { originalText, wordInfo });
+      continue;
+    }
+
     // 1. 단어 검색 또는 생성
     const { data: existingWord } = await supabase
       .from('words')
       .select('id, audio_url')
-      .eq('word', wordInfo.word.toLowerCase().trim())
+      .eq('word', normalizedWord)
       .eq('lang_code', langCode)
       .maybeSingle();
 
@@ -263,9 +277,9 @@ export async function importWordsFromJson(sentenceId: number, json: string, lang
       // Insert new word
       let wordAudioUrl = null;
       try {
-        wordAudioUrl = await generateTTS(wordInfo.word, 'words', langCode);
+        wordAudioUrl = await generateTTS(normalizedWord, 'words', langCode);
       } catch (e) {
-        console.error('Error generating TTS for word:', wordInfo.word, e);
+        console.error('Error generating TTS for word:', normalizedWord, e);
       }
 
       // Convert single string meanings to arrays if they are strings
@@ -281,7 +295,7 @@ export async function importWordsFromJson(sentenceId: number, json: string, lang
       const { data: newWord, error: wError } = await supabase
         .from('words')
         .insert({
-          word: wordInfo.word.toLowerCase().trim(),
+          word: normalizedWord,
           lang_code: langCode,
           pos: wordInfo.pos || [],
           meaning_ko: mKo,

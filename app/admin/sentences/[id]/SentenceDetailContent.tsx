@@ -94,6 +94,10 @@ export default function SentenceDetailContent({
     model: string;
     voice: string;
     speed: number;
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
   }) => {
     if (!confirm('새로운 TTS 음성을 생성하시겠습니까? 기존 파일은 삭제됩니다.')) return;
     

@@ -50,6 +50,10 @@ export async function generateTTS(
     model?: string;
     voice?: string;
     speed?: number;
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
   }
 ): Promise<string | null> {
   if (!text) return null;
@@ -77,8 +81,11 @@ export async function generateTTS(
             text,
             model_id: options?.model || 'eleven_multilingual_v2',
             voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
+              stability: options?.stability ?? 0.5,
+              similarity_boost: options?.similarityBoost ?? 0.75,
+              style: options?.style ?? 0,
+              use_speaker_boost: options?.useSpeakerBoost ?? true,
+              speed: options?.speed ?? speakingRate,
             }
           }),
         }

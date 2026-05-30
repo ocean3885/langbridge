@@ -3,12 +3,73 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
-import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder } from '@/lib/supabase/services/bundles';
+import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
+import { formatDate, getPublicUrl } from '@/lib/utils';
+import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder, regenerateBundleItemSentenceTTS } from '@/lib/supabase/services/bundles';
 import { deleteFileFromPublicUrl, uploadThumbnail } from '@/lib/supabase/services/storage';
 import { compressImageForUpload } from '@/lib/image-compression';
 import BundleImageMapper from './BundleImageMapper';
+
+type TTSProvider = 'google' | 'elevenlabs';
+
+const TTS_PROVIDERS: Record<TTSProvider, { models: { id: string; name: string }[]; voices: { id: string; name: string }[] }> = {
+  google: {
+    models: [
+      { id: 'standard', name: 'Standard' },
+      { id: 'wavenet', name: 'WaveNet' },
+      { id: 'neural2', name: 'Neural2' },
+    ],
+    voices: [
+      { id: 'es-ES-Standard-A', name: 'es-ES-Standard-A (여성)' },
+      { id: 'es-ES-Standard-B', name: 'es-ES-Standard-B (남성)' },
+      { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)' },
+      { id: 'es-ES-Neural2-B', name: 'es-ES-Neural2-B (남성)' },
+      { id: 'es-ES-Wavenet-B', name: 'es-ES-Wavenet-B (남성)' },
+      { id: 'es-ES-Wavenet-C', name: 'es-ES-Wavenet-C (여성)' },
+    ]
+  },
+  elevenlabs: {
+    models: [
+      { id: 'eleven_multilingual_v2', name: 'Multilingual v2' },
+      { id: 'eleven_turbo_v2_5', name: 'Turbo v2.5' },
+      { id: 'eleven_flash_v2_5', name: 'Flash v2.5' },
+      { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
+      { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
+    ],
+    voices: [
+      { id: '2Lb1en5ujrODDIqmp7F3', name: '스페인어 학습 기본 (Custom)' },
+      { id: '21m00Tcm4TlvDq8ikWAM', name: '스페인어 회화 여성 A - 차분함' },
+      { id: 'EXAVITQu4vr4xnSDxMaL', name: '스페인어 회화 여성 B - 밝음' },
+      { id: 'AZnzlk1XvdvUeBnXmlld', name: '스페인어 설명 여성 C - 또렷함' },
+      { id: '29vD33N1CtxCmqQRPOHJ', name: '스페인어 회화 남성 A - 안정적' },
+      { id: 'pNInz6obpgDQGcFmaJcg', name: '스페인어 설명 남성 B - 깊은 톤' },
+    ]
+  }
+};
+
+function getVoicesForTtsSelection(provider: TTSProvider, model: string) {
+  const voices = TTS_PROVIDERS[provider].voices;
+  if (provider !== 'google') return voices;
+
+  const modelName = model.toLowerCase();
+  const modelVoices = voices.filter(voice => voice.id.toLowerCase().includes(`-${modelName}-`));
+  return modelVoices.length > 0 ? modelVoices : voices;
+}
+
+function getDefaultVoiceForTtsSelection(provider: TTSProvider, model: string) {
+  return getVoicesForTtsSelection(provider, model)[0]?.id || TTS_PROVIDERS[provider].voices[0].id;
+}
+
+const defaultItemTtsOptions = {
+  provider: 'elevenlabs' as TTSProvider,
+  model: TTS_PROVIDERS.elevenlabs.models[0].id,
+  voice: TTS_PROVIDERS.elevenlabs.voices[0].id,
+  speed: 0.8,
+  stability: 0.5,
+  similarityBoost: 0.75,
+  style: 0,
+  useSpeakerBoost: true,
+};
 
 export default function BundleDetail({ 
   bundle: initialBundle, 
@@ -36,6 +97,9 @@ export default function BundleDetail({
   const [sortableItems, setSortableItems] = useState(items);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [ttsModalItem, setTtsModalItem] = useState<any | null>(null);
+  const [isRegeneratingItemAudio, setIsRegeneratingItemAudio] = useState(false);
+  const [itemTtsOptions, setItemTtsOptions] = useState(defaultItemTtsOptions);
   
   // Edit Form State
   const [editForm, setEditForm] = useState({
@@ -53,6 +117,57 @@ export default function BundleDetail({
   const [itemMappings, setItemMappings] = useState<{ [key: string]: string | null }>(
     items.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {})
   );
+
+  const handleItemTtsProviderChange = (provider: TTSProvider) => {
+    const model = TTS_PROVIDERS[provider].models[0].id;
+    setItemTtsOptions(prev => ({
+      ...prev,
+      provider,
+      model,
+      voice: getDefaultVoiceForTtsSelection(provider, model),
+    }));
+  };
+
+  const updateItemAudioInState = (itemId: string, audioUrl: string) => {
+    const updateItem = (item: any) => item.id === itemId
+      ? {
+          ...item,
+          audio_url: audioUrl,
+          sentences: item.sentences
+            ? { ...item.sentences, audio_url: audioUrl }
+            : item.sentences
+        }
+      : item;
+
+    setCurrentItems(prev => prev.map(updateItem));
+    setSortableItems(prev => prev.map(updateItem));
+  };
+
+  const handleRegenerateItemAudio = async () => {
+    if (!ttsModalItem) return;
+
+    setIsRegeneratingItemAudio(true);
+    try {
+      const newAudioUrl = await regenerateBundleItemSentenceTTS(ttsModalItem.id, itemTtsOptions);
+      updateItemAudioInState(ttsModalItem.id, newAudioUrl);
+      setTtsModalItem(null);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || '번들 아이템 음성 재생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsRegeneratingItemAudio(false);
+    }
+  };
+
+  const playAudio = (audioUrl: string | null | undefined) => {
+    const src = getPublicUrl(audioUrl || null);
+    if (!src) return;
+
+    new Audio(src).play().catch(err => {
+      console.error('Failed to play audio:', err);
+      alert('오디오를 재생할 수 없습니다. 파일 경로나 스토리지 공개 URL을 확인해주세요.');
+    });
+  };
   
   const [categories, setCategories] = useState<any[]>([]);
   const [bundleTypes, setBundleTypes] = useState<any[]>([]);
@@ -771,7 +886,10 @@ export default function BundleDetail({
                             <div className="flex items-center gap-2">
                               {item.words.audio_url && (
                                 <button 
-                                  onClick={() => new Audio(item.words.audio_url).play()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playAudio(item.words.audio_url);
+                                  }}
                                   className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 rounded-lg transition-colors"
                                   title="재생"
                                 >
@@ -793,18 +911,44 @@ export default function BundleDetail({
                       ) : item.sentences ? (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded text-[10px] font-black uppercase">
                                 <MessageCircle className="w-3 h-3" />
                                 SENTENCE
                               </span>
+                              {(item.speaker_key || item.speaker_name || item.speaker_role) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded text-[10px] font-black">
+                                  {item.speaker_key && (
+                                    <span className="uppercase">{item.speaker_key}</span>
+                                  )}
+                                  {item.speaker_name && (
+                                    <span>{item.speaker_name}</span>
+                                  )}
+                                  {item.speaker_role && (
+                                    <span className="text-amber-500/70 dark:text-amber-300/70">({item.speaker_role})</span>
+                                  )}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
-                              {item.sentences.audio_url && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTtsModalItem(item);
+                                }}
+                                className="p-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition-colors"
+                                title="번들 아이템 음성 재생성"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                              {(item.audio_url || item.sentences.audio_url) && (
                                 <button 
-                                  onClick={() => new Audio(item.sentences.audio_url).play()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playAudio(item.audio_url || item.sentences.audio_url);
+                                  }}
                                   className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 rounded-lg transition-colors"
-                                  title="재생"
+                                  title={item.audio_url ? '번들 아이템 오디오 재생' : '문장 오디오 재생'}
                                 >
                                   <Volume2 className="w-4 h-4" />
                                 </button>
@@ -843,6 +987,157 @@ export default function BundleDetail({
           )}
         </div>
 
+        {ttsModalItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-100 dark:border-gray-800 px-5 py-4">
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-gray-900 dark:text-gray-100">번들 아이템 음성 재생성</h3>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                    {ttsModalItem.sentences?.sentence}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setTtsModalItem(null)}
+                  disabled={isRegeneratingItemAudio}
+                  className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-50"
+                  title="닫기"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-5 py-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400">API 제공자</label>
+                  <select
+                    value={itemTtsOptions.provider}
+                    onChange={(e) => handleItemTtsProviderChange(e.target.value as TTSProvider)}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                  >
+                    <option value="elevenlabs">ElevenLabs</option>
+                    <option value="google">Google Cloud TTS</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400">모델</label>
+                  <select
+                    value={itemTtsOptions.model}
+                    onChange={(e) => setItemTtsOptions(prev => ({
+                      ...prev,
+                      model: e.target.value,
+                      voice: getDefaultVoiceForTtsSelection(prev.provider, e.target.value)
+                    }))}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                  >
+                    {TTS_PROVIDERS[itemTtsOptions.provider].models.map(model => (
+                      <option key={model.id} value={model.id}>{model.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400">목소리</label>
+                  <select
+                    value={itemTtsOptions.voice}
+                    onChange={(e) => setItemTtsOptions(prev => ({ ...prev, voice: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                  >
+                    {getVoicesForTtsSelection(itemTtsOptions.provider, itemTtsOptions.model).map(voice => (
+                      <option key={voice.id} value={voice.id}>{voice.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400">재생 속도 <span className="font-medium text-gray-400">(추천 0.8)</span></label>
+                  <input
+                    type="number"
+                    min="0.7"
+                    max="1.2"
+                    step="0.1"
+                    value={itemTtsOptions.speed}
+                    onChange={(e) => setItemTtsOptions(prev => ({ ...prev, speed: parseFloat(e.target.value) || 0.8 }))}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                  />
+                </div>
+
+                {itemTtsOptions.provider === 'elevenlabs' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400">안정성 <span className="font-medium text-gray-400">(추천 0.5)</span></label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={itemTtsOptions.stability}
+                        onChange={(e) => setItemTtsOptions(prev => ({ ...prev, stability: parseFloat(e.target.value) || 0 }))}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400">유사도 <span className="font-medium text-gray-400">(추천 0.75)</span></label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={itemTtsOptions.similarityBoost}
+                        onChange={(e) => setItemTtsOptions(prev => ({ ...prev, similarityBoost: parseFloat(e.target.value) || 0 }))}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400">스타일 <span className="font-medium text-gray-400">(추천 0)</span></label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={itemTtsOptions.style}
+                        onChange={(e) => setItemTtsOptions(prev => ({ ...prev, style: parseFloat(e.target.value) || 0 }))}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={itemTtsOptions.useSpeakerBoost}
+                        onChange={(e) => setItemTtsOptions(prev => ({ ...prev, useSpeakerBoost: e.target.checked }))}
+                        className="w-4 h-4"
+                      />
+                      스피커 부스트
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
+                <button
+                  onClick={() => setTtsModalItem(null)}
+                  disabled={isRegeneratingItemAudio}
+                  className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleRegenerateItemAudio}
+                  disabled={isRegeneratingItemAudio}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isRegeneratingItemAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  재생성
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Key Vocabulary Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -878,7 +1173,7 @@ export default function BundleDetail({
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
-                            new Audio(w.audio_url).play();
+                            playAudio(w.audio_url);
                           }}
                           className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 rounded-lg transition-colors"
                         >
