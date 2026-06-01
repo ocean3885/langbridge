@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import type { BundleCategoryRow, BundleCopy, BundleRow, Language } from '../types';
-import { getCategoryAnchorId, getCategoryDescription, getCategoryTitle } from '../bundle-utils';
+import { getCategoryAnchorId, getCategoryDescription, getCategoryHref, getCategoryTitle } from '../bundle-utils';
 import { BundleCard } from './BundleCard';
 
 export function BundleCategorySection({
@@ -26,7 +26,7 @@ export function BundleCategorySection({
           </p>
         </div>
         <a
-          href={`#${getCategoryAnchorId(category)}`}
+          href={getCategoryHref(category, language)}
           className="flex shrink-0 items-center gap-1 text-sm font-medium text-zinc-700"
         >
           {copy.viewAll}

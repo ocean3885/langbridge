@@ -7,6 +7,7 @@ export type BundleCategoryRow = {
   description?: string | null;
   description_en?: string | null;
   icon_image_url?: string | null;
+  category_image_url?: string | null;
   order_index?: number | null;
 };
 

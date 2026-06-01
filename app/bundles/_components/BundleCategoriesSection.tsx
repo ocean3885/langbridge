@@ -1,8 +1,8 @@
 import { ArrowRight } from 'lucide-react';
 import { categoryStyles } from '../bundle-data';
 import {
-  getCategoryAnchorId,
   getCategoryDescription,
+  getCategoryHref,
   getCategoryKey,
   getCategoryTitle,
 } from '../bundle-utils';
@@ -68,7 +68,7 @@ export function BundleCategoriesSection({
           return (
             <a
               key={getCategoryKey(category)}
-              href={`#${getCategoryAnchorId(category)}`}
+              href={getCategoryHref(category, language)}
               className="group flex min-h-0 items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-64 sm:flex-col sm:items-stretch sm:gap-0 sm:p-5"
             >
               {content}

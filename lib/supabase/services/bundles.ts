@@ -10,7 +10,7 @@ export async function listBundles() {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en, icon_image_url),
+      bundle_category(id, name, name_en, icon_image_url, category_image_url),
       bundle_type(id, name, code)
     `)
     .order('created_at', { ascending: false });
@@ -85,7 +85,7 @@ export async function getBundle(bundleId: string) {
     .from('bundle')
     .select(`
       *,
-      bundle_category(id, name, name_en, icon_image_url),
+      bundle_category(id, name, name_en, icon_image_url, category_image_url),
       bundle_type(id, name, code)
     `)
     .eq('id', bundleId)
@@ -191,6 +191,7 @@ export async function createCategory(category: {
   description?: string | null; 
   description_en?: string | null; 
   icon_image_url?: string | null;
+  category_image_url?: string | null;
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -214,6 +215,7 @@ export async function updateCategory(id: string, updates: {
   description?: string | null; 
   description_en?: string | null; 
   icon_image_url?: string | null;
+  category_image_url?: string | null;
   order_index?: number 
 }) {
   const supabase = createAdminClient();
@@ -571,7 +573,8 @@ export async function listBundlesForSentence(sentenceId: number) {
           id,
           name,
           name_en,
-          icon_image_url
+          icon_image_url,
+          category_image_url
         ),
         bundle_type (
           id,

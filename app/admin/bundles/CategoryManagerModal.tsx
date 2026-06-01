@@ -19,6 +19,7 @@ interface Category {
   description: string | null;
   description_en: string | null;
   icon_image_url: string | null;
+  category_image_url: string | null;
   order_index: number;
 }
 
@@ -43,7 +44,8 @@ export default function CategoryManagerModal({
     name_en: '',
     description: '',
     description_en: '',
-    icon_image_url: ''
+    icon_image_url: '',
+    category_image_url: ''
   });
   
   const [editCategory, setEditCategory] = useState({
@@ -51,7 +53,8 @@ export default function CategoryManagerModal({
     name_en: '',
     description: '',
     description_en: '',
-    icon_image_url: ''
+    icon_image_url: '',
+    category_image_url: ''
   });
 
   useEffect(() => {
@@ -81,9 +84,10 @@ export default function CategoryManagerModal({
         description: newCategory.description.trim() || null,
         description_en: newCategory.description_en.trim() || null,
         icon_image_url: newCategory.icon_image_url.trim() || null,
+        category_image_url: newCategory.category_image_url.trim() || null,
         order_index: categories.length 
       });
-      setNewCategory({ name: '', name_en: '', description: '', description_en: '', icon_image_url: '' });
+      setNewCategory({ name: '', name_en: '', description: '', description_en: '', icon_image_url: '', category_image_url: '' });
       fetchCategories();
       onRefresh();
     } catch (e) {
@@ -99,7 +103,8 @@ export default function CategoryManagerModal({
         name_en: editCategory.name_en.trim() || null,
         description: editCategory.description.trim() || null,
         description_en: editCategory.description_en.trim() || null,
-        icon_image_url: editCategory.icon_image_url.trim() || null
+        icon_image_url: editCategory.icon_image_url.trim() || null,
+        category_image_url: editCategory.category_image_url.trim() || null
       });
       setEditingId(null);
       fetchCategories();
@@ -270,6 +275,13 @@ export default function CategoryManagerModal({
                     </label>
                   </div>
                 </div>
+                <input
+                  type="url"
+                  placeholder="카테고리 대표이미지 URL"
+                  value={newCategory.category_image_url}
+                  onChange={(e) => setNewCategory({ ...newCategory, category_image_url: e.target.value })}
+                  className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-sm text-gray-900 dark:text-gray-100"
+                />
                 <button 
                   onClick={handleCreate}
                   disabled={!newCategory.name.trim()}
@@ -349,6 +361,13 @@ export default function CategoryManagerModal({
                               </label>
                             </div>
                           </div>
+                          <input
+                            type="url"
+                            value={editCategory.category_image_url}
+                            onChange={(e) => setEditCategory({ ...editCategory, category_image_url: e.target.value })}
+                            className="w-full px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-lg outline-none text-sm text-gray-900 dark:text-gray-100"
+                            placeholder="카테고리 대표이미지 URL"
+                          />
                           <div className="flex justify-end gap-2">
                             <button onClick={() => setEditingId(null)} className="px-3 py-1 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                               취소
@@ -370,6 +389,11 @@ export default function CategoryManagerModal({
                               {(cat.description || cat.description_en) && (
                                 <div className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
                                   {cat.description || cat.description_en}
+                                </div>
+                              )}
+                              {cat.category_image_url && (
+                                <div className="mt-1 truncate text-[11px] font-medium text-blue-500 dark:text-blue-400">
+                                  대표이미지 등록됨
                                 </div>
                               )}
                             </div>
@@ -399,7 +423,8 @@ export default function CategoryManagerModal({
                                   name_en: cat.name_en || '',
                                   description: cat.description || '',
                                   description_en: cat.description_en || '',
-                                  icon_image_url: cat.icon_image_url || ''
+                                  icon_image_url: cat.icon_image_url || '',
+                                  category_image_url: cat.category_image_url || ''
                                 }); 
                               }}
                               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl"

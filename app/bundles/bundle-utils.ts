@@ -19,6 +19,37 @@ export function getCategoryAnchorId(category: BundleCategoryRow) {
   return `category-${getCategoryKey(category)}`;
 }
 
+export function slugifyCategory(category: BundleCategoryRow, language: Language = 'en') {
+  const title = getCategoryTitle(category, language);
+  const slug = title
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return slug || getCategoryKey(category);
+}
+
+export function getCategoryHref(category: BundleCategoryRow, language: Language = 'en') {
+  return `/bundles/category/${slugifyCategory(category, language)}`;
+}
+
+export function isCategorySlugMatch(category: BundleCategoryRow, categorySlug: string) {
+  const normalizedSlug = decodeURIComponent(categorySlug).toLowerCase();
+
+  return [
+    getCategoryKey(category),
+    slugifyCategory(category, 'en'),
+    slugifyCategory(category, 'ko'),
+    category.name || '',
+    category.name_en || '',
+  ]
+    .filter(Boolean)
+    .map((value) => value.toLowerCase())
+    .includes(normalizedSlug);
+}
+
 export function getCategoryTitle(category: BundleCategoryRow, language: Language) {
   return (language === 'en' ? category.name_en : category.name) || category.name || category.name_en || 'Untitled Category';
 }
