@@ -22,6 +22,7 @@ import {
   Volume2
 } from 'lucide-react';
 import Link from 'next/link';
+import { bundleLevelOptions } from '@/lib/bundle-level';
 import { listCategories, listBundleTypes, createBundleWithItems, getBundle } from '@/lib/supabase/services/bundles';
 import { deleteFileFromPublicUrl, deleteFilesInFolder, uploadThumbnail } from '@/lib/supabase/services/storage';
 import { compressImageForUpload } from '@/lib/image-compression';
@@ -1326,15 +1327,18 @@ export default function BundleCreateForm({ userId }: Props) {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">학습 레벨 (1-10)</label>
-                    <input 
-                      type="number"
-                      min={1}
-                      max={10}
+                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">학습 레벨</label>
+                    <select
                       value={bundleMeta.level}
                       onChange={(e) => setBundleMeta({...bundleMeta, level: parseInt(e.target.value) || 1})}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                    />
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                    >
+                      {bundleLevelOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">공개 여부</label>

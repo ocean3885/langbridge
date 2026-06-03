@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { listBundles, listCategories } from '@/lib/supabase/services/bundles';
 import { translations } from '../../bundle-data';
 import {
@@ -99,8 +100,12 @@ function bundleMinutes(bundle: BundleRow, index: number) {
   return lessonCount(bundle) * 2 + 4 + (index % 3) * 2;
 }
 
-function levelLabel(bundle: BundleRow) {
-  return `A${bundle.level || 1}`;
+function levelLabel(bundle: BundleRow, language: Language) {
+  return getBundleLevelDisplay(bundle.level, language).label;
+}
+
+function shortLevelLabel(bundle: BundleRow, language: Language) {
+  return getBundleLevelDisplay(bundle.level, language).shortLabel;
 }
 
 function CategoryBundleCard({
@@ -141,7 +146,7 @@ function CategoryBundleCard({
         <div className="mt-4 flex items-center justify-between gap-2 text-xs font-medium text-zinc-600">
           <span className="inline-flex items-center gap-1">
             <BarChart3 className="h-3.5 w-3.5" />
-            {levelLabel(bundle)}
+            {shortLevelLabel(bundle, language)}
           </span>
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-3.5 w-3.5" />
@@ -237,7 +242,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               </span>
               <span className="inline-flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                {copy.beginner} A1 - A2
+                {getBundleLevelDisplay(1, language).shortLabel} - {getBundleLevelDisplay(3, language).shortLabel}
               </span>
               <span className="inline-flex items-center gap-2">
                 <Clock3 className="h-5 w-5" />
@@ -337,7 +342,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
                 {getBundleDescription(featuredBundle, language)}
               </p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#735b31]">
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1">{copy.beginner} {levelLabel(featuredBundle)}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1">{levelLabel(featuredBundle, language)}</span>
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1">{lessonCount(featuredBundle)} {copy.lessons}</span>
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1">{bundleMinutes(featuredBundle, 0)} {copy.minutes}</span>
               </div>

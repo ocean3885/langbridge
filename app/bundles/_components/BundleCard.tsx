@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { translations } from '../bundle-data';
 import { getBundleImage, getBundleTitle, lessonCount } from '../bundle-utils';
 import type { BundleRow, Language } from '../types';
@@ -7,6 +8,7 @@ import type { BundleRow, Language } from '../types';
 export function BundleCard({ bundle, index, language }: { bundle: BundleRow; index: number; language: Language }) {
   const title = getBundleTitle(bundle, language);
   const copy = translations[language];
+  const level = getBundleLevelDisplay(bundle.level, language);
 
   return (
     <Link
@@ -25,7 +27,7 @@ export function BundleCard({ bundle, index, language }: { bundle: BundleRow; ind
       <div className="p-4">
         <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-5 text-zinc-900">{title}</h3>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
-          <span>{copy.beginner} A{bundle.level || 1}</span>
+          <span>{level.label}</span>
           <span>
             {lessonCount(bundle)} {copy.lessons}
           </span>

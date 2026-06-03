@@ -41,7 +41,7 @@ export function BundleCategoriesSection({
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-serif text-lg font-semibold sm:mt-5 sm:text-center sm:text-xl">{title}</h3>
-                <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-600 sm:mt-2 sm:line-clamp-none sm:text-center sm:leading-6">{description}</p>
+                <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-600 sm:mt-2 sm:line-clamp-3 sm:text-center sm:leading-6">{description}</p>
                 <div className="mt-3 flex items-center justify-between sm:mt-5">
                   <span className="text-sm font-bold text-[#2f7d4a]">
                     {count} {copy.bundles}

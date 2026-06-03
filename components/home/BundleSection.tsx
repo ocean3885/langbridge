@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, ChevronRight, Clock } from 'lucide-react';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 
 export type Bundle = {
   id: string;
@@ -70,6 +71,7 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
             const displayTitle = lang === 'en' && bundle.title_en ? bundle.title_en : bundle.title;
             const displayDesc = lang === 'en' && bundle.description_en ? bundle.description_en : bundle.description;
             const displayCategory = lang === 'en' && bundle.category_name_en ? bundle.category_name_en : bundle.category_name;
+            const level = getBundleLevelDisplay(bundle.level, lang);
 
             return (
               <Link
@@ -93,7 +95,7 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
                   )}
                   <div className="absolute top-3 left-3">
                     <span className="px-2.5 py-0.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-full shadow-sm uppercase tracking-wider">
-                      Lv.{bundle.level || 1}
+                      {level.shortLabel}
                     </span>
                   </div>
                 </div>

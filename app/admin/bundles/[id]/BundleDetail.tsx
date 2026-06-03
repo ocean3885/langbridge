@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
+import { bundleLevelOptions, getBundleLevelDisplay } from '@/lib/bundle-level';
 import { formatDate, getPublicUrl } from '@/lib/utils';
 import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder, regenerateBundleItemSentenceTTS } from '@/lib/supabase/services/bundles';
 import { deleteFileFromPublicUrl, uploadThumbnail } from '@/lib/supabase/services/storage';
@@ -543,15 +544,21 @@ export default function BundleDetail({
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">학습 레벨 (1-10)</label>
-                  <input 
-                    type="number"
-                    min={1}
-                    max={10}
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">학습 레벨</label>
+                  <select
                     value={editForm.level}
                     onChange={(e) => setEditForm({...editForm, level: parseInt(e.target.value) || 1})}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                  />
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
+                  >
+                    {!bundleLevelOptions.some((option) => option.value === Number(editForm.level)) && (
+                      <option value={editForm.level}>{getBundleLevelDisplay(editForm.level, 'ko').label}</option>
+                    )}
+                    {bundleLevelOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700 ml-1">공개 상태</label>
@@ -656,7 +663,7 @@ export default function BundleDetail({
                     </span>
                   )}
                   <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg text-[10px] font-bold">
-                    Lv. {bundle.level}
+                    {getBundleLevelDisplay(bundle.level, 'ko').shortLabel}
                   </span>
                   {bundle.is_published ? (
                     <span className="px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg text-[10px] font-bold">

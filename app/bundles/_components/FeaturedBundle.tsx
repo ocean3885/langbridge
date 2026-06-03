@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, BookOpen, Clock, Eye, Flame, Star } from 'lucide-react';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import type { BundleRow, Language } from '../types';
 import { translations } from '../bundle-data';
 import {
@@ -16,6 +17,7 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
   const title = getBundleTitle(bundle, language);
   const description = getBundleDescription(bundle, language);
   const image = getBundleImage(bundle, 0);
+  const level = getBundleLevelDisplay(bundle.level, language);
 
   return (
     <section className="mt-6 grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[0.92fr_1fr]">
@@ -35,7 +37,7 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           </span>
           <span className="flex items-center gap-1">
             <Star className="h-3.5 w-3.5" />
-            {copy.beginner} A{bundle.level || 1}
+            {level.label}
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="h-3.5 w-3.5" />

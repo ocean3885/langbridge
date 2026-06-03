@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2 } from 'lucide-react';
 import Link from 'next/link';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { formatDate } from '@/lib/utils';
 import CategoryManagerModal from './CategoryManagerModal';
 import BundleTypeManagerModal from './BundleTypeManagerModal';
@@ -159,7 +160,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                   {/* Level Badge */}
                   <div className="absolute top-4 right-4">
                     <span className="px-2 py-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                      Lv. {bundle.level}
+                      {getBundleLevelDisplay(bundle.level, 'ko').shortLabel}
                     </span>
                   </div>
 

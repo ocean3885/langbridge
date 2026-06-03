@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 
 interface BundleHeaderClientProps {
   bundle: any;
@@ -25,6 +26,7 @@ const translations = {
 export default function BundleHeaderClient({ bundle, itemsCount, language }: BundleHeaderClientProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const t = translations[language] || translations['ko'];
+  const level = getBundleLevelDisplay(bundle.level, language);
   
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US');
@@ -35,7 +37,7 @@ export default function BundleHeaderClient({ bundle, itemsCount, language }: Bun
       <div className="p-4 md:p-8 flex flex-col justify-center">
         <div className="flex flex-wrap items-center gap-2 mb-2 md:mb-3">
           <span className="px-2 py-0.5 md:px-3 md:py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] md:text-xs font-black rounded-full uppercase tracking-wider">
-            Level {bundle.level || 1}
+            {level.label}
           </span>
           <span className="px-2 py-0.5 md:px-3 md:py-1 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] md:text-xs font-bold rounded-full">
             {(language === 'en' ? bundle.bundle_category?.name_en : bundle.bundle_category?.name) || bundle.bundle_category?.name || t.general}

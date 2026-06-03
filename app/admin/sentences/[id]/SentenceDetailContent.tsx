@@ -8,6 +8,7 @@ import {
   Edit2, Trash2, Save, X, Loader2, Layout 
 } from 'lucide-react';
 import { updateSentence, deleteSentence, regenerateSentenceTTS } from '@/lib/supabase/services/sentences';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { generateTTS } from '@/lib/tts';
 import WordExtractor from './WordExtractor';
 import JSONWordImporter from './JSONWordImporter';
@@ -327,7 +328,7 @@ export default function SentenceDetailContent({
                     <div className="min-w-0">
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{b.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase">Lv.{b.level}</span>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase">{getBundleLevelDisplay(b.level, 'ko').shortLabel}</span>
                         {b.bundle_category && (
                           <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold">| {b.bundle_category.name}</span>
                         )}
