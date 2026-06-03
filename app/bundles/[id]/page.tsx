@@ -1,14 +1,8 @@
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
-import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
-import { getPublicUrl, formatDate } from '@/lib/utils';
+import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowLeft, Layers, Bookmark, Volume2, MessageSquare, Info } from 'lucide-react';
-import AudioButton from '@/components/AudioButton';
-import BackButton from '@/components/common/BackButton';
-import BundlePlayerClient from './BundlePlayerClient';
-import BundleHeaderClient from './BundleHeaderClient';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import BundleDetailHubClient from './BundleDetailHubClient';
 
 interface BundleDetailsPageProps {
   params: Promise<{
@@ -37,21 +31,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
   const { id } = await params;
   const bundle = await getBundle(id);
   const items = await listBundleItems(id);
-  
   const user = await getAppUserFromServer();
-  
-  // 유저 상호작용 정보 가져오기 (문장 아이템에 대해서만)
-  let interactions: any[] = [];
-  if (user) {
-    const sentenceIds = items
-      .filter(item => item.sentence_id)
-      .map(item => item.sentence_id as number);
-    
-    if (sentenceIds.length > 0) {
-      interactions = await listUserSentenceInteractions(user.id, sentenceIds);
-    }
-  }
-
   const lang = await getDisplayLanguage();
   const t = translations[lang];
 
@@ -66,23 +46,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-2 md:px-4 py-4 md:py-8">
-      <div className="mb-4 md:mb-8 px-2 md:px-0">
-        <BackButton language={lang} />
-      </div>
+  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
 
-      {/* 번들 헤더 */}
-      <BundleHeaderClient bundle={bundle} itemsCount={items.length} language={lang} />
-
-      {/* 학습 플레이어 영역 */}
-      <BundlePlayerClient 
-        bundle={bundle} 
-        items={items} 
-        language={lang} 
-        initialInteractions={interactions}
-        user={user}
-      />
-    </div>
-  );
+  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} />;
 }

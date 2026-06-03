@@ -11,6 +11,7 @@ export interface UserSentenceInteraction {
   incorrect_count: number;
   streak_count: number;
   last_reviewed_at: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }

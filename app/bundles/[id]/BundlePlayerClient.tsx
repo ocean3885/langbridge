@@ -18,6 +18,7 @@ interface BundlePlayerClientProps {
   language?: 'ko' | 'en';
   initialInteractions?: UserSentenceInteraction[];
   user?: any;
+  initialItemId?: string | null;
 }
 
 const REPEAT_OPTIONS = [1, 2, 3, 5, Infinity];
@@ -52,9 +53,11 @@ export default function BundlePlayerClient({
   items, 
   language = 'ko',
   initialInteractions = [],
-  user
+  user,
+  initialItemId = null,
 }: BundlePlayerClientProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
   const [repeatCount, setRepeatCount] = useState(1);
   const [currentRepeat, setCurrentRepeat] = useState(0);
