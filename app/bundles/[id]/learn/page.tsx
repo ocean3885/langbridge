@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import BundlePlayerClient from '../BundlePlayerClient';
@@ -49,19 +50,16 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
       interactions = await listUserSentenceInteractions(user.id, sentenceIds);
     }
   }
+  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
 
   return (
-    <div className="mx-auto max-w-7xl px-2 py-4 md:px-4 md:py-8">
-      <div className="mb-4 px-2 md:px-0">
-        <Link href={`/bundles/${bundle.id}`} className="text-sm font-bold text-zinc-500 transition hover:text-[#2f7d4a]">
-          ← {t.backToDetail}
-        </Link>
-      </div>
+    <div className="min-h-[calc(100vh-5rem)] bg-[#f7f5f0] px-3 py-4 md:px-6 md:py-8">
       <BundlePlayerClient
         bundle={bundle}
         items={items}
         language={lang}
         initialInteractions={interactions}
+        initialProgress={progress}
         user={user}
         initialItemId={item || null}
       />

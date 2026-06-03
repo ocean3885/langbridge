@@ -99,6 +99,102 @@ export async function getBundleProgressSummary(
   };
 }
 
+export async function markBundleItemCompleted(userId: string, bundleId: string, bundleItemId: string) {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { error: itemError } = await supabase
+    .from('user_bundle_item_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        bundle_item_id: bundleItemId,
+        is_completed: true,
+        last_practiced_at: now,
+        completed_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_item_id',
+      },
+    );
+
+  if (itemError) {
+    console.error('Error marking bundle item completed:', itemError);
+    throw itemError;
+  }
+
+  const [
+    { count: totalItems, error: totalError },
+    { count: completedItems, error: completedError },
+    { data: existingBundleInteraction, error: existingError },
+  ] = await Promise.all([
+    supabase
+      .from('bundle_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('bundle_id', bundleId),
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('bundle_id', bundleId)
+      .eq('is_completed', true),
+    supabase
+      .from('user_bundle_interactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('bundle_id', bundleId)
+      .maybeSingle(),
+  ]);
+
+  if (totalError) {
+    console.error('Error counting bundle items:', totalError);
+    throw totalError;
+  }
+
+  if (completedError) {
+    console.error('Error counting completed bundle items:', completedError);
+    throw completedError;
+  }
+
+  if (existingError) {
+    console.error('Error fetching user bundle interaction:', existingError);
+  }
+
+  const total = totalItems || 0;
+  const completed = completedItems || 0;
+  const progressRatio = total > 0 ? Math.min(1, completed / total) : 0;
+  const isCompleted = total > 0 && completed >= total;
+
+  const { error: bundleError } = await supabase
+    .from('user_bundle_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        is_started: true,
+        is_completed: isCompleted,
+        progress_ratio: progressRatio,
+        current_bundle_item_id: bundleItemId,
+        started_at: existingBundleInteraction?.started_at || now,
+        completed_at: isCompleted ? existingBundleInteraction?.completed_at || now : existingBundleInteraction?.completed_at || null,
+        last_studied_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_id',
+      },
+    );
+
+  if (bundleError) {
+    console.error('Error updating bundle progress:', bundleError);
+    throw bundleError;
+  }
+
+  return getBundleProgressSummary(userId, bundleId, total);
+}
+
 function createEmptyBundleProgress(totalItems: number): BundleProgressSummary {
   return {
     bundleInteraction: null,
