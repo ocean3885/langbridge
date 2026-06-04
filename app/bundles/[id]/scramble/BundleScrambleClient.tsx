@@ -150,7 +150,9 @@ export default function BundleScrambleClient({ bundleId, title, items, language 
       }
     });
 
-    setResult(answer.join(' ') === correctWords.join(' ') ? 'correct' : 'wrong');
+    const isCorrect = answer.join(' ') === correctWords.join(' ');
+    setResult(isCorrect ? 'correct' : 'wrong');
+    recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
   };
 
   const goPrev = () => {
@@ -334,4 +336,17 @@ function shuffleArray<T>(values: T[]) {
     [copy[index], copy[target]] = [copy[target], copy[index]];
   }
   return copy;
+}
+
+function recordPracticeResult(bundleId: string, bundleItemId: string, mode: 'quiz' | 'scramble', isCorrect: boolean) {
+  void fetch('/api/bundle-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bundle_id: bundleId,
+      bundle_item_id: bundleItemId,
+      practice_mode: mode,
+      is_correct: isCorrect,
+    }),
+  });
 }

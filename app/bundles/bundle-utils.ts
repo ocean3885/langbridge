@@ -89,7 +89,10 @@ export function getBundleImage(bundle: BundleRow, index: number) {
   return bundle.thumbnail_url || fallbackImages[index % fallbackImages.length];
 }
 
-export function lessonCount(bundle: BundleRow) {
+export function bundleItemCount(bundle: BundleRow) {
+  const itemCount = bundle.bundle_items?.[0]?.count;
+  if (typeof itemCount === 'number') return itemCount;
+
   const level = Number(bundle.level || 1);
   return Math.max(5, Math.min(8, level + 5));
 }

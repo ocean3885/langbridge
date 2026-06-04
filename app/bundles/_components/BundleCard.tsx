@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { translations } from '../bundle-data';
-import { getBundleImage, getBundleTitle, lessonCount } from '../bundle-utils';
+import { bundleItemCount, getBundleImage, getBundleTitle } from '../bundle-utils';
 import type { BundleRow, Language } from '../types';
 
 export function BundleCard({ bundle, index, language }: { bundle: BundleRow; index: number; language: Language }) {
@@ -29,7 +29,7 @@ export function BundleCard({ bundle, index, language }: { bundle: BundleRow; ind
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
           <span>{level.label}</span>
           <span>
-            {lessonCount(bundle)} {copy.lessons}
+            {bundleItemCount(bundle)} {copy.items}
           </span>
         </div>
       </div>

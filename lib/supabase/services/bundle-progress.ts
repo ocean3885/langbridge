@@ -99,9 +99,101 @@ export async function getBundleProgressSummary(
   };
 }
 
-export async function markBundleItemCompleted(userId: string, bundleId: string, bundleItemId: string) {
+export async function recordBundleStudyAccess(
+  userId: string,
+  bundleId: string,
+  currentBundleItemId: string | null,
+) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
+
+  if (currentBundleItemId) {
+    const { data: bundleItem, error: bundleItemError } = await supabase
+      .from('bundle_items')
+      .select('id')
+      .eq('id', currentBundleItemId)
+      .eq('bundle_id', bundleId)
+      .maybeSingle();
+
+    if (bundleItemError || !bundleItem) {
+      throw new Error('Bundle item does not belong to the requested bundle.');
+    }
+  }
+
+  const { data: existingInteraction, error: existingError } = await supabase
+    .from('user_bundle_interactions')
+    .select('started_at')
+    .eq('user_id', userId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Error fetching user bundle interaction:', existingError);
+    throw existingError;
+  }
+
+  const { error } = await supabase
+    .from('user_bundle_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        is_started: true,
+        current_bundle_item_id: currentBundleItemId,
+        started_at: existingInteraction?.started_at || now,
+        last_studied_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_id',
+      },
+    );
+
+  if (error) {
+    console.error('Error recording bundle study access:', error);
+    throw error;
+  }
+}
+
+export async function recordBundleItemPractice(
+  userId: string,
+  bundleId: string,
+  bundleItemId: string,
+  mode: 'quiz' | 'scramble',
+  isCorrect: boolean,
+) {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: bundleItem, error: bundleItemError } = await supabase
+    .from('bundle_items')
+    .select('id')
+    .eq('id', bundleItemId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  if (bundleItemError || !bundleItem) {
+    throw new Error('Bundle item does not belong to the requested bundle.');
+  }
+
+  const { data: existingItemInteraction, error: existingItemError } = await supabase
+    .from('user_bundle_item_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('bundle_item_id', bundleItemId)
+    .maybeSingle();
+
+  if (existingItemError) {
+    console.error('Error fetching bundle item interaction:', existingItemError);
+    throw existingItemError;
+  }
+
+  const wasCompleted = Boolean(existingItemInteraction?.is_completed);
+  const isCompleted = wasCompleted || isCorrect;
+  const metadata = {
+    ...(existingItemInteraction?.metadata || {}),
+    last_practice_mode: mode,
+  };
 
   const { error: itemError } = await supabase
     .from('user_bundle_item_interactions')
@@ -110,9 +202,12 @@ export async function markBundleItemCompleted(userId: string, bundleId: string, 
         user_id: userId,
         bundle_id: bundleId,
         bundle_item_id: bundleItemId,
-        is_completed: true,
+        is_completed: isCompleted,
+        correct_count: Number(existingItemInteraction?.correct_count || 0) + (isCorrect ? 1 : 0),
+        incorrect_count: Number(existingItemInteraction?.incorrect_count || 0) + (isCorrect ? 0 : 1),
         last_practiced_at: now,
-        completed_at: now,
+        completed_at: isCompleted ? existingItemInteraction?.completed_at || now : null,
+        metadata,
         updated_at: now,
       },
       {
@@ -165,7 +260,7 @@ export async function markBundleItemCompleted(userId: string, bundleId: string, 
   const total = totalItems || 0;
   const completed = completedItems || 0;
   const progressRatio = total > 0 ? Math.min(1, completed / total) : 0;
-  const isCompleted = total > 0 && completed >= total;
+  const isBundleCompleted = total > 0 && completed >= total;
 
   const { error: bundleError } = await supabase
     .from('user_bundle_interactions')
@@ -174,11 +269,11 @@ export async function markBundleItemCompleted(userId: string, bundleId: string, 
         user_id: userId,
         bundle_id: bundleId,
         is_started: true,
-        is_completed: isCompleted,
+        is_completed: isBundleCompleted,
         progress_ratio: progressRatio,
         current_bundle_item_id: bundleItemId,
         started_at: existingBundleInteraction?.started_at || now,
-        completed_at: isCompleted ? existingBundleInteraction?.completed_at || now : existingBundleInteraction?.completed_at || null,
+        completed_at: isBundleCompleted ? existingBundleInteraction?.completed_at || now : existingBundleInteraction?.completed_at || null,
         last_studied_at: now,
         updated_at: now,
       },

@@ -1,8 +1,10 @@
-import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { getBundleProgressSummary, recordBundleStudyAccess } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
+import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
 import BundlePlayerClient from '../BundlePlayerClient';
 
 interface BundleLearnPageProps {
@@ -10,58 +12,56 @@ interface BundleLearnPageProps {
   searchParams: Promise<{ item?: string }>;
 }
 
-const copy = {
-  ko: {
-    bundleNotFound: '번들을 찾을 수 없습니다.',
-    backToDetail: '상세로 돌아가기',
-  },
-  en: {
-    bundleNotFound: 'Bundle not found.',
-    backToDetail: 'Back to Detail',
-  },
-};
-
 export default async function BundleLearnPage({ params, searchParams }: BundleLearnPageProps) {
   const { id } = await params;
   const { item } = await searchParams;
-  const [bundle, items, user, lang] = await Promise.all([
+  const [bundle, user, lang] = await Promise.all([
     getBundle(id),
-    listBundleItems(id),
     getAppUserFromServer(),
     getDisplayLanguage(),
   ]);
-  const t = copy[lang];
+  if (!bundle) notFound();
 
-  if (!bundle) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.bundleNotFound}</h1>
-        <Link href="/bundles" className="mt-4 inline-block text-blue-600 hover:underline">
-          Bundles
-        </Link>
-      </div>
-    );
-  }
+  const isAdminUser = user ? await isSuperAdmin({ userId: user.id, email: user.email }) : false;
+  if (!bundle.is_published && !isAdminUser) notFound();
 
-  let interactions: any[] = [];
+  const items = await listBundleItems(id);
+  const sentenceIds = items.filter((bundleItem) => bundleItem.sentence_id).map((bundleItem) => bundleItem.sentence_id as number);
+  const [interactions, progress, mappedWords] = await Promise.all([
+    user && sentenceIds.length > 0 ? listUserSentenceInteractions(user.id, sentenceIds) : [],
+    getBundleProgressSummary(user?.id, bundle.id, items.length),
+    listWordsForSentences(sentenceIds),
+  ]);
+  const wordsBySentenceId = mappedWords.reduce((groups, word) => {
+    const words = groups.get(word.sentence_id) || [];
+    words.push(word);
+    groups.set(word.sentence_id, words);
+    return groups;
+  }, new Map<number, typeof mappedWords>());
+  const playerItems = items.map((bundleItem) => ({
+    ...bundleItem,
+    mapped_words: bundleItem.sentence_id ? wordsBySentenceId.get(bundleItem.sentence_id) || [] : [],
+  }));
+  const requestedItemId = item && items.some((bundleItem) => bundleItem.id === item) ? item : null;
+  const savedItemId =
+    progress.currentBundleItemId && items.some((bundleItem) => bundleItem.id === progress.currentBundleItemId)
+      ? progress.currentBundleItemId
+      : null;
+  const initialItemId = requestedItemId || savedItemId || items[0]?.id || null;
+
   if (user) {
-    const sentenceIds = items.filter((bundleItem) => bundleItem.sentence_id).map((bundleItem) => bundleItem.sentence_id as number);
-    if (sentenceIds.length > 0) {
-      interactions = await listUserSentenceInteractions(user.id, sentenceIds);
-    }
+    await recordBundleStudyAccess(user.id, bundle.id, initialItemId);
   }
-  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-[#f7f5f0] px-3 py-4 md:px-6 md:py-8">
+    <div className="min-h-[calc(100vh-5rem)] bg-[#f7f5f0] px-0 py-0 sm:px-3 sm:py-4 md:px-6 md:py-8">
       <BundlePlayerClient
         bundle={bundle}
-        items={items}
+        items={playerItems}
         language={lang}
         initialInteractions={interactions}
-        initialProgress={progress}
         user={user}
-        initialItemId={item || null}
+        initialItemId={initialItemId}
       />
     </div>
   );

@@ -27,7 +27,7 @@ import {
   getCategoryKey,
   getCategoryTitle,
   isCategorySlugMatch,
-  lessonCount,
+  bundleItemCount,
 } from '../../bundle-utils';
 import type { BundleCategoryRow, BundleRow, Language } from '../../types';
 
@@ -97,7 +97,7 @@ function statusForIndex(index: number, language: Language) {
 }
 
 function bundleMinutes(bundle: BundleRow, index: number) {
-  return lessonCount(bundle) * 2 + 4 + (index % 3) * 2;
+  return bundleItemCount(bundle) * 2 + 4 + (index % 3) * 2;
 }
 
 function levelLabel(bundle: BundleRow, language: Language) {
@@ -150,7 +150,7 @@ function CategoryBundleCard({
           </span>
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-3.5 w-3.5" />
-            {lessonCount(bundle)} {copy.lessons}
+            {bundleItemCount(bundle)} {copy.items}
           </span>
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
@@ -343,7 +343,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               </p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#735b31]">
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1">{levelLabel(featuredBundle, language)}</span>
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1">{lessonCount(featuredBundle)} {copy.lessons}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1">{bundleItemCount(featuredBundle)} {copy.items}</span>
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1">{bundleMinutes(featuredBundle, 0)} {copy.minutes}</span>
               </div>
             </div>

@@ -9,7 +9,7 @@ import {
   getBundleImage,
   getBundleTitle,
   getCategoryName,
-  lessonCount,
+  bundleItemCount,
 } from '../bundle-utils';
 
 export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; language: Language }) {
@@ -41,11 +41,11 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           </span>
           <span className="flex items-center gap-1">
             <BookOpen className="h-3.5 w-3.5" />
-            {lessonCount(bundle)} {copy.lessons}
+            {bundleItemCount(bundle)} {copy.items}
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
-            {lessonCount(bundle) * 4} {copy.minutes}
+            {bundleItemCount(bundle) * 4} {copy.minutes}
           </span>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">

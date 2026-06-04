@@ -86,15 +86,18 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
     bundle.bundle_category?.name ||
     bundle.bundle_category?.name_en ||
     'Hola Start';
-  const minutes = Math.max(8, Math.ceil(items.length * 1.6));
+  const minutes = items.length;
   const minuteLabel = language === 'en' ? `${minutes} min` : `${minutes}분`;
   const hasStarted = progress.completedItems > 0 || !!progress.bundleInteraction?.is_started;
   const remainingItems = Math.max(0, items.length - progress.completedItems);
-  const estimatedLeftMinutes = Math.ceil(remainingItems * 1.6);
+  const estimatedLeftMinutes = remainingItems;
   const isCompleted = progress.progressPercent >= 100 || !!progress.bundleInteraction?.is_completed;
   const statusLabel = isCompleted ? t.completedStatus : hasStarted ? t.inProgress : t.notStarted;
   const lastStudiedLabel = formatProgressDate(progress.bundleInteraction?.last_studied_at, language) || t.noRecord;
   const backHref = bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
+  const learnHref = progress.currentBundleItemId
+    ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
+    : `/bundles/${bundle.id}/learn`;
 
   return (
     <div className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl bg-[#fbf8f2] text-[#191715] shadow-sm md:rounded-[28px] md:border md:border-zinc-200 lg:border-0 lg:bg-transparent lg:shadow-none">
@@ -148,10 +151,10 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
 
       <main className="space-y-4 px-5 pb-8 pt-4 lg:px-0 lg:pt-0">
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm lg:p-6">
-          <p className="text-xs font-bold text-zinc-600">{t.progressTitle}</p>
-          <div className="mt-2 flex items-end justify-between gap-4">
-            <p className="text-base font-extrabold text-zinc-950">{t.completed(progress.completedItems, items.length)}</p>
-            <p className="text-sm font-bold text-zinc-800">{progress.progressPercent}%</p>
+          <h2 className="text-base font-bold tracking-tight text-zinc-950">{t.progressTitle}</h2>
+          <div className="mt-3 flex items-end justify-between gap-4">
+            <p className="text-lg font-extrabold tracking-tight text-zinc-950">{t.completed(progress.completedItems, items.length)}</p>
+            <p className="text-sm font-semibold tabular-nums text-zinc-700">{progress.progressPercent}%</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200">
             <div className="h-full rounded-full bg-[#3f8d54]" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
@@ -163,7 +166,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <ProgressMeta label={t.lastStudied} value={lastStudiedLabel} />
           </div>
           <Link
-            href={`/bundles/${bundle.id}/learn`}
+            href={learnHref}
             className="mt-5 flex h-12 w-full items-center justify-center rounded-lg bg-[#3f8d54] text-sm font-bold text-white shadow-sm transition hover:bg-[#347946]"
           >
             {hasStarted ? t.continue : t.start}
@@ -177,7 +180,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm lg:p-6">
-          <h2 className="mb-3 text-sm font-bold text-zinc-950">{t.practiceModes}</h2>
+          <h2 className="mb-4 text-base font-bold tracking-tight text-zinc-950">{t.practiceModes}</h2>
           <div className="grid grid-cols-3 gap-2 lg:gap-3">
             <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
             <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
@@ -211,8 +214,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 function ProgressMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-[#f8f6f0] px-3 py-2">
-      <p className="text-[10px] font-bold uppercase text-zinc-400">{label}</p>
-      <p className="mt-1 truncate text-sm font-bold text-zinc-900">{value}</p>
+      <p className="text-xs font-medium leading-4 text-zinc-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-zinc-900">{value}</p>
     </div>
   );
 }
@@ -235,9 +238,9 @@ function ModeLink({
   };
 
   return (
-    <Link href={href} className="flex min-h-[74px] flex-col items-center justify-center gap-1 rounded-lg bg-white text-center shadow-sm ring-1 ring-zinc-100 transition hover:-translate-y-0.5 hover:shadow-md">
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${colors[color]}`}>{icon}</span>
-      <span className="text-[10px] font-bold leading-tight text-zinc-700">{label}</span>
+    <Link href={href} className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl bg-white px-1 text-center shadow-sm ring-1 ring-zinc-100 transition hover:-translate-y-0.5 hover:shadow-md">
+      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${colors[color]}`}>{icon}</span>
+      <span className="text-xs font-bold leading-tight text-zinc-700">{label}</span>
     </Link>
   );
 }

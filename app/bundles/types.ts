@@ -22,6 +22,7 @@ export type BundleRow = {
   created_at?: string;
   is_published?: boolean | null;
   bundle_category?: BundleCategoryRow | null;
+  bundle_items?: Array<{ count: number }> | null;
 };
 
 export type BundleCopy = {
@@ -36,7 +37,7 @@ export type BundleCopy = {
   noBundlesTitle: string;
   noBundlesDesc: string;
   bundles: string;
-  lessons: string;
+  items: string;
   minutes: string;
   beginner: string;
   journey: string;

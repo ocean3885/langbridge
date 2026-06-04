@@ -4,16 +4,27 @@ import { createAdminClient } from '../admin';
 import { generateTTS } from '@/lib/tts';
 import { deleteFileFromPublicUrl } from './storage';
 
-export async function listBundles() {
+export async function listBundles(options?: { publishedOnly?: boolean; limit?: number }) {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('bundle')
     .select(`
       *,
       bundle_category(id, name, name_en, icon_image_url, category_image_url),
-      bundle_type(id, name, code)
+      bundle_type(id, name, code),
+      bundle_items(count)
     `)
     .order('created_at', { ascending: false });
+
+  if (options?.publishedOnly) {
+    query = query.eq('is_published', true);
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching bundles:', error);

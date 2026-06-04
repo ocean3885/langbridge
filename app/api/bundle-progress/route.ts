@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { markBundleItemCompleted } from '@/lib/supabase/services/bundle-progress';
+import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { getBundle } from '@/lib/supabase/services/bundles';
+import { recordBundleItemPractice } from '@/lib/supabase/services/bundle-progress';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,13 +13,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { bundle_id, bundle_item_id } = body;
+    const { bundle_id, bundle_item_id, practice_mode, is_correct } = body;
 
-    if (!bundle_id || !bundle_item_id) {
-      return NextResponse.json({ error: 'bundle_id와 bundle_item_id가 필요합니다.' }, { status: 400 });
+    if (
+      !bundle_id ||
+      !bundle_item_id ||
+      !['quiz', 'scramble'].includes(practice_mode) ||
+      typeof is_correct !== 'boolean'
+    ) {
+      return NextResponse.json({ error: '유효한 Practice 결과가 필요합니다.' }, { status: 400 });
     }
 
-    const progress = await markBundleItemCompleted(user.id, String(bundle_id), String(bundle_item_id));
+    const bundle = await getBundle(String(bundle_id));
+    const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email });
+    if (!bundle || (!bundle.is_published && !isAdminUser)) {
+      return NextResponse.json({ error: '접근할 수 없는 번들입니다.' }, { status: 404 });
+    }
+
+    const progress = await recordBundleItemPractice(
+      user.id,
+      String(bundle_id),
+      String(bundle_item_id),
+      practice_mode as 'quiz' | 'scramble',
+      is_correct,
+    );
 
     return NextResponse.json(progress);
   } catch (error: any) {
