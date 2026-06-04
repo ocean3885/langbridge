@@ -3,7 +3,6 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getBundleProgressSummary, recordBundleStudyAccess } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
-import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
 import BundlePlayerClient from '../BundlePlayerClient';
 
@@ -27,8 +26,7 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
 
   const items = await listBundleItems(id);
   const sentenceIds = items.filter((bundleItem) => bundleItem.sentence_id).map((bundleItem) => bundleItem.sentence_id as number);
-  const [interactions, progress, mappedWords] = await Promise.all([
-    user && sentenceIds.length > 0 ? listUserSentenceInteractions(user.id, sentenceIds) : [],
+  const [progress, mappedWords] = await Promise.all([
     getBundleProgressSummary(user?.id, bundle.id, items.length),
     listWordsForSentences(sentenceIds),
   ]);
@@ -54,12 +52,11 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-[#f7f5f0] px-0 py-0 sm:px-3 sm:py-4 md:px-6 md:py-8">
+    <div className="min-h-[calc(100vh-5rem)] bg-[#f7f5f0] px-0 py-0 dark:bg-zinc-950 sm:px-3 sm:py-4 md:px-6 md:py-8">
       <BundlePlayerClient
         bundle={bundle}
         items={playerItems}
         language={lang}
-        initialInteractions={interactions}
         user={user}
         initialItemId={initialItemId}
       />

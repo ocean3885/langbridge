@@ -10,6 +10,7 @@ import {
   getBundleTitle,
   getCategoryName,
   bundleItemCount,
+  estimateBundleMinutesForBundle,
 } from '../bundle-utils';
 
 export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; language: Language }) {
@@ -45,12 +46,12 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
-            {bundleItemCount(bundle) * 4} {copy.minutes}
+            {estimateBundleMinutesForBundle(bundle)} {copy.minutes}
           </span>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
-            href={`/bundles/${bundle.id}`}
+            href={`/bundles/${bundle.id}/learn`}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#57985a] px-7 py-3 text-sm font-bold text-white transition hover:bg-[#477f4a]"
           >
             {copy.start}

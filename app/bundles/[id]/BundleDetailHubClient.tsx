@@ -13,7 +13,7 @@ import {
   Star,
 } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
-import { getBundleDescription, getBundleTitle, getCategoryHref } from '../bundle-utils';
+import { estimateBundleMinutes, getBundleDescription, getBundleTitle, getCategoryHref } from '../bundle-utils';
 import type { BundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 
 interface BundleDetailHubClientProps {
@@ -102,11 +102,11 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
     bundle.bundle_category?.name ||
     bundle.bundle_category?.name_en ||
     'Hola Start';
-  const minutes = items.length;
+  const minutes = estimateBundleMinutes(items.length);
   const minuteLabel = language === 'en' ? `${minutes} min` : `${minutes}분`;
   const hasStarted = progress.completedItems > 0 || !!progress.bundleInteraction?.is_started;
   const remainingItems = Math.max(0, items.length - progress.completedItems);
-  const estimatedLeftMinutes = remainingItems;
+  const estimatedLeftMinutes = estimateBundleMinutes(remainingItems);
   const isCompleted = progress.progressPercent >= 100 || !!progress.bundleInteraction?.is_completed;
   const statusLabel = isCompleted ? t.completedStatus : hasStarted ? t.inProgress : t.notStarted;
   const lastStudiedLabel = formatProgressDate(progress.bundleInteraction?.last_studied_at, language) || t.noRecord;

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { getDisplayLanguage } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getBundleTitle } from '../../bundle-utils';
 import BundleQuizClient from './BundleQuizClient';
@@ -10,7 +11,12 @@ interface BundleQuizPageProps {
 
 export default async function BundleQuizPage({ params }: BundleQuizPageProps) {
   const { id } = await params;
-  const [bundle, items, language] = await Promise.all([getBundle(id), listBundleItems(id), getDisplayLanguage()]);
+  const [bundle, items, language, user] = await Promise.all([
+    getBundle(id),
+    listBundleItems(id),
+    getDisplayLanguage(),
+    getAppUserFromServer(),
+  ]);
 
   if (!bundle) notFound();
 
@@ -23,5 +29,19 @@ export default async function BundleQuizPage({ params }: BundleQuizPageProps) {
     }))
     .filter((item) => item.translation);
 
-  return <BundleQuizClient bundleId={bundle.id} title={getBundleTitle(bundle, language)} items={quizItems} language={language} />;
+  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
+  const initialItemId =
+    progress.currentPracticeItemIds.quiz && quizItems.some((item) => item.id === progress.currentPracticeItemIds.quiz)
+      ? progress.currentPracticeItemIds.quiz
+      : null;
+
+  return (
+    <BundleQuizClient
+      bundleId={bundle.id}
+      title={getBundleTitle(bundle, language)}
+      items={quizItems}
+      language={language}
+      initialItemId={initialItemId}
+    />
+  );
 }

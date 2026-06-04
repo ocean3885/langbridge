@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { categoryStyles } from '../bundle-data';
 import {
   getCategoryDescription,
@@ -66,13 +67,13 @@ export function BundleCategoriesSection({
           }
 
           return (
-            <a
+            <Link
               key={getCategoryKey(category)}
               href={getCategoryHref(category, language)}
               className="group flex min-h-0 items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:border-zinc-700 sm:min-h-64 sm:flex-col sm:items-stretch sm:gap-0 sm:p-5"
             >
               {content}
-            </a>
+            </Link>
           );
         })}
       </div>

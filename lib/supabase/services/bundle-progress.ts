@@ -11,6 +11,7 @@ export interface UserBundleInteraction {
   is_completed: boolean;
   progress_ratio: number;
   current_bundle_item_id: string | null;
+  current_practice_item_ids: Record<string, string> | null;
   started_at: string | null;
   completed_at: string | null;
   last_studied_at: string | null;
@@ -47,7 +48,10 @@ export interface BundleProgressSummary {
   progressRatio: number;
   progressPercent: number;
   currentBundleItemId: string | null;
+  currentPracticeItemIds: Record<string, string>;
 }
+
+export type BundlePracticeMode = 'flashcards' | 'quiz' | 'scramble' | (string & {});
 
 export async function getBundleProgressSummary(
   userId: string | null | undefined,
@@ -96,6 +100,7 @@ export async function getBundleProgressSummary(
     progressRatio,
     progressPercent: Math.round(progressRatio * 100),
     currentBundleItemId: bundleInteraction?.current_bundle_item_id || null,
+    currentPracticeItemIds: normalizePracticeItemIds(bundleInteraction?.current_practice_item_ids),
   };
 }
 
@@ -184,6 +189,66 @@ export async function updateBundlePinnedState(
   }
 
   return data as UserBundleInteraction;
+}
+
+export async function recordBundlePracticeAccess(
+  userId: string,
+  bundleId: string,
+  practiceMode: BundlePracticeMode,
+  currentBundleItemId: string,
+) {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: bundleItem, error: bundleItemError } = await supabase
+    .from('bundle_items')
+    .select('id')
+    .eq('id', currentBundleItemId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  if (bundleItemError || !bundleItem) {
+    throw new Error('Bundle item does not belong to the requested bundle.');
+  }
+
+  const { data: existingInteraction, error: existingError } = await supabase
+    .from('user_bundle_interactions')
+    .select('started_at, current_practice_item_ids')
+    .eq('user_id', userId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Error fetching user bundle interaction:', existingError);
+    throw existingError;
+  }
+
+  const currentPracticeItemIds = {
+    ...normalizePracticeItemIds(existingInteraction?.current_practice_item_ids),
+    [practiceMode]: currentBundleItemId,
+  };
+
+  const { error } = await supabase
+    .from('user_bundle_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        is_started: true,
+        current_practice_item_ids: currentPracticeItemIds,
+        started_at: existingInteraction?.started_at || now,
+        last_studied_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_id',
+      },
+    );
+
+  if (error) {
+    console.error('Error recording bundle practice access:', error);
+    throw error;
+  }
 }
 
 export async function recordBundleItemPractice(
@@ -292,6 +357,10 @@ export async function recordBundleItemPractice(
   const completed = completedItems || 0;
   const progressRatio = total > 0 ? Math.min(1, completed / total) : 0;
   const isBundleCompleted = total > 0 && completed >= total;
+  const currentPracticeItemIds = {
+    ...normalizePracticeItemIds(existingBundleInteraction?.current_practice_item_ids),
+    [mode]: bundleItemId,
+  };
 
   const { error: bundleError } = await supabase
     .from('user_bundle_interactions')
@@ -302,7 +371,7 @@ export async function recordBundleItemPractice(
         is_started: true,
         is_completed: isBundleCompleted,
         progress_ratio: progressRatio,
-        current_bundle_item_id: bundleItemId,
+        current_practice_item_ids: currentPracticeItemIds,
         started_at: existingBundleInteraction?.started_at || now,
         completed_at: isBundleCompleted ? existingBundleInteraction?.completed_at || now : existingBundleInteraction?.completed_at || null,
         last_studied_at: now,
@@ -330,5 +399,17 @@ function createEmptyBundleProgress(totalItems: number): BundleProgressSummary {
     progressRatio: 0,
     progressPercent: 0,
     currentBundleItemId: null,
+    currentPracticeItemIds: {},
   };
+}
+
+function normalizePracticeItemIds(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
 }

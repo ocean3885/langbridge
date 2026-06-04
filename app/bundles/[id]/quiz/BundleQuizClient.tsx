@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, X } from 'lucide-react';
 
@@ -15,6 +15,7 @@ interface BundleQuizClientProps {
   title: string;
   items: QuizItem[];
   language: 'ko' | 'en';
+  initialItemId?: string | null;
 }
 
 const copy = {
@@ -46,9 +47,10 @@ const copy = {
   },
 };
 
-export default function BundleQuizClient({ bundleId, title, items, language }: BundleQuizClientProps) {
+export default function BundleQuizClient({ bundleId, title, items, language, initialItemId = null }: BundleQuizClientProps) {
   const t = copy[language];
-  const [index, setIndex] = useState(0);
+  const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
+  const [index, setIndex] = useState(initialIndex);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -65,6 +67,11 @@ export default function BundleQuizClient({ bundleId, title, items, language }: B
 
   const progress = items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0;
   const isCorrect = selected === current?.translation;
+
+  useEffect(() => {
+    if (!current) return;
+    recordCurrentQuizItem(bundleId, current.id);
+  }, [bundleId, current]);
 
   const choose = (option: string) => {
     if (selected) return;
@@ -211,6 +218,18 @@ function recordPracticeResult(bundleId: string, bundleItemId: string, mode: 'qui
       bundle_item_id: bundleItemId,
       practice_mode: mode,
       is_correct: isCorrect,
+    }),
+  });
+}
+
+function recordCurrentQuizItem(bundleId: string, bundleItemId: string) {
+  void fetch('/api/bundle-progress', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bundle_id: bundleId,
+      current_bundle_item_id: bundleItemId,
+      current_practice_mode: 'quiz',
     }),
   });
 }

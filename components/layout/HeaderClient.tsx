@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { createClient } from '@/lib/supabase/client';
 import {
   DropdownMenu,
@@ -56,25 +57,14 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
   const supabase = createClient();
   const pathname = usePathname();
   const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isActiveNavItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     setMounted(true);
-    if (document.documentElement.classList.contains('dark')) {
-      setTheme('dark');
-    }
   }, []);
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
 
   const handleLogout = async () => {
     try {
@@ -126,9 +116,9 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               key={item.href}
               href={item.href}
               prefetch={false}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${isActiveNavItem(item.href)
-                ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50 dark:hover:bg-emerald-300'
-                : 'text-zinc-600 dark:text-zinc-300 hover:text-[#E27D60]'
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 active:scale-95 ${isActiveNavItem(item.href)
+                ? 'bg-[#DFF1E5] text-[#2F7D4A] hover:bg-[#cfe8d7] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50 dark:hover:bg-emerald-300 dark:hover:text-zinc-950'
+                : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-[#E27D60] dark:text-zinc-300 dark:hover:bg-zinc-800/50'
                 }`}
             >
               {item.name}
@@ -158,10 +148,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
 
           {/* Theme Toggle */}
           <button
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             className="p-2 rounded-full hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors text-zinc-600 dark:text-zinc-400"
           >
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            {resolvedTheme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
           {/* User Account / Login */}
@@ -252,7 +242,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                 prefetch={false}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`rounded-xl px-4 py-3 text-lg font-bold transition-colors ${isActiveNavItem(item.href)
-                  ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50'
+                  ? 'bg-[#DFF1E5] text-[#2F7D4A] hover:bg-[#cfe8d7] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50 dark:hover:bg-emerald-300 dark:hover:text-zinc-950'
                   : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
               >

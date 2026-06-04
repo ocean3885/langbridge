@@ -21,6 +21,7 @@ interface BundleScrambleClientProps {
   title: string;
   items: ScrambleItem[];
   language: 'ko' | 'en';
+  initialItemId?: string | null;
 }
 
 const MAX_SCRAMBLE = 10;
@@ -62,14 +63,15 @@ const copy = {
   },
 };
 
-export default function BundleScrambleClient({ bundleId, title, items, language }: BundleScrambleClientProps) {
+export default function BundleScrambleClient({ bundleId, title, items, language, initialItemId = null }: BundleScrambleClientProps) {
   const t = copy[language];
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [selectedWords, setSelectedWords] = useState<WordToken[]>([]);
   const [availableWords, setAvailableWords] = useState<WordToken[]>([]);
   const [hintSlots, setHintSlots] = useState<Map<number, WordToken>>(new Map());
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(initialIndex);
   const [isFinished, setIsFinished] = useState(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -123,6 +125,11 @@ export default function BundleScrambleClient({ bundleId, title, items, language 
   useEffect(() => {
     initQuestion(currentIndex);
   }, [currentIndex, initQuestion]);
+
+  useEffect(() => {
+    if (!currentItem) return;
+    recordCurrentPracticeItem(bundleId, 'scramble', currentItem.id);
+  }, [bundleId, currentItem]);
 
   const selectWord = (word: WordToken) => {
     if (result) return;
@@ -347,6 +354,18 @@ function recordPracticeResult(bundleId: string, bundleItemId: string, mode: 'qui
       bundle_item_id: bundleItemId,
       practice_mode: mode,
       is_correct: isCorrect,
+    }),
+  });
+}
+
+function recordCurrentPracticeItem(bundleId: string, practiceMode: string, bundleItemId: string) {
+  void fetch('/api/bundle-progress', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bundle_id: bundleId,
+      current_bundle_item_id: bundleItemId,
+      current_practice_mode: practiceMode,
     }),
   });
 }

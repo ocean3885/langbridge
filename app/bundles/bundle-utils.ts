@@ -1,6 +1,27 @@
 import { fallbackImages } from './bundle-data';
 import type { BundleCategoryRow, BundleRow, Language } from './types';
 
+export const BUNDLE_MINUTES_PER_ITEM = 1;
+
+export function estimateBundleMinutes(itemCount: number) {
+  return Math.max(0, itemCount) * BUNDLE_MINUTES_PER_ITEM;
+}
+
+export function estimateBundleMinutesForBundle(bundle: BundleRow) {
+  return estimateBundleMinutes(bundleItemCount(bundle));
+}
+
+export function getBundleMinutesRange(bundles: BundleRow[]) {
+  if (bundles.length === 0) return null;
+
+  const minutes = bundles.map(estimateBundleMinutesForBundle);
+
+  return {
+    min: Math.min(...minutes),
+    max: Math.max(...minutes),
+  };
+}
+
 export function groupBundlesByCategory(bundles: BundleRow[]) {
   return bundles.reduce<Record<string, BundleRow[]>>((groups, bundle) => {
     const key = getCategoryKey(bundle.bundle_category);

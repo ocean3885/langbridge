@@ -6,9 +6,10 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   BookOpen,
-  Bookmark,
   Check,
   ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronLeft,
   ChevronRight,
   Gauge,
@@ -19,8 +20,6 @@ import {
   Play,
   Repeat,
   Shuffle,
-  StickyNote,
-  X,
 } from 'lucide-react';
 import { getPublicUrl } from '@/lib/utils';
 import { formatWordMeaning } from '@/lib/word-meaning';
@@ -30,14 +29,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { type UserSentenceInteraction } from '@/lib/supabase/services/user-interactions';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
+import { estimateBundleMinutes } from '../bundle-utils';
 
 interface BundlePlayerClientProps {
   bundle: any;
   items: any[];
   language?: 'ko' | 'en';
-  initialInteractions?: UserSentenceInteraction[];
   user?: any;
   initialItemId?: string | null;
 }
@@ -63,16 +61,14 @@ const translations = {
     noKeywords: '연결된 핵심 단어가 없습니다.',
     previous: '이전',
     next: '다음',
+    first: '첫 문장',
+    last: '마지막 문장',
     listen: '듣기',
     slow: '느리게',
     repeat: '반복',
     auto: '자동',
     infiniteRepeat: '무한 반복',
     repeatTimes: (n: number) => `${n}번 반복`,
-    memoPlaceholder: '메모를 입력하세요...',
-    save: '저장',
-    cancel: '취소',
-    loginRequired: '로그인이 필요한 기능입니다.',
   },
   en: {
     backToBundle: 'Back',
@@ -87,16 +83,14 @@ const translations = {
     noKeywords: 'No related key words.',
     previous: 'Previous',
     next: 'Next',
+    first: 'First sentence',
+    last: 'Last sentence',
     listen: 'Listen',
     slow: 'Slow',
     repeat: 'Repeat',
     auto: 'Auto',
     infiniteRepeat: 'Infinite repeat',
     repeatTimes: (n: number) => `Repeat ${n} times`,
-    memoPlaceholder: 'Enter memo...',
-    save: 'Save',
-    cancel: 'Cancel',
-    loginRequired: 'Login required for this feature.',
   },
 };
 
@@ -104,7 +98,6 @@ export default function BundlePlayerClient({
   bundle,
   items,
   language = 'ko',
-  initialInteractions = [],
   user,
   initialItemId = null,
 }: BundlePlayerClientProps) {
@@ -116,15 +109,11 @@ export default function BundlePlayerClient({
   const [showSource, setShowSource] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [interactions, setInteractions] = useState<UserSentenceInteraction[]>(initialInteractions);
-  const [editingMemoId, setEditingMemoId] = useState<number | null>(null);
-  const [tempMemo, setTempMemo] = useState('');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef(false);
   const t = translations[language] || translations.ko;
   const currentItem = items[currentIndex];
-  const currentInteraction = interactions.find((interaction) => interaction.sentence_id === currentItem?.sentence_id);
   const title = getBundleTitle(bundle, language);
   const categoryName = getCategoryName(bundle, language);
   const level = getBundleLevelDisplay(bundle.level, language).label;
@@ -143,7 +132,6 @@ export default function BundlePlayerClient({
 
   useEffect(() => {
     setCurrentRepeat(0);
-    setEditingMemoId(null);
     if (isPlayingRef.current && currentItem) {
       window.setTimeout(() => playAudio(), 450);
     }
@@ -182,6 +170,20 @@ export default function BundlePlayerClient({
     playAudio();
   };
 
+  const saveCurrentItem = (bundleItemId: string | undefined) => {
+    if (!user || !bundleItemId) return;
+
+    void fetch('/api/bundle-progress', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bundle_id: bundle.id,
+        current_bundle_item_id: bundleItemId,
+      }),
+      keepalive: true,
+    }).catch((error) => console.error('Failed to save current bundle item:', error));
+  };
+
   const goToItem = (index: number, autoplay = true) => {
     const nextIndex = Math.max(0, Math.min(items.length - 1, index));
 
@@ -191,6 +193,7 @@ export default function BundlePlayerClient({
     }
 
     setCurrentIndex(nextIndex);
+    saveCurrentItem(items[nextIndex]?.id);
     if (autoplay) updateIsPlaying(true);
   };
 
@@ -215,81 +218,11 @@ export default function BundlePlayerClient({
     updateIsPlaying(false);
   };
 
-  const handleTogglePin = async (e: React.MouseEvent, sentenceId: number) => {
-    e.stopPropagation();
-    if (!user) {
-      alert(t.loginRequired);
-      return;
-    }
-
-    const interaction = interactions.find((item) => item.sentence_id === sentenceId);
-    const newIsPinned = !interaction?.is_pinned;
-
-    try {
-      const response = await fetch('/api/user-interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sentence_id: sentenceId,
-          is_pinned: newIsPinned,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to update pin');
-      const updated = await response.json();
-
-      setInteractions((prev) => {
-        const filtered = prev.filter((item) => item.sentence_id !== sentenceId);
-        return [...filtered, updated];
-      });
-    } catch {
-      alert('Failed to update pin status.');
-    }
-  };
-
-  const handleStartEditMemo = (e: React.MouseEvent, sentenceId: number, memo?: string | null) => {
-    e.stopPropagation();
-    if (!user) {
-      alert(t.loginRequired);
-      return;
-    }
-
-    setTempMemo(memo || '');
-    setEditingMemoId(sentenceId);
-  };
-
-  const handleSaveMemo = async (e: React.MouseEvent, sentenceId: number) => {
-    e.stopPropagation();
-    if (!user || !sentenceId) return;
-
-    try {
-      const response = await fetch('/api/user-interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sentence_id: sentenceId,
-          memo: tempMemo.trim() || null,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to save memo');
-      const updated = await response.json();
-
-      setInteractions((prev) => {
-        const filtered = prev.filter((item) => item.sentence_id !== sentenceId);
-        return [...filtered, updated];
-      });
-      setEditingMemoId(null);
-    } catch {
-      alert('Failed to save memo.');
-    }
-  };
-
   if (!items || items.length === 0) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center rounded-[28px] bg-white p-10 text-center shadow-sm">
-        <BookOpen className="mb-4 h-12 w-12 text-zinc-300" />
-        <p className="font-bold text-zinc-500">{t.noItems}</p>
+      <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center rounded-[28px] bg-white p-10 text-center shadow-sm dark:bg-zinc-900 dark:shadow-black/20">
+        <BookOpen className="mb-4 h-12 w-12 text-zinc-300 dark:text-zinc-600" />
+        <p className="font-bold text-zinc-500 dark:text-zinc-400">{t.noItems}</p>
       </div>
     );
   }
@@ -302,34 +235,23 @@ export default function BundlePlayerClient({
         onEnded={handleAudioEnded}
       />
 
-      <main className="overflow-hidden border-y border-zinc-100 bg-white shadow-sm sm:rounded-[22px] sm:border">
+      <main className="overflow-hidden border-y border-zinc-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:rounded-[22px] sm:border">
         <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 md:px-7">
-          <Link href={`/bundles/${bundle.id}`} className="inline-flex items-center gap-2 text-sm font-bold text-zinc-700 transition hover:text-[#2f7d4a]">
+          <Link href={`/bundles/${bundle.id}`} className="inline-flex items-center gap-2 text-sm font-bold text-zinc-700 transition hover:text-[#2f7d4a] dark:text-zinc-300 dark:hover:text-emerald-400">
             <ArrowLeft className="h-4 w-4" />
             {t.backToBundle}
           </Link>
-          <div className="flex items-center gap-1">
-            {user && currentItem?.sentence_id && (
-              <button
-                onClick={(e) => handleTogglePin(e, currentItem.sentence_id)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100"
-                aria-label="Save item"
-              >
-                <Bookmark className={`h-5 w-5 ${currentInteraction?.is_pinned ? 'fill-[#2f8f53] text-[#2f8f53]' : ''}`} />
-              </button>
-            )}
-          </div>
         </div>
 
         <section className="px-4 pb-4 sm:px-5 sm:pb-5 md:px-7">
-          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a]">{categoryName}</span>
-          <h1 className="mt-3 text-2xl font-black leading-tight tracking-normal text-zinc-950 md:text-3xl">{title}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-500">
+          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{categoryName}</span>
+          <h1 className="mt-3 text-2xl font-black leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
             <span>{currentIndex + 1} / {items.length} items</span>
             <span>·</span>
             <span>{level}</span>
             <span>·</span>
-            <span>Est. {items.length} min</span>
+            <span>Est. {estimateBundleMinutes(items.length)} min</span>
           </div>
         </section>
 
@@ -338,7 +260,7 @@ export default function BundlePlayerClient({
             {imageSrc ? (
               <Image src={imageSrc} alt={getItemSource(currentItem) || title} fill priority className="object-cover" sizes="(max-width: 1280px) 100vw, 1020px" />
             ) : (
-              <div className="flex h-full flex-col items-center justify-center text-zinc-500">
+              <div className="flex h-full flex-col items-center justify-center text-zinc-500 dark:text-zinc-400">
                 <BookOpen className="mb-3 h-12 w-12 opacity-50" />
                 <span className="text-sm font-bold">{t.noImage}</span>
               </div>
@@ -360,40 +282,40 @@ export default function BundlePlayerClient({
             </div>
           </div>
 
-          <div className="border-b border-zinc-100 bg-white px-4 py-5 text-center md:hidden">
+          <div className="border-b border-zinc-100 bg-white px-4 py-5 text-center dark:border-zinc-800 dark:bg-zinc-900 md:hidden">
             {hasSpeakerInfo && (
               <SpeakerLabel item={currentItem} variant="inline" />
             )}
             {showSource && (
-              <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-xl font-extrabold leading-snug text-zinc-950`}>
+              <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-xl font-extrabold leading-snug text-zinc-950 dark:text-zinc-50`}>
                 {getItemSource(currentItem)}
               </p>
             )}
             {showTranslation && (
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600">
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600 dark:text-zinc-300">
                 {getTranslation(currentItem, language)}
               </p>
             )}
           </div>
 
-          <div className="border-b border-zinc-100 bg-white px-4 py-4 sm:px-5 md:px-0">
+          <div className="border-b border-zinc-100 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900 sm:px-5 md:px-0">
             <div className="space-y-4">
-              <div className="grid grid-cols-4 items-center text-xs font-bold text-zinc-700 sm:text-sm">
+              <div className="grid grid-cols-4 items-center text-xs font-bold text-zinc-700 dark:text-zinc-300 sm:text-sm">
                 <button
                   onClick={() => setPlaybackRate((rate) => (rate === 1 ? 0.78 : 1))}
                   disabled={!audioSrc}
                   aria-pressed={playbackRate < 1}
-                  className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] disabled:cursor-not-allowed disabled:opacity-40 sm:gap-2 ${playbackRate < 1 ? 'text-[#2f7d4a]' : ''}`}
+                  className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-emerald-400 sm:gap-2 ${playbackRate < 1 ? 'text-[#2f7d4a] dark:text-emerald-400' : ''}`}
                 >
                   <Gauge className="h-4 w-4" />
                   {t.slow}
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="inline-flex min-w-0 items-center justify-center gap-1 px-1 py-2 transition hover:text-[#2f7d4a] sm:gap-2">
+                    <button className="inline-flex min-w-0 items-center justify-center gap-1 px-1 py-2 transition hover:text-[#2f7d4a] dark:hover:text-emerald-400 sm:gap-2">
                       <Repeat className="h-4 w-4 shrink-0" />
                       <span className="hidden sm:inline">{t.repeat}</span>
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#e8f3eb] px-1 py-0.5 text-[10px] font-black tabular-nums text-[#2f7d4a] sm:min-w-6 sm:px-1.5 sm:text-xs">
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#e8f3eb] px-1 py-0.5 text-[10px] font-black tabular-nums text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300 sm:min-w-6 sm:px-1.5 sm:text-xs">
                         {repeatCount === Infinity ? '∞' : repeatCount}
                       </span>
                       <ChevronDown className="hidden h-3 w-3 sm:block" />
@@ -403,36 +325,54 @@ export default function BundlePlayerClient({
                     {REPEAT_OPTIONS.map((count) => (
                       <DropdownMenuItem key={String(count)} onClick={() => { setRepeatCount(count); setCurrentRepeat(0); }} className="flex justify-between gap-4">
                         <span>{count === Infinity ? t.infiniteRepeat : t.repeatTimes(count)}</span>
-                        {repeatCount === count && <Check className="h-4 w-4 text-[#2f7d4a]" />}
+                        {repeatCount === count && <Check className="h-4 w-4 text-[#2f7d4a] dark:text-emerald-400" />}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <button onClick={() => setShowSource((value) => !value)} aria-pressed={showSource} className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] sm:gap-2 ${showSource ? '' : 'text-zinc-400'}`}>
+                <button onClick={() => setShowSource((value) => !value)} aria-pressed={showSource} className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] dark:hover:text-emerald-400 sm:gap-2 ${showSource ? '' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   <LetterText className="h-4 w-4" />
                   ES
                 </button>
-                <button onClick={() => setShowTranslation((value) => !value)} aria-pressed={showTranslation} className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] sm:gap-2 ${showTranslation ? '' : 'text-zinc-400'}`}>
+                <button onClick={() => setShowTranslation((value) => !value)} aria-pressed={showTranslation} className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 transition hover:text-[#2f7d4a] dark:hover:text-emerald-400 sm:gap-2 ${showTranslation ? '' : 'text-zinc-400 dark:text-zinc-500'}`}>
                   <Languages className="h-4 w-4" />
                   {language === 'ko' ? 'KO' : 'EN'}
                 </button>
               </div>
 
-              <div className="border-t border-zinc-100 pt-4">
-                <div className="mx-auto grid w-full max-w-[220px] grid-cols-3 items-center">
-                  <button onClick={handlePrev} disabled={currentIndex === 0} className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40" aria-label={t.previous}>
+              <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                <div className="mx-auto grid w-full max-w-[300px] grid-cols-5 items-center">
+                  <button
+                    onClick={() => goToItem(0, false)}
+                    disabled={currentIndex === 0}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    aria-label={t.first}
+                    title={t.first}
+                  >
+                    <ChevronsLeft className="h-5 w-5" />
+                  </button>
+                  <button onClick={handlePrev} disabled={currentIndex === 0} className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800" aria-label={t.previous}>
                     <ChevronLeft className="h-5 w-5" />
                   </button>
-                  <button onClick={togglePlay} disabled={!audioSrc} className="flex h-12 w-12 items-center justify-center justify-self-center rounded-full bg-[#2f8f53] text-white shadow-sm transition hover:bg-[#287b48] disabled:cursor-not-allowed disabled:opacity-40" aria-label={isPlaying ? 'Pause' : t.listen}>
+                  <button onClick={togglePlay} disabled={!audioSrc} className="flex h-12 w-12 items-center justify-center justify-self-center rounded-full bg-[#2f8f53] text-white shadow-sm transition hover:bg-[#287b48] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500" aria-label={isPlaying ? 'Pause' : t.listen}>
                     {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
                   </button>
                   <button
                     onClick={() => goToItem(currentIndex + 1, false)}
                     disabled={currentIndex === items.length - 1}
-                    className="flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40"
+                    className="flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     aria-label={t.next}
                   >
                     <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => goToItem(items.length - 1, false)}
+                    disabled={currentIndex === items.length - 1}
+                    className="flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    aria-label={t.last}
+                    title={t.last}
+                  >
+                    <ChevronsRight className="h-5 w-5" />
                   </button>
                 </div>
               </div>
@@ -441,62 +381,33 @@ export default function BundlePlayerClient({
         </section>
 
         <section className="space-y-5 p-4 sm:p-5 md:p-7">
-          <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
             <div className="flex w-full items-center px-4 py-4">
-              <span className="inline-flex items-center gap-3 text-base font-black text-zinc-950">
-                <BookOpen className="h-5 w-5 text-[#2f8f53]" />
+              <span className="inline-flex items-center gap-3 text-base font-black text-zinc-950 dark:text-zinc-50">
+                <BookOpen className="h-5 w-5 text-[#2f8f53] dark:text-emerald-400" />
                 {t.keyWords}
               </span>
             </div>
-            <div className="flex flex-wrap gap-2 border-t border-zinc-100 px-4 pb-4 pt-3">
+            <div className="flex flex-wrap gap-2 border-t border-zinc-100 px-4 pb-4 pt-3 dark:border-zinc-800">
               {keywords.length > 0 ? (
                 keywords.map((keyword) => (
-                  <span key={`${keyword.word}-${keyword.meaning}`} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-bold text-zinc-800">
+                  <span key={`${keyword.word}-${keyword.meaning}`} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-bold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                     {keyword.word}
-                    {keyword.meaning && <span className="font-semibold text-zinc-500">{keyword.meaning}</span>}
+                    {keyword.meaning && <span className="font-semibold text-zinc-500 dark:text-zinc-400">{keyword.meaning}</span>}
                   </span>
                 ))
               ) : (
-                <span className="text-sm font-semibold text-zinc-400">{t.noKeywords}</span>
+                <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">{t.noKeywords}</span>
               )}
             </div>
           </div>
-
-          {editingMemoId && currentItem?.sentence_id && (
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-zinc-500">
-                  <StickyNote className="h-4 w-4" />
-                  Memo
-                </span>
-                <button onClick={() => setEditingMemoId(null)} className="rounded-full p-1 transition hover:bg-white">
-                  <X className="h-4 w-4 text-zinc-500" />
-                </button>
-              </div>
-              <textarea
-                value={tempMemo}
-                onChange={(event) => setTempMemo(event.target.value)}
-                placeholder={t.memoPlaceholder}
-                className="w-full resize-none rounded-lg border border-emerald-100 bg-white p-3 text-sm outline-none focus:border-[#2f8f53]"
-                rows={3}
-              />
-              <div className="mt-3 flex justify-end gap-2">
-                <button onClick={() => setEditingMemoId(null)} className="rounded-lg px-4 py-2 text-xs font-bold text-zinc-500 transition hover:bg-white">
-                  {t.cancel}
-                </button>
-                <button onClick={(event) => handleSaveMemo(event, currentItem.sentence_id)} className="rounded-lg bg-[#2f8f53] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#287b48]">
-                  {t.save}
-                </button>
-              </div>
-            </div>
-          )}
 
         </section>
       </main>
 
       <aside className="px-3 pb-4 sm:px-0 sm:pb-0">
-        <section className="rounded-[18px] border border-zinc-100 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-black text-zinc-950 sm:text-lg">{t.practice}</h2>
+        <section className="rounded-[18px] border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:p-6">
+          <h2 className="text-base font-black text-zinc-950 dark:text-zinc-50 sm:text-lg">{t.practice}</h2>
           <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
             <PracticeLink href={`/bundles/${bundle.id}/flashcards`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.flashcards} tone="sky" />
             <PracticeLink href={`/bundles/${bundle.id}/quiz`} icon={<HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.quickQuiz} tone="violet" />
@@ -504,7 +415,7 @@ export default function BundlePlayerClient({
           </div>
           <Link
             href={`/bundles/${bundle.id}/items`}
-            className="mt-4 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50"
+            className="mt-4 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-700"
           >
             {t.viewItems}
           </Link>
@@ -523,13 +434,13 @@ function SpeakerLabel({ item, variant }: { item: any; variant: 'overlay' | 'inli
     <div
       className={`inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
         isOverlay
-          ? 'bg-white/90 text-zinc-900 shadow-sm backdrop-blur'
-          : 'bg-[#f2eee5] text-zinc-800'
+          ? 'bg-white/90 text-zinc-900 shadow-sm backdrop-blur dark:bg-zinc-900/90 dark:text-zinc-100 dark:shadow-black/30'
+          : 'bg-[#f2eee5] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
       }`}
     >
       {name && <span className="truncate">{name}</span>}
       {role && (
-        <span className="text-zinc-500">
+        <span className="text-zinc-500 dark:text-zinc-400">
           {name && '· '}
           {role}
         </span>
@@ -550,15 +461,15 @@ function PracticeLink({
   tone: 'sky' | 'violet' | 'orange';
 }) {
   const tones = {
-    sky: 'bg-sky-50 text-sky-600',
-    violet: 'bg-violet-50 text-violet-600',
-    orange: 'bg-orange-50 text-orange-600',
+    sky: 'bg-sky-50 text-sky-600 dark:bg-sky-950/70 dark:text-sky-300',
+    violet: 'bg-violet-50 text-violet-600 dark:bg-violet-950/70 dark:text-violet-300',
+    orange: 'bg-orange-50 text-orange-600 dark:bg-orange-950/70 dark:text-orange-300',
   };
 
   return (
-    <Link href={href} className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-xl border border-zinc-100 bg-white px-2 text-center transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-[132px] sm:gap-3 lg:min-h-[88px] lg:flex-row lg:justify-start lg:px-4 lg:text-left">
+    <Link href={href} className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-xl border border-zinc-100 bg-white px-2 text-center transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:hover:shadow-black/20 sm:min-h-[132px] sm:gap-3 lg:min-h-[88px] lg:flex-row lg:justify-start lg:px-4 lg:text-left">
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 lg:h-12 lg:w-12 ${tones[tone]}`}>{icon}</span>
-      <span className="text-xs font-black leading-tight text-zinc-800 sm:text-sm">{label}</span>
+      <span className="text-xs font-black leading-tight text-zinc-800 dark:text-zinc-100 sm:text-sm">{label}</span>
     </Link>
   );
 }

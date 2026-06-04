@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { getDisplayLanguage } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getPublicUrl } from '@/lib/utils';
 import { getBundleTitle } from '../../bundle-utils';
@@ -11,7 +12,12 @@ interface BundleFlashcardsPageProps {
 
 export default async function BundleFlashcardsPage({ params }: BundleFlashcardsPageProps) {
   const { id } = await params;
-  const [bundle, items, language] = await Promise.all([getBundle(id), listBundleItems(id), getDisplayLanguage()]);
+  const [bundle, items, language, user] = await Promise.all([
+    getBundle(id),
+    listBundleItems(id),
+    getDisplayLanguage(),
+    getAppUserFromServer(),
+  ]);
 
   if (!bundle) notFound();
 
@@ -24,5 +30,19 @@ export default async function BundleFlashcardsPage({ params }: BundleFlashcardsP
       audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
     }));
 
-  return <BundleFlashcardsClient bundleId={bundle.id} title={getBundleTitle(bundle, language)} items={cardItems} language={language} />;
+  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
+  const initialItemId =
+    progress.currentPracticeItemIds.flashcards && cardItems.some((item) => item.id === progress.currentPracticeItemIds.flashcards)
+      ? progress.currentPracticeItemIds.flashcards
+      : null;
+
+  return (
+    <BundleFlashcardsClient
+      bundleId={bundle.id}
+      title={getBundleTitle(bundle, language)}
+      items={cardItems}
+      language={language}
+      initialItemId={initialItemId}
+    />
+  );
 }

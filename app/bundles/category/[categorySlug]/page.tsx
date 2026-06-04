@@ -28,6 +28,8 @@ import {
   getCategoryTitle,
   isCategorySlugMatch,
   bundleItemCount,
+  estimateBundleMinutesForBundle,
+  getBundleMinutesRange,
 } from '../../bundle-utils';
 import type { BundleCategoryRow, BundleRow, Language } from '../../types';
 
@@ -96,10 +98,6 @@ function statusForIndex(index: number, language: Language) {
   return statuses[index % statuses.length];
 }
 
-function bundleMinutes(bundle: BundleRow, index: number) {
-  return bundleItemCount(bundle) * 2 + 4 + (index % 3) * 2;
-}
-
 function levelLabel(bundle: BundleRow, language: Language) {
   return getBundleLevelDisplay(bundle.level, language).label;
 }
@@ -154,7 +152,7 @@ function CategoryBundleCard({
           </span>
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
-            {bundleMinutes(bundle, index)} {copy.minutes}
+            {estimateBundleMinutesForBundle(bundle)} {copy.minutes}
           </span>
         </div>
       </div>
@@ -196,6 +194,10 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
   const featuredBundle = categoryBundles[0] ?? null;
   const gridBundles = featuredBundle ? categoryBundles.slice(1) : categoryBundles;
   const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/heroimg_land.jpg');
+  const minutesRange = getBundleMinutesRange(categoryBundles);
+  const minutesRangeLabel = minutesRange
+    ? `${minutesRange.min}${minutesRange.min === minutesRange.max ? '' : `-${minutesRange.max}`}`
+    : '0';
 
   return (
     <div className="-mx-4 -my-4 bg-background text-[#1f1b18] dark:text-zinc-100 sm:-mx-8 sm:-my-8">
@@ -246,7 +248,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               </span>
               <span className="inline-flex items-center gap-2">
                 <Clock3 className="h-5 w-5" />
-                10-25 {copy.minutes} per bundle
+                {minutesRangeLabel} {copy.minutes} per bundle
               </span>
             </div>
           </div>
@@ -344,12 +346,12 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#735b31] dark:text-amber-300">
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{levelLabel(featuredBundle, language)}</span>
                 <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{bundleItemCount(featuredBundle)} {copy.items}</span>
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{bundleMinutes(featuredBundle, 0)} {copy.minutes}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{estimateBundleMinutesForBundle(featuredBundle)} {copy.minutes}</span>
               </div>
             </div>
             <div className="flex flex-col gap-3 md:px-2">
               <Link
-                href={`/bundles/${featuredBundle.id}`}
+                href={`/bundles/${featuredBundle.id}/learn`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#57985a] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#477f4a] dark:bg-emerald-600 dark:hover:bg-emerald-500"
               >
                 {copy.start}

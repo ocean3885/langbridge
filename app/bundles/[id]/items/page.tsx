@@ -22,6 +22,8 @@ const copy = {
     count: (count: number) => `${count}개 항목`,
     empty: '등록된 학습 항목이 없습니다.',
     audio: '오디오 재생',
+    saveSentence: '문장 저장',
+    unsaveSentence: '문장 저장 해제',
     memo: '학습 메모',
     words: '연결 단어',
     memoPlaceholder: '이 문장에 대한 학습 메모를 입력하세요.',
@@ -37,6 +39,8 @@ const copy = {
     count: (count: number) => `${count} items`,
     empty: 'No learning items yet.',
     audio: 'Play audio',
+    saveSentence: 'Save sentence',
+    unsaveSentence: 'Unsave sentence',
     memo: 'Learning memo',
     words: 'Related words',
     memoPlaceholder: 'Add a learning memo for this sentence.',
@@ -78,20 +82,20 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
   const isConversationBundle = bundle.bundle_type?.code === 'conversation';
 
   return (
-    <div className="mx-auto max-w-5xl pb-12 text-[#191715]">
+    <div className="mx-auto max-w-5xl pb-12 text-[#191715] dark:text-zinc-100">
       <header className="mb-5">
-        <Link href={`/bundles/${bundle.id}`} className="inline-flex items-center gap-2 text-sm font-bold text-zinc-500 transition hover:text-[#2f7d4a]">
+        <Link href={`/bundles/${bundle.id}`} className="inline-flex items-center gap-2 text-sm font-bold text-zinc-500 transition hover:text-[#2f7d4a] dark:text-zinc-400 dark:hover:text-emerald-400">
           <ArrowLeft className="h-4 w-4" />
           {t.back}
         </Link>
-        <div className="mt-5 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm md:p-7">
-          <p className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a]">{t.title}</p>
+        <div className="mt-5 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 md:p-7">
+          <p className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{t.title}</p>
           <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-2xl font-extrabold leading-tight text-zinc-950 md:text-3xl">{title}</h1>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-zinc-600 md:text-base">{description}</p>
+              <h1 className="text-2xl font-extrabold leading-tight text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-zinc-600 dark:text-zinc-300 md:text-base">{description}</p>
             </div>
-            <p className="shrink-0 text-sm font-black text-zinc-500">{t.count(items.length)}</p>
+            <p className="shrink-0 text-sm font-black text-zinc-500 dark:text-zinc-400">{t.count(items.length)}</p>
           </div>
         </div>
       </header>
@@ -109,32 +113,34 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
               formatWordMeaning(item.words?.meaning_en) ||
               t.noTranslation;
             const audioUrl = getPublicUrl(item.audio_url || item.sentences?.audio_url);
-            const memo = item.sentence_id ? interactionBySentenceId.get(item.sentence_id)?.memo || null : null;
+            const interaction = item.sentence_id ? interactionBySentenceId.get(item.sentence_id) : null;
+            const memo = interaction?.memo || null;
+            const isPinned = Boolean(interaction?.is_pinned);
             const words = item.sentence_id ? wordsBySentenceId.get(item.sentence_id) || [] : [];
 
             return (
-              <article key={item.id} className="grid gap-4 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition hover:border-[#d3ead9] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
+              <article key={item.id} className="grid gap-4 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition hover:border-[#d3ead9] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:border-emerald-900 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
                 <div className="min-w-0">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#dff1e5] text-xs font-black text-[#2f7d4a]">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#dff1e5] text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
                       {index + 1}
                     </span>
                     <div className="min-w-0">
                       {isConversationBundle && (item.speaker_name || item.speaker_role || item.speaker_key) && (
-                        <div className="mb-1.5 inline-flex max-w-full items-center rounded-full bg-[#f2eee5] px-3 py-1 text-xs font-black text-zinc-800">
+                        <div className="mb-1.5 inline-flex max-w-full items-center rounded-full bg-[#f2eee5] px-3 py-1 text-xs font-black text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                           {(item.speaker_name || item.speaker_key) && (
                             <span className="truncate">{item.speaker_name || item.speaker_key}</span>
                           )}
                           {item.speaker_role && (
-                            <span className="text-zinc-500">
+                            <span className="text-zinc-500 dark:text-zinc-400">
                               {(item.speaker_name || item.speaker_key) && ' · '}
                               {item.speaker_role}
                             </span>
                           )}
                         </div>
                       )}
-                      <h2 className="text-lg font-bold leading-8 text-zinc-950 md:text-xl">{sentence}</h2>
-                      <p className="mt-1 text-base font-medium leading-7 text-zinc-600">{translation}</p>
+                      <h2 className="text-lg font-bold leading-8 text-zinc-950 dark:text-zinc-50 md:text-xl">{sentence}</h2>
+                      <p className="mt-1 text-base font-medium leading-7 text-zinc-600 dark:text-zinc-300">{translation}</p>
                       {words.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2" aria-label={t.words}>
                           {words.map((word) => {
@@ -146,17 +152,17 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                             return (
                               <span
                                 key={`${word.sentence_id}-${word.word_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                               >
                                 {word.used_as || word.word}
-                                {meaning && <span className="font-medium text-zinc-500">· {meaning}</span>}
+                                {meaning && <span className="font-medium text-zinc-500 dark:text-zinc-400">· {meaning}</span>}
                               </span>
                             );
                           })}
                         </div>
                       )}
                       {memo && (
-                        <p className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium leading-6 text-[#2f7d4a]">
+                        <p className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium leading-6 text-[#2f7d4a] dark:bg-emerald-950/50 dark:text-emerald-300">
                           <StickyNote className="mt-1 h-3.5 w-3.5 shrink-0 fill-current" />
                           {memo}
                         </p>
@@ -169,9 +175,12 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                   audioUrl={audioUrl}
                   sentenceId={item.sentence_id || null}
                   initialMemo={memo}
+                  initialIsPinned={isPinned}
                   isLoggedIn={Boolean(user)}
                   copy={{
                     audio: t.audio,
+                    saveSentence: t.saveSentence,
+                    unsaveSentence: t.unsaveSentence,
                     memo: t.memo,
                     memoPlaceholder: t.memoPlaceholder,
                     save: t.save,
@@ -184,9 +193,9 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
           })}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-zinc-200 bg-white py-16 text-center">
-          <BookOpen className="mx-auto mb-3 h-10 w-10 text-zinc-300" />
-          <p className="text-sm font-bold text-zinc-500">{t.empty}</p>
+        <div className="rounded-2xl border border-dashed border-zinc-200 bg-white py-16 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+          <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">{t.empty}</p>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import type { BundleCategoryRow, BundleCopy, BundleRow, Language } from '../types';
 import { getCategoryAnchorId, getCategoryDescription, getCategoryHref, getCategoryTitle } from '../bundle-utils';
 import { BundleCard } from './BundleCard';
@@ -25,13 +26,13 @@ export function BundleCategorySection({
             {getCategoryDescription(category, language)}
           </p>
         </div>
-        <a
+        <Link
           href={getCategoryHref(category, language)}
           className="flex shrink-0 items-center gap-1 text-sm font-medium text-zinc-700 transition hover:text-[#2f7d4a] dark:text-zinc-300 dark:hover:text-emerald-400"
         >
           {copy.viewAll}
           <ChevronRight className="h-4 w-4" />
-        </a>
+        </Link>
       </div>
       <div className="grid grid-cols-[repeat(3,minmax(150px,1fr))] gap-4 overflow-x-auto pb-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {bundles.map((bundle, index) => (
