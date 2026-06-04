@@ -75,6 +75,7 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
   const t = copy[language];
   const title = getBundleTitle(bundle, language);
   const description = getBundleDescription(bundle, language);
+  const isConversationBundle = bundle.bundle_type?.code === 'conversation';
 
   return (
     <div className="mx-auto max-w-5xl pb-12 text-[#191715]">
@@ -119,6 +120,19 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                       {index + 1}
                     </span>
                     <div className="min-w-0">
+                      {isConversationBundle && (item.speaker_name || item.speaker_role || item.speaker_key) && (
+                        <div className="mb-1.5 inline-flex max-w-full items-center rounded-full bg-[#f2eee5] px-3 py-1 text-xs font-black text-zinc-800">
+                          {(item.speaker_name || item.speaker_key) && (
+                            <span className="truncate">{item.speaker_name || item.speaker_key}</span>
+                          )}
+                          {item.speaker_role && (
+                            <span className="text-zinc-500">
+                              {(item.speaker_name || item.speaker_key) && ' · '}
+                              {item.speaker_role}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <h2 className="text-lg font-bold leading-8 text-zinc-950 md:text-xl">{sentence}</h2>
                       <p className="mt-1 text-base font-medium leading-7 text-zinc-600">{translation}</p>
                       {words.length > 0 && (

@@ -155,6 +155,37 @@ export async function recordBundleStudyAccess(
   }
 }
 
+export async function updateBundlePinnedState(
+  userId: string,
+  bundleId: string,
+  isPinned: boolean,
+) {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('user_bundle_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        is_pinned: isPinned,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id,bundle_id',
+      },
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating bundle pinned state:', error);
+    throw error;
+  }
+
+  return data as UserBundleInteraction;
+}
+
 export async function recordBundleItemPractice(
   userId: string,
   bundleId: string,

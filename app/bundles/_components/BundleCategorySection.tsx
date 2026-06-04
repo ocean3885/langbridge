@@ -21,13 +21,13 @@ export function BundleCategorySection({
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h2 className="font-serif text-2xl font-semibold">{getCategoryTitle(category, language)}</h2>
-          <p className="mt-1 hidden truncate text-sm text-zinc-500 sm:block">
+          <p className="mt-1 hidden truncate text-sm text-zinc-500 dark:text-zinc-400 sm:block">
             {getCategoryDescription(category, language)}
           </p>
         </div>
         <a
           href={getCategoryHref(category, language)}
-          className="flex shrink-0 items-center gap-1 text-sm font-medium text-zinc-700"
+          className="flex shrink-0 items-center gap-1 text-sm font-medium text-zinc-700 transition hover:text-[#2f7d4a] dark:text-zinc-300 dark:hover:text-emerald-400"
         >
           {copy.viewAll}
           <ChevronRight className="h-4 w-4" />

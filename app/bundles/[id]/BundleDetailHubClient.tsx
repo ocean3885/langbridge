@@ -1,14 +1,14 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  Info,
   Layers,
   Library,
   MessageCircleQuestion,
-  MoreVertical,
   Shuffle,
   Star,
 } from 'lucide-react';
@@ -21,6 +21,7 @@ interface BundleDetailHubClientProps {
   items: any[];
   language: 'ko' | 'en';
   progress: BundleProgressSummary;
+  isLoggedIn: boolean;
 }
 
 const copy = {
@@ -30,6 +31,12 @@ const copy = {
     level: 'Level',
     cefr: 'CEFR',
     progressTitle: '내 진행률',
+    progressInfoLabel: '진행률 반영 기준 보기',
+    progressInfo: '학습 성취도는 아래 연습 모드에서 학습 활동을 완료하면 올라갑니다. 일반 학습 화면에서 문장을 듣는 것만으로는 완료 항목에 포함되지 않습니다.',
+    saveBundle: '번들 저장',
+    unsaveBundle: '번들 저장 해제',
+    loginRequired: '번들을 저장하려면 로그인이 필요합니다.',
+    saveFailed: '번들 저장 상태를 변경하지 못했습니다.',
     completed: (done: number, total: number) => `${done} / ${total} 완료`,
     status: '상태',
     notStarted: '시작 전',
@@ -55,6 +62,12 @@ const copy = {
     level: 'Level',
     cefr: 'CEFR',
     progressTitle: 'My progress',
+    progressInfoLabel: 'View how progress is measured',
+    progressInfo: 'Your progress increases when you complete activities in the Practice Modes below. Listening to sentences on the learning screen alone does not mark items as complete.',
+    saveBundle: 'Save bundle',
+    unsaveBundle: 'Remove saved bundle',
+    loginRequired: 'Log in to save this bundle.',
+    saveFailed: 'Failed to update the saved bundle.',
     completed: (done: number, total: number) => `${done} / ${total} complete`,
     status: 'Status',
     notStarted: 'Not started',
@@ -76,7 +89,10 @@ const copy = {
   },
 };
 
-export default function BundleDetailHubClient({ bundle, items, language, progress }: BundleDetailHubClientProps) {
+export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn }: BundleDetailHubClientProps) {
+  const [showProgressInfo, setShowProgressInfo] = useState(false);
+  const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
+  const [isUpdatingPinned, setIsUpdatingPinned] = useState(false);
   const t = copy[language] || copy.ko;
   const title = getBundleTitle(bundle, language);
   const description = getBundleDescription(bundle, language);
@@ -99,49 +115,87 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
     : `/bundles/${bundle.id}/learn`;
 
+  const handleTogglePinned = async () => {
+    if (!isLoggedIn) {
+      alert(t.loginRequired);
+      return;
+    }
+
+    if (isUpdatingPinned) return;
+
+    const nextPinned = !isPinned;
+    setIsPinned(nextPinned);
+    setIsUpdatingPinned(true);
+
+    try {
+      const response = await fetch('/api/bundle-progress', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bundle_id: bundle.id,
+          is_pinned: nextPinned,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update bundle pin');
+    } catch {
+      setIsPinned(!nextPinned);
+      alert(t.saveFailed);
+    } finally {
+      setIsUpdatingPinned(false);
+    }
+  };
+
   return (
-    <div className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl bg-[#fbf8f2] text-[#191715] shadow-sm md:rounded-[28px] md:border md:border-zinc-200 lg:border-0 lg:bg-transparent lg:shadow-none">
+    <div className="mx-auto min-h-[calc(100vh-8rem)] max-w-6xl bg-[#fbf8f2] text-[#191715] shadow-sm dark:bg-zinc-950 dark:text-zinc-100 md:rounded-[28px] md:border md:border-zinc-200 md:dark:border-zinc-800 lg:border-0 lg:bg-transparent lg:shadow-none lg:dark:border-0 lg:dark:bg-transparent">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] lg:items-start">
-      <div className="relative overflow-hidden rounded-b-[28px] bg-white lg:rounded-[28px] lg:border lg:border-zinc-100 lg:shadow-sm">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#fffaf1] via-white/75 to-white" />
+      <div className="relative overflow-hidden rounded-b-[28px] bg-white dark:bg-zinc-900 lg:rounded-[28px] lg:border lg:border-zinc-100 lg:shadow-sm lg:dark:border-zinc-800 lg:dark:shadow-black/20">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#fffaf1] via-white/75 to-white dark:from-zinc-800 dark:via-zinc-900/85 dark:to-zinc-900" />
         <div className="relative z-10 flex items-center justify-between px-5 pb-2 pt-4">
           <Link
             href={backHref}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex items-center gap-1">
-            <button className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100" aria-label="Save bundle">
-              <Star className="h-5 w-5" />
-            </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100" aria-label="More">
-              <MoreVertical className="h-5 w-5" />
+            <button
+              type="button"
+              onClick={handleTogglePinned}
+              disabled={isUpdatingPinned}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-zinc-800 ${
+                isPinned ? 'text-amber-500' : 'text-zinc-800 dark:text-zinc-200'
+              }`}
+              aria-label={isPinned ? t.unsaveBundle : t.saveBundle}
+              aria-pressed={isPinned}
+              title={isPinned ? t.unsaveBundle : t.saveBundle}
+            >
+              <Star className={`h-5 w-5 ${isPinned ? 'fill-current' : ''}`} />
             </button>
           </div>
         </div>
 
         <section className="relative z-10 px-7 pb-5 lg:px-9 lg:pb-7">
-          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a]">
+          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
             {categoryName}
           </span>
-          <h1 className="mt-3 text-2xl font-extrabold leading-tight tracking-normal text-zinc-950 lg:max-w-2xl lg:text-5xl">{title}</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-700 lg:max-w-xl lg:text-base lg:leading-7">{description}</p>
+          <h1 className="mt-3 text-2xl font-extrabold leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 lg:max-w-2xl lg:text-5xl">{title}</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-700 dark:text-zinc-300 lg:max-w-xl lg:text-base lg:leading-7">{description}</p>
         </section>
 
         <div className="relative z-10 h-44 w-full overflow-hidden lg:h-[360px]">
           {bundle.thumbnail_url ? (
             <Image src={bundle.thumbnail_url} alt={title} fill priority className="object-cover" sizes="(max-width: 1024px) 448px, 760px" />
           ) : (
-            <div className="flex h-full items-center justify-center bg-[#f3ede3] text-[#8b7c66]">
+            <div className="flex h-full items-center justify-center bg-[#f3ede3] text-[#8b7c66] dark:bg-zinc-800 dark:text-zinc-500">
               <Layers className="h-14 w-14" />
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent dark:from-zinc-900" />
         </div>
 
-        <div className="relative z-20 mx-5 -mt-4 grid grid-cols-4 rounded-2xl border border-zinc-100 bg-white shadow-md lg:mx-8 lg:-mt-8">
+        <div className="relative z-20 mx-5 -mt-4 grid grid-cols-4 rounded-2xl border border-zinc-100 bg-white shadow-md dark:border-zinc-700 dark:bg-zinc-800 dark:shadow-black/30 lg:mx-8 lg:-mt-8">
           <Stat label={t.level} value={level.label} />
           <Stat label={t.itemUnit} value={String(items.length)} />
           <Stat label={t.estimate} value={minuteLabel} />
@@ -150,15 +204,36 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
       </div>
 
       <main className="space-y-4 px-5 pb-8 pt-4 lg:px-0 lg:pt-0">
-        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm lg:p-6">
-          <h2 className="text-base font-bold tracking-tight text-zinc-950">{t.progressTitle}</h2>
+        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.progressTitle}</h2>
+            <button
+              type="button"
+              onClick={() => setShowProgressInfo((visible) => !visible)}
+              aria-label={t.progressInfoLabel}
+              aria-expanded={showProgressInfo}
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                showProgressInfo
+                  ? 'bg-[#e3f1e7] text-[#2f7d4a] dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'text-zinc-400 hover:bg-zinc-100 hover:text-[#2f7d4a] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-emerald-300'
+              }`}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
           <div className="mt-3 flex items-end justify-between gap-4">
-            <p className="text-lg font-extrabold tracking-tight text-zinc-950">{t.completed(progress.completedItems, items.length)}</p>
-            <p className="text-sm font-semibold tabular-nums text-zinc-700">{progress.progressPercent}%</p>
+            <p className="text-lg font-extrabold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, items.length)}</p>
+            <p className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{progress.progressPercent}%</p>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200">
-            <div className="h-full rounded-full bg-[#3f8d54]" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div className="h-full rounded-full bg-[#3f8d54] dark:bg-emerald-500" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
           </div>
+          {showProgressInfo && (
+            <div className="mt-3 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
+              <Info className="mt-1 h-4 w-4 shrink-0 text-[#2f7d4a] dark:text-emerald-400" />
+              <p>{t.progressInfo}</p>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <ProgressMeta label={t.status} value={statusLabel} />
             <ProgressMeta label={t.remaining} value={t.remainingItems(remainingItems)} />
@@ -167,20 +242,20 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           </div>
           <Link
             href={learnHref}
-            className="mt-5 flex h-12 w-full items-center justify-center rounded-lg bg-[#3f8d54] text-sm font-bold text-white shadow-sm transition hover:bg-[#347946]"
+            className="mt-5 flex h-12 w-full items-center justify-center rounded-lg bg-[#3f8d54] text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
             {hasStarted ? t.continue : t.start}
           </Link>
           <Link
             href={`/bundles/${bundle.id}/items`}
-            className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-800 transition hover:bg-zinc-50"
+            className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             {t.viewItems}
           </Link>
         </section>
 
-        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm lg:p-6">
-          <h2 className="mb-4 text-base font-bold tracking-tight text-zinc-950">{t.practiceModes}</h2>
+        <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">
+          <h2 className="mb-4 text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.practiceModes}</h2>
           <div className="grid grid-cols-3 gap-2 lg:gap-3">
             <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
             <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
@@ -204,18 +279,18 @@ function formatProgressDate(date: string | null | undefined, language: 'ko' | 'e
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-r border-zinc-100 px-2 py-3 text-center last:border-r-0">
-      <p className="truncate text-sm font-bold text-[#2f7d4a]">{value}</p>
-      <p className="mt-1 truncate text-[10px] font-semibold text-zinc-500">{label}</p>
+    <div className="border-r border-zinc-100 px-2 py-3 text-center last:border-r-0 dark:border-zinc-700">
+      <p className="truncate text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{value}</p>
+      <p className="mt-1 truncate text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
   );
 }
 
 function ProgressMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-[#f8f6f0] px-3 py-2">
-      <p className="text-xs font-medium leading-4 text-zinc-500">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-zinc-900">{value}</p>
+    <div className="rounded-xl bg-[#f8f6f0] px-3 py-2 dark:bg-zinc-800">
+      <p className="text-xs font-medium leading-4 text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</p>
     </div>
   );
 }
@@ -232,15 +307,15 @@ function ModeLink({
   color: 'blue' | 'violet' | 'orange';
 }) {
   const colors = {
-    blue: 'bg-sky-50 text-sky-700',
-    violet: 'bg-violet-50 text-violet-700',
-    orange: 'bg-orange-50 text-orange-700',
+    blue: 'bg-sky-50 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300',
+    violet: 'bg-violet-50 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300',
+    orange: 'bg-orange-50 text-orange-700 dark:bg-orange-950/70 dark:text-orange-300',
   };
 
   return (
-    <Link href={href} className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl bg-white px-1 text-center shadow-sm ring-1 ring-zinc-100 transition hover:-translate-y-0.5 hover:shadow-md">
+    <Link href={href} className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl bg-white px-1 text-center shadow-sm ring-1 ring-zinc-100 transition hover:-translate-y-0.5 hover:shadow-md dark:bg-zinc-800 dark:shadow-black/20 dark:ring-zinc-700 dark:hover:bg-zinc-700">
       <span className={`flex h-10 w-10 items-center justify-center rounded-full ${colors[color]}`}>{icon}</span>
-      <span className="text-xs font-bold leading-tight text-zinc-700">{label}</span>
+      <span className="text-xs font-bold leading-tight text-zinc-700 dark:text-zinc-200">{label}</span>
     </Link>
   );
 }

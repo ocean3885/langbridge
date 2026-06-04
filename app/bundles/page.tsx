@@ -20,7 +20,7 @@ export default async function BundlesPage() {
   const groupedBundles = groupBundlesByCategory(publishedBundles);
 
   return (
-    <div className="mx-auto max-w-7xl px-2 pb-12 text-[#1f1b18]">
+    <div className="mx-auto max-w-7xl px-2 pb-12 text-[#1f1b18] dark:text-zinc-100">
       <BundlesHero copy={copy} />
 
       <BundleCategoriesSection

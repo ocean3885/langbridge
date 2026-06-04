@@ -20,8 +20,8 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
   const level = getBundleLevelDisplay(bundle.level, language);
 
   return (
-    <section className="mt-6 grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[0.92fr_1fr]">
-      <div className="relative min-h-64 lg:min-h-56">
+    <section className="mt-6 grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[0.92fr_1fr]">
+      <div className="relative min-h-64 bg-zinc-100 dark:bg-zinc-800 lg:min-h-56">
         <Image src={image} alt={title} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
       </div>
       <div className="p-6 lg:p-8">
@@ -30,9 +30,9 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           {copy.featured}
         </p>
         <h2 className="font-serif text-3xl font-semibold leading-tight">{title}</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">{description}</p>
-        <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-zinc-600">
-          <span className="rounded-full bg-[#f8dfb7] px-3 py-1 font-medium text-[#7d6230]">
+        <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">{description}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400">
+          <span className="rounded-full bg-[#f8dfb7] px-3 py-1 font-medium text-[#7d6230] dark:bg-amber-950/70 dark:text-amber-300">
             {getCategoryName(bundle, language)}
           </span>
           <span className="flex items-center gap-1">
@@ -58,7 +58,7 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           </Link>
           <Link
             href={`/bundles/${bundle.id}`}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-7 py-3 text-sm font-bold transition hover:bg-zinc-50"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-7 py-3 text-sm font-bold transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             {copy.preview}
             <Eye className="h-4 w-4" />

@@ -89,7 +89,21 @@ interface TTSOption {
   name: string;
 }
 
-const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; voices: TTSOption[] }> = {
+interface TTSVoiceOption extends TTSOption {
+  supportedModels: string[];
+}
+
+const ELEVENLABS_MODELS: TTSOption[] = [
+  { id: 'eleven_multilingual_v2', name: 'Multilingual v2' },
+  { id: 'eleven_turbo_v2_5', name: 'Turbo v2.5' },
+  { id: 'eleven_flash_v2_5', name: 'Flash v2.5' },
+  { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
+  { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
+];
+
+const ELEVENLABS_MODEL_IDS = ELEVENLABS_MODELS.map(model => model.id);
+
+const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; voices: TTSVoiceOption[] }> = {
   google: {
     name: 'Google Cloud TTS',
     models: [
@@ -98,45 +112,44 @@ const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; vo
       { id: 'neural2', name: 'Neural2' },
     ],
     voices: [
-      { id: 'es-ES-Standard-A', name: 'es-ES-Standard-A (여성)' },
-      { id: 'es-ES-Standard-B', name: 'es-ES-Standard-B (남성)' },
-      { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)' },
-      { id: 'es-ES-Neural2-B', name: 'es-ES-Neural2-B (남성)' },
-      { id: 'es-ES-Wavenet-B', name: 'es-ES-Wavenet-B (남성)' },
-      { id: 'es-ES-Wavenet-C', name: 'es-ES-Wavenet-C (여성)' },
+      { id: 'es-ES-Standard-A', name: 'es-ES-Standard-A (여성)', supportedModels: ['standard'] },
+      { id: 'es-ES-Standard-B', name: 'es-ES-Standard-B (남성)', supportedModels: ['standard'] },
+      { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Neural2-B', name: 'es-ES-Neural2-B (남성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Wavenet-B', name: 'es-ES-Wavenet-B (남성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Wavenet-C', name: 'es-ES-Wavenet-C (여성)', supportedModels: ['wavenet'] },
     ]
   },
   elevenlabs: {
     name: 'ElevenLabs',
-    models: [
-      { id: 'eleven_multilingual_v2', name: 'Multilingual v2' },
-      { id: 'eleven_turbo_v2_5', name: 'Turbo v2.5' },
-      { id: 'eleven_flash_v2_5', name: 'Flash v2.5' },
-      { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
-      { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
-    ],
+    models: ELEVENLABS_MODELS,
     voices: [
-      { id: '2Lb1en5ujrODDIqmp7F3', name: '스페인어 학습 기본 (Custom)' },
-      { id: '21m00Tcm4TlvDq8ikWAM', name: '스페인어 회화 여성 A - 차분함' },
-      { id: 'EXAVITQu4vr4xnSDxMaL', name: '스페인어 회화 여성 B - 밝음' },
-      { id: 'AZnzlk1XvdvUeBnXmlld', name: '스페인어 설명 여성 C - 또렷함' },
-      { id: '29vD33N1CtxCmqQRPOHJ', name: '스페인어 회화 남성 A - 안정적' },
-      { id: 'pNInz6obpgDQGcFmaJcg', name: '스페인어 설명 남성 B - 깊은 톤' },
+      { id: '2Lb1en5ujrODDIqmp7F3', name: '스페인어 학습 기본 (Custom)', supportedModels: ELEVENLABS_MODEL_IDS },
+      { id: '21m00Tcm4TlvDq8ikWAM', name: '스페인어 회화 여성 A - 차분함', supportedModels: ELEVENLABS_MODEL_IDS },
+      { id: 'EXAVITQu4vr4xnSDxMaL', name: '스페인어 회화 여성 B - 밝음', supportedModels: ELEVENLABS_MODEL_IDS },
+      { id: 'AZnzlk1XvdvUeBnXmlld', name: '스페인어 설명 여성 C - 또렷함', supportedModels: ELEVENLABS_MODEL_IDS },
+      { id: '29vD33N1CtxCmqQRPOHJ', name: '스페인어 회화 남성 A - 안정적', supportedModels: ELEVENLABS_MODEL_IDS },
+      { id: 'pNInz6obpgDQGcFmaJcg', name: '스페인어 설명 남성 B - 깊은 톤', supportedModels: ELEVENLABS_MODEL_IDS },
     ]
   }
 };
 
 function getVoicesForTtsSelection(provider: TTSProvider, model: string) {
-  const voices = TTS_PROVIDERS[provider].voices;
-  if (provider !== 'google') return voices;
-
-  const modelName = model.toLowerCase();
-  const modelVoices = voices.filter(voice => voice.id.toLowerCase().includes(`-${modelName}-`));
-  return modelVoices.length > 0 ? modelVoices : voices;
+  return TTS_PROVIDERS[provider].voices.filter(voice => voice.supportedModels.includes(model));
 }
 
 function getDefaultVoiceForTtsSelection(provider: TTSProvider, model: string) {
-  return getVoicesForTtsSelection(provider, model)[0]?.id || TTS_PROVIDERS[provider].voices[0].id;
+  return getVoicesForTtsSelection(provider, model)[0]?.id || '';
+}
+
+function normalizeTtsSelection(providerValue: unknown, modelValue?: string | null, voiceValue?: string | null) {
+  const provider: TTSProvider = providerValue === 'google' ? 'google' : 'elevenlabs';
+  const models = TTS_PROVIDERS[provider].models;
+  const model = models.some(option => option.id === modelValue) ? modelValue! : models[0].id;
+  const voices = getVoicesForTtsSelection(provider, model);
+  const voice = voices.some(option => option.id === voiceValue) ? voiceValue! : (voices[0]?.id || '');
+
+  return { provider, model, voice };
 }
 
 const defaultSentenceTtsOptions = {
@@ -316,12 +329,14 @@ export default function BundleCreateForm({ userId }: Props) {
       const next: SpeakerTtsOptions = {};
 
       for (const speaker of parsedData.speakers || []) {
-        const provider = speaker.provider || prev[speaker.key]?.provider || defaultSentenceTtsOptions.provider;
-        const model = speaker.model || prev[speaker.key]?.model || TTS_PROVIDERS[provider].models[0].id;
+        const current = prev[speaker.key];
+        const selection = normalizeTtsSelection(
+          speaker.provider || current?.provider || defaultSentenceTtsOptions.provider,
+          speaker.model || current?.model,
+          speaker.voice || current?.voice
+        );
         next[speaker.key] = {
-          provider,
-          model,
-          voice: speaker.voice || prev[speaker.key]?.voice || getDefaultVoiceForTtsSelection(provider, model),
+          ...selection,
           speed: speaker.speed ?? prev[speaker.key]?.speed ?? defaultSentenceTtsOptions.speed,
           stability: speaker.stability ?? prev[speaker.key]?.stability ?? defaultSentenceTtsOptions.stability,
           similarityBoost: speaker.similarityBoost ?? prev[speaker.key]?.similarityBoost ?? defaultSentenceTtsOptions.similarityBoost,
@@ -343,14 +358,12 @@ export default function BundleCreateForm({ userId }: Props) {
       const provider = updates.provider || current.provider;
       const providerChanged = updates.provider && updates.provider !== current.provider;
       const model = providerChanged ? TTS_PROVIDERS[provider].models[0].id : (updates.model || current.model);
-      const modelChanged = updates.model && updates.model !== current.model;
+      const selection = normalizeTtsSelection(provider, model, updates.voice || current.voice);
 
       return {
         ...prev,
         [speakerKey]: {
-          provider,
-          model,
-          voice: updates.voice || (providerChanged || modelChanged ? getDefaultVoiceForTtsSelection(provider, model) : current.voice),
+          ...selection,
           speed: updates.speed ?? current.speed,
           stability: updates.stability ?? current.stability,
           similarityBoost: updates.similarityBoost ?? current.similarityBoost,
@@ -464,14 +477,22 @@ export default function BundleCreateForm({ userId }: Props) {
         is_published: false
       };
       setBundleMeta({ ...defaultMeta, ...(draft.bundleMeta || {}) });
-      setSentenceTtsOptions({
+      const draftSentenceTts = {
         ...defaultSentenceTtsOptions,
         ...(draft.sentenceTtsOptions || {})
+      };
+      setSentenceTtsOptions({
+        ...draftSentenceTts,
+        ...normalizeTtsSelection(draftSentenceTts.provider, draftSentenceTts.model, draftSentenceTts.voice)
       });
       setSpeakerTtsOptions(Object.fromEntries(
         Object.entries(draft.speakerTtsOptions || {}).map(([key, value]: [string, any]) => [
           key,
-          { ...defaultSentenceTtsOptions, ...value }
+          {
+            ...defaultSentenceTtsOptions,
+            ...value,
+            ...normalizeTtsSelection(value?.provider, value?.model, value?.voice)
+          }
         ])
       ));
       

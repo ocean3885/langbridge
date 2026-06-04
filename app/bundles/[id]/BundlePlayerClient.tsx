@@ -131,6 +131,10 @@ export default function BundlePlayerClient({
   const audioSrc = getPublicUrl(currentItem?.audio_url || currentItem?.sentences?.audio_url || currentItem?.words?.audio_url);
   const imageSrc = currentItem?.image_url || bundle.thumbnail_url;
   const keywords = useMemo(() => getKeywords(currentItem, language), [currentItem, language]);
+  const isConversationBundle = bundle.bundle_type?.code === 'conversation';
+  const hasSpeakerInfo = isConversationBundle && Boolean(
+    currentItem?.speaker_name || currentItem?.speaker_role || currentItem?.speaker_key
+  );
 
   const updateIsPlaying = (playing: boolean) => {
     setIsPlaying(playing);
@@ -200,6 +204,11 @@ export default function BundlePlayerClient({
       window.setTimeout(() => {
         if (isPlayingRef.current) playAudio();
       }, 700);
+      return;
+    }
+
+    if (currentIndex < items.length - 1) {
+      goToItem(currentIndex + 1);
       return;
     }
 
@@ -335,8 +344,11 @@ export default function BundlePlayerClient({
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 via-black/45 to-transparent px-8 py-6 text-center md:block">
+              {hasSpeakerInfo && (
+                <SpeakerLabel item={currentItem} variant="overlay" />
+              )}
               {showSource && (
-                <p className="text-2xl font-black leading-snug text-white drop-shadow md:text-3xl">
+                <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-2xl font-black leading-snug text-white drop-shadow md:text-3xl`}>
                   {getItemSource(currentItem)}
                 </p>
               )}
@@ -349,8 +361,11 @@ export default function BundlePlayerClient({
           </div>
 
           <div className="border-b border-zinc-100 bg-white px-4 py-5 text-center md:hidden">
+            {hasSpeakerInfo && (
+              <SpeakerLabel item={currentItem} variant="inline" />
+            )}
             {showSource && (
-              <p className="text-xl font-extrabold leading-snug text-zinc-950">
+              <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-xl font-extrabold leading-snug text-zinc-950`}>
                 {getItemSource(currentItem)}
               </p>
             )}
@@ -479,7 +494,7 @@ export default function BundlePlayerClient({
         </section>
       </main>
 
-      <aside className="px-3 pb-4 sm:px-0 sm:pb-0 lg:sticky lg:top-24">
+      <aside className="px-3 pb-4 sm:px-0 sm:pb-0">
         <section className="rounded-[18px] border border-zinc-100 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="text-base font-black text-zinc-950 sm:text-lg">{t.practice}</h2>
           <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
@@ -495,6 +510,30 @@ export default function BundlePlayerClient({
           </Link>
         </section>
       </aside>
+    </div>
+  );
+}
+
+function SpeakerLabel({ item, variant }: { item: any; variant: 'overlay' | 'inline' }) {
+  const name = item.speaker_name || item.speaker_key;
+  const role = item.speaker_role;
+  const isOverlay = variant === 'overlay';
+
+  return (
+    <div
+      className={`inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
+        isOverlay
+          ? 'bg-white/90 text-zinc-900 shadow-sm backdrop-blur'
+          : 'bg-[#f2eee5] text-zinc-800'
+      }`}
+    >
+      {name && <span className="truncate">{name}</span>}
+      {role && (
+        <span className="text-zinc-500">
+          {name && '· '}
+          {role}
+        </span>
+      )}
     </div>
   );
 }

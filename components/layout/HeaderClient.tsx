@@ -127,7 +127,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
               href={item.href}
               prefetch={false}
               className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 active:scale-95 ${isActiveNavItem(item.href)
-                ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'
+                ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50 dark:hover:bg-emerald-300'
                 : 'text-zinc-600 dark:text-zinc-300 hover:text-[#E27D60]'
                 }`}
             >
@@ -252,7 +252,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                 prefetch={false}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`rounded-xl px-4 py-3 text-lg font-bold transition-colors ${isActiveNavItem(item.href)
-                  ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-500/18 dark:text-emerald-200'
+                  ? 'bg-[#DFF1E5] text-[#2F7D4A] dark:bg-emerald-400 dark:text-zinc-950 dark:shadow-sm dark:shadow-emerald-950/50'
                   : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
               >

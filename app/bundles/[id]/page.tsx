@@ -48,5 +48,5 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
 
   const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
 
-  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} />;
+  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} isLoggedIn={Boolean(user)} />;
 }
