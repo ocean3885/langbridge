@@ -33,6 +33,7 @@ const copy = {
     progressTitle: '내 진행률',
     progressInfoLabel: '진행률 반영 기준 보기',
     progressInfo: '학습 성취도는 아래 연습 모드에서 학습 활동을 완료하면 올라갑니다. 일반 학습 화면에서 문장을 듣는 것만으로는 완료 항목에 포함되지 않습니다.',
+    practiceStars: 'Stars earned',
     saveBundle: '번들 저장',
     unsaveBundle: '번들 저장 해제',
     loginRequired: '번들을 저장하려면 로그인이 필요합니다.',
@@ -52,6 +53,8 @@ const copy = {
     start: 'Start Learning',
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
+    practiceModesInfoLabel: '연습 모드 설명 보기',
+    practiceModesInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 Stars earned를 올릴 수 있습니다.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
@@ -64,6 +67,7 @@ const copy = {
     progressTitle: 'My progress',
     progressInfoLabel: 'View how progress is measured',
     progressInfo: 'Your progress increases when you complete activities in the Practice Modes below. Listening to sentences on the learning screen alone does not mark items as complete.',
+    practiceStars: 'Stars earned',
     saveBundle: 'Save bundle',
     unsaveBundle: 'Remove saved bundle',
     loginRequired: 'Log in to save this bundle.',
@@ -83,6 +87,8 @@ const copy = {
     start: 'Start Learning',
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
+    practiceModesInfoLabel: 'View practice mode details',
+    practiceModesInfo: 'Earn stars by answering Quiz and Scramble challenges correctly.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
@@ -91,6 +97,7 @@ const copy = {
 
 export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
+  const [showPracticeModesInfo, setShowPracticeModesInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
   const [isUpdatingPinned, setIsUpdatingPinned] = useState(false);
   const t = copy[language] || copy.ko;
@@ -114,6 +121,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
   const learnHref = progress.currentBundleItemId
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
     : `/bundles/${bundle.id}/learn`;
+  const practiceStars = calculatePracticeStars(progress.itemInteractions, items.length);
 
   const handleTogglePinned = async () => {
     if (!isLoggedIn) {
@@ -228,6 +236,13 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
             <div className="h-full rounded-full bg-[#3f8d54] dark:bg-emerald-500" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
           </div>
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+            <span className="inline-flex items-center gap-2 text-sm font-bold">
+              <Star className="h-4 w-4 fill-current" />
+              {t.practiceStars}
+            </span>
+            <span className="text-base font-extrabold tabular-nums">{practiceStars.earned} / {practiceStars.max}</span>
+          </div>
           {showProgressInfo && (
             <div className="mt-3 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
               <Info className="mt-1 h-4 w-4 shrink-0 text-[#2f7d4a] dark:text-emerald-400" />
@@ -255,7 +270,28 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">
-          <h2 className="mb-4 text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.practiceModes}</h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.practiceModes}</h2>
+            <button
+              type="button"
+              onClick={() => setShowPracticeModesInfo((visible) => !visible)}
+              aria-label={t.practiceModesInfoLabel}
+              aria-expanded={showPracticeModesInfo}
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                showPracticeModesInfo
+                  ? 'bg-[#e3f1e7] text-[#2f7d4a] dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'text-zinc-400 hover:bg-zinc-100 hover:text-[#2f7d4a] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-emerald-300'
+              }`}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+          {showPracticeModesInfo && (
+            <div className="mb-4 flex gap-2 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-zinc-300">
+              <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
+              <p>{t.practiceModesInfo}</p>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2 lg:gap-3">
             <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
             <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
@@ -293,6 +329,46 @@ function ProgressMeta({ label, value }: { label: string; value: string }) {
       <p className="mt-1 truncate text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</p>
     </div>
   );
+}
+
+const PRACTICE_MODE_STARS = {
+  quiz: 1,
+  scramble: 2,
+} satisfies Record<string, number>;
+
+function calculatePracticeStars(itemInteractions: BundleProgressSummary['itemInteractions'], totalItems: number) {
+  const maxPerItem = Object.values(PRACTICE_MODE_STARS).reduce((total, stars) => total + stars, 0);
+  const earned = itemInteractions.reduce((total, interaction) => {
+    const practiceModes = interaction.metadata?.practice_modes;
+    if (!practiceModes || typeof practiceModes !== 'object' || Array.isArray(practiceModes)) {
+      const legacyMode = interaction.metadata?.last_practice_mode;
+      return interaction.metadata?.last_practice_is_correct === true && isPracticeStarMode(legacyMode)
+        ? total + PRACTICE_MODE_STARS[legacyMode]
+        : total;
+    }
+
+    return total + Object.entries(PRACTICE_MODE_STARS).reduce((modeTotal, [mode, stars]) => {
+      const modeMetadata = (practiceModes as Record<string, unknown>)[mode];
+      if (!modeMetadata || typeof modeMetadata !== 'object' || Array.isArray(modeMetadata)) {
+        return interaction.metadata?.last_practice_mode === mode && interaction.metadata?.last_practice_is_correct === true
+          ? modeTotal + stars
+          : modeTotal;
+      }
+
+      return (modeMetadata as Record<string, unknown>).last_is_correct === true
+        ? modeTotal + stars
+        : modeTotal;
+    }, 0);
+  }, 0);
+
+  return {
+    earned,
+    max: totalItems * maxPerItem,
+  };
+}
+
+function isPracticeStarMode(value: unknown): value is keyof typeof PRACTICE_MODE_STARS {
+  return typeof value === 'string' && value in PRACTICE_MODE_STARS;
 }
 
 function ModeLink({

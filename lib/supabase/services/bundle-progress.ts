@@ -1,6 +1,10 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  recordLearningDailyActivity,
+  type LearningActivityType,
+} from '@/lib/supabase/services/learning-daily-activity';
 
 export interface UserBundleInteraction {
   id: string;
@@ -52,6 +56,148 @@ export interface BundleProgressSummary {
 }
 
 export type BundlePracticeMode = 'flashcards' | 'quiz' | 'scramble' | (string & {});
+
+export interface RecentStudiedBundle {
+  interaction: UserBundleInteraction;
+  bundle: {
+    id: string;
+    title: string;
+    title_en: string | null;
+    description: string | null;
+    description_en: string | null;
+    level: number | null;
+    thumbnail_url: string | null;
+    bundle_category?: {
+      id: string;
+      name: string | null;
+      name_en: string | null;
+    } | null;
+    bundle_type?: {
+      id: string;
+      name: string | null;
+      code: string | null;
+    } | null;
+  };
+  currentItem: {
+    id: string;
+    order_index: number | null;
+    sentence?: {
+      sentence: string | null;
+      translation: string | null;
+      translation_en: string | null;
+    } | null;
+  } | null;
+  totalItems: number;
+  completedItems: number;
+  progressPercent: number;
+}
+
+export async function getRecentStudiedBundle(userId: string): Promise<RecentStudiedBundle | null> {
+  const supabase = createAdminClient();
+
+  const { data: interaction, error: interactionError } = await supabase
+    .from('user_bundle_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .not('last_studied_at', 'is', null)
+    .order('last_studied_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (interactionError) {
+    console.error('Error fetching recent bundle interaction:', interactionError);
+    return null;
+  }
+
+  if (!interaction?.bundle_id) {
+    return null;
+  }
+
+  const [
+    { data: bundle, error: bundleError },
+    { data: currentItem, error: currentItemError },
+    { count: totalItems, error: totalError },
+    { count: completedItems, error: completedError },
+  ] = await Promise.all([
+    supabase
+      .from('bundle')
+      .select(`
+        id,
+        title,
+        title_en,
+        description,
+        description_en,
+        level,
+        thumbnail_url,
+        bundle_category(id, name, name_en),
+        bundle_type(id, name, code)
+      `)
+      .eq('id', interaction.bundle_id)
+      .maybeSingle(),
+    interaction.current_bundle_item_id
+      ? supabase
+          .from('bundle_items')
+          .select('id, order_index, sentences(sentence, translation, translation_en)')
+          .eq('id', interaction.current_bundle_item_id)
+          .eq('bundle_id', interaction.bundle_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from('bundle_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('bundle_id', interaction.bundle_id),
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('bundle_id', interaction.bundle_id)
+      .eq('is_completed', true),
+  ]);
+
+  if (bundleError || !bundle) {
+    console.error('Error fetching recent bundle:', bundleError);
+    return null;
+  }
+
+  if (currentItemError) {
+    console.error('Error fetching current bundle item:', currentItemError);
+  }
+
+  if (totalError) {
+    console.error('Error counting recent bundle items:', totalError);
+  }
+
+  if (completedError) {
+    console.error('Error counting completed recent bundle items:', completedError);
+  }
+
+  const total = totalItems || 0;
+  const completed = completedItems || 0;
+  const storedRatio = Number(interaction.progress_ratio);
+  const calculatedRatio = total > 0 ? completed / total : 0;
+  const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+
+  const normalizedBundle = {
+    ...bundle,
+    bundle_category: normalizeSingleRelation(bundle.bundle_category),
+    bundle_type: normalizeSingleRelation(bundle.bundle_type),
+  } as unknown as RecentStudiedBundle['bundle'];
+
+  return {
+    interaction: interaction as UserBundleInteraction,
+    bundle: normalizedBundle,
+    currentItem: currentItem
+      ? {
+          id: currentItem.id,
+          order_index: currentItem.order_index,
+          sentence: normalizeSingleRelation(currentItem.sentences),
+        }
+      : null,
+    totalItems: total,
+    completedItems: completed,
+    progressPercent: Math.round(progressRatio * 100),
+  };
+}
 
 export async function getBundleProgressSummary(
   userId: string | null | undefined,
@@ -158,6 +304,13 @@ export async function recordBundleStudyAccess(
     console.error('Error recording bundle study access:', error);
     throw error;
   }
+
+  await safeRecordLearningDailyActivity({
+    userId,
+    activityType: 'bundle_study',
+    bundleId,
+    bundleItemId: currentBundleItemId,
+  });
 }
 
 export async function updateBundlePinnedState(
@@ -249,6 +402,14 @@ export async function recordBundlePracticeAccess(
     console.error('Error recording bundle practice access:', error);
     throw error;
   }
+
+  await safeRecordLearningDailyActivity({
+    userId,
+    activityType: 'practice_access',
+    bundleId,
+    bundleItemId: currentBundleItemId,
+    practiceMode,
+  });
 }
 
 export async function recordBundleItemPractice(
@@ -286,9 +447,12 @@ export async function recordBundleItemPractice(
 
   const wasCompleted = Boolean(existingItemInteraction?.is_completed);
   const isCompleted = wasCompleted || isCorrect;
+  const existingMetadata = existingItemInteraction?.metadata || {};
   const metadata = {
-    ...(existingItemInteraction?.metadata || {}),
+    ...existingMetadata,
     last_practice_mode: mode,
+    last_practice_is_correct: isCorrect,
+    practice_modes: updatePracticeModeMetadata(existingMetadata.practice_modes, mode, isCorrect, now),
   };
 
   const { error: itemError } = await supabase
@@ -387,6 +551,15 @@ export async function recordBundleItemPractice(
     throw bundleError;
   }
 
+  await safeRecordLearningDailyActivity({
+    userId,
+    activityType: 'practice_result',
+    bundleId,
+    bundleItemId,
+    practiceMode: mode,
+    isCorrect,
+  });
+
   return getBundleProgressSummary(userId, bundleId, total);
 }
 
@@ -411,5 +584,64 @@ function normalizePracticeItemIds(value: unknown): Record<string, string> {
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
       .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
+async function safeRecordLearningDailyActivity(input: {
+  userId: string;
+  activityType: LearningActivityType;
+  bundleId: string;
+  bundleItemId?: string | null;
+  practiceMode?: string | null;
+  isCorrect?: boolean | null;
+}) {
+  try {
+    await recordLearningDailyActivity(input);
+  } catch (error) {
+    console.error('Error recording daily learning activity:', error);
+  }
+}
+
+function normalizeSingleRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) {
+    return value[0] || null;
+  }
+
+  return value || null;
+}
+
+function updatePracticeModeMetadata(
+  value: unknown,
+  mode: 'quiz' | 'scramble',
+  isCorrect: boolean,
+  practicedAt: string,
+) {
+  const practiceModes = normalizePracticeModes(value);
+  const currentMode = practiceModes[mode];
+
+  return {
+    ...practiceModes,
+    [mode]: {
+      correct_count: Number(currentMode?.correct_count || 0) + (isCorrect ? 1 : 0),
+      incorrect_count: Number(currentMode?.incorrect_count || 0) + (isCorrect ? 0 : 1),
+      last_is_correct: isCorrect,
+      last_practiced_at: practicedAt,
+      first_correct_at: isCorrect ? currentMode?.first_correct_at || practicedAt : currentMode?.first_correct_at || null,
+      last_correct_at: isCorrect ? practicedAt : currentMode?.last_correct_at || null,
+    },
+  };
+}
+
+function normalizePracticeModes(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter((entry): entry is [string, Record<string, unknown>] => {
+        const [, modeMetadata] = entry;
+        return Boolean(modeMetadata) && typeof modeMetadata === 'object' && !Array.isArray(modeMetadata);
+      }),
   );
 }

@@ -92,6 +92,7 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
         onClick={() => setFlipped((value) => !value)}
         className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:border-zinc-700 dark:hover:shadow-black/30"
       >
+        <p className="mb-3 text-xs font-black uppercase text-zinc-400 dark:text-zinc-500">{index + 1} / {items.length}</p>
         <span className="mb-5 rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
           {flipped ? t.backSide : t.front}
         </span>

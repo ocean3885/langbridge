@@ -3,14 +3,18 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getBundleTitle } from '../../bundle-utils';
+import PracticeSessionSelector from '../_components/PracticeSessionSelector';
+import { filterPracticeItems, getPracticeModeStarProgress, getPracticeSessionCounts, isPracticeSessionMode } from '../practice-session';
 import BundleScrambleClient from './BundleScrambleClient';
 
 interface BundleScramblePageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }
 
-export default async function BundleScramblePage({ params }: BundleScramblePageProps) {
+export default async function BundleScramblePage({ params, searchParams }: BundleScramblePageProps) {
   const { id } = await params;
+  const { mode } = await searchParams;
   const [bundle, items, language, user] = await Promise.all([
     getBundle(id),
     listBundleItems(id),
@@ -30,16 +34,33 @@ export default async function BundleScramblePage({ params }: BundleScramblePageP
     .filter((item) => item.translation);
 
   const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
+  const title = getBundleTitle(bundle, language);
+
+  if (!isPracticeSessionMode(mode)) {
+    return (
+      <PracticeSessionSelector
+        bundleId={bundle.id}
+        title={title}
+        modeName="Scramble"
+        basePath={`/bundles/${bundle.id}/scramble`}
+        language={language}
+        counts={getPracticeSessionCounts(scrambleItems, progress.itemInteractions, 'scramble')}
+        starProgress={getPracticeModeStarProgress(scrambleItems, progress.itemInteractions, 'scramble')}
+      />
+    );
+  }
+
+  const sessionItems = filterPracticeItems(scrambleItems, progress.itemInteractions, mode, 'scramble');
   const initialItemId =
-    progress.currentPracticeItemIds.scramble && scrambleItems.some((item) => item.id === progress.currentPracticeItemIds.scramble)
+    mode === 'resume' && progress.currentPracticeItemIds.scramble && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.scramble)
       ? progress.currentPracticeItemIds.scramble
       : null;
 
   return (
     <BundleScrambleClient
       bundleId={bundle.id}
-      title={getBundleTitle(bundle, language)}
-      items={scrambleItems}
+      title={title}
+      items={sessionItems}
       language={language}
       initialItemId={initialItemId}
     />

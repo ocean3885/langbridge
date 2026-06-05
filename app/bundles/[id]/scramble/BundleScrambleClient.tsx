@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, SkipForward, Trophy, X } from 'lucide-react';
+import { CharacterAsset } from '@/components/assets/CharacterAsset';
 
 interface ScrambleItem {
   id: string;
@@ -25,6 +26,7 @@ interface BundleScrambleClientProps {
 }
 
 const MAX_SCRAMBLE = 10;
+const TOKEN_EDGE_PUNCTUATION = /^[¡¿"'“”‘’()[\]{}.,!?;:]+|[¡¿"'“”‘’()[\]{}.,!?;:]+$/g;
 
 const copy = {
   ko: {
@@ -193,14 +195,14 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
         <Trophy className="h-16 w-16 text-amber-500" />
-        <p className="text-xs font-bold uppercase text-[#2f7d4a]">{t.mode}</p>
-        <h1 className="text-3xl font-black text-zinc-950">{t.done}</h1>
-        <p className="text-sm font-semibold text-zinc-500">{t.doneDesc(items.length)}</p>
+        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+        <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{t.done}</h1>
+        <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t.doneDesc(items.length)}</p>
         <div className="flex gap-2">
-          <Link href={`/bundles/${bundleId}`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700">
+          <Link href={`/bundles/${bundleId}`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
             {t.back}
           </Link>
-          <button onClick={resetAll} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white">
+          <button onClick={resetAll} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.retry}
           </button>
         </div>
@@ -211,26 +213,26 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link href={`/bundles/${bundleId}`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900">
+        <Link href={`/bundles/${bundleId}`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-[#2f7d4a]">{t.mode}</p>
-          <h1 className="truncate text-lg font-black text-zinc-950">{title}</h1>
+          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+          <h1 className="truncate text-lg font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
 
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
-        <div className="h-full rounded-full bg-[#3f8d54] transition-all" style={{ width: `${progressPercent}%` }} />
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div className="h-full rounded-full bg-[#3f8d54] transition-all dark:bg-emerald-500" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <section className="rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm">
-        <p className="text-xs font-black uppercase text-zinc-400">{currentIndex + 1} / {items.length}</p>
-        <p className="mt-4 text-sm font-bold text-[#2f7d4a]">{t.prompt}</p>
-        <h2 className="mt-3 text-xl font-black leading-relaxed text-zinc-950">{currentItem.translation}</h2>
+      <section className="rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
+        <p className="text-xs font-black uppercase text-zinc-400 dark:text-zinc-500">{currentIndex + 1} / {items.length}</p>
+        <p className="mt-4 text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
+        <h2 className="mt-3 text-xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{currentItem.translation}</h2>
       </section>
 
-      <div className={`min-h-24 rounded-2xl border-2 border-dashed p-4 transition ${result === 'correct' ? 'border-emerald-400 bg-emerald-50' : result === 'wrong' ? 'border-red-300 bg-red-50' : 'border-zinc-200 bg-white'}`}>
+      <div className={`min-h-24 rounded-2xl border-2 border-dashed p-4 transition ${result === 'correct' ? 'border-emerald-400 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950/60' : result === 'wrong' ? 'border-red-300 bg-red-50 dark:border-red-500 dark:bg-red-950/60' : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'}`}>
         <div className="flex flex-wrap gap-2">
           {answerSlots ? (
             answerSlots.map((slot) => {
@@ -240,7 +242,7 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
               if (slot.type === 'user' && slot.word) {
                 return <TokenButton key={`user-${slot.word.id}`} label={slot.word.text} onClick={() => deselectWord(slot.word!)} selected />;
               }
-              return <span key={`empty-${slot.slotIndex}`} className="h-9 min-w-12 rounded-lg border border-dashed border-zinc-200" />;
+              return <span key={`empty-${slot.slotIndex}`} className="h-9 min-w-12 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700" />;
             })
           ) : (
             <AnimatePresence>
@@ -249,18 +251,26 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
               ))}
             </AnimatePresence>
           )}
-          {!answerSlots && selectedWords.length === 0 && <p className="w-full py-5 text-center text-sm font-semibold text-zinc-400">{t.choose}</p>}
+          {!answerSlots && selectedWords.length === 0 && <p className="w-full py-5 text-center text-sm font-semibold text-zinc-400 dark:text-zinc-500">{t.choose}</p>}
         </div>
       </div>
 
       {result && (
-        <div className={`flex items-center justify-center gap-2 rounded-xl p-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+        <div className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
+          <CharacterAsset name={result === 'correct' ? 'correctbadge' : 'tryagainbadge'} alt="" size={64} className="sm:!h-20 sm:!w-20" />
           {result === 'correct' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-          {result === 'correct' ? t.correct : `${t.wrong} ${correctWords.join(' ')}`}
+          {result === 'correct' ? (
+            <span>{t.correct}</span>
+          ) : (
+            <span className="flex flex-col gap-1">
+              <span>{t.wrong}</span>
+              <span>{currentItem.sentence}</span>
+            </span>
+          )}
         </div>
       )}
 
-      <div className="flex min-h-20 flex-wrap justify-center gap-2 rounded-2xl bg-zinc-100 p-4">
+      <div className="flex min-h-20 flex-wrap justify-center gap-2 rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
         <AnimatePresence>
           {availableWords.map((word) => (
             <TokenButton key={word.id} label={word.text} onClick={() => selectWord(word)} />
@@ -268,27 +278,38 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          <button onClick={goPrev} disabled={currentIndex === 0} className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 disabled:opacity-40">
-            <ChevronLeft className="inline h-4 w-4" /> {t.prev}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <div className="flex justify-start gap-1">
+          <button
+            onClick={goPrev}
+            disabled={currentIndex === 0}
+            aria-label={t.prev}
+            title={t.prev}
+            className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <ChevronLeft className="inline h-4 w-4" /> <span className="hidden sm:inline">{t.prev}</span>
           </button>
-          <button onClick={() => initQuestion(currentIndex)} className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100">
-            <RotateCcw className="inline h-4 w-4" /> {t.reset}
+          <button
+            onClick={() => initQuestion(currentIndex)}
+            aria-label={t.reset}
+            title={t.reset}
+            className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <RotateCcw className="inline h-4 w-4" /> <span className="hidden sm:inline">{t.reset}</span>
           </button>
         </div>
 
         {result ? (
-          <button onClick={goNext} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white">
+          <button onClick={goNext} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.next}
           </button>
         ) : (
-          <button onClick={checkAnswer} disabled={selectedWords.length === 0} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white disabled:opacity-40">
+          <button onClick={checkAnswer} disabled={selectedWords.length === 0} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.check}
           </button>
         )}
 
-        <button onClick={goNext} className="rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100">
+        <button onClick={goNext} className="justify-self-end rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
           {t.skip} <SkipForward className="inline h-4 w-4" />
         </button>
       </div>
@@ -304,7 +325,7 @@ function TokenButton({ label, onClick, selected = false }: { label: string; onCl
       exit={{ scale: 0.85, opacity: 0 }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
       onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-sm font-black shadow-sm transition ${selected ? 'bg-[#3f8d54] text-white' : 'border border-zinc-200 bg-white text-zinc-900 hover:border-[#9ccfac]'}`}
+      className={`rounded-lg px-3 py-2 text-sm font-black shadow-sm transition ${selected ? 'bg-[#3f8d54] text-white dark:bg-emerald-600' : 'border border-zinc-200 bg-white text-zinc-900 hover:border-[#9ccfac] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-emerald-700'}`}
     >
       {label}
     </motion.button>
@@ -313,7 +334,7 @@ function TokenButton({ label, onClick, selected = false }: { label: string; onCl
 
 function Token({ label, muted = false }: { label: string; muted?: boolean }) {
   return (
-    <span className={`rounded-lg border border-dashed px-3 py-2 text-sm font-black ${muted ? 'border-zinc-200 bg-zinc-50 text-zinc-400' : 'border-zinc-200 text-zinc-700'}`}>
+    <span className={`rounded-lg border border-dashed px-3 py-2 text-sm font-black ${muted ? 'border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500' : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'}`}>
       {label}
     </span>
   );
@@ -322,10 +343,10 @@ function Token({ label, muted = false }: { label: string; muted?: boolean }) {
 function Empty({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
-      <Shuffle className="h-12 w-12 text-[#3f8d54]" />
-      <h1 className="text-2xl font-black text-zinc-950">{title}</h1>
-      <p className="text-sm font-semibold text-zinc-500">{text}</p>
-      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a]">
+      <Shuffle className="h-12 w-12 text-[#3f8d54] dark:text-emerald-400" />
+      <h1 className="text-2xl font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
+      <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
+      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}
       </Link>
     </div>
@@ -333,7 +354,10 @@ function Empty({ bundleId, title, text, back }: { bundleId: string; title: strin
 }
 
 function tokenize(sentence: string) {
-  return sentence.split(/\s+/).filter(Boolean);
+  return sentence
+    .split(/\s+/)
+    .map((word) => word.replace(TOKEN_EDGE_PUNCTUATION, '').toLocaleLowerCase())
+    .filter(Boolean);
 }
 
 function shuffleArray<T>(values: T[]) {
