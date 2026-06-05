@@ -1,43 +1,179 @@
-import { Check, Flame } from 'lucide-react';
+'use client';
 
-export function StreakCard() {
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-      <h3 className="flex items-center gap-2 font-bold">
-        <Flame className="h-5 w-5 text-[#df7c38]" />
-        7 Day Streak
-      </h3>
-      <div className="mt-6 grid grid-cols-7 gap-2 text-center text-xs text-zinc-600 dark:text-zinc-400">
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-          <div key={`${day}-${index}`} className="space-y-3">
-            <span>{day}</span>
-            <span className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full ${index < 5 ? 'bg-[#71a66e] text-white' : index === 5 ? 'border-2 border-[#eb7b36] bg-white dark:bg-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
-              {index < 5 && <Check className="h-4 w-4" />}
-            </span>
-          </div>
-        ))}
-      </div>
-      <p className="mt-4 text-center text-sm text-zinc-500 dark:text-zinc-400">Great job! Let&apos;s keep it going.</p>
-    </div>
-  );
-}
+import { useRouter } from 'next/navigation';
+import { FormEvent, useMemo, useState, useTransition } from 'react';
+import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
 
-export function GoalCard() {
+type DisplayLanguage = 'ko' | 'en';
+
+const goalCopy = {
+  ko: {
+    title: '오늘의 목표',
+    edit: '수정',
+    save: '저장',
+    cancel: '취소',
+    unit: '학습',
+    goalMet: '오늘 목표를 달성했어요!',
+    empty: '오늘 첫 학습을 시작해봐요.',
+    keepGoing: '계속 좋아요!',
+    inputLabel: '하루 목표 학습 수',
+    error: '목표를 저장하지 못했습니다.',
+  },
+  en: {
+    title: "Today's Goal",
+    edit: 'Edit',
+    save: 'Save',
+    cancel: 'Cancel',
+    unit: 'sessions',
+    goalMet: 'Goal complete for today!',
+    empty: 'Start your first session today.',
+    keepGoing: 'Keep going!',
+    inputLabel: 'Daily goal sessions',
+    error: 'Could not save goal.',
+  },
+};
+
+const previewGoalSummary: LearningGoalSummary = {
+  todayCount: 16,
+  dailyGoalCount: 20,
+  progressPercent: 80,
+  goalMet: false,
+};
+
+export function GoalCard({
+  summary = previewGoalSummary,
+  language = 'en',
+  editable = false,
+}: {
+  summary?: LearningGoalSummary;
+  language?: DisplayLanguage;
+  editable?: boolean;
+}) {
+  const router = useRouter();
+  const t = goalCopy[language];
+  const [currentSummary, setCurrentSummary] = useState(summary);
+  const [isEditing, setIsEditing] = useState(false);
+  const [goalInput, setGoalInput] = useState(String(summary.dailyGoalCount));
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const progressPercent = Math.min(100, Math.max(0, currentSummary.progressPercent));
+  const progressDegrees = useMemo(() => `${progressPercent * 3.6}deg`, [progressPercent]);
+  const helperText = currentSummary.goalMet
+    ? t.goalMet
+    : currentSummary.todayCount <= 0
+      ? t.empty
+      : t.keepGoing;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    const nextGoal = Number(goalInput);
+    if (!Number.isFinite(nextGoal) || nextGoal < 1 || nextGoal > 100) {
+      setError(t.error);
+      return;
+    }
+
+    startTransition(() => {
+      void (async () => {
+        const response = await fetch('/api/learning-goal', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ daily_goal_count: nextGoal }),
+        });
+
+        if (!response.ok) {
+          setError(t.error);
+          return;
+        }
+
+        const nextSummary = (await response.json()) as LearningGoalSummary;
+        setCurrentSummary(nextSummary);
+        setGoalInput(String(nextSummary.dailyGoalCount));
+        setIsEditing(false);
+        router.refresh();
+      })();
+    });
+  }
+
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
       <div className="mb-5 flex items-center justify-between">
-        <h3 className="font-serif text-xl font-semibold">Today&apos;s Goal</h3>
-        <button className="text-sm text-zinc-500 dark:text-zinc-400">Edit</button>
+        <h3 className={`${language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold'} text-xl`}>
+          {t.title}
+        </h3>
+        {editable && !isEditing && (
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className="rounded-full px-2 py-1 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            {t.edit}
+          </button>
+        )}
       </div>
       <div className="flex items-center gap-6">
-        <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-[9px] border-[#e8eee5] dark:border-zinc-800">
-          <div className="absolute inset-[-9px] rounded-full border-[9px] border-[#66a665] [clip-path:polygon(0_0,100%_0,100%_82%,0_82%)]" />
-          <span className="relative text-2xl font-bold">80%</span>
+        <div
+          className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[#e8eee5] dark:bg-zinc-800"
+          aria-label={`${progressPercent}%`}
+          role="progressbar"
+          aria-valuenow={progressPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{ background: `conic-gradient(#66a665 ${progressDegrees}, transparent 0deg)` }}
+          />
+          <div className="absolute inset-[9px] rounded-full bg-white dark:bg-zinc-900" />
+          <span className="relative text-2xl font-bold">{progressPercent}%</span>
         </div>
-        <div>
-          <p className="text-2xl font-bold">16 / 20</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">minutes</p>
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Keep going!</p>
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                {t.inputLabel}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={goalInput}
+                onChange={(event) => setGoalInput(event.target.value)}
+                className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-[#66a665] focus:ring-2 focus:ring-[#66a665]/20 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-full bg-[#63a464] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#4e9250] disabled:opacity-60"
+                >
+                  {t.save}
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setGoalInput(String(currentSummary.dailyGoalCount));
+                    setError(null);
+                  }}
+                  className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="text-2xl font-bold">
+                {currentSummary.todayCount} / {currentSummary.dailyGoalCount}
+              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.unit}</p>
+              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{helperText}</p>
+            </>
+          )}
         </div>
       </div>
     </div>

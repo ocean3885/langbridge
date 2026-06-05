@@ -18,6 +18,7 @@ interface BundleQuizClientProps {
   optionItems?: QuizItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
+  isLoggedIn: boolean;
 }
 
 const copy = {
@@ -49,7 +50,7 @@ const copy = {
   },
 };
 
-export default function BundleQuizClient({ bundleId, title, items, optionItems = items, language, initialItemId = null }: BundleQuizClientProps) {
+export default function BundleQuizClient({ bundleId, title, items, optionItems = items, language, initialItemId = null, isLoggedIn }: BundleQuizClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
@@ -76,9 +77,10 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   const isCorrect = selected === current?.translation;
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (!current) return;
     recordCurrentQuizItem(bundleId, current.id);
-  }, [bundleId, current]);
+  }, [bundleId, current, isLoggedIn]);
 
   const choose = (option: string) => {
     if (selected) return;
@@ -87,7 +89,9 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
     if (answerIsCorrect) {
       setScore((value) => value + 1);
     }
-    recordPracticeResult(bundleId, current.id, 'quiz', answerIsCorrect);
+    if (isLoggedIn) {
+      recordPracticeResult(bundleId, current.id, 'quiz', answerIsCorrect);
+    }
   };
 
   const goNext = () => {

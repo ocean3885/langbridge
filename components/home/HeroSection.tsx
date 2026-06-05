@@ -59,6 +59,7 @@ const translations = {
 
 export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps) {
   const t = translations[lang];
+  const titleLeadingClass = lang === 'ko' ? 'leading-[1.4] sm:leading-[1.34]' : 'leading-[1.2]';
 
   return (
     <section className="relative overflow-hidden px-6 pt-12 pb-8 sm:pt-20 sm:pb-12 transition-colors duration-300">
@@ -75,7 +76,7 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
           </div>
 
           <div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.2] tracking-tight text-zinc-900 dark:text-zinc-100 break-keep">
+            <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-black ${titleLeadingClass} tracking-tight text-zinc-900 dark:text-zinc-100 break-keep`}>
               {t.title}
             </h1>
             <p className="text-lg sm:text-xl font-bold text-[#E27D60] mt-3">

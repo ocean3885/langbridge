@@ -28,7 +28,7 @@ const translations = {
     study: 'Learn',
     create: '생성',
     board: '게시판',
-    admin: '운영관리',
+    admin: 'Admin',
     login: '로그인',
     myAccount: '내 계정',
     lbVideos: 'LB 영상',

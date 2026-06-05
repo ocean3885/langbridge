@@ -43,6 +43,7 @@ export default async function BundleFlashcardsPage({ params }: BundleFlashcardsP
       items={cardItems}
       language={language}
       initialItemId={initialItemId}
+      isLoggedIn={Boolean(user)}
     />
   );
 }

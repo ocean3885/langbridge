@@ -35,8 +35,9 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
 
   const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
   const title = getBundleTitle(bundle, language);
+  const effectiveMode = !user && !mode ? 'all' : mode;
 
-  if (!isPracticeSessionMode(mode)) {
+  if (!isPracticeSessionMode(effectiveMode)) {
     return (
       <PracticeSessionSelector
         bundleId={bundle.id}
@@ -50,9 +51,9 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
     );
   }
 
-  const sessionItems = filterPracticeItems(quizItems, progress.itemInteractions, mode, 'quiz');
+  const sessionItems = filterPracticeItems(quizItems, progress.itemInteractions, effectiveMode, 'quiz');
   const initialItemId =
-    mode === 'resume' && progress.currentPracticeItemIds.quiz && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.quiz)
+    effectiveMode === 'resume' && progress.currentPracticeItemIds.quiz && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.quiz)
       ? progress.currentPracticeItemIds.quiz
       : null;
 
@@ -64,6 +65,7 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
       optionItems={quizItems}
       language={language}
       initialItemId={initialItemId}
+      isLoggedIn={Boolean(user)}
     />
   );
 }

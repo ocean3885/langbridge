@@ -48,7 +48,7 @@ export const activities = [
     meta: 'Grammar Bundle · Lesson 2',
     status: 'Completed',
     date: '3 days ago',
-    image: '/images/learn_page_anony.png',
+    image: '/sian/learn_page_anony.png',
   },
 ];
 

@@ -184,7 +184,7 @@ export default function BundleCategoriesSection({
                     <div className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${style.badge} ${style.text}`}>
                       {getCategoryName(bundle, lang)}
                     </div>
-                    <h3 className="mt-4 break-words text-2xl font-bold leading-tight text-[#1D1D1D] dark:text-zinc-100 sm:text-3xl">
+                    <h3 className="mt-4 break-words text-xl font-bold leading-snug text-[#1D1D1D] dark:text-zinc-100 sm:text-2xl">
                       {title}
                     </h3>
                     <p className="mt-3 line-clamp-2 break-words text-sm leading-relaxed text-[#666] dark:text-zinc-400 sm:text-base">

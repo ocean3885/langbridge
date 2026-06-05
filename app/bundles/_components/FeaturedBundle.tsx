@@ -23,7 +23,7 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
   return (
     <section className="mt-6 grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[0.92fr_1fr]">
       <div className="relative min-h-64 bg-zinc-100 dark:bg-zinc-800 lg:min-h-56">
-        <Image src={image} alt={title} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+        <Image src={image} alt={title} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
       </div>
       <div className="p-6 lg:p-8">
         <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#f07124]">

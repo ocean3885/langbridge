@@ -35,8 +35,9 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
 
   const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
   const title = getBundleTitle(bundle, language);
+  const effectiveMode = !user && !mode ? 'all' : mode;
 
-  if (!isPracticeSessionMode(mode)) {
+  if (!isPracticeSessionMode(effectiveMode)) {
     return (
       <PracticeSessionSelector
         bundleId={bundle.id}
@@ -50,9 +51,9 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
     );
   }
 
-  const sessionItems = filterPracticeItems(scrambleItems, progress.itemInteractions, mode, 'scramble');
+  const sessionItems = filterPracticeItems(scrambleItems, progress.itemInteractions, effectiveMode, 'scramble');
   const initialItemId =
-    mode === 'resume' && progress.currentPracticeItemIds.scramble && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.scramble)
+    effectiveMode === 'resume' && progress.currentPracticeItemIds.scramble && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.scramble)
       ? progress.currentPracticeItemIds.scramble
       : null;
 
@@ -63,6 +64,7 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
       items={sessionItems}
       language={language}
       initialItemId={initialItemId}
+      isLoggedIn={Boolean(user)}
     />
   );
 }

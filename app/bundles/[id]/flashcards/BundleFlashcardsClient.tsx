@@ -17,6 +17,7 @@ interface BundleFlashcardsClientProps {
   items: FlashcardItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
+  isLoggedIn: boolean;
 }
 
 const copy = {
@@ -40,7 +41,7 @@ const copy = {
   },
 };
 
-export default function BundleFlashcardsClient({ bundleId, title, items, language, initialItemId = null }: BundleFlashcardsClientProps) {
+export default function BundleFlashcardsClient({ bundleId, title, items, language, initialItemId = null, isLoggedIn }: BundleFlashcardsClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
@@ -49,9 +50,10 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
   const progress = useMemo(() => (items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0), [index, items.length]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (!current) return;
     recordCurrentPracticeItem(bundleId, 'flashcards', current.id);
-  }, [bundleId, current]);
+  }, [bundleId, current, isLoggedIn]);
 
   const goNext = () => {
     setFlipped(false);

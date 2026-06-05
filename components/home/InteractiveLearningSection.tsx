@@ -138,6 +138,7 @@ export default function InteractiveLearningSection({
     lang = "ko",
 }: InteractiveLearningSectionProps) {
     const t = translations[lang];
+    const titleLeadingClass = lang === "ko" ? "leading-[1.4] md:leading-[1.34]" : "leading-tight";
 
     return (
         <section className="relative overflow-hidden bg-[#f8f5f1] dark:bg-zinc-950 pt-12 pb-12 transition-colors duration-300">
@@ -151,7 +152,7 @@ export default function InteractiveLearningSection({
 
                 {/* Heading */}
                 <div className="mx-auto mt-8 max-w-4xl text-center">
-                    <h2 className="text-4xl font-extrabold leading-tight tracking-tight text-[#1c1c1c] dark:text-zinc-100 md:text-5xl lg:text-6xl break-keep">
+                    <h2 className={`text-4xl font-extrabold ${titleLeadingClass} tracking-tight text-[#1c1c1c] dark:text-zinc-100 md:text-5xl lg:text-6xl break-keep`}>
                         {t.title}
                     </h2>
 

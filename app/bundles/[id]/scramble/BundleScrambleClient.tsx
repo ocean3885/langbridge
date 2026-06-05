@@ -23,6 +23,7 @@ interface BundleScrambleClientProps {
   items: ScrambleItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
+  isLoggedIn: boolean;
 }
 
 const MAX_SCRAMBLE = 10;
@@ -65,7 +66,7 @@ const copy = {
   },
 };
 
-export default function BundleScrambleClient({ bundleId, title, items, language, initialItemId = null }: BundleScrambleClientProps) {
+export default function BundleScrambleClient({ bundleId, title, items, language, initialItemId = null, isLoggedIn }: BundleScrambleClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -129,9 +130,10 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   }, [currentIndex, initQuestion]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (!currentItem) return;
     recordCurrentPracticeItem(bundleId, 'scramble', currentItem.id);
-  }, [bundleId, currentItem]);
+  }, [bundleId, currentItem, isLoggedIn]);
 
   const selectWord = (word: WordToken) => {
     if (result) return;
@@ -161,7 +163,9 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
 
     const isCorrect = answer.join(' ') === correctWords.join(' ');
     setResult(isCorrect ? 'correct' : 'wrong');
-    recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
+    if (isLoggedIn) {
+      recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
+    }
   };
 
   const goPrev = () => {
