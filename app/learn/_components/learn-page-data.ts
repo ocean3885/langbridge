@@ -21,37 +21,6 @@ export const lessonCards = [
   },
 ];
 
-export const activities = [
-  {
-    title: 'At the Restaurant',
-    meta: 'Travel Spanish Essentials · Lesson 8',
-    status: '72%',
-    date: 'Today',
-    image: '/images/heroimg_land.jpg',
-  },
-  {
-    title: 'A Day in Madrid',
-    meta: 'Short Story Bundle · Story 1',
-    status: 'Completed',
-    date: 'Yesterday',
-    image: '/images/heroimg_port.jpg',
-  },
-  {
-    title: 'Useful Phrases for Travel',
-    meta: 'Daily Conversation · Lesson 3',
-    status: '85%',
-    date: '2 days ago',
-    image: '/images/main.png',
-  },
-  {
-    title: 'The Present Tense: -ar Verbs',
-    meta: 'Grammar Bundle · Lesson 2',
-    status: 'Completed',
-    date: '3 days ago',
-    image: '/sian/learn_page_anony.png',
-  },
-];
-
 export const quickPractice = [
   {
     title: 'Flashcards',

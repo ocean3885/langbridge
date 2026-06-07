@@ -20,13 +20,15 @@ export function BundleCategoriesSection({
   groupedBundles: Record<string, BundleRow[]>;
   language: Language;
 }) {
-  if (categories.length === 0) return null;
+  const visibleCategories = categories.slice(0, 6);
+
+  if (visibleCategories.length === 0) return null;
 
   return (
     <section>
       <h2 className="font-serif text-2xl font-semibold">{copy.categories}</h2>
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        {categories.map((category, index) => {
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {visibleCategories.map((category, index) => {
           const count = groupedBundles[getCategoryKey(category)]?.length || 0;
           const title = getCategoryTitle(category, language);
           const description = getCategoryDescription(category, language);

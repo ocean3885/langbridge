@@ -8,7 +8,7 @@ export function SectionHeader({
   actionClassName,
 }: {
   title: string;
-  href: string;
+  href?: string;
   actionLabel?: string;
   titleClassName?: string;
   actionClassName?: string;
@@ -19,12 +19,14 @@ export function SectionHeader({
   return (
     <div className="flex items-center justify-between gap-4">
       <h2 className={titleClassName}>{title}</h2>
-      <Link
-        href={href}
-        className={actionClasses}
-      >
-        {actionLabel}
-      </Link>
+      {href && (
+        <Link
+          href={href}
+          className={actionClasses}
+        >
+          {actionLabel}
+        </Link>
+      )}
     </div>
   );
 }

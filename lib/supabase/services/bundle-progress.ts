@@ -92,6 +92,296 @@ export interface RecentStudiedBundle {
   progressPercent: number;
 }
 
+export interface RecentLearningActivity {
+  interaction: UserBundleInteraction;
+  bundle: {
+    id: string;
+    title: string;
+    title_en: string | null;
+    thumbnail_url: string | null;
+    bundle_category?: {
+      id: string;
+      name: string | null;
+      name_en: string | null;
+    } | null;
+    bundle_type?: {
+      id: string;
+      name: string | null;
+      code: string | null;
+    } | null;
+  };
+  totalItems: number;
+  completedItems: number;
+  progressPercent: number;
+}
+
+export interface LearningProgressSummary {
+  completedSentences: number;
+  earnedStars: number;
+  practicedWords: number;
+  practiceAccuracyPercent: number;
+  completedBundles: number;
+  activeBundles: number;
+}
+
+interface LearningStatsValues {
+  completed_sentences: number;
+  earned_stars: number;
+  practiced_words: number;
+  total_correct_count: number;
+  total_incorrect_count: number;
+}
+
+interface LearningStatsDelta {
+  completedSentences: number;
+  earnedStars: number;
+  practicedWords: number;
+  totalCorrect: number;
+  totalIncorrect: number;
+}
+
+const LEARNING_PROGRESS_STARS = {
+  quiz: 1,
+  scramble: 2,
+} satisfies Record<string, number>;
+
+export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
+  const supabase = createAdminClient();
+  const bundleCounts = await getLearningProgressBundleCounts(supabase, userId);
+
+  const { data: stats, error: statsError } = await supabase
+    .from('user_learning_stats')
+    .select('completed_sentences, earned_stars, practiced_words, total_correct_count, total_incorrect_count')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (statsError) {
+    console.error('Error fetching learning stats:', statsError);
+    return calculateLearningProgressSummaryFromInteractions(supabase, userId, bundleCounts);
+  }
+
+  if (stats) {
+    return toLearningProgressSummary(stats as LearningStatsValues, bundleCounts);
+  }
+
+  try {
+    const seededStats = await seedLearningStatsFromInteractions(supabase, userId);
+    return toLearningProgressSummary(seededStats, bundleCounts);
+  } catch {
+    return calculateLearningProgressSummaryFromInteractions(supabase, userId, bundleCounts);
+  }
+}
+
+async function calculateLearningProgressSummaryFromInteractions(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  bundleCounts: Pick<LearningProgressSummary, 'completedBundles' | 'activeBundles'>,
+): Promise<LearningProgressSummary> {
+  return toLearningProgressSummary(await calculateLearningStatsFromInteractions(supabase, userId), bundleCounts);
+}
+
+async function calculateLearningStatsFromInteractions(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<LearningStatsValues> {
+  const [
+    { data: itemInteractions, error: itemInteractionsError },
+    { count: practicedWords, error: practicedWordsError },
+  ] = await Promise.all([
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('is_completed, correct_count, incorrect_count, metadata')
+      .eq('user_id', userId),
+    supabase
+      .from('user_word_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ]);
+
+  if (itemInteractionsError) {
+    console.error('Error fetching learning progress item interactions:', itemInteractionsError);
+    return {
+      completed_sentences: 0,
+      earned_stars: 0,
+      practiced_words: 0,
+      total_correct_count: 0,
+      total_incorrect_count: 0,
+    };
+  }
+
+  if (practicedWordsError) {
+    console.error('Error counting practiced words:', practicedWordsError);
+  }
+
+  const rows = (itemInteractions || []) as Array<{
+    is_completed: boolean | null;
+    correct_count: number | null;
+    incorrect_count: number | null;
+    metadata: Record<string, unknown> | null;
+  }>;
+  const completedSentences = rows.filter((row) => row.is_completed).length;
+  const totalCorrect = rows.reduce((total, row) => total + Number(row.correct_count || 0), 0);
+  const totalIncorrect = rows.reduce((total, row) => total + Number(row.incorrect_count || 0), 0);
+  const earnedStars = rows.reduce((total, row) => total + calculateEarnedStarsFromMetadata(row.metadata), 0);
+
+  return {
+    completed_sentences: completedSentences,
+    earned_stars: earnedStars,
+    practiced_words: practicedWords || 0,
+    total_correct_count: totalCorrect,
+    total_incorrect_count: totalIncorrect,
+  };
+}
+
+async function seedLearningStatsFromInteractions(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<LearningStatsValues> {
+  const calculatedStats = await calculateLearningStatsFromInteractions(supabase, userId);
+  const { error: insertError } = await supabase
+    .from('user_learning_stats')
+    .insert({
+      user_id: userId,
+      ...calculatedStats,
+      metadata: {
+        seeded_from_interactions_at: new Date().toISOString(),
+      },
+    });
+
+  if (insertError && insertError.code !== '23505') {
+    console.error('Error seeding learning stats:', insertError);
+    throw insertError;
+  }
+
+  if (insertError?.code === '23505') {
+    const { data: existingStats, error: existingError } = await supabase
+      .from('user_learning_stats')
+      .select('completed_sentences, earned_stars, practiced_words, total_correct_count, total_incorrect_count')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('Error fetching concurrently seeded learning stats:', existingError);
+      return calculatedStats;
+    }
+
+    if (existingStats) return existingStats as LearningStatsValues;
+  }
+
+  return calculatedStats;
+}
+
+async function ensureLearningStatsBaseline(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+) {
+  const { data: existingStats, error: existingError } = await supabase
+    .from('user_learning_stats')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Error checking learning stats baseline:', existingError);
+    return false;
+  }
+
+  if (existingStats) return true;
+
+  try {
+    await seedLearningStatsFromInteractions(supabase, userId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function safeIncrementLearningStats(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  delta: LearningStatsDelta,
+) {
+  if (!hasLearningStatsDelta(delta)) return;
+
+  try {
+    const { error } = await supabase.rpc('increment_user_learning_stats', {
+      p_user_id: userId,
+      p_completed_sentences_delta: delta.completedSentences,
+      p_earned_stars_delta: delta.earnedStars,
+      p_practiced_words_delta: delta.practicedWords,
+      p_total_correct_delta: delta.totalCorrect,
+      p_total_incorrect_delta: delta.totalIncorrect,
+    });
+
+    if (error) {
+      console.error('Error incrementing learning stats:', error);
+    }
+  } catch (error) {
+    console.error('Error incrementing learning stats:', error);
+  }
+}
+
+function hasLearningStatsDelta(delta: LearningStatsDelta) {
+  return (
+    delta.completedSentences > 0 ||
+    delta.earnedStars > 0 ||
+    delta.practicedWords > 0 ||
+    delta.totalCorrect > 0 ||
+    delta.totalIncorrect > 0
+  );
+}
+
+async function getLearningProgressBundleCounts(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<Pick<LearningProgressSummary, 'completedBundles' | 'activeBundles'>> {
+  const [
+    { count: completedBundles, error: completedError },
+    { count: activeBundles, error: activeError },
+  ] = await Promise.all([
+    supabase
+      .from('user_bundle_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_completed', true),
+    supabase
+      .from('user_bundle_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_started', true)
+      .eq('is_completed', false),
+  ]);
+
+  if (completedError) {
+    console.error('Error counting completed bundles:', completedError);
+  }
+
+  if (activeError) {
+    console.error('Error counting active bundles:', activeError);
+  }
+
+  return {
+    completedBundles: completedBundles || 0,
+    activeBundles: activeBundles || 0,
+  };
+}
+
+function toLearningProgressSummary(
+  stats: LearningStatsValues,
+  bundleCounts: Pick<LearningProgressSummary, 'completedBundles' | 'activeBundles'>,
+): LearningProgressSummary {
+  const totalAttempts = stats.total_correct_count + stats.total_incorrect_count;
+
+  return {
+    completedSentences: stats.completed_sentences,
+    earnedStars: stats.earned_stars,
+    practicedWords: stats.practiced_words,
+    practiceAccuracyPercent: totalAttempts > 0 ? Math.round((stats.total_correct_count / totalAttempts) * 100) : 0,
+    completedBundles: bundleCounts.completedBundles,
+    activeBundles: bundleCounts.activeBundles,
+  };
+}
+
 export async function getRecentStudiedBundle(userId: string): Promise<RecentStudiedBundle | null> {
   const supabase = createAdminClient();
 
@@ -197,6 +487,115 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
     completedItems: completed,
     progressPercent: Math.round(progressRatio * 100),
   };
+}
+
+export async function getRecentLearningActivities(
+  userId: string,
+  options: { excludeBundleId?: string | null; limit?: number } = {},
+): Promise<RecentLearningActivity[]> {
+  const supabase = createAdminClient();
+  const limit = Math.max(1, Math.min(options.limit || 4, 12));
+  const interactionLimit = Math.min(limit * 3, 24);
+
+  let query = supabase
+    .from('user_bundle_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .not('last_studied_at', 'is', null)
+    .order('last_studied_at', { ascending: false })
+    .limit(interactionLimit);
+
+  if (options.excludeBundleId) {
+    query = query.neq('bundle_id', options.excludeBundleId);
+  }
+
+  const { data: interactions, error: interactionError } = await query;
+
+  if (interactionError) {
+    console.error('Error fetching recent learning activities:', interactionError);
+    return [];
+  }
+
+  const bundleInteractions = (interactions || []) as UserBundleInteraction[];
+  const bundleIds = bundleInteractions.map((interaction) => interaction.bundle_id).filter(Boolean);
+
+  if (bundleIds.length === 0) {
+    return [];
+  }
+
+  const [
+    { data: bundles, error: bundleError },
+    { data: itemRows, error: itemError },
+    { data: completedRows, error: completedError },
+  ] = await Promise.all([
+    supabase
+      .from('bundle')
+      .select(`
+        id,
+        title,
+        title_en,
+        thumbnail_url,
+        bundle_category(id, name, name_en),
+        bundle_type(id, name, code)
+      `)
+      .in('id', bundleIds)
+      .eq('is_published', true),
+    supabase
+      .from('bundle_items')
+      .select('bundle_id')
+      .in('bundle_id', bundleIds),
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('bundle_id')
+      .eq('user_id', userId)
+      .eq('is_completed', true)
+      .in('bundle_id', bundleIds),
+  ]);
+
+  if (bundleError) {
+    console.error('Error fetching recent learning activity bundles:', bundleError);
+    return [];
+  }
+
+  if (itemError) {
+    console.error('Error counting recent learning activity items:', itemError);
+  }
+
+  if (completedError) {
+    console.error('Error counting completed recent learning activity items:', completedError);
+  }
+
+  const bundleById = new Map(
+    (bundles || []).map((bundle) => [
+      String(bundle.id),
+      {
+        ...bundle,
+        bundle_category: normalizeSingleRelation(bundle.bundle_category),
+        bundle_type: normalizeSingleRelation(bundle.bundle_type),
+      } as unknown as RecentLearningActivity['bundle'],
+    ]),
+  );
+  const totalByBundleId = countRowsByBundleId(itemRows || []);
+  const completedByBundleId = countRowsByBundleId(completedRows || []);
+
+  return bundleInteractions.flatMap((interaction) => {
+    const bundle = bundleById.get(interaction.bundle_id);
+    if (!bundle) return [];
+
+    const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
+    const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
+    const storedRatio = Number(interaction.progress_ratio);
+    const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
+    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+
+    return [{
+      interaction,
+      bundle,
+      totalItems,
+      completedItems,
+      progressPercent: Math.round(progressRatio * 100),
+    }];
+  }).slice(0, limit);
 }
 
 export async function getBundleProgressSummary(
@@ -448,6 +847,14 @@ export async function recordBundleItemPractice(
   const wasCompleted = Boolean(existingItemInteraction?.is_completed);
   const isCompleted = wasCompleted || isCorrect;
   const existingMetadata = existingItemInteraction?.metadata || {};
+  const statsBaselineReady = await ensureLearningStatsBaseline(supabase, userId);
+  const statsDelta: LearningStatsDelta = {
+    completedSentences: !wasCompleted && isCorrect ? 1 : 0,
+    earnedStars: isCorrect && !hasEarnedPracticeStar(existingMetadata, mode) ? LEARNING_PROGRESS_STARS[mode] : 0,
+    practicedWords: 0,
+    totalCorrect: isCorrect ? 1 : 0,
+    totalIncorrect: isCorrect ? 0 : 1,
+  };
   const metadata = {
     ...existingMetadata,
     last_practice_mode: mode,
@@ -478,6 +885,10 @@ export async function recordBundleItemPractice(
   if (itemError) {
     console.error('Error marking bundle item completed:', itemError);
     throw itemError;
+  }
+
+  if (statsBaselineReady) {
+    await safeIncrementLearningStats(supabase, userId, statsDelta);
   }
 
   const [
@@ -610,6 +1021,14 @@ function normalizeSingleRelation<T>(value: T | T[] | null | undefined): T | null
   return value || null;
 }
 
+function countRowsByBundleId(rows: Array<{ bundle_id?: string | null }>) {
+  return rows.reduce<Map<string, number>>((counts, row) => {
+    if (!row.bundle_id) return counts;
+    counts.set(row.bundle_id, (counts.get(row.bundle_id) || 0) + 1);
+    return counts;
+  }, new Map());
+}
+
 function updatePracticeModeMetadata(
   value: unknown,
   mode: 'quiz' | 'scramble',
@@ -644,4 +1063,24 @@ function normalizePracticeModes(value: unknown) {
         return Boolean(modeMetadata) && typeof modeMetadata === 'object' && !Array.isArray(modeMetadata);
       }),
   );
+}
+
+function calculateEarnedStarsFromMetadata(metadata: Record<string, unknown> | null) {
+  return Object.entries(LEARNING_PROGRESS_STARS).reduce((total, [mode, stars]) => {
+    return hasEarnedPracticeStar(metadata, mode)
+      ? total + stars
+      : total;
+  }, 0);
+}
+
+function hasEarnedPracticeStar(metadata: Record<string, unknown> | null, mode: string) {
+  const practiceModes = normalizePracticeModes(metadata?.practice_modes);
+  const modeMetadata = practiceModes[mode];
+
+  if (!modeMetadata) {
+    return metadata?.last_practice_mode === mode && metadata?.last_practice_is_correct === true;
+  }
+
+  const correctCount = Number(modeMetadata.correct_count || 0);
+  return correctCount > 0 || Boolean(modeMetadata.first_correct_at);
 }

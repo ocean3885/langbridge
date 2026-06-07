@@ -4,15 +4,16 @@ import {
   ArrowRight,
   Compass,
   Layers,
+  Star,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
-import type { RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
+import type { LearningProgressSummary, RecentLearningActivity, RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
-import { GoalCard, MiniListCard, ProgressChartCard } from './ProgressCards';
+import { GoalCard } from './ProgressCards';
 import { SectionHeader } from './SectionHeader';
 import { StreakCard } from './StreakCard';
-import { activities, lessonCards, quickPractice } from './learn-page-data';
+import { lessonCards, quickPractice } from './learn-page-data';
 
 type DisplayLanguage = 'ko' | 'en';
 
@@ -73,46 +74,52 @@ const loggedInSectionCopy = {
   ko: {
     todaysPicks: '오늘의 추천 학습',
     recentActivity: '최근 활동',
-    viewFullHistory: '전체 기록 보기',
+    browseBundles: '번들 둘러보기',
+    noRecentActivityTitle: '아직 다른 활동이 없어요',
+    noRecentActivityDescription: '번들을 더 학습하면 최근 활동이 여기에 표시됩니다.',
     quickPractice: '빠른 연습',
     quickPracticeDescription: '스페인어 감각을 짧게 유지해보세요.',
     progressTitle: '학습 현황',
-    viewDetails: '자세히 보기',
-    progressRows: [
-      ['완료한 레슨', '28'],
-      ['학습한 단어', '236'],
-      ['익힌 표현', '57'],
-      ['현재 레벨', 'Beginner A2'],
-    ],
+    completedSentences: '완료한 문장',
+    earnedStars: '획득한 별',
+    completedBundles: '완료한 번들',
+    activeBundles: '진행 중인 번들',
+    practicedWords: '연습한 단어',
+    practiceAccuracy: '정답률',
   },
   en: {
     todaysPicks: "Today's Picks for You",
     recentActivity: 'Recent Activity',
-    viewFullHistory: 'View full history',
+    browseBundles: 'Browse bundles',
+    noRecentActivityTitle: 'No other activity yet',
+    noRecentActivityDescription: 'Study more bundles and your recent activity will appear here.',
     quickPractice: 'Quick Practice',
     quickPracticeDescription: 'Short activities to keep your Spanish fresh.',
     progressTitle: 'Your Progress',
-    viewDetails: 'View details',
-    progressRows: [
-      ['Lessons Completed', '28'],
-      ['Words Learned', '236'],
-      ['Expressions Mastered', '57'],
-      ['Current Level', 'Beginner A2'],
-    ],
+    completedSentences: 'Sentences Completed',
+    earnedStars: 'Earned Stars',
+    completedBundles: 'Bundles Completed',
+    activeBundles: 'Active Bundles',
+    practicedWords: 'Words Practiced',
+    practiceAccuracy: 'Practice Accuracy',
   },
 };
 
 export function LoggedInLearnPage({
   name,
   recentBundle,
+  recentActivities,
   streakSummary,
   goalSummary,
+  progressSummary,
   language,
 }: {
   name: string;
   recentBundle: RecentStudiedBundle | null;
+  recentActivities: RecentLearningActivity[];
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
+  progressSummary: LearningProgressSummary;
   language: DisplayLanguage;
 }) {
   return (
@@ -121,11 +128,16 @@ export function LoggedInLearnPage({
         <WelcomeSection name={name} language={language} />
         <ContinueLearningSection recentBundle={recentBundle} language={language} />
         <TodaysPicksSection language={language} />
-        <RecentActivitySection language={language} />
+        <RecentActivitySection activities={recentActivities} language={language} />
         <QuickPracticeSection language={language} />
       </div>
 
-      <LearnSidebar streakSummary={streakSummary} goalSummary={goalSummary} language={language} />
+      <LearnSidebar
+        streakSummary={streakSummary}
+        goalSummary={goalSummary}
+        progressSummary={progressSummary}
+        language={language}
+      />
     </div>
   );
 }
@@ -282,40 +294,76 @@ function TodaysPicksSection({ language }: { language: DisplayLanguage }) {
   );
 }
 
-function RecentActivitySection({ language }: { language: DisplayLanguage }) {
+function RecentActivitySection({ activities, language }: { activities: RecentLearningActivity[]; language: DisplayLanguage }) {
   const t = loggedInSectionCopy[language];
 
   return (
     <section>
       <SectionHeader
         title={t.recentActivity}
-        href="/my-videos"
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
       />
       <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-        {activities.map((activity) => (
-          <div key={activity.title} className="grid grid-cols-[76px_1fr_auto] items-center gap-4 border-b border-zinc-100 p-4 last:border-b-0 dark:border-zinc-800">
-            <div className="relative h-14 overflow-hidden rounded-lg">
-              <Image src={activity.image} alt="" fill className="object-cover" sizes="76px" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="truncate font-bold">{activity.title}</h3>
-              <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{activity.meta}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-bold text-[#4f934f]">{activity.status}</p>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{activity.date}</p>
-            </div>
+        {activities.length === 0 ? (
+          <div className="p-6 text-center">
+            <h3 className="font-bold">{t.noRecentActivityTitle}</h3>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{t.noRecentActivityDescription}</p>
           </div>
-        ))}
+        ) : (
+          activities.map((activity) => {
+            const title = getActivityBundleTitle(activity, language);
+            const meta = getActivityBundleMeta(activity, language);
+            const status = activity.interaction.is_completed
+              ? (language === 'ko' ? '완료' : 'Completed')
+              : `${activity.progressPercent}%`;
+            const date = formatRelativeStudyDate(activity.interaction.last_studied_at, language);
+            const image = activity.bundle.thumbnail_url || '/images/heroimg_land.jpg';
+
+            return (
+              <Link
+                key={activity.interaction.id}
+                href={`/bundles/${activity.bundle.id}`}
+                className="grid grid-cols-[76px_1fr_auto] items-center gap-4 border-b border-zinc-100 p-4 transition hover:bg-zinc-50 last:border-b-0 dark:border-zinc-800 dark:hover:bg-zinc-800/70"
+              >
+                <div className="relative h-14 overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
+                  <Image src={image} alt="" fill className="object-cover" sizes="76px" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate font-bold">{title}</h3>
+                  <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{meta}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-[#4f934f]">{status}</p>
+                  {date && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{date}</p>}
+                </div>
+              </Link>
+            );
+          })
+        )}
         <div className="flex justify-center p-4">
-          <Link href="/my-videos" className="rounded-full border border-zinc-200 px-10 py-2 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
-            {t.viewFullHistory}
+          <Link href="/bundles" className="rounded-full border border-zinc-200 px-10 py-2 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+            {t.browseBundles}
           </Link>
         </div>
       </div>
     </section>
   );
+}
+
+function getActivityBundleTitle(activity: RecentLearningActivity, language: DisplayLanguage) {
+  return language === 'ko'
+    ? activity.bundle.title || activity.bundle.title_en || continueLearningCopy[language].fallbackTitle
+    : activity.bundle.title_en || activity.bundle.title || continueLearningCopy[language].fallbackTitle;
+}
+
+function getActivityBundleMeta(activity: RecentLearningActivity, language: DisplayLanguage) {
+  const categoryName = language === 'ko'
+    ? activity.bundle.bundle_category?.name || activity.bundle.bundle_category?.name_en || activity.bundle.bundle_type?.name || continueLearningCopy[language].fallbackCategory
+    : activity.bundle.bundle_category?.name_en || activity.bundle.bundle_category?.name || activity.bundle.bundle_type?.name || continueLearningCopy[language].fallbackCategory;
+
+  return activity.totalItems > 0
+    ? `${categoryName} · ${continueLearningCopy[language].completedItems(activity.completedItems, activity.totalItems)}`
+    : categoryName;
 }
 
 function QuickPracticeSection({ language }: { language: DisplayLanguage }) {
@@ -352,35 +400,47 @@ function QuickPracticeSection({ language }: { language: DisplayLanguage }) {
 function LearnSidebar({
   streakSummary,
   goalSummary,
+  progressSummary,
   language,
 }: {
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
+  progressSummary: LearningProgressSummary;
   language: DisplayLanguage;
 }) {
   return (
     <aside className="space-y-5 lg:self-start">
       <StreakCard summary={streakSummary} language={language} />
       <GoalCard summary={goalSummary} language={language} editable />
-      <ProgressSummaryCard language={language} />
+      <ProgressSummaryCard summary={progressSummary} language={language} />
       <EncouragementCard language={language} />
     </aside>
   );
 }
 
-function ProgressSummaryCard({ language }: { language: DisplayLanguage }) {
+function ProgressSummaryCard({ summary, language }: { summary: LearningProgressSummary; language: DisplayLanguage }) {
   const t = loggedInSectionCopy[language];
+  const rows = [
+    [t.earnedStars, formatCount(summary.earnedStars)],
+    [t.completedBundles, formatCount(summary.completedBundles)],
+    [t.activeBundles, formatCount(summary.activeBundles)],
+    [t.completedSentences, formatCount(summary.completedSentences)],
+    [t.practicedWords, formatCount(summary.practicedWords)],
+    [t.practiceAccuracy, `${summary.practiceAccuracyPercent}%`],
+  ];
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5">
         <h3 className={`${getDisplayHeadingClass(language)} text-xl`}>{t.progressTitle}</h3>
-        <Link href="/profile" className="text-sm text-zinc-500 dark:text-zinc-400">{t.viewDetails}</Link>
       </div>
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {t.progressRows.map(([label, value]) => (
+        {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between py-3 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">{label}</span>
+            <span className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              {label === t.earnedStars && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+              {label}
+            </span>
             <strong>{value}</strong>
           </div>
         ))}
@@ -389,11 +449,15 @@ function ProgressSummaryCard({ language }: { language: DisplayLanguage }) {
   );
 }
 
+function formatCount(value: number) {
+  return new Intl.NumberFormat('en').format(value);
+}
+
 function EncouragementCard({ language }: { language: DisplayLanguage }) {
   const t = encouragementCopy[language];
 
   return (
-    <div className="overflow-hidden rounded-xl bg-[#fff0d9] p-7 shadow-sm dark:bg-amber-950/30 dark:text-amber-100 dark:shadow-black/20">
+    <div className="overflow-hidden rounded-xl border border-[#f1dfc6] bg-[#fff8ec] p-7 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100 dark:shadow-black/20">
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0 pb-1">
           <h3 className={`${getDisplayHeadingClass(language)} text-xl`}>{t.title}</h3>
