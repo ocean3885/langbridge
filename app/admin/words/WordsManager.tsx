@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Search, Sparkles, ExternalLink } from 'lucide-react';
 
 export interface Language {
   id: number;
@@ -82,6 +82,23 @@ function formatPOS(pos: string): string {
   return POS_MAP[pos.toLowerCase()] || pos;
 }
 
+function getCanonicalPOS(pos: string): string {
+  const p = pos.toLowerCase().trim();
+  if (p === 'n' || p === 'noun' || p === 'sustantivo' || p === 'nombre') return 'noun';
+  if (p === 'v' || p === 'verb' || p === 'verbo') return 'verb';
+  if (p === 'adj' || p === 'adjective' || p === 'adjetivo') return 'adjective';
+  if (p === 'adv' || p === 'adverb' || p === 'adverbio') return 'adverb';
+  if (p === 'pron' || p === 'pronoun') return 'pronoun';
+  if (p === 'prep' || p === 'preposition' || p === 'adp') return 'preposition';
+  if (p === 'conj' || p === 'conjunction') return 'conjunction';
+  if (p === 'art' || p === 'article' || p === 'det' || p === 'determiner') return 'article';
+  if (p === 'num' || p === 'numeral') return 'numeral';
+  if (p === 'part' || p === 'particle') return 'particle';
+  if (p === 'aux' || p === 'auxiliary') return 'auxiliary';
+  if (p === 'propn') return 'propn';
+  return p;
+}
+
 interface WordsManagerProps {
   initialWords: Word[];
   languages: Language[];
@@ -127,8 +144,19 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [filterLowDistractors, setFilterLowDistractors] = useState(false);
   const [filterMissingAudio, setFilterMissingAudio] = useState(false);
+  const [filterPOS, setFilterPOS] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  interface BulkReportItem {
+    id: number;
+    word: string;
+    distractors: string[];
+    status: 'success' | 'failed';
+    error?: string;
+  }
+  const [bulkReport, setBulkReport] = useState<BulkReportItem[] | null>(null);
   const itemsPerPage = 100;
 
   const filteredWords = words.filter((word) => {
@@ -139,7 +167,10 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     const matchesLanguage = filterLanguage === 'all' || word.lang_code === filterLanguage;
     const matchesLowDistractors = !filterLowDistractors || (word.distractor_count ?? 0) < 6;
     const matchesMissingAudio = !filterMissingAudio || !word.audio_url?.trim();
-    return matchesSearch && matchesLanguage && matchesLowDistractors && matchesMissingAudio;
+    const matchesPOS =
+      filterPOS === 'all' ||
+      word.pos.some((p) => getCanonicalPOS(p) === filterPOS);
+    return matchesSearch && matchesLanguage && matchesLowDistractors && matchesMissingAudio && matchesPOS;
   });
 
   const sortedWords = [...filteredWords].sort((a, b) => {
@@ -276,6 +307,85 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     });
   };
 
+  const handleBulkGenerateDistractors = async () => {
+    const wordsToGenerate = filteredWords.filter(w => (w.distractor_count ?? 0) < 6);
+    if (wordsToGenerate.length === 0) {
+      alert('오답 개수가 부족한 단어가 없습니다.');
+      return;
+    }
+
+    if (!confirm(`총 ${wordsToGenerate.length}개 단어에 대해 오답을 일괄 생성하시겠습니까?\n이 작업은 각 단어마다 부족한 개수만큼 스페인어 오답을 생성하여 DB에 추가합니다.`)) {
+      return;
+    }
+
+    setIsBulkGenerating(true);
+    setBulkProgress({ current: 0, total: wordsToGenerate.length });
+    setBulkReport(null);
+
+    const reportItems: BulkReportItem[] = [];
+    const updatedWordsMap = new Map<number, number>();
+
+    for (let i = 0; i < wordsToGenerate.length; i++) {
+      const word = wordsToGenerate[i];
+      const currentCount = word.distractor_count ?? 0;
+      const neededCount = 8 - currentCount;
+
+      try {
+        const res = await fetch('/api/admin/words/generate-distractors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wordId: word.id,
+            count: neededCount,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error('API response failed');
+        }
+
+        const insertedData = await res.json();
+        const newlyInsertedCount = Array.isArray(insertedData) ? insertedData.length : 0;
+        const distractorWords = Array.isArray(insertedData) 
+          ? insertedData.map((d: any) => d.distractor) 
+          : [];
+
+        updatedWordsMap.set(word.id, currentCount + newlyInsertedCount);
+
+        reportItems.push({
+          id: word.id,
+          word: word.word,
+          distractors: distractorWords,
+          status: 'success',
+        });
+      } catch (error: any) {
+        console.error(`Failed to generate distractors for word id ${word.id}:`, error);
+
+        reportItems.push({
+          id: word.id,
+          word: word.word,
+          distractors: [],
+          status: 'failed',
+          error: error.message || '알 수 없는 오류',
+        });
+      }
+
+      setBulkProgress(prev => ({ ...prev, current: i + 1 }));
+    }
+
+    setWords(prevWords =>
+      prevWords.map(w => {
+        if (updatedWordsMap.has(w.id)) {
+          return { ...w, distractor_count: updatedWordsMap.get(w.id) };
+        }
+        return w;
+      })
+    );
+
+    setIsBulkGenerating(false);
+    setBulkReport(reportItems);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background md:ml-64 p-8">
       <div className="max-w-7xl mx-auto">
@@ -288,7 +398,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
         {/* 검색 및 필터 */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-800">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -299,18 +409,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
             </div>
-            <select
-              value={filterLanguage}
-              onChange={handleFilterLanguageChange}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            >
-              <option value="all">모든 언어</option>
-              {languages.map((lang) => (
-                <option key={lang.id} value={lang.code}>
-                  {lang.name_ko} ({lang.code})
-                </option>
-              ))}
-            </select>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4">
@@ -325,6 +423,17 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">오답 개수 부족 (6개 미만)</span>
               </label>
 
+              {filterLowDistractors && filteredWords.filter(w => (w.distractor_count ?? 0) < 6).length > 0 && (
+                <button
+                  onClick={handleBulkGenerateDistractors}
+                  disabled={isBulkGenerating}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {isBulkGenerating ? '생성 중...' : '오답 일괄 생성'}
+                </button>
+              )}
+
               <label className="inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -337,17 +446,38 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
               </label>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 font-medium whitespace-nowrap">문장 수 정렬:</span>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
-                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              >
-                <option value="none">기본(최신순)</option>
-                <option value="asc">문장 적은 순</option>
-                <option value="desc">문장 많은 순</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium whitespace-nowrap">품사 필터:</span>
+                <select
+                  value={filterPOS}
+                  onChange={(e) => {
+                    setFilterPOS(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">모든 품사</option>
+                  {POS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium whitespace-nowrap">문장 수 정렬:</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as any)}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="none">기본(최신순)</option>
+                  <option value="asc">문장 적은 순</option>
+                  <option value="desc">문장 많은 순</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -356,7 +486,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         {/* 단어 목록 (카드 그리드) */}
         {filteredWords.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">
-            {searchTerm || filterLanguage !== 'all' || filterLowDistractors || filterMissingAudio ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
+            {searchTerm || filterLanguage !== 'all' || filterLowDistractors || filterMissingAudio || filterPOS !== 'all' ? '검색 결과가 없습니다.' : '등록된 단어가 없습니다.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -365,21 +495,12 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
                 {editingId === word.id ? (
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
-                      <select
-                        value={formData.lang_code}
-                        onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                      >
-                        {languages.map((lang) => (
-                          <option key={lang.id} value={lang.code}>{lang.name_ko}</option>
-                        ))}
-                      </select>
                       <input
                         type="text"
                         value={formData.word}
                         onChange={(e) => setFormData({ ...formData, word: e.target.value })}
                         placeholder="단어"
-                        className="flex-2 w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       />
                     </div>
                     <input
@@ -550,6 +671,94 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           전체 {words.length}개 중 {filteredWords.length}개 표시 ({(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredWords.length)})
         </div>
       </div>
+
+      {isBulkGenerating && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl max-w-md w-full border border-gray-100 dark:border-gray-800 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center">오답 일괄 생성 중</h3>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-blue-600 h-full transition-all duration-300"
+                style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+              />
+            </div>
+            <p className="text-sm font-semibold text-gray-650 dark:text-gray-400 text-center">
+              {bulkProgress.current} / {bulkProgress.total} 단어 완료
+            </p>
+            <p className="text-xs text-gray-400 text-center leading-relaxed">
+              API 요청 한도와 타임아웃을 조절하기 위해 단어별로 순차 처리 중입니다. 완료될 때까지 브라우저 창을 닫지 마세요.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {bulkReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-xl max-w-3xl w-full border border-gray-100 dark:border-gray-800 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-500" />
+                오답 일괄 생성 결과 리포트
+              </h3>
+              <button
+                onClick={() => setBulkReport(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-650 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              <div className="grid grid-cols-1 divide-y divide-gray-150 dark:divide-gray-800">
+                {bulkReport.map((item) => (
+                  <div key={item.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 first:pt-0">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/words/${item.id}`}
+                        target="_blank"
+                        className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {item.word}
+                        <ExternalLink className="w-3.5 h-3.5 inline" />
+                      </Link>
+                    </div>
+
+                    <div className="flex-1 sm:max-w-xl flex flex-wrap gap-1.5 justify-end">
+                      {item.status === 'success' ? (
+                        item.distractors.length > 0 ? (
+                          item.distractors.map((dist, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200/50 px-2 py-0.5 rounded-md text-xs font-medium"
+                            >
+                              {dist}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">생성된 오답 없음 (이미 충족되었을 수 있음)</span>
+                        )
+                      ) : (
+                        <span className="text-xs text-red-500 font-medium bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded border border-red-200/50">
+                          생성 실패: {item.error}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+              <button
+                onClick={() => setBulkReport(null)}
+                className="px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-750 dark:text-gray-300 rounded-xl text-sm font-bold shadow-sm transition-all"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

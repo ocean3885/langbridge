@@ -669,15 +669,9 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-400 uppercase ml-1">언어</label>
-                <select
-                  value={formData.lang_code}
-                  onChange={(e) => setFormData({ ...formData, lang_code: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none text-gray-900 dark:text-gray-100"
-                >
-                  {languages.map(lang => (
-                    <option key={lang.id} value={lang.code}>{lang.name_ko} ({lang.code})</option>
-                  ))}
-                </select>
+                <div className="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-850 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 text-sm">
+                  {languages.find(l => l.code === formData.lang_code)?.name_ko || formData.lang_code}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-400 uppercase ml-1">성별</label>

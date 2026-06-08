@@ -121,3 +121,14 @@ export function bundleItemCount(bundle: BundleRow) {
   const level = Number(bundle.level || 1);
   return Math.max(5, Math.min(8, level + 5));
 }
+
+export function getDurationDisplay(lessonCount: number, language: Language) {
+  let range = '';
+  if (lessonCount <= 5) range = '0-1';
+  else if (lessonCount <= 10) range = '1-2';
+  else if (lessonCount <= 15) range = '2-3';
+  else if (lessonCount <= 20) range = '3-4';
+  else range = '4+';
+  
+  return language === 'ko' ? `${range}시간` : `${range} Hours`;
+}

@@ -115,7 +115,8 @@ function isCapitalizedNameCandidate(surface: string, sentence: string) {
 }
 
 function isSingleWordCandidate(value: string) {
-  return /^[a-záéíóúüñ]+$/i.test(value);
+  // Allow spaces to support multi-word expressions/phrases (like "correo electrónico")
+  return /^[a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+)*$/i.test(value.trim());
 }
 
 function filterExcludedCandidates(

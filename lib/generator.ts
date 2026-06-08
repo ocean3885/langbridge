@@ -422,7 +422,7 @@ ${JSON.stringify(items, null, 2)}
 1. lemma는 words 테이블의 word 컬럼과 비교할 수 있게 소문자 기본형으로 작성하세요.
 2. 동사는 부정사 기본형으로 작성하세요. 예: tienes -> tener, fui -> ir 또는 ser 중 문맥상 맞는 것.
 3. 명사/형용사는 남성 단수 기본형을 우선 작성하세요. 예: trabajos -> trabajo, pasados -> pasado.
-4. 다중 단어 표현은 하나의 word로 넣지 말고, 학습 가치가 있는 개별 단어로 분리하세요.
+4. 의미가 유기적으로 연결되어 하나의 고유한 의미를 형성하는 다중 단어 표현(예: 'correo electrónico' - 이메일, 'fin de semana' - 주말)은 분리하지 말고 하나의 단어(lemma)로 추출하고, 단순한 나열이나 개별 단어의 결합인 경우에만 분리하세요.
 5. 관사, 전치사, 접속사, 대명사, 소유형, 사람이름처럼 단독 학습 가치가 낮은 단어는 excludedWords에 넣으세요.
 6. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj" 중에서 고르세요. 성별은 pos에 넣지 마세요.
 7. 중복 lemma는 같은 문장 안에서 한 번만 포함하되 surface는 대표 사용형을 유지하세요.
@@ -530,6 +530,7 @@ export async function generateDistractorsDeepseek(word: string, count: number = 
 ]
 
 주의사항:
+- 생성되는 유사 단어("word" 키의 값)는 반드시 스페인어(Spanish) 단어 또는 어구여야 합니다.
 - 뜻은 한국어(meaning_ko)와 영어(meaning_en)로 각각 작성하세요.
 - 제시된 원래 단어 '${word}'는 절대로 결과 리스트에 포함하지 마세요. 오직 유사 단어만 생성하세요.
 - 인사말이나 설명 없이 오직 JSON 데이터만 반환하세요.
