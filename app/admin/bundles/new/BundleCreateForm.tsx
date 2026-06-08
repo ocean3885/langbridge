@@ -467,7 +467,7 @@ export default function BundleCreateForm({ userId }: Props) {
       // 1. Upload main thumbnail if pending
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
-        const compressedFile = await compressImageForUpload(thumbnailFile);
+        const compressedFile = await compressImageForUpload(thumbnailFile, { maxWidth: 768 });
         const formData = new FormData();
         formData.append('file', compressedFile);
         finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);
@@ -1070,7 +1070,7 @@ export default function BundleCreateForm({ userId }: Props) {
       // 1. Upload main thumbnail if pending
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
-        const compressedFile = await compressImageForUpload(thumbnailFile);
+        const compressedFile = await compressImageForUpload(thumbnailFile, { maxWidth: 768 });
         const formData = new FormData();
         formData.append('file', compressedFile);
         finalThumbnailUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/thumbnail`);

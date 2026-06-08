@@ -649,6 +649,29 @@ export async function getBundleProgressSummary(
   };
 }
 
+export async function listUserBundleInteractionsForBundles(
+  userId: string | null | undefined,
+  bundleIds: string[],
+): Promise<UserBundleInteraction[]> {
+  if (!userId || bundleIds.length === 0) {
+    return [];
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('user_bundle_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .in('bundle_id', bundleIds);
+
+  if (error) {
+    console.error('Error fetching user bundle interactions for bundles:', error);
+    return [];
+  }
+
+  return (data || []) as UserBundleInteraction[];
+}
+
 export async function recordBundleStudyAccess(
   userId: string,
   bundleId: string,

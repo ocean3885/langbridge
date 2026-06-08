@@ -188,8 +188,8 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
             {categoryName}
           </span>
-          <h1 className="mt-3 text-2xl font-extrabold leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 lg:max-w-2xl lg:text-5xl">{title}</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-700 dark:text-zinc-300 lg:max-w-xl lg:text-base lg:leading-7">{description}</p>
+          <h1 className="mt-3 text-2xl font-bold leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 lg:max-w-2xl lg:text-5xl">{title}</h1>
+          <p className="mt-3 text-sm font-normal leading-6 text-zinc-700 dark:text-zinc-300 lg:max-w-xl lg:text-base lg:leading-7">{description}</p>
         </section>
 
         <div className="relative z-10 h-44 w-full overflow-hidden lg:h-[360px]">
@@ -230,18 +230,18 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             </button>
           </div>
           <div className="mt-3 flex items-end justify-between gap-4">
-            <p className="text-lg font-extrabold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, items.length)}</p>
+            <p className="text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, items.length)}</p>
             <p className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{progress.progressPercent}%</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
             <div className="h-full rounded-full bg-[#3f8d54] dark:bg-emerald-500" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
           </div>
           <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
-            <span className="inline-flex items-center gap-2 text-sm font-bold">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold">
               <Star className="h-4 w-4 fill-current" />
               {t.practiceStars}
             </span>
-            <span className="text-base font-extrabold tabular-nums">{practiceStars.earned} / {practiceStars.max}</span>
+            <span className="text-base font-bold tabular-nums">{practiceStars.earned} / {practiceStars.max}</span>
           </div>
           {showProgressInfo && (
             <div className="mt-3 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
@@ -263,7 +263,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           </Link>
           <Link
             href={`/bundles/${bundle.id}/items`}
-            className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             {t.viewItems}
           </Link>

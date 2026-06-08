@@ -1,11 +1,15 @@
 const IMAGE_UPLOAD_MAX_WIDTH = 1024;
 const IMAGE_UPLOAD_WEBP_QUALITY = 0.82;
 
-export async function compressImageForUpload(file: File) {
+export async function compressImageForUpload(
+  file: File,
+  options: { maxWidth?: number } = {},
+) {
   if (!file.type.startsWith('image/')) return file;
 
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, IMAGE_UPLOAD_MAX_WIDTH / bitmap.width);
+  const maxWidth = options.maxWidth || IMAGE_UPLOAD_MAX_WIDTH;
+  const scale = Math.min(1, maxWidth / bitmap.width);
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
 

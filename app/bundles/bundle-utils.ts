@@ -110,6 +110,10 @@ export function getBundleImage(bundle: BundleRow, index: number) {
   return bundle.thumbnail_url || fallbackImages[index % fallbackImages.length];
 }
 
+export function getDisplayFontClass(text: string | null | undefined) {
+  return /[\u3131-\u318e\uac00-\ud7a3]/.test(text || '') ? 'font-sans' : 'font-serif';
+}
+
 export function bundleItemCount(bundle: BundleRow) {
   const itemCount = bundle.bundle_items?.[0]?.count;
   if (typeof itemCount === 'number') return itemCount;

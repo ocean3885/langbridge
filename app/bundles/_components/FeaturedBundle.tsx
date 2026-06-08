@@ -9,6 +9,7 @@ import {
   getBundleImage,
   getBundleTitle,
   getCategoryName,
+  getDisplayFontClass,
   bundleItemCount,
   estimateBundleMinutesForBundle,
 } from '../bundle-utils';
@@ -30,7 +31,7 @@ export function FeaturedBundle({ bundle, language }: { bundle: BundleRow; langua
           <Flame className="h-4 w-4" />
           {copy.featured}
         </p>
-        <h2 className="font-serif text-3xl font-semibold leading-tight">{title}</h2>
+        <h2 className={`${getDisplayFontClass(title)} text-3xl font-semibold leading-tight`}>{title}</h2>
         <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">{description}</p>
         <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400">
           <span className="rounded-full bg-[#f8dfb7] px-3 py-1 font-medium text-[#7d6230] dark:bg-amber-950/70 dark:text-amber-300">

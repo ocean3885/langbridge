@@ -6,6 +6,7 @@ import {
   getCategoryHref,
   getCategoryKey,
   getCategoryTitle,
+  getDisplayFontClass,
 } from '../bundle-utils';
 import type { BundleCategoryRow, BundleCopy, BundleRow, Language } from '../types';
 
@@ -26,7 +27,7 @@ export function BundleCategoriesSection({
 
   return (
     <section>
-      <h2 className="font-serif text-2xl font-semibold">{copy.categories}</h2>
+      <h2 className={`${getDisplayFontClass(copy.categories)} text-2xl font-semibold`}>{copy.categories}</h2>
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visibleCategories.map((category, index) => {
           const count = groupedBundles[getCategoryKey(category)]?.length || 0;
@@ -43,7 +44,7 @@ export function BundleCategoriesSection({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-serif text-lg font-semibold sm:mt-5 sm:text-center sm:text-xl">{title}</h3>
+                <h3 className={`${getDisplayFontClass(title)} text-lg font-semibold sm:mt-5 sm:text-center sm:text-xl`}>{title}</h3>
                 <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-600 dark:text-zinc-400 sm:mt-2 sm:line-clamp-3 sm:text-center sm:leading-6">{description}</p>
                 <div className="mt-3 flex items-center justify-between sm:mt-5">
                   <span className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">

@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { BundleCategoryRow, BundleCopy, BundleRow, Language } from '../types';
-import { getCategoryAnchorId, getCategoryDescription, getCategoryHref, getCategoryTitle } from '../bundle-utils';
+import { getCategoryAnchorId, getCategoryDescription, getCategoryHref, getCategoryTitle, getDisplayFontClass } from '../bundle-utils';
 import { BundleCard } from './BundleCard';
 
 export function BundleCategorySection({
@@ -17,11 +17,13 @@ export function BundleCategorySection({
 }) {
   if (bundles.length === 0) return null;
 
+  const title = getCategoryTitle(category, language);
+
   return (
     <section id={getCategoryAnchorId(category)} className="scroll-mt-24">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="font-serif text-2xl font-semibold">{getCategoryTitle(category, language)}</h2>
+          <h2 className={`${getDisplayFontClass(title)} text-2xl font-semibold`}>{title}</h2>
           <p className="mt-1 hidden truncate text-sm text-zinc-500 dark:text-zinc-400 sm:block">
             {getCategoryDescription(category, language)}
           </p>

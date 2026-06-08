@@ -1,11 +1,12 @@
 import { MessageCircle, Search, Sparkles, Users, Waves } from 'lucide-react';
+import { getDisplayFontClass } from '../bundle-utils';
 import type { BundleCopy } from '../types';
 
 export function BundlesHero({ copy }: { copy: BundleCopy }) {
   return (
     <section className="grid gap-8 py-8 md:py-12 lg:grid-cols-[1fr_0.9fr] lg:items-center">
       <div>
-        <h1 className="font-serif text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+        <h1 className={`${getDisplayFontClass(copy.title)} text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl`}>
           {copy.title}
           <span className="ml-4 inline-flex translate-y-1 text-[#6d9b6d]">
             <Sparkles className="h-8 w-8" />
@@ -19,7 +20,7 @@ export function BundlesHero({ copy }: { copy: BundleCopy }) {
       </div>
 
       <div className="hidden rounded-2xl border border-zinc-200 bg-[#fffaf1] p-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:block">
-        <p className="text-center font-serif text-lg">{copy.journey}</p>
+        <p className={`${getDisplayFontClass(copy.journey)} text-center text-lg`}>{copy.journey}</p>
         <p className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">{copy.journeySub}</p>
         <div className="mt-8 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3 text-center">
           {[

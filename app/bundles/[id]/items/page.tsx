@@ -89,13 +89,13 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
           {t.back}
         </Link>
         <div className="mt-5 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 md:p-7">
-          <p className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{t.title}</p>
+          <p className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{t.title}</p>
           <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-2xl font-extrabold leading-tight text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-zinc-600 dark:text-zinc-300 md:text-base">{description}</p>
+              <h1 className="text-2xl font-bold leading-tight text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
+              <p className="mt-2 max-w-2xl text-sm font-normal leading-6 text-zinc-600 dark:text-zinc-300 md:text-base">{description}</p>
             </div>
-            <p className="shrink-0 text-sm font-black text-zinc-500 dark:text-zinc-400">{t.count(items.length)}</p>
+            <p className="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t.count(items.length)}</p>
           </div>
         </div>
       </header>
@@ -122,12 +122,12 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
               <article key={item.id} className="grid gap-4 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition hover:border-[#d3ead9] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:border-emerald-900 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
                 <div className="min-w-0">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#dff1e5] text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#dff1e5] text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
                       {index + 1}
                     </span>
                     <div className="min-w-0">
                       {isConversationBundle && (item.speaker_name || item.speaker_role || item.speaker_key) && (
-                        <div className="mb-1.5 inline-flex max-w-full items-center rounded-full bg-[#f2eee5] px-3 py-1 text-xs font-black text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+                        <div className="mb-1.5 inline-flex max-w-full items-center rounded-full bg-[#f2eee5] px-3 py-1 text-xs font-semibold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                           {(item.speaker_name || item.speaker_key) && (
                             <span className="truncate">{item.speaker_name || item.speaker_key}</span>
                           )}
@@ -152,7 +152,7 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                             return (
                               <span
                                 key={`${word.sentence_id}-${word.word_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                               >
                                 {word.used_as || word.word}
                                 {meaning && <span className="font-medium text-zinc-500 dark:text-zinc-400">· {meaning}</span>}

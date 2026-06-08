@@ -11,11 +11,11 @@ import {
   Home,
   Search,
   SlidersHorizontal,
-  Sparkles,
 } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
-import { getDisplayLanguage } from '@/lib/auth/app-user';
+import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
+import { listUserBundleInteractionsForBundles, type UserBundleInteraction } from '@/lib/supabase/services/bundle-progress';
 import { listBundles, listCategories } from '@/lib/supabase/services/bundles';
 import { translations } from '../../bundle-data';
 import {
@@ -30,6 +30,7 @@ import {
   bundleItemCount,
   estimateBundleMinutesForBundle,
   getBundleMinutesRange,
+  getDisplayFontClass,
 } from '../../bundle-utils';
 import type { BundleCategoryRow, BundleRow, Language } from '../../types';
 
@@ -49,7 +50,6 @@ const pageCopy = {
     duration: '소요 시간',
     status: '상태',
     newest: '최신순',
-    featured: '추천',
     new: '신규',
     inProgress: '진행 중',
     notStarted: '시작 전',
@@ -70,7 +70,6 @@ const pageCopy = {
     duration: 'Duration',
     status: 'Status',
     newest: 'Newest',
-    featured: 'Featured',
     new: 'New',
     inProgress: 'In Progress',
     notStarted: 'Not Started',
@@ -86,16 +85,53 @@ const pageCopy = {
   },
 } satisfies Record<Language, Record<string, string | string[]>>;
 
-function statusForIndex(index: number, language: Language) {
-  const copy = pageCopy[language];
-  const statuses = [
-    { label: copy.new as string, className: 'bg-[#dbeafe] text-[#1d5fa7] dark:bg-blue-950/90 dark:text-blue-300' },
-    { label: copy.inProgress as string, className: 'bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-950/90 dark:text-emerald-300' },
-    { label: copy.notStarted as string, className: 'bg-[#fff7e6] text-[#7f6330] dark:bg-amber-950/90 dark:text-amber-300' },
-    { label: copy.completed as string, className: 'bg-[#edf7ed] text-[#497a4d] dark:bg-green-950/90 dark:text-green-300' },
-  ];
+type BundleStatusBadge = {
+  label: string;
+  className: string;
+};
 
-  return statuses[index % statuses.length];
+function getStatusBadge(
+  status: 'new' | 'inProgress' | 'notStarted' | 'completed',
+  language: Language,
+): BundleStatusBadge {
+  const copy = pageCopy[language];
+
+  const badges = {
+    new: { label: copy.new as string, className: 'bg-[#dbeafe] text-[#1d5fa7] dark:bg-blue-950/90 dark:text-blue-300' },
+    inProgress: { label: copy.inProgress as string, className: 'bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-950/90 dark:text-emerald-300' },
+    notStarted: { label: copy.notStarted as string, className: 'bg-[#fff7e6] text-[#7f6330] dark:bg-amber-950/90 dark:text-amber-300' },
+    completed: { label: copy.completed as string, className: 'bg-[#edf7ed] text-[#497a4d] dark:bg-green-950/90 dark:text-green-300' },
+  } satisfies Record<typeof status, BundleStatusBadge>;
+
+  return badges[status];
+}
+
+function getBundleStatusBadge({
+  bundle,
+  interaction,
+  language,
+  newestBundleId,
+}: {
+  bundle: BundleRow;
+  interaction?: UserBundleInteraction;
+  language: Language;
+  newestBundleId: string | null;
+}) {
+  if (bundle.id === newestBundleId) {
+    return getStatusBadge('new', language);
+  }
+
+  const progressRatio = Number(interaction?.progress_ratio || 0);
+
+  if (interaction?.is_completed || progressRatio >= 1) {
+    return getStatusBadge('completed', language);
+  }
+
+  if (interaction?.is_started || progressRatio > 0) {
+    return getStatusBadge('inProgress', language);
+  }
+
+  return getStatusBadge('notStarted', language);
 }
 
 function levelLabel(bundle: BundleRow, language: Language) {
@@ -110,13 +146,14 @@ function CategoryBundleCard({
   bundle,
   index,
   language,
+  status,
 }: {
   bundle: BundleRow;
   index: number;
   language: Language;
+  status: BundleStatusBadge;
 }) {
   const copy = translations[language];
-  const status = statusForIndex(index, language);
   const title = getBundleTitle(bundle, language);
 
   return (
@@ -171,10 +208,11 @@ function SelectButton({ children }: { children: React.ReactNode }) {
 
 export default async function CategoryBundlesPage({ params }: CategoryBundlesPageProps) {
   const { categorySlug } = await params;
-  const [allBundles, categories, language] = await Promise.all([
+  const [allBundles, categories, language, user] = await Promise.all([
     listBundles(),
     listCategories(),
     getDisplayLanguage(),
+    getAppUserFromServer(),
   ]);
   const copy = translations[language];
   const localCopy = pageCopy[language];
@@ -193,6 +231,17 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
     .filter((bundle) => getCategoryKey(bundle.bundle_category) === categoryKey);
   const featuredBundle = categoryBundles[0] ?? null;
   const gridBundles = featuredBundle ? categoryBundles.slice(1) : categoryBundles;
+  const newestBundleId = categoryBundles[0]?.id ?? null;
+  const bundleInteractions = await listUserBundleInteractionsForBundles(user?.id, categoryBundles.map((bundle) => bundle.id));
+  const interactionByBundleId = new Map(bundleInteractions.map((interaction) => [interaction.bundle_id, interaction]));
+  const featuredStatus = featuredBundle
+    ? getBundleStatusBadge({
+        bundle: featuredBundle,
+        interaction: interactionByBundleId.get(featuredBundle.id),
+        language,
+        newestBundleId,
+      })
+    : null;
   const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/heroimg_land.jpg');
   const minutesRange = getBundleMinutesRange(categoryBundles);
   const minutesRangeLabel = minutesRange
@@ -233,7 +282,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
             <span className="inline-flex rounded-full border border-[#f4c89c] bg-[#fff8ed] px-3 py-1 text-sm font-semibold text-[#e36d28] dark:border-orange-900 dark:bg-orange-950/60 dark:text-orange-300">
               {categoryTitle}
             </span>
-            <h1 className="mt-4 max-w-3xl font-serif text-4xl font-bold leading-tight sm:text-5xl">
+            <h1 className={`${getDisplayFontClass(categoryTitle)} mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl`}>
               {categoryTitle}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-700 dark:text-zinc-300">{categoryDescription}</p>
@@ -331,13 +380,14 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
                 className="object-cover"
                 sizes="(max-width: 768px) 92vw, 340px"
               />
-              <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-bold text-[#f07124] shadow-sm dark:bg-zinc-900 dark:text-orange-300 dark:shadow-black/30">
-                <Sparkles className="h-3.5 w-3.5" />
-                {localCopy.featured as string}
-              </span>
+              {featuredStatus && (
+                <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredStatus.className}`}>
+                  {featuredStatus.label}
+                </span>
+              )}
             </Link>
             <div className="px-1 md:px-0">
-              <h2 className="font-serif text-2xl font-bold leading-tight sm:text-3xl">
+              <h2 className={`${getDisplayFontClass(getBundleTitle(featuredBundle, language))} text-2xl font-bold leading-tight sm:text-3xl`}>
                 {getBundleTitle(featuredBundle, language)}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-700 dark:text-zinc-300">
@@ -375,7 +425,18 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
         {gridBundles.length > 0 && (
           <section className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {gridBundles.map((bundle, index) => (
-              <CategoryBundleCard key={bundle.id} bundle={bundle} index={index + 1} language={language} />
+              <CategoryBundleCard
+                key={bundle.id}
+                bundle={bundle}
+                index={index + 1}
+                language={language}
+                status={getBundleStatusBadge({
+                  bundle,
+                  interaction: interactionByBundleId.get(bundle.id),
+                  language,
+                  newestBundleId,
+                })}
+              />
             ))}
           </section>
         )}
@@ -383,7 +444,7 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
         <section className="mt-8 grid items-center gap-5 rounded-lg border border-zinc-200 bg-[#f9f7ed] p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:grid-cols-[220px_1fr_auto] sm:p-6">
           <CharacterAsset name="studyfull" width={190} height={140} className="mx-auto sm:mx-0" />
           <div>
-            <h2 className="font-serif text-2xl font-bold">{localCopy.quizTitle as string}</h2>
+            <h2 className={`${getDisplayFontClass(localCopy.quizTitle as string)} text-2xl font-bold`}>{localCopy.quizTitle as string}</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-700 dark:text-zinc-300">{localCopy.quizDesc as string}</p>
           </div>
           <div className="flex flex-col items-center gap-2 sm:items-end">

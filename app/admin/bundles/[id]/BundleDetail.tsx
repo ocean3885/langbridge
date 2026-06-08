@@ -269,7 +269,7 @@ export default function BundleDetail({
     setIsUploading(true);
 
     try {
-      const compressedFile = await compressImageForUpload(file);
+      const compressedFile = await compressImageForUpload(file, { maxWidth: 768 });
       const formData = new FormData();
       formData.append('file', compressedFile);
 
