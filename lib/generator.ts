@@ -1,9 +1,16 @@
-/**
- * OpenAI API를 사용하여 단어 정보를 생성하는 유틸리티
- */
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = process.env.CHATGPT_MODEL || 'gpt-4.1-mini';
+const DEEPSEEK_CHAT_API_URL = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+export type WordGenerationProvider = 'deepseek' | 'chatgpt' | 'gemini';
+
+export function normalizeWordGenerationProvider(value: unknown): WordGenerationProvider {
+  return value === 'chatgpt' || value === 'gemini' ? value : 'deepseek';
+}
 
 /**
  * 단어 정보 생성을 위한 인터페이스 정의
@@ -118,7 +125,7 @@ function extractOpenAIResponseText(responseJson: any) {
   throw new Error('OpenAI API 응답에서 텍스트 출력을 찾을 수 없습니다.');
 }
 
-function parseOpenAIJsonText(text: string) {
+function parseJsonText(text: string, providerName: string) {
   const trimmed = stripJsonCodeFence(text);
 
   try {
@@ -135,7 +142,7 @@ function parseOpenAIJsonText(text: string) {
     }
 
     const snippet = trimmed.slice(0, 120);
-    throw new Error(`OpenAI API가 JSON이 아닌 응답을 반환했습니다: ${snippet}`);
+    throw new Error(`${providerName} API가 JSON이 아닌 응답을 반환했습니다: ${snippet}`);
   }
 }
 
@@ -151,7 +158,7 @@ function isRetryableOpenAIError(message: string) {
   );
 }
 
-async function generateOpenAIJson(prompt: string, systemInstruction: string) {
+async function generateChatGptJson(prompt: string, systemInstruction: string) {
   const apiKey = process.env.CHATGPT_API_KEY;
 
   if (!apiKey) {
@@ -185,7 +192,7 @@ async function generateOpenAIJson(prompt: string, systemInstruction: string) {
       throw new Error(`OpenAI API error: ${response.status} ${message}`);
     }
 
-      return parseOpenAIJsonText(extractOpenAIResponseText(responseJson));
+      return parseJsonText(extractOpenAIResponseText(responseJson), 'ChatGPT');
     } catch (error: any) {
       lastError = error;
       const message = String(error?.message || error);
@@ -219,6 +226,85 @@ async function generateOpenAIJson(prompt: string, systemInstruction: string) {
   }
 }
 
+function extractChatCompletionText(responseJson: any, providerName: string) {
+  const text = responseJson?.choices?.[0]?.message?.content;
+  if (typeof text === 'string') {
+    return text;
+  }
+
+  throw new Error(`${providerName} API 응답에서 텍스트 출력을 찾을 수 없습니다.`);
+}
+
+async function generateDeepseekJson(prompt: string, systemInstruction: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('DEEPSEEK_API_KEY is not set in environment variables.');
+  }
+
+  const response = await fetch(DEEPSEEK_CHAT_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      stream: false,
+    }),
+  });
+
+  const responseJson = await response.json();
+
+  if (!response.ok) {
+    const message = responseJson?.error?.message || response.statusText;
+    throw new Error(`DeepSeek API error: ${response.status} ${message}`);
+  }
+
+  return parseJsonText(extractChatCompletionText(responseJson, 'DeepSeek'), 'DeepSeek');
+}
+
+async function generateGeminiJson(prompt: string, systemInstruction: string) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables.');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction,
+  });
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+
+  return parseJsonText(text, 'Gemini');
+}
+
+async function generateProviderJson(
+  providerValue: WordGenerationProvider,
+  prompt: string,
+  systemInstruction: string
+) {
+  const provider = normalizeWordGenerationProvider(providerValue);
+
+  if (provider === 'chatgpt') {
+    return generateChatGptJson(prompt, systemInstruction);
+  }
+
+  if (provider === 'gemini') {
+    return generateGeminiJson(prompt, systemInstruction);
+  }
+
+  return generateDeepseekJson(prompt, systemInstruction);
+}
+
 /**
  * OpenAI API를 사용하여 단어 정보를 생성합니다.
  * @param word 분석할 스페인어 단어
@@ -226,7 +312,8 @@ async function generateOpenAIJson(prompt: string, systemInstruction: string) {
  */
 export async function generateWordInfoDeepseek(
   word: string,
-  context: WordInfoGenerationContext = {}
+  context: WordInfoGenerationContext = {},
+  provider: WordGenerationProvider = 'deepseek'
 ): Promise<WordInfo> {
   const surface = context.surface?.trim();
   const expectedPos = Array.from(new Set([
@@ -269,7 +356,8 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
 `;
 
   try {
-    const rawData = await generateOpenAIJson(
+    const rawData = await generateProviderJson(
+      provider,
       prompt,
       "스페인어 교육 전문가로서 JSON 형식으로만 응답하세요."
     );
@@ -306,7 +394,8 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
 }
 
 export async function generateSentenceWordCandidatesDeepseek(
-  items: { index: number; sentence: string; translation?: string; translation_en?: string }[]
+  items: { index: number; sentence: string; translation?: string; translation_en?: string }[],
+  provider: WordGenerationProvider = 'deepseek'
 ): Promise<SentenceWordExtractionResult[]> {
   const prompt = `
 당신은 스페인어 형태소 분석 및 어휘 선별 전문가입니다.
@@ -340,7 +429,8 @@ ${JSON.stringify(items, null, 2)}
 8. 인사말이나 설명 없이 JSON만 반환하세요.
 `;
 
-  const rawData = await generateOpenAIJson(
+  const rawData = await generateProviderJson(
+    provider,
     prompt,
     "스페인어 형태소 분석 전문가로서 JSON 형식으로만 응답하세요."
   );
@@ -446,7 +536,8 @@ export async function generateDistractorsDeepseek(word: string, count: number = 
 `;
 
   try {
-    const data = await generateOpenAIJson(
+    const data = await generateProviderJson(
+      'deepseek',
       prompt,
       "스페인어 교육 전문가로서 JSON 형식으로만 응답하세요."
     );

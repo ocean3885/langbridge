@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Code2,
   Copy,
+  Eraser,
   Tag,
   ImageIcon,
   Plus,
@@ -83,6 +84,7 @@ interface BundleJsonInput {
 }
 
 type TTSProvider = 'google' | 'elevenlabs';
+type WordGenerationProvider = 'deepseek' | 'chatgpt' | 'gemini';
 
 type AutoWordGenerationResult = {
   status: 'completed' | 'partial';
@@ -107,6 +109,12 @@ const ELEVENLABS_MODELS: TTSOption[] = [
   { id: 'eleven_flash_v2_5', name: 'Flash v2.5' },
   { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
   { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
+];
+
+const WORD_GENERATION_PROVIDERS: { id: WordGenerationProvider; name: string; description: string }[] = [
+  { id: 'deepseek', name: 'DeepSeek', description: '기본형' },
+  { id: 'chatgpt', name: 'ChatGPT', description: 'OpenAI' },
+  { id: 'gemini', name: 'Gemini', description: 'Google' },
 ];
 
 const ELEVENLABS_MODEL_IDS = ELEVENLABS_MODELS.map(model => model.id);
@@ -247,6 +255,14 @@ function repairBundleJsonInput(input: string): BundleJsonInput | null {
   }
 }
 
+function getTrimmedString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function getItemError(index: number, message: string) {
+  return `items[${index + 1}]: ${message}`;
+}
+
 export default function BundleCreateForm({ userId }: Props) {
   const router = useRouter();
   const [pendingBundleId, setPendingBundleId] = useState(createPendingBundleId);
@@ -290,11 +306,15 @@ export default function BundleCreateForm({ userId }: Props) {
   const [generatingWordIndexes, setGeneratingWordIndexes] = useState<Set<number>>(new Set());
   const [autoWordResults, setAutoWordResults] = useState<Record<number, AutoWordGenerationResult>>({});
   const [autoWordError, setAutoWordError] = useState<string | null>(null);
+  const [wordGenerationProvider, setWordGenerationProvider] = useState<WordGenerationProvider>('deepseek');
 
   const DRAFT_TYPE = 'bundle_create';
   const isConversationBundle = parsedData?.type === 'conversation';
   const selectedBundleType = bundleTypes.find(type => type.id === bundleMeta.type_id);
   const isConversationTypeSelected = selectedBundleType?.code === 'conversation';
+  const selectedWordGenerationProvider = WORD_GENERATION_PROVIDERS.find(
+    provider => provider.id === wordGenerationProvider
+  ) || WORD_GENERATION_PROVIDERS[0];
   const speakerMap = new Map((parsedData?.speakers || []).map(speaker => [speaker.key, speaker]));
   const getSpeakerForItem = (item: BundleItemInput) => {
     const speakerKey = item.speaker_key || item.speaker;
@@ -482,6 +502,7 @@ export default function BundleCreateForm({ userId }: Props) {
         wordJsons,
         wordJsonItems: createWordJsonDraftItems(),
         autoWordResults,
+        wordGenerationProvider,
         bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
         sentenceTtsOptions,
         speakerTtsOptions,
@@ -537,6 +558,11 @@ export default function BundleCreateForm({ userId }: Props) {
       setWordErrors(new Array(restoredParsedData?.items?.length || 0).fill(null));
       setAutoWordResults(draft.autoWordResults || {});
       setAutoWordError(null);
+      setWordGenerationProvider(
+        draft.wordGenerationProvider === 'chatgpt' || draft.wordGenerationProvider === 'gemini'
+          ? draft.wordGenerationProvider
+          : 'deepseek'
+      );
       setPendingBundleId(draft.pendingBundleId || createPendingBundleId());
       
       const defaultMeta = {
@@ -636,6 +662,7 @@ export default function BundleCreateForm({ userId }: Props) {
       setWordErrors([]);
       setAutoWordResults({});
       setAutoWordError(null);
+      setWordGenerationProvider('deepseek');
       setBundleMeta({
         title: '',
         title_en: '',
@@ -677,6 +704,14 @@ export default function BundleCreateForm({ userId }: Props) {
         repairedInput = true;
       }
       
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('JSON root must be an object.');
+      }
+
+      if (parsed.type !== undefined && typeof parsed.type !== 'string') {
+        throw new Error('"type" 값은 문자열이어야 합니다.');
+      }
+
       if (!parsed.items || !Array.isArray(parsed.items)) {
         throw new Error('JSON must contain an "items" array.');
       }
@@ -687,7 +722,8 @@ export default function BundleCreateForm({ userId }: Props) {
       
       const isConversationInput = parsed.type === 'conversation';
       const parsedSpeakers = Array.isArray(parsed.speakers) ? parsed.speakers : [];
-      const parsedSpeakerKeys = new Set(parsedSpeakers.map(speaker => speaker.key).filter(Boolean));
+      const normalizedSpeakers: NonNullable<BundleJsonInput['speakers']> = [];
+      const parsedSpeakerKeys = new Set<string>();
       const previousWordJsonBySentence = new Map<string, string[]>();
       for (const item of createWordJsonDraftItems()) {
         const values = previousWordJsonBySentence.get(item.sentenceKey) || [];
@@ -699,45 +735,88 @@ export default function BundleCreateForm({ userId }: Props) {
         throw new Error('conversation 타입은 "speakers" 배열이 필요합니다.');
       }
 
-      for (const item of parsed.items) {
-        if (
-          typeof item.sentence !== 'string' ||
-          typeof item.translation !== 'string' ||
-          typeof item.translation_en !== 'string' ||
-          !item.sentence.trim() ||
-          !item.translation.trim() ||
-          !item.translation_en.trim()
-        ) {
-          throw new Error('각 item에는 "sentence", "translation", "translation_en" 문자열 값이 모두 필요합니다.');
+      if (!isConversationInput && parsedSpeakers.length > 0) {
+        throw new Error('speakers 배열을 사용하려면 "type": "conversation"이 필요합니다.');
+      }
+
+      for (const [index, speaker] of parsedSpeakers.entries()) {
+        if (!speaker || typeof speaker !== 'object') {
+          throw new Error(`speakers[${index + 1}]: 화자 데이터는 object여야 합니다.`);
         }
 
-        const speakerKey = item.speaker_key || item.speaker;
-        if (isConversationInput && (!speakerKey || !parsedSpeakerKeys.has(speakerKey))) {
-          throw new Error('conversation item에는 speakers에 등록된 "speaker" 값이 필요합니다.');
+        const key = getTrimmedString(speaker.key);
+        if (!key) {
+          throw new Error(`speakers[${index + 1}]: "key" 문자열 값이 필요합니다.`);
         }
+
+        if (parsedSpeakerKeys.has(key)) {
+          throw new Error(`speakers[${index + 1}]: 중복된 speaker key "${key}"가 있습니다.`);
+        }
+
+        parsedSpeakerKeys.add(key);
+        normalizedSpeakers.push({
+          key,
+          name: getTrimmedString(speaker.name) || key,
+          role: getTrimmedString(speaker.role) || null,
+          voice: getTrimmedString(speaker.voice) || undefined,
+          provider: speaker.provider,
+          model: getTrimmedString(speaker.model) || undefined,
+          speed: speaker.speed
+        });
+      }
+
+      const normalizedItems: BundleItemInput[] = [];
+      const sentenceKeys = new Map<string, number>();
+
+      for (const [index, item] of parsed.items.entries()) {
+        if (!item || typeof item !== 'object') {
+          throw new Error(getItemError(index, '문장 데이터는 object여야 합니다.'));
+        }
+
+        const sentence = getTrimmedString(item.sentence);
+        const translation = getTrimmedString(item.translation);
+        const translationEn = getTrimmedString(item.translation_en);
+
+        if (!sentence || !translation || !translationEn) {
+          throw new Error(getItemError(index, '"sentence", "translation", "translation_en" 문자열 값이 모두 필요합니다.'));
+        }
+
+        const sentenceKey = getSentenceDraftKey(sentence);
+        const duplicateIndex = sentenceKeys.get(sentenceKey);
+        if (duplicateIndex !== undefined) {
+          throw new Error(getItemError(index, `중복 문장입니다. items[${duplicateIndex + 1}]와 같은 sentence를 사용하고 있습니다.`));
+        }
+        sentenceKeys.set(sentenceKey, index);
+
+        const speakerKey = getTrimmedString(item.speaker_key || item.speaker);
+        if (isConversationInput && (!speakerKey || !parsedSpeakerKeys.has(speakerKey))) {
+          throw new Error(getItemError(index, 'conversation item에는 speakers에 등록된 "speaker" 값이 필요합니다.'));
+        }
+
+        if (!isConversationInput && (speakerKey || item.speaker_name || item.speaker_role)) {
+          throw new Error(getItemError(index, 'speaker 관련 값은 "type": "conversation" 데이터에서만 사용할 수 있습니다.'));
+        }
+
+        if (item.metadata !== undefined && (!item.metadata || typeof item.metadata !== 'object' || Array.isArray(item.metadata))) {
+          throw new Error(getItemError(index, '"metadata" 값은 object여야 합니다.'));
+        }
+
+        normalizedItems.push({
+          speaker: speakerKey || undefined,
+          speaker_key: speakerKey || undefined,
+          speaker_name: getTrimmedString(item.speaker_name) || undefined,
+          speaker_role: getTrimmedString(item.speaker_role) || undefined,
+          sentence,
+          translation,
+          translation_en: translationEn,
+          metadata: item.metadata || undefined
+        });
       }
       
-      const normalized = {
+      const normalized: BundleJsonInput = {
         type: parsed.type === 'conversation' ? 'conversation' : parsed.type,
-        speakers: parsedSpeakers.map((speaker) => ({
-          key: speaker.key.trim(),
-          name: speaker.name?.trim() || speaker.key.trim(),
-          role: speaker.role?.trim() || null,
-          voice: speaker.voice?.trim() || undefined,
-          provider: speaker.provider,
-          model: speaker.model?.trim() || undefined,
-          speed: speaker.speed
-        })),
-        items: parsed.items.map((item: BundleItemInput) => ({
-          speaker: item.speaker?.trim() || item.speaker_key?.trim() || undefined,
-          speaker_key: item.speaker_key?.trim() || item.speaker?.trim() || undefined,
-          speaker_name: item.speaker_name?.trim() || undefined,
-          speaker_role: item.speaker_role?.trim() || undefined,
-          sentence: item.sentence.trim(),
-          translation: item.translation.trim(),
-          translation_en: item.translation_en.trim(),
-          metadata: item.metadata || undefined
-        }))
+        speakers: normalizedSpeakers,
+        items: normalizedItems
       };
 
       const restoredWordJsons = normalized.items.map((item) => {
@@ -819,6 +898,7 @@ export default function BundleCreateForm({ userId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           langCode: 'es',
+          modelProvider: wordGenerationProvider,
           items: indexes.map((index) => ({
             index,
             sentence: parsedData.items[index].sentence,
@@ -1095,20 +1175,6 @@ export default function BundleCreateForm({ userId }: Props) {
   ]
 }`;
 
-  const wordExampleJson = `{
-  "words": {
-    "trabajos": {
-      "word": "trabajo",
-      "pos": ["m"],
-      "meaning_ko": { "m": "직업, 일" },
-      "meaning_en": { "m": "job, work" },
-      "gender": "m",
-      "conjugations": null,
-      "declensions": { "ms": "trabajo", "mp": "trabajos", "fs": null, "fp": null }
-    }
-  }
-}`;
-
   return (
     <div className="md:ml-64 p-4 md:p-8 pt-20 md:pt-8 bg-gray-50 dark:bg-background min-h-[calc(100vh-5rem)]">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -1153,7 +1219,7 @@ export default function BundleCreateForm({ userId }: Props) {
               className="p-2 text-gray-400 hover:text-blue-500 transition-colors shrink-0"
               title="새로 작성 (초기화)"
             >
-              <Plus className="w-4 h-4" />
+              <Eraser className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1228,52 +1294,6 @@ export default function BundleCreateForm({ userId }: Props) {
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
                   />
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setJsonInput(exampleJson)}
-                    className="text-left rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-900/10 p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-xs font-black text-blue-700 dark:text-blue-300">기본형</span>
-                      <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">적용</span>
-                    </div>
-                    <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{`{
-  "items": [
-    {
-      "sentence": "...",
-      "translation": "...",
-      "translation_en": "..."
-    }
-  ]
-}`}</pre>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setJsonInput(conversationExampleJson)}
-                    className="text-left rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-900/10 p-4 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">대화형</span>
-                      <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400">적용</span>
-                    </div>
-                    <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{`{
-  "type": "conversation",
-  "speakers": [
-    { "key": "a", "name": "María", "role": "guest" },
-    { "key": "b", "name": "Carlos", "role": "host" }
-  ],
-  "items": [
-    {
-      "speaker": "a",
-      "sentence": "...",
-      "translation": "...",
-      "translation_en": "..."
-    }
-  ]
-}`}</pre>
-                  </button>
-                </div>
                 <div className="relative">
                   <div className="absolute top-4 right-4 flex items-center gap-2">
                     <Code2 className="w-4 h-4 text-gray-300" />
@@ -1320,6 +1340,26 @@ export default function BundleCreateForm({ userId }: Props) {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs dark:border-gray-800 dark:bg-gray-800/60">
+                  <div className="leading-tight">
+                    <p className="font-black text-gray-900 dark:text-gray-100">API 모델</p>
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                      현재 {selectedWordGenerationProvider.name} · {selectedWordGenerationProvider.description}
+                    </p>
+                  </div>
+                  <select
+                    value={wordGenerationProvider}
+                    onChange={(e) => setWordGenerationProvider(e.target.value as WordGenerationProvider)}
+                    disabled={isGeneratingWords}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 outline-none transition-colors focus:border-blue-400 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    {WORD_GENERATION_PROVIDERS.map(provider => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
                   {isConversationBundle ? '대화형 · ' : ''}총 {parsedData.items.length}개 문장
                 </div>
@@ -1359,23 +1399,15 @@ export default function BundleCreateForm({ userId }: Props) {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => generateWordData([index])}
-                          disabled={isGeneratingWords}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors disabled:opacity-50"
-                        >
-                          {isGeneratingThisWordData && <Loader2 className="w-3 h-3 animate-spin" />}
-                          자동 생성
-                        </button>
-                        <button 
-                          onClick={() => handleWordJsonChange(index, wordExampleJson)}
-                          className="text-[10px] font-bold text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        >
-                          예시 채우기
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => generateWordData([index])}
+                        disabled={isGeneratingWords}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-700 disabled:opacity-50 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 dark:hover:text-blue-300"
+                      >
+                        {isGeneratingThisWordData && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        자동 생성
+                      </button>
                     </div>
                     <div className="mb-1 flex items-start gap-2">
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug">{item.sentence}</h3>

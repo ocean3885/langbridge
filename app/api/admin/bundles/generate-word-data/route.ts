@@ -4,6 +4,7 @@ import { isSuperAdmin } from '@/lib/auth/super-admin';
 import {
   generateSentenceWordCandidatesDeepseek,
   generateWordInfoDeepseek,
+  normalizeWordGenerationProvider,
   WordInfo
 } from '@/lib/generator';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -195,6 +196,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const items = Array.isArray(body.items) ? body.items as BundleWordDataItem[] : [];
     const langCode = typeof body.langCode === 'string' ? body.langCode : 'es';
+    const modelProvider = normalizeWordGenerationProvider(body.modelProvider);
 
     const validItems = items
       .map((item) => ({
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '분석할 문장이 없습니다.' }, { status: 400 });
     }
 
-    const rawExtractionResults = await generateSentenceWordCandidatesDeepseek(validItems);
+    const rawExtractionResults = await generateSentenceWordCandidatesDeepseek(validItems, modelProvider);
     const sentenceByIndex = new Map(validItems.map((item) => [item.index, item.sentence]));
     const extractionResults = rawExtractionResults.map((result) =>
       filterExcludedCandidates(result, sentenceByIndex.get(result.index) || '')
@@ -237,7 +239,7 @@ export async function POST(request: NextRequest) {
     const missingLemmas = Array.from(lemmaSet).filter((lemma) => !existingWords.has(lemma));
 
     for (const lemma of missingLemmas) {
-      const wordInfo = await generateWordInfoDeepseek(lemma, generationContextByLemma.get(lemma));
+      const wordInfo = await generateWordInfoDeepseek(lemma, generationContextByLemma.get(lemma), modelProvider);
       if (!wordInfo.error) {
         generatedWords.set(normalizeWord(wordInfo.word || lemma), wordInfo);
       }
@@ -279,7 +281,7 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ modelProvider, results });
   } catch (error) {
     console.error('번들 단어 데이터 자동 생성 오류:', error);
     return NextResponse.json({

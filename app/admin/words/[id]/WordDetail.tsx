@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Tag, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw } from 'lucide-react';
 import AudioButton from '@/components/AudioButton';
 
 const POS_MAP: Record<string, string> = {
@@ -17,8 +17,38 @@ const POS_MAP: Record<string, string> = {
   'part': '조사', 'propn': '고유명사',
 };
 
+const POS_CANONICAL_MAP: Record<string, string> = {
+  adjective: 'adj',
+  adjetivo: 'adj',
+  adverb: 'adv',
+  adverbio: 'adv',
+  article: 'det',
+  conjunction: 'conj',
+  determiner: 'det',
+  interjection: 'interj',
+  n: 'noun',
+  nombre: 'noun',
+  numeral: 'num',
+  particle: 'part',
+  preposition: 'prep',
+  pronoun: 'pron',
+  sustantivo: 'noun',
+  v: 'verb',
+  verbo: 'verb',
+};
+
 function formatPOS(pos: string): string {
   return POS_MAP[pos.toLowerCase()] || pos;
+}
+
+function formatGender(gender: string | null | undefined) {
+  const normalized = String(gender || '').toLowerCase().trim();
+  return GENDER_OPTIONS.find(option => option.value === normalized)?.label || gender || '';
+}
+
+function normalizePosKey(pos: string) {
+  const key = String(pos || '').toLowerCase().trim();
+  return POS_CANONICAL_MAP[key] || key || 'general';
 }
 
 const GRAMMAR_LABEL_MAP: Record<string, string> = {
@@ -61,10 +91,16 @@ const POS_OPTIONS = [
 
 const GENDER_OPTIONS = [
   { value: '', label: '없음 (None)' },
-  { value: 'M', label: '남성 (Masculine)' },
-  { value: 'F', label: '여성 (Feminine)' },
-  { value: 'N', label: '중성 (Neuter)' },
+  { value: 'm', label: '남성 (m)' },
+  { value: 'f', label: '여성 (f)' },
+  { value: 'mf', label: '남/여 공통 (mf)' },
 ];
+
+type MeaningEditRow = {
+  pos: string;
+  koText: string;
+  enText: string;
+};
 
 function formatGrammarKey(key: string): string {
   const lowerKey = key.toLowerCase().trim();
@@ -146,6 +182,106 @@ function extractMeaningString(meaning: any): string {
   return typeof data === 'string' ? data : '';
 }
 
+function parseMeaningData(meaning: any): Record<string, string[]> {
+  if (!meaning) return {};
+
+  let data = meaning;
+  if (typeof meaning === 'string') {
+    try {
+      data = JSON.parse(meaning);
+    } catch {
+      return meaning.trim() ? { general: [meaning.trim()] } : {};
+    }
+  }
+
+  if (Array.isArray(data)) {
+    const values = data.map(value => String(value).trim()).filter(Boolean);
+    return values.length > 0 ? { general: values } : {};
+  }
+
+  if (typeof data !== 'object' || data === null) {
+    const value = String(data).trim();
+    return value ? { general: [value] } : {};
+  }
+
+  return Object.entries(data).reduce<Record<string, string[]>>((acc, [key, value]) => {
+    const posKey = normalizePosKey(key);
+    const values = Array.isArray(value)
+      ? value.map(item => String(item).trim()).filter(Boolean)
+      : typeof value === 'object' && value !== null
+        ? Object.values(value).map(item => String(item).trim()).filter(Boolean)
+        : [String(value || '').trim()].filter(Boolean);
+
+    if (values.length > 0) {
+      acc[posKey] = [...(acc[posKey] || []), ...values];
+    }
+
+    return acc;
+  }, {});
+}
+
+function getMeaningRows(meaningKo: any, meaningEn: any, posList: string[] = []) {
+  const koByPos = parseMeaningData(meaningKo);
+  const enByPos = parseMeaningData(meaningEn);
+  const orderedKeys = posList.map(normalizePosKey).filter(Boolean);
+  const keySet = new Set([...orderedKeys, ...Object.keys(koByPos), ...Object.keys(enByPos)]);
+
+  return Array.from(keySet)
+    .sort((a, b) => {
+      const aIndex = orderedKeys.indexOf(a);
+      const bIndex = orderedKeys.indexOf(b);
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      return a.localeCompare(b);
+    })
+    .map(key => ({
+      pos: key,
+      ko: koByPos[key] || [],
+      en: enByPos[key] || [],
+    }))
+    .filter(row => row.ko.length > 0 || row.en.length > 0);
+}
+
+function createMeaningEditRows(word: any): MeaningEditRow[] {
+  const rows = getMeaningRows(word.meaning_ko, word.meaning_en, word.pos || []);
+
+  if (rows.length > 0) {
+    return rows.map(row => ({
+      pos: row.pos,
+      koText: row.ko.join(', '),
+      enText: row.en.join(', '),
+    }));
+  }
+
+  const posList = Array.isArray(word.pos) && word.pos.length > 0 ? word.pos : ['noun'];
+  return posList.map((pos: string) => ({
+    pos: normalizePosKey(pos),
+    koText: '',
+    enText: '',
+  }));
+}
+
+function splitMeaningText(value: string) {
+  return value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function buildMeaningObject(rows: MeaningEditRow[], field: 'koText' | 'enText') {
+  return rows.reduce<Record<string, string[]>>((acc, row) => {
+    const pos = normalizePosKey(row.pos);
+    const values = splitMeaningText(row[field]);
+
+    if (pos && values.length > 0) {
+      acc[pos] = [...(acc[pos] || []), ...values];
+    }
+
+    return acc;
+  }, {});
+}
+
 function hasDisplayableGrammarValue(value: any): boolean {
   if (value === null || value === undefined || value === '' || value === 'null') {
     return false;
@@ -183,10 +319,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [formData, setFormData] = useState({
     word: initialWord.word,
     lang_code: initialWord.lang_code,
-    meaning_ko: extractMeaningString(initialWord.meaning_ko),
-    meaning_en: extractMeaningString(initialWord.meaning_en),
-    gender: initialWord.gender || '',
-    pos_input: initialWord.pos?.join(', ') || '',
+    gender: String(initialWord.gender || '').toLowerCase(),
+    meaningRows: createMeaningEditRows(initialWord),
   });
 
   // Sync state when initialWord changes (e.g. navigation)
@@ -195,10 +329,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     setFormData({
       word: initialWord.word,
       lang_code: initialWord.lang_code,
-      meaning_ko: extractMeaningString(initialWord.meaning_ko),
-      meaning_en: extractMeaningString(initialWord.meaning_en),
-      gender: initialWord.gender || '',
-      pos_input: initialWord.pos?.join(', ') || '',
+      gender: String(initialWord.gender || '').toLowerCase(),
+      meaningRows: createMeaningEditRows(initialWord),
     });
   }, [initialWord]);
 
@@ -208,10 +340,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       setFormData({
         word: word.word,
         lang_code: word.lang_code,
-        meaning_ko: extractMeaningString(word.meaning_ko),
-        meaning_en: extractMeaningString(word.meaning_en),
-        gender: word.gender || '',
-        pos_input: word.pos?.join(', ') || '',
+        gender: String(word.gender || '').toLowerCase(),
+        meaningRows: createMeaningEditRows(word),
       });
     }
   }, [isEditing, word]);
@@ -224,12 +354,20 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
 
     setLoading(true);
     try {
-      // Prepare meaning objects
-      const posList = formData.pos_input ? formData.pos_input.split(',').map((s: string) => s.trim()) : [];
-      const primaryPos = posList.length > 0 ? posList[0].toLowerCase() : 'general';
-      
-      const meaningKoArray = [formData.meaning_ko.trim()].filter(Boolean);
-      const meaningEnArray = [formData.meaning_en.trim()].filter(Boolean);
+      const normalizedRows = formData.meaningRows
+        .map(row => ({
+          ...row,
+          pos: normalizePosKey(row.pos),
+        }))
+        .filter(row => row.pos && (row.koText.trim() || row.enText.trim()));
+
+      if (normalizedRows.length === 0) {
+        alert('최소 1개 품사의 뜻을 입력해주세요.');
+        setLoading(false);
+        return;
+      }
+
+      const posList = Array.from(new Set(normalizedRows.map(row => row.pos)));
 
       const res = await fetch('/api/admin/words', {
         method: 'PUT',
@@ -238,8 +376,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           id: word.id,
           word: formData.word,
           lang_code: formData.lang_code,
-          meaning_ko: { [primaryPos]: meaningKoArray },
-          meaning_en: { [primaryPos]: meaningEnArray },
+          meaning_ko: buildMeaningObject(normalizedRows, 'koText'),
+          meaning_en: buildMeaningObject(normalizedRows, 'enText'),
           gender: formData.gender || null,
           pos: posList,
           audio_url: word.audio_url
@@ -467,6 +605,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
 
   const validDeclensions = Object.entries(word.declensions || {}).filter(([_, val]) => hasDisplayableGrammarValue(val));
   const validConjugations = Object.entries(word.conjugations || {}).filter(([_, val]) => hasDisplayableGrammarValue(val));
+  const meaningRows = getMeaningRows(word.meaning_ko, word.meaning_en, word.pos || []);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -541,24 +680,6 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">의미 (한국어)</label>
-                <input
-                  type="text"
-                  value={formData.meaning_ko}
-                  onChange={(e) => setFormData({ ...formData, meaning_ko: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">의미 (영어)</label>
-                <input
-                  type="text"
-                  value={formData.meaning_en}
-                  onChange={(e) => setFormData({ ...formData, meaning_en: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-400 uppercase ml-1">성별</label>
                 <select
                   value={formData.gender}
@@ -570,18 +691,76 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase ml-1">품사</label>
-                <select
-                  value={formData.pos_input.split(',')[0].trim().toLowerCase()}
-                  onChange={(e) => setFormData({ ...formData, pos_input: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">품사 선택</option>
-                  {POS_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <div className="md:col-span-2 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">품사별 의미</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      meaningRows: [...formData.meaningRows, { pos: 'noun', koText: '', enText: '' }]
+                    })}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    품사 추가
+                  </button>
+                </div>
+                <div className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                  {formData.meaningRows.map((row, index) => (
+                    <div key={index} className="grid grid-cols-1 gap-2 md:grid-cols-[150px_1fr_1fr_36px]">
+                      <select
+                        value={row.pos}
+                        onChange={(e) => {
+                          const nextRows = [...formData.meaningRows];
+                          nextRows[index] = { ...row, pos: e.target.value };
+                          setFormData({ ...formData, meaningRows: nextRows });
+                        }}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                      >
+                        {POS_OPTIONS.map(opt => (
+                          <option key={opt.value} value={normalizePosKey(opt.value)}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={row.koText}
+                        onChange={(e) => {
+                          const nextRows = [...formData.meaningRows];
+                          nextRows[index] = { ...row, koText: e.target.value };
+                          setFormData({ ...formData, meaningRows: nextRows });
+                        }}
+                        placeholder="한국어 뜻, 쉼표로 구분"
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                      />
+                      <input
+                        type="text"
+                        value={row.enText}
+                        onChange={(e) => {
+                          const nextRows = [...formData.meaningRows];
+                          nextRows[index] = { ...row, enText: e.target.value };
+                          setFormData({ ...formData, meaningRows: nextRows });
+                        }}
+                        placeholder="English meanings, comma-separated"
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formData.meaningRows.length <= 1) return;
+                          setFormData({
+                            ...formData,
+                            meaningRows: formData.meaningRows.filter((_, rowIndex) => rowIndex !== index)
+                          });
+                        }}
+                        disabled={formData.meaningRows.length <= 1}
+                        className="flex h-10 w-full items-center justify-center rounded-xl text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-900/20 md:w-9"
+                        title="품사 행 삭제"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
-                </select>
+                </div>
               </div>
               <div className="md:col-span-2 py-2">
                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
@@ -670,7 +849,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight flex items-baseline gap-3 leading-tight break-words">
                 {word.word}
                 {word.gender && (
-                  <span className="text-2xl font-medium text-gray-400 dark:text-gray-500">({word.gender})</span>
+                  <span className="text-lg font-semibold text-gray-400 dark:text-gray-500">({formatGender(word.gender)})</span>
                 )}
               </h1>
               {word.audio_url && (
@@ -684,45 +863,48 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       {!isEditing && (
         <div className="space-y-6">
           <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-blue-500" />
-              뜻과 의미
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {[
-                { data: word.meaning_ko, title: '한국어 (Korean)', color: 'blue' },
-                { data: word.meaning_en, title: '영어 (English)', color: 'gray' }
-              ].map((mObj, objIdx) => (
-                mObj.data && Object.keys(mObj.data).length > 0 && (
-                  <div key={objIdx} className="space-y-4">
-                    <h3 className={`text-[11px] font-black ${mObj.color === 'blue' ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'} uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-gray-50 dark:border-gray-800`}>
-                      <Tag className="w-3 h-3" />
-                      {mObj.title}
-                    </h3>
-                    <div className="space-y-5">
-	                      {Object.entries(mObj.data).map(([type, meanings]: [string, any]) => (
-	                        <div key={type} className="group">
-	                          <div className="mb-2 flex items-center gap-2">
-	                            <span className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500 dark:text-gray-400">
-	                              {formatPOS(type)}
-	                            </span>
-	                          </div>
-	                          <ul className="space-y-1.5">
-	                            {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
-	                              <li key={idx} className="text-lg text-gray-800 dark:text-gray-200 font-medium leading-tight">
-	                                {m}
-                              </li>
-                            )) : (
-                              <li className="text-lg text-gray-800 dark:text-gray-200 font-medium">{meanings}</li>
-                            )}
-                          </ul>
-                        </div>
-                      ))}
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-blue-500" />
+                뜻과 의미
+              </h2>
+              <span className="rounded-full bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-400 dark:bg-gray-800 dark:text-gray-500">
+                품사별 KO/EN 비교
+              </span>
+            </div>
+
+            {meaningRows.length > 0 ? (
+              <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+                {meaningRows.map((row) => (
+                  <div key={row.pos} className="grid grid-cols-1 gap-2 bg-white px-4 py-3 dark:bg-gray-900 md:grid-cols-[96px_1fr_1fr] md:items-start md:gap-4">
+                    <div className="flex items-center gap-2 md:block">
+                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        {formatPOS(row.pos)}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase text-gray-300 dark:text-gray-600 md:mt-1 md:block">
+                        {row.pos}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 gap-2">
+                      <span className="mt-0.5 shrink-0 text-[11px] font-black text-blue-500">KO</span>
+                      <p className="min-w-0 text-sm font-semibold leading-relaxed text-gray-900 dark:text-gray-100">
+                        {row.ko.length > 0 ? row.ko.join(', ') : <span className="text-gray-300 dark:text-gray-600">-</span>}
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 gap-2">
+                      <span className="mt-0.5 shrink-0 text-[11px] font-black text-gray-400">EN</span>
+                      <p className="min-w-0 text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-300">
+                        {row.en.length > 0 ? row.en.join(', ') : <span className="text-gray-300 dark:text-gray-600">-</span>}
+                      </p>
                     </div>
                   </div>
-                )
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-medium text-gray-400 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-500">
+                등록된 뜻 정보가 없습니다.
+              </div>
+            )}
           </section>
 
           {(validDeclensions.length > 0 || validConjugations.length > 0) && (
