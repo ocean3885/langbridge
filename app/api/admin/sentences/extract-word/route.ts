@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 정보(sentenceId, word, langCode)가 누락되었습니다.' }, { status: 400 });
     }
 
-    // 1. DeepSeek를 사용하여 단어 정보 생성
-    console.log(`DeepSeek 정보를 생성합니다: ${word}`);
+    // 1. OpenAI를 사용하여 단어 정보 생성
+    console.log(`OpenAI 정보를 생성합니다: ${word}`);
     const wordInfo = await generateWordInfoDeepseek(word);
 
     if (wordInfo.error) {

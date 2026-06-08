@@ -84,6 +84,14 @@ interface BundleJsonInput {
 
 type TTSProvider = 'google' | 'elevenlabs';
 
+type AutoWordGenerationResult = {
+  status: 'completed' | 'partial';
+  existingWords: string[];
+  generatedWords: string[];
+  failedWords: string[];
+  excludedWords: string[];
+};
+
 interface TTSOption {
   id: string;
   name: string;
@@ -179,6 +187,14 @@ function createPendingBundleId() {
 
 const sentenceJsonFields = ['sentence', 'translation', 'translation_en'] as const;
 
+function getSentenceDraftKey(sentence: unknown) {
+  return String(sentence || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function normalizeArrayLength<T>(values: T[] | undefined, length: number, fallback: T) {
+  return Array.from({ length }, (_, index) => values?.[index] ?? fallback);
+}
+
 function escapeLooseJsonStringValue(value: string) {
   let escaped = '';
 
@@ -270,6 +286,10 @@ export default function BundleCreateForm({ userId }: Props) {
   const [draftsList, setDraftsList] = useState<any[]>([]);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [copiedSentenceIndex, setCopiedSentenceIndex] = useState<number | null>(null);
+  const [isGeneratingWords, setIsGeneratingWords] = useState(false);
+  const [generatingWordIndexes, setGeneratingWordIndexes] = useState<Set<number>>(new Set());
+  const [autoWordResults, setAutoWordResults] = useState<Record<number, AutoWordGenerationResult>>({});
+  const [autoWordError, setAutoWordError] = useState<string | null>(null);
 
   const DRAFT_TYPE = 'bundle_create';
   const isConversationBundle = parsedData?.type === 'conversation';
@@ -374,6 +394,53 @@ export default function BundleCreateForm({ userId }: Props) {
     });
   };
 
+  const createWordJsonDraftItems = (items = parsedData?.items || [], values = wordJsons) => (
+    items.map((item, index) => ({
+      index,
+      sentence: item.sentence,
+      sentenceKey: getSentenceDraftKey(item.sentence),
+      wordJson: values[index] || '',
+    }))
+  );
+
+  const restoreWordJsonsFromDraft = (draft: any, restoredParsedData: BundleJsonInput | null) => {
+    const items = restoredParsedData?.items || [];
+
+    if (items.length === 0) {
+      return [];
+    }
+
+    const legacyWordJsons = Array.isArray(draft.wordJsons) ? draft.wordJsons : [];
+    const wordJsonItems = Array.isArray(draft.wordJsonItems) ? draft.wordJsonItems : [];
+    const bySentenceKey = new Map<string, string[]>();
+
+    for (const item of wordJsonItems) {
+      const key = getSentenceDraftKey(item?.sentenceKey || item?.sentence);
+      if (key && typeof item?.wordJson === 'string') {
+        const values = bySentenceKey.get(key) || [];
+        values.push(item.wordJson);
+        bySentenceKey.set(key, values);
+      }
+    }
+
+    return items.map((item, index) => {
+      const key = getSentenceDraftKey(item.sentence);
+      const sameIndexItem = wordJsonItems[index];
+      const sameIndexKey = getSentenceDraftKey(sameIndexItem?.sentenceKey || sameIndexItem?.sentence);
+
+      if (sameIndexKey === key && typeof sameIndexItem?.wordJson === 'string') {
+        return sameIndexItem.wordJson;
+      }
+
+      const values = bySentenceKey.get(key);
+      if (values?.length) {
+        return values.shift() || '';
+      }
+
+      return legacyWordJsons[index] ?? '';
+    });
+  };
+
   const saveDraft = async () => {
     setIsSaving(true);
     try {
@@ -413,6 +480,8 @@ export default function BundleCreateForm({ userId }: Props) {
         jsonInput,
         parsedData,
         wordJsons,
+        wordJsonItems: createWordJsonDraftItems(),
+        autoWordResults,
         bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
         sentenceTtsOptions,
         speakerTtsOptions,
@@ -458,11 +527,16 @@ export default function BundleCreateForm({ userId }: Props) {
 
     try {
       const draft = draftRecord.data;
+      const restoredParsedData = draft.parsedData || null;
+      const restoredWordJsons = restoreWordJsonsFromDraft(draft, restoredParsedData);
       setStep(draft.step || 1);
       setTempTitle(draft.tempTitle || '');
       setJsonInput(draft.jsonInput || '');
-      setParsedData(draft.parsedData || null);
-      setWordJsons(draft.wordJsons || []);
+      setParsedData(restoredParsedData);
+      setWordJsons(restoredWordJsons);
+      setWordErrors(new Array(restoredParsedData?.items?.length || 0).fill(null));
+      setAutoWordResults(draft.autoWordResults || {});
+      setAutoWordError(null);
       setPendingBundleId(draft.pendingBundleId || createPendingBundleId());
       
       const defaultMeta = {
@@ -496,7 +570,7 @@ export default function BundleCreateForm({ userId }: Props) {
         ])
       ));
       
-      setItemImageMappings(draft.itemImageMappings || []);
+      setItemImageMappings(normalizeArrayLength(draft.itemImageMappings, restoredParsedData?.items?.length || 0, null));
       
       // Restore images from draft
       if (draft.savedImages && Array.isArray(draft.savedImages)) {
@@ -559,6 +633,9 @@ export default function BundleCreateForm({ userId }: Props) {
       setJsonInput('');
       setParsedData(null);
       setWordJsons([]);
+      setWordErrors([]);
+      setAutoWordResults({});
+      setAutoWordError(null);
       setBundleMeta({
         title: '',
         title_en: '',
@@ -611,6 +688,12 @@ export default function BundleCreateForm({ userId }: Props) {
       const isConversationInput = parsed.type === 'conversation';
       const parsedSpeakers = Array.isArray(parsed.speakers) ? parsed.speakers : [];
       const parsedSpeakerKeys = new Set(parsedSpeakers.map(speaker => speaker.key).filter(Boolean));
+      const previousWordJsonBySentence = new Map<string, string[]>();
+      for (const item of createWordJsonDraftItems()) {
+        const values = previousWordJsonBySentence.get(item.sentenceKey) || [];
+        values.push(item.wordJson);
+        previousWordJsonBySentence.set(item.sentenceKey, values);
+      }
 
       if (isConversationInput && parsedSpeakers.length === 0) {
         throw new Error('conversation 타입은 "speakers" 배열이 필요합니다.');
@@ -657,13 +740,20 @@ export default function BundleCreateForm({ userId }: Props) {
         }))
       };
 
+      const restoredWordJsons = normalized.items.map((item) => {
+        const values = previousWordJsonBySentence.get(getSentenceDraftKey(item.sentence));
+        return values?.shift() || '';
+      });
+
       setParsedData(normalized);
       if (repairedInput) {
         setJsonInput(JSON.stringify(normalized, null, 2));
       }
-      setWordJsons(new Array(parsed.items.length).fill(''));
+      setWordJsons(restoredWordJsons);
       setWordErrors(new Array(parsed.items.length).fill(null));
       setItemImageMappings(new Array(parsed.items.length).fill(null));
+      setAutoWordResults({});
+      setAutoWordError(null);
       setStep(2);
     } catch (err: any) {
       setError(err.message || 'Invalid JSON format.');
@@ -678,6 +768,119 @@ export default function BundleCreateForm({ userId }: Props) {
     const newWordErrors = [...wordErrors];
     newWordErrors[index] = null;
     setWordErrors(newWordErrors);
+    setAutoWordResults(prev => {
+      if (!prev[index]) return prev;
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+
+  const generateWordData = async (targetIndexes?: number[]) => {
+    if (!parsedData) return;
+
+    const indexes = targetIndexes || parsedData.items
+      .map((_, index) => index)
+      .filter((index) => !wordJsons[index]?.trim());
+
+    if (indexes.length === 0) {
+      alert('자동 생성할 빈 단어 데이터가 없습니다.');
+      return;
+    }
+
+    setIsGeneratingWords(true);
+    setAutoWordError(null);
+    setGeneratingWordIndexes(new Set(indexes));
+    setWordJsons(prev => {
+      const next = [...prev];
+      for (const index of indexes) {
+        next[index] = '';
+      }
+      return next;
+    });
+    setWordErrors(prev => {
+      const next = [...prev];
+      for (const index of indexes) {
+        next[index] = null;
+      }
+      return next;
+    });
+    setAutoWordResults(prev => {
+      const next = { ...prev };
+      for (const index of indexes) {
+        delete next[index];
+      }
+      return next;
+    });
+
+    try {
+      const response = await fetch('/api/admin/bundles/generate-word-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          langCode: 'es',
+          items: indexes.map((index) => ({
+            index,
+            sentence: parsedData.items[index].sentence,
+            translation: parsedData.items[index].translation,
+            translation_en: parsedData.items[index].translation_en,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+      }
+
+      const generatedWordJsons: Record<number, string> = {};
+      const generatedResults: Record<number, AutoWordGenerationResult> = {};
+      for (const index of indexes) {
+        generatedWordJsons[index] = '';
+      }
+
+      for (const result of data.results || []) {
+        const index = Number(result.index);
+        if (!Number.isInteger(index)) continue;
+
+        generatedWordJsons[index] = JSON.stringify(result.wordJson || { words: {} }, null, 2);
+        generatedResults[index] = {
+          status: result.status === 'partial' ? 'partial' : 'completed',
+          existingWords: Array.isArray(result.existingWords) ? result.existingWords : [],
+          generatedWords: Array.isArray(result.generatedWords) ? result.generatedWords : [],
+          failedWords: Array.isArray(result.failedWords) ? result.failedWords : [],
+          excludedWords: Array.isArray(result.excludedWords) ? result.excludedWords : [],
+        };
+      }
+
+      setWordJsons(prev => {
+        const next = [...prev];
+        for (const [index, value] of Object.entries(generatedWordJsons)) {
+          next[Number(index)] = value;
+        }
+        return next;
+      });
+      setWordErrors(prev => {
+        const next = [...prev];
+        for (const index of indexes) {
+          next[index] = null;
+        }
+        return next;
+      });
+      setAutoWordResults(prev => {
+        const next = { ...prev };
+        for (const index of indexes) {
+          delete next[index];
+        }
+        return { ...next, ...generatedResults };
+      });
+    } catch (err: any) {
+      setAutoWordError(err.message || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGeneratingWords(false);
+      setGeneratingWordIndexes(new Set());
+    }
   };
 
   const validateWordJsons = () => {
@@ -1106,7 +1309,7 @@ export default function BundleCreateForm({ userId }: Props) {
 
         {step === 2 && parsedData && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+            <div className="flex flex-col gap-4 bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">
                   <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1116,14 +1319,36 @@ export default function BundleCreateForm({ userId }: Props) {
                   <p className="text-xs text-gray-500 dark:text-gray-400">각 문장에 포함된 주요 단어들의 JSON 정보를 입력하세요.</p>
                 </div>
               </div>
-              <div className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
-                {isConversationBundle ? '대화형 · ' : ''}총 {parsedData.items.length}개 문장
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl">
+                  {isConversationBundle ? '대화형 · ' : ''}총 {parsedData.items.length}개 문장
+                </div>
+                <button
+                  type="button"
+                  onClick={() => generateWordData()}
+                  disabled={isGeneratingWords}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                >
+                  {isGeneratingWords ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileJson className="w-4 h-4" />}
+                  <span>{isGeneratingWords ? '생성 중...' : '빈 항목 일괄 생성'}</span>
+                </button>
               </div>
             </div>
 
+            {autoWordError && (
+              <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 rounded-2xl border border-red-100 dark:border-red-900/50">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p className="text-sm font-medium">{autoWordError}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
-              {parsedData.items.map((item, index) => (
-                <div key={index} className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+              {parsedData.items.map((item, index) => {
+                const autoResult = autoWordResults[index];
+                const isGeneratingThisWordData = generatingWordIndexes.has(index);
+
+                return (
+                  <div key={index} className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                   <div className="p-6 bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-50 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -1134,12 +1359,23 @@ export default function BundleCreateForm({ userId }: Props) {
                           </span>
                         )}
                       </div>
-                      <button 
-                        onClick={() => handleWordJsonChange(index, wordExampleJson)}
-                        className="text-[10px] font-bold text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                      >
-                        예시 채우기
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => generateWordData([index])}
+                          disabled={isGeneratingWords}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors disabled:opacity-50"
+                        >
+                          {isGeneratingThisWordData && <Loader2 className="w-3 h-3 animate-spin" />}
+                          자동 생성
+                        </button>
+                        <button 
+                          onClick={() => handleWordJsonChange(index, wordExampleJson)}
+                          className="text-[10px] font-bold text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          예시 채우기
+                        </button>
+                      </div>
                     </div>
                     <div className="mb-1 flex items-start gap-2">
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug">{item.sentence}</h3>
@@ -1168,7 +1404,7 @@ export default function BundleCreateForm({ userId }: Props) {
                       <textarea
                         value={wordJsons[index]}
                         onChange={(e) => handleWordJsonChange(index, e.target.value)}
-                        placeholder='{"words": { "word": { ... } }}'
+                        placeholder={isGeneratingThisWordData ? '자동 생성 중...' : '{"words": { "word": { ... } }}'}
                         className={`w-full h-48 p-4 font-mono text-xs bg-gray-900 text-gray-300 rounded-2xl border-0 focus:ring-4 ${wordErrors[index] ? 'focus:ring-red-500/20' : 'focus:ring-blue-500/10'} outline-none transition-all resize-none shadow-inner`}
                       />
                     </div>
@@ -1178,9 +1414,36 @@ export default function BundleCreateForm({ userId }: Props) {
                         {wordErrors[index]}
                       </div>
                     )}
+                    {autoResult && (
+                      <div className={`mt-4 rounded-2xl border p-4 text-xs ${
+                        autoResult.failedWords.length > 0
+                          ? 'border-amber-100 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300'
+                          : 'border-green-100 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-900/10 dark:text-green-300'
+                      }`}>
+                        <div className="flex items-center gap-2 font-bold">
+                          {autoResult.failedWords.length > 0 ? (
+                            <AlertCircle className="w-4 h-4" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
+                          <span>
+                            기존 {autoResult.existingWords.length}개 · 신규 {autoResult.generatedWords.length}개
+                            {autoResult.failedWords.length > 0 && ` · 실패 ${autoResult.failedWords.length}개`}
+                          </span>
+                        </div>
+                        <p className="mt-2 leading-relaxed">
+                          {[
+                            autoResult.existingWords.length > 0 ? `기존: ${autoResult.existingWords.join(', ')}` : '',
+                            autoResult.generatedWords.length > 0 ? `신규: ${autoResult.generatedWords.join(', ')}` : '',
+                            autoResult.failedWords.length > 0 ? `실패: ${autoResult.failedWords.join(', ')}` : '',
+                          ].filter(Boolean).join(' / ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-between p-8 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">

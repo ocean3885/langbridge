@@ -146,12 +146,29 @@ function extractMeaningString(meaning: any): string {
   return typeof data === 'string' ? data : '';
 }
 
+function hasDisplayableGrammarValue(value: any): boolean {
+  if (value === null || value === undefined || value === '' || value === 'null') {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(hasDisplayableGrammarValue);
+  }
+
+  if (typeof value === 'object') {
+    return Object.values(value).some(hasDisplayableGrammarValue);
+  }
+
+  return true;
+}
+
 export default function WordDetail({ word: initialWord, languages }: { word: any, languages: any[] }) {
   const router = useRouter();
   const [word, setWord] = useState(initialWord);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ttsLoading, setTtsLoading] = useState(false);
+  const [infoLoading, setInfoLoading] = useState(false);
   const [isDistractorModalOpen, setIsDistractorModalOpen] = useState(false);
   const [isSavingDistractors, setIsSavingDistractors] = useState(false);
   const [distractorJsonInput, setDistractorJsonInput] = useState('');
@@ -280,6 +297,41 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       alert('오디오 생성 중 오류가 발생했습니다.');
     } finally {
       setTtsLoading(false);
+    }
+  };
+
+  const handleRegenerateInfo = async () => {
+    if (infoLoading) return;
+    if (!confirm('현재 단어의 품사, 의미, 성수/동사 변화 정보를 AI로 다시 생성해 덮어쓰시겠습니까? 오디오는 변경되지 않습니다.')) {
+      return;
+    }
+
+    setInfoLoading(true);
+    try {
+      const res = await fetch('/api/admin/words/regenerate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordId: word.id })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || '단어 정보 재생성 실패');
+      }
+
+      setWord({
+        ...word,
+        ...data,
+        audio_url: word.audio_url,
+        sentences: word.sentences,
+        distractors: word.distractors,
+      });
+      alert('단어 정보가 재생성되었습니다.');
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || '단어 정보 재생성 중 오류가 발생했습니다.');
+    } finally {
+      setInfoLoading(false);
     }
   };
   
@@ -413,8 +465,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     }
   };
 
-  const validDeclensions = Object.entries(word.declensions || {}).filter(([_, val]) => val !== null && val !== 'null' && val !== '');
-  const validConjugations = Object.entries(word.conjugations || {}).filter(([_, val]) => val !== null && val !== 'null' && val !== '');
+  const validDeclensions = Object.entries(word.declensions || {}).filter(([_, val]) => hasDisplayableGrammarValue(val));
+  const validConjugations = Object.entries(word.conjugations || {}).filter(([_, val]) => hasDisplayableGrammarValue(val));
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -430,6 +482,18 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           </Link>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleRegenerateInfo}
+              disabled={loading || infoLoading}
+              className="p-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all shadow-sm disabled:opacity-50 group"
+              title="단어 정보 재생성"
+            >
+              {infoLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <RotateCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+              )}
+            </button>
             <button
               onClick={() => setIsEditing(!isEditing)}
               className={`p-2 rounded-xl transition-all ${isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm'}`}
@@ -636,12 +700,17 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
                       {mObj.title}
                     </h3>
                     <div className="space-y-5">
-                      {Object.entries(mObj.data).map(([type, meanings]: [string, any]) => (
-                        <div key={type} className="group">
-                          <ul className="space-y-1.5">
-                            {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
-                              <li key={idx} className="text-lg text-gray-800 dark:text-gray-200 font-medium leading-tight">
-                                {m}
+	                      {Object.entries(mObj.data).map(([type, meanings]: [string, any]) => (
+	                        <div key={type} className="group">
+	                          <div className="mb-2 flex items-center gap-2">
+	                            <span className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500 dark:text-gray-400">
+	                              {formatPOS(type)}
+	                            </span>
+	                          </div>
+	                          <ul className="space-y-1.5">
+	                            {Array.isArray(meanings) ? meanings.map((m: string, idx: number) => (
+	                              <li key={idx} className="text-lg text-gray-800 dark:text-gray-200 font-medium leading-tight">
+	                                {m}
                               </li>
                             )) : (
                               <li className="text-lg text-gray-800 dark:text-gray-200 font-medium">{meanings}</li>
