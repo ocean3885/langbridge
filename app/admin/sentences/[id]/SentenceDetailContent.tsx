@@ -7,7 +7,7 @@ import {
   ArrowLeft, Volume2, MessageSquare, Tag, BookOpen, 
   Edit2, Trash2, Save, X, Loader2, Layout 
 } from 'lucide-react';
-import { updateSentence, deleteSentence, regenerateSentenceTTS } from '@/lib/supabase/services/sentences';
+import { updateSentence, deleteSentence, regenerateSentenceTTS, disconnectWordFromSentence } from '@/lib/supabase/services/sentences';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { generateTTS } from '@/lib/tts';
 import WordExtractor from './WordExtractor';
@@ -126,6 +126,20 @@ export default function SentenceDetailContent({
     } catch (err: any) {
       alert(err.message || '삭제 중 오류가 발생했습니다.');
       setIsDeleting(false);
+    }
+  };
+
+  const handleDisconnectWord = async (wordId: number, wordText: string) => {
+    if (!confirm(`정말 이 문장에서 단어 '${wordText}'의 연결을 끊으시겠습니까?`)) return;
+    try {
+      await disconnectWordFromSentence(sentence.id, wordId);
+      setSentence({
+        ...sentence,
+        words: (sentence.words || []).filter((w: any) => w.id !== wordId)
+      });
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || '연결 해제 중 오류가 발생했습니다.');
     }
   };
 
@@ -262,28 +276,41 @@ export default function SentenceDetailContent({
           {sentence.words && sentence.words.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {sentence.words.map((w: any, idx: number) => (
-                <Link href={`/admin/words/${w.id}`} key={idx} className="block">
-                  <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {w.word}
-                        </p>
-                        <div className="flex gap-1">
-                          {(w.pos || []).map((p: string, i: number) => (
-                            <span key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
-                              {formatPOS(p)}
-                            </span>
-                          ))}
+                <div key={idx} className="relative group/card">
+                  <Link href={`/admin/words/${w.id}`} className="block">
+                    <div className="p-5 pr-12 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900 transition-all group flex flex-col h-full shadow-sm hover:shadow-md">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <p className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {w.word}
+                          </p>
+                          <div className="flex gap-1">
+                            {(w.pos || []).map((p: string, i: number) => (
+                              <span key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
+                                {formatPOS(p)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
+                      <div className="mt-auto">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 italic">{getMeaningDisplay(w.meaning_en)}</p>
+                      </div>
                     </div>
-                    <div className="mt-auto">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 italic">{getMeaningDisplay(w.meaning_en)}</p>
-                    </div>
-                  </div>
-                </Link>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDisconnectWord(w.id, w.word);
+                    }}
+                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all opacity-0 group-hover/card:opacity-100 focus:opacity-100"
+                    title="단어 연결 끊기"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               ))}
             </div>
           ) : (

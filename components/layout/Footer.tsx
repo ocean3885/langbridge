@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { Instagram, Youtube, Mail } from 'lucide-react';
 
 interface Props {
   language?: 'ko' | 'en';
@@ -9,52 +11,54 @@ interface Props {
 
 const translations = {
   ko: {
-    description: 'AI 음성(TTS) 생성과 영상 스크립트 반복 학습을 결합하여 원어 학습의 집중력과 지속성을 높여주는 플랫폼입니다.',
-    tagline: '학습 집중 · 반복 효율 · 실전 회화 감각',
-    features: '기능',
-    feature1: '🔊 문장별 TTS 오디오 생성',
-    feature2: '🎞 영상 스크립트 반복 학습',
-    feature3: '🗂 사용자 지정 카테고리',
-    feature4: '📌 메모 & 문장 관리',
-    feature5: '📈 학습 진행도 체감',
-    resources: '학습 리소스',
-    resource1: '📹 나의 영상',
-    resource2: '📝 스크립트 & 트랜스크립트',
-    resource3: '💡 반복 학습 팁',
-    resource4: '🛠 향후 기능 로드맵',
-    shortcuts: '바로가기',
-    upload: '업로드',
-    videoStudy: '영상 학습',
-    myVideos: '나의 영상',
-    profile: '프로필',
-    contact: '문의 / 피드백',
-    feedback: '기능 제안 환영합니다!',
-    terms: '이용약관',
-    privacy: '개인정보 처리방침',
-    cookie: '쿠키 정책',
-    help: '도움말',
+    tagline: '가장 아늑한 스페인어 학습.',
+    description: '짧은 레슨, 따뜻한 이야기, 생생한 표현.',
+    learn: 'LEARN',
+    learnHome: 'Learn Home',
+    bundles: 'Bundles',
+    progress: 'Progress',
+    review: 'Review',
+    practice: 'PRACTICE',
+    flashcards: 'Flashcards',
+    quickQuiz: 'Quick Quiz',
+    listenRepeat: 'Listen & Repeat',
+    wordScramble: 'Word Scramble',
+    resources: 'RESOURCES',
+    helpCenter: 'Help Center',
+    roadmap: 'Roadmap',
+    feedback: 'Feedback',
+    contact: 'Contact',
+    about: 'ABOUT',
+    aboutHolaLingo: 'About HolaLingo',
+    ourStory: 'Our Story',
+    blog: 'Blog',
+    terms: 'Terms',
+    privacy: 'Privacy',
+    cookie: 'Cookie',
+    help: 'Help',
   },
   en: {
-    description: 'A platform that combines AI voice (TTS) generation and video script repetition to enhance focus and sustainability in language learning.',
-    tagline: 'Focused Learning · Efficient Repetition · Practical Conversation',
-    features: 'Features',
-    feature1: '🔊 Per-sentence TTS Audio',
-    feature2: '🎞 Video Script Repetition',
-    feature3: '🗂 Custom Categories',
-    feature4: '📌 Notes & Sentences',
-    feature5: '📈 Progress Tracking',
-    resources: 'Learning Resources',
-    resource1: '📹 My Videos',
-    resource2: '📝 Scripts & Transcripts',
-    resource3: '💡 Repetition Tips',
-    resource4: '🛠 Roadmap',
-    shortcuts: 'Shortcuts',
-    upload: 'Upload',
-    videoStudy: 'Videos',
-    myVideos: 'My Videos',
-    profile: 'Profile',
-    contact: 'Contact / Feedback',
-    feedback: 'Feedback is welcome!',
+    tagline: 'Learn Spanish, the cozy way.',
+    description: 'Small lessons, warm stories, real expressions.',
+    learn: 'LEARN',
+    learnHome: 'Learn Home',
+    bundles: 'Bundles',
+    progress: 'Progress',
+    review: 'Review',
+    practice: 'PRACTICE',
+    flashcards: 'Flashcards',
+    quickQuiz: 'Quick Quiz',
+    listenRepeat: 'Listen & Repeat',
+    wordScramble: 'Word Scramble',
+    resources: 'RESOURCES',
+    helpCenter: 'Help Center',
+    roadmap: 'Roadmap',
+    feedback: 'Feedback',
+    contact: 'Contact',
+    about: 'ABOUT',
+    aboutHolaLingo: 'About HolaLingo',
+    ourStory: 'Our Story',
+    blog: 'Blog',
     terms: 'Terms',
     privacy: 'Privacy',
     cookie: 'Cookie',
@@ -73,71 +77,140 @@ export default function Footer({ language = 'ko' }: Props) {
   }
 
   return (
-    <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-6 sm:pb-10">
-        {/* 상단 그리드 */}
-        <div className="grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {/* 브랜드 소개 */}
-          <div className="space-y-2 min-w-0">
-            <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">Lang Bridge</h2>
-            <p className="text-sm leading-relaxed text-gray-400 line-clamp-3 break-words hyphens-auto">
-              {t.description}
-            </p>
-            <p className="text-xs text-gray-500">{t.tagline}</p>
-          </div>
+    <footer className="bg-[#1e3024] text-[#eae6df] mt-auto border-t border-[#2a3f30] overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-6 pt-12 pb-8">
+        
+        {/* 상단 레이아웃 */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-8">
+          
+          {/* 1. 브랜드 정보 컬럼 (lg:col-span-4) */}
+          <div className="lg:col-span-4 space-y-6 flex flex-col justify-between h-full min-h-[160px] lg:border-r lg:border-white/10 lg:pr-8">
+            <div className="space-y-4">
+              {/* 로고 */}
+              <Link href="/" className="flex items-center gap-3 active:scale-95 transition-transform group w-fit">
+                <div className="relative h-8 w-9 overflow-hidden rounded-sm shadow-sm">
+                  <Image
+                    src="/images/logo_bg.png"
+                    alt="HolaLingo Logo"
+                    fill
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                </div>
+                <span className="text-2xl font-bold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                  HolaLingo
+                </span>
+              </Link>
 
-          {/* 주요 기능 */}
-          <div className="space-y-2 min-w-0">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wide">{t.features}</h3>
-            <ul className="space-y-1 text-sm">
-              <li className="hover:text-white transition-colors">{t.feature1}</li>
-              <li className="hover:text-white transition-colors">{t.feature2}</li>
-              <li className="hover:text-white transition-colors">{t.feature3}</li>
-              <li className="hover:text-white transition-colors">{t.feature4}</li>
-              <li className="hover:text-white transition-colors">{t.feature5}</li>
-            </ul>
-          </div>
+              {/* 태그라인 & 설명 */}
+              <div className="text-sm leading-relaxed text-[#eae6df]/90 font-medium">
+                <p>{t.tagline}</p>
+                <p className="opacity-85 font-normal">{t.description}</p>
+              </div>
+            </div>
 
-          {/* 학습 리소스 */}
-          <div className="space-y-2 min-w-0">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wide">{t.resources}</h3>
-            <ul className="space-y-1 text-sm">
-              <li className="hover:text-white transition-colors">{t.resource1}</li>
-              <li className="hover:text-white transition-colors">{t.resource2}</li>
-              <li className="hover:text-white transition-colors">{t.resource3}</li>
-              <li className="hover:text-white transition-colors">{t.resource4}</li>
-            </ul>
-          </div>
-
-          {/* 링크 & 연락 */}
-          <div className="space-y-2 min-w-0">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wide">{t.shortcuts}</h3>
-            <ul className="space-y-1 text-sm mb-4 sm:mb-6">
-              <li className="hover:text-white transition-colors"><Link href="/upload">➡ {t.upload}</Link></li>
-              <li className="hover:text-white transition-colors"><Link href="/videos">➡ {t.videoStudy}</Link></li>
-              <li className="hover:text-white transition-colors"><Link href="/my-videos">➡ {t.myVideos}</Link></li>
-              <li className="hover:text-white transition-colors"><Link href="/profile">➡ {t.profile}</Link></li>
-            </ul>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-gray-400">{t.contact}</p>
-              <p className="text-sm">
-                ✉ <a className="underline decoration-dashed underline-offset-2 hover:text-white" href="mailto:ocean3885@gmail.com">ocean3885@gmail.com</a>
-              </p>
-              <p className="text-xs text-gray-500">{t.feedback}</p>
+            {/* 소셜 링크 */}
+            <div className="flex items-center gap-3">
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2a3f31] hover:bg-[#34513e] flex items-center justify-center text-[#eae6df] hover:text-white transition-colors border border-white/5"
+                aria-label="Instagram"
+              >
+                <Instagram size={18} />
+              </a>
+              <a
+                href="https://youtube.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-[#2a3f31] hover:bg-[#34513e] flex items-center justify-center text-[#eae6df] hover:text-white transition-colors border border-white/5"
+                aria-label="YouTube"
+              >
+                <Youtube size={18} />
+              </a>
+              <a
+                href="mailto:ocean3885@gmail.com"
+                className="w-9 h-9 rounded-full bg-[#2a3f31] hover:bg-[#34513e] flex items-center justify-center text-[#eae6df] hover:text-white transition-colors border border-white/5"
+                aria-label="Email"
+              >
+                <Mail size={18} />
+              </a>
             </div>
           </div>
+
+          {/* 2. 네비게이션 메뉴 컬럼들 (lg:col-span-8) */}
+          <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-4 lg:pl-8 self-start">
+            
+            {/* LEARN */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold tracking-wider text-white uppercase underline underline-offset-[6px] decoration-1 decoration-white/60">
+                {t.learn}
+              </h3>
+              <ul className="space-y-2 text-sm text-[#eae6df]/85">
+                <li><Link href="/learn" className="hover:text-white hover:underline transition-colors">{t.learnHome}</Link></li>
+                <li><Link href="/bundles" className="hover:text-white hover:underline transition-colors">{t.bundles}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.progress}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.review}</Link></li>
+              </ul>
+            </div>
+
+            {/* PRACTICE */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold tracking-wider text-white uppercase underline underline-offset-[6px] decoration-1 decoration-white/60">
+                {t.practice}
+              </h3>
+              <ul className="space-y-2 text-sm text-[#eae6df]/85">
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.flashcards}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.quickQuiz}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.listenRepeat}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.wordScramble}</Link></li>
+              </ul>
+            </div>
+
+            {/* RESOURCES */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold tracking-wider text-white uppercase underline underline-offset-[6px] decoration-1 decoration-white/60">
+                {t.resources}
+              </h3>
+              <ul className="space-y-2 text-sm text-[#eae6df]/85">
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.helpCenter}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.roadmap}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.feedback}</Link></li>
+                <li><a href="mailto:ocean3885@gmail.com" className="hover:text-white hover:underline transition-colors">{t.contact}</a></li>
+              </ul>
+            </div>
+
+            {/* ABOUT */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold tracking-wider text-white uppercase underline underline-offset-[6px] decoration-1 decoration-white/60">
+                {t.about}
+              </h3>
+              <ul className="space-y-2 text-sm text-[#eae6df]/85">
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.aboutHolaLingo}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.ourStory}</Link></li>
+                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.blog}</Link></li>
+              </ul>
+            </div>
+
+          </div>
+
         </div>
 
         {/* 하단 바 */}
-        <div className="mt-8 sm:mt-12 pt-4 sm:pt-6 border-t border-gray-800 text-[11px] sm:text-xs flex flex-col sm:flex-row gap-3 sm:gap-8 justify-between items-center">
-          <p className="text-gray-400">&copy; {year} LangBridge. All rights reserved.</p>
-          <div className="flex flex-wrap gap-2 sm:gap-4 text-gray-500">
-            <span className="hover:text-gray-300 cursor-pointer">{t.terms}</span>
-            <span className="hover:text-gray-300 cursor-pointer">{t.privacy}</span>
+        <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-center text-xs text-[#eae6df]/75">
+          <p>&copy; {year} HolaLingo. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-1 text-[#eae6df]/75">
+            <span className="hover:text-white hover:underline cursor-pointer">{t.terms}</span>
+            <span className="mx-2 text-[#eae6df]/30">&middot;</span>
+            <span className="hover:text-white hover:underline cursor-pointer">{t.privacy}</span>
+            <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <span className="hover:text-gray-300 cursor-pointer">{t.cookie}</span>
+            <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <span className="hover:text-gray-300 cursor-pointer">{t.help}</span>
           </div>
         </div>
+
       </div>
     </footer>
   );

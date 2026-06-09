@@ -188,7 +188,7 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
     <section>
       <SectionHeader
         title={t.sectionTitle}
-        href="/bundles"
+        href="/learn/active"
         actionLabel={t.viewAll}
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
         actionClassName={continueLearningActionClassName}

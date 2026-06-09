@@ -339,3 +339,14 @@ export async function importWordsFromJson(sentenceId: number, json: string, lang
   
   return results;
 }
+
+export async function disconnectWordFromSentence(sentenceId: number, wordId: number): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('word_sentence_map')
+    .delete()
+    .eq('sentence_id', sentenceId)
+    .eq('word_id', wordId);
+    
+  if (error) throw new Error(`단어-문장 연결 해제 실패: ${error.message}`);
+}

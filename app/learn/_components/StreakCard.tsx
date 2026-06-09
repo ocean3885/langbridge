@@ -47,7 +47,9 @@ export function StreakCard({
   const t = copy[language];
   const sourceWeekDates = summary.weekDates.length > 0 ? summary.weekDates : previewStreakSummary.weekDates;
   const isFreshStart = summary.currentStreak === 0 && !summary.activeToday;
-  const todayIndex = Math.min(summary.currentStreak, 6);
+  const todayIndex = summary.activeToday
+    ? (summary.currentStreak > 0 ? Math.min(summary.currentStreak - 1, 6) : 0)
+    : (summary.currentStreak > 0 ? Math.min(summary.currentStreak, 6) : 0);
   const weekDates = buildStreakTimelineDates({
     todayDateString: sourceWeekDates[sourceWeekDates.length - 1]?.date,
     todayIndex,

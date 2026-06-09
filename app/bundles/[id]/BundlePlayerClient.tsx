@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Gauge,
   HelpCircle,
-  Info,
   Languages,
   LetterText,
   Pause,
@@ -55,8 +54,7 @@ const translations = {
     noItems: '등록된 학습 항목이 없습니다.',
     noImage: '이미지가 없습니다',
     practice: '연습 모드',
-    practiceInfoLabel: '연습 모드 설명 보기',
-    practiceInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 Stars earned를 올릴 수 있습니다.',
+    practiceInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
     viewItems: '전체 항목 보기',
     flashcards: '플래시카드',
     quickQuiz: '퀵 퀴즈',
@@ -79,7 +77,6 @@ const translations = {
     noItems: 'No learning items registered.',
     noImage: 'No image available',
     practice: 'Practice',
-    practiceInfoLabel: 'View practice mode details',
     practiceInfo: 'Earn stars by answering Quiz and Scramble challenges correctly.',
     viewItems: 'View All Items',
     flashcards: 'Flashcards',
@@ -115,7 +112,6 @@ export default function BundlePlayerClient({
   const [showSource, setShowSource] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [showPracticeInfo, setShowPracticeInfo] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef(false);
@@ -251,9 +247,9 @@ export default function BundlePlayerClient({
         </div>
 
         <section className="px-4 pb-4 sm:px-5 sm:pb-5 md:px-7">
-          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{categoryName}</span>
-          <h1 className="mt-3 text-2xl font-black leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">{categoryName}</span>
+          <h1 className="mt-3 text-2xl font-bold leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 md:text-3xl">{title}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
             <span>{currentIndex + 1} / {items.length} items</span>
             <span>·</span>
             <span>{level}</span>
@@ -299,7 +295,7 @@ export default function BundlePlayerClient({
               </p>
             )}
             {showTranslation && (
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600 dark:text-zinc-300">
+              <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-600 dark:text-zinc-300">
                 {getTranslation(currentItem, language)}
               </p>
             )}
@@ -390,7 +386,7 @@ export default function BundlePlayerClient({
         <section className="space-y-5 p-4 sm:p-5 md:p-7">
           <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:shadow-black/20">
             <div className="flex w-full items-center px-4 py-4">
-              <span className="inline-flex items-center gap-3 text-base font-black text-zinc-950 dark:text-zinc-50">
+              <span className="inline-flex items-center gap-3 text-base font-bold text-zinc-950 dark:text-zinc-50">
                 <BookOpen className="h-5 w-5 text-[#2f8f53] dark:text-emerald-400" />
                 {t.keyWords}
               </span>
@@ -400,11 +396,11 @@ export default function BundlePlayerClient({
                 keywords.map((keyword) => (
                   <span key={`${keyword.word}-${keyword.meaning}`} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-bold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                     {keyword.word}
-                    {keyword.meaning && <span className="font-semibold text-zinc-500 dark:text-zinc-400">{keyword.meaning}</span>}
+                    {keyword.meaning && <span className="font-medium text-zinc-500 dark:text-zinc-400">{keyword.meaning}</span>}
                   </span>
                 ))
               ) : (
-                <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">{t.noKeywords}</span>
+                <span className="text-sm font-medium text-zinc-400 dark:text-zinc-500">{t.noKeywords}</span>
               )}
             </div>
           </div>
@@ -415,27 +411,12 @@ export default function BundlePlayerClient({
       <aside className="px-3 pb-4 sm:px-0 sm:pb-0">
         <section className="rounded-[18px] border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-black text-zinc-950 dark:text-zinc-50 sm:text-lg">{t.practice}</h2>
-            <button
-              type="button"
-              onClick={() => setShowPracticeInfo((visible) => !visible)}
-              aria-label={t.practiceInfoLabel}
-              aria-expanded={showPracticeInfo}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                showPracticeInfo
-                  ? 'bg-[#e3f1e7] text-[#2f7d4a] dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'text-zinc-400 hover:bg-zinc-100 hover:text-[#2f7d4a] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-emerald-300'
-              }`}
-            >
-              <Info className="h-4 w-4" />
-            </button>
+            <h2 className="text-base font-bold text-zinc-950 dark:text-zinc-50 sm:text-lg">{t.practice}</h2>
           </div>
-          {showPracticeInfo && (
-            <div className="mt-3 flex gap-2 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-zinc-300">
-              <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
-              <p>{t.practiceInfo}</p>
-            </div>
-          )}
+          <div className="mt-3 flex gap-2 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-zinc-300">
+            <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
+            <p>{t.practiceInfo}</p>
+          </div>
           <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
             <PracticeLink href={`/bundles/${bundle.id}/flashcards`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.flashcards} tone="sky" />
             <PracticeLink href={`/bundles/${bundle.id}/quiz`} icon={<HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.quickQuiz} tone="violet" />
@@ -460,7 +441,7 @@ function SpeakerLabel({ item, variant }: { item: any; variant: 'overlay' | 'inli
 
   return (
     <div
-      className={`inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
+      className={`inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${
         isOverlay
           ? 'bg-white/90 text-zinc-900 shadow-sm backdrop-blur dark:bg-zinc-900/90 dark:text-zinc-100 dark:shadow-black/30'
           : 'bg-[#f2eee5] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
@@ -497,7 +478,7 @@ function PracticeLink({
   return (
     <Link href={href} className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-xl border border-zinc-100 bg-white px-2 text-center transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:hover:shadow-black/20 sm:min-h-[132px] sm:gap-3 lg:min-h-[88px] lg:flex-row lg:justify-start lg:px-4 lg:text-left">
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 lg:h-12 lg:w-12 ${tones[tone]}`}>{icon}</span>
-      <span className="text-xs font-black leading-tight text-zinc-800 dark:text-zinc-100 sm:text-sm">{label}</span>
+      <span className="text-xs font-bold leading-tight text-zinc-800 dark:text-zinc-100 sm:text-sm">{label}</span>
     </Link>
   );
 }

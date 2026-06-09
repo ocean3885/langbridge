@@ -54,7 +54,7 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: '연습 모드 설명 보기',
-    practiceModesInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 Stars earned를 올릴 수 있습니다.',
+    practiceModesInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
@@ -97,7 +97,6 @@ const copy = {
 
 export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
-  const [showPracticeModesInfo, setShowPracticeModesInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
   const [isUpdatingPinned, setIsUpdatingPinned] = useState(false);
   const t = copy[language] || copy.ko;
@@ -270,28 +269,13 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-3">
             <h2 className="text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.practiceModes}</h2>
-            <button
-              type="button"
-              onClick={() => setShowPracticeModesInfo((visible) => !visible)}
-              aria-label={t.practiceModesInfoLabel}
-              aria-expanded={showPracticeModesInfo}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                showPracticeModesInfo
-                  ? 'bg-[#e3f1e7] text-[#2f7d4a] dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'text-zinc-400 hover:bg-zinc-100 hover:text-[#2f7d4a] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-emerald-300'
-              }`}
-            >
-              <Info className="h-4 w-4" />
-            </button>
           </div>
-          {showPracticeModesInfo && (
-            <div className="mb-4 flex gap-2 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-zinc-300">
-              <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
-              <p>{t.practiceModesInfo}</p>
-            </div>
-          )}
+          <div className="mb-4 flex gap-2 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-zinc-300">
+            <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
+            <p>{t.practiceModesInfo}</p>
+          </div>
           <div className="grid grid-cols-3 gap-2 lg:gap-3">
             <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
             <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
