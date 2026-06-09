@@ -31,7 +31,7 @@ export async function listBundles(options?: { publishedOnly?: boolean; limit?: n
     return [];
   }
 
-  return data;
+  return data ?? [];
 }
 
 export async function listBundleItems(bundleId: string) {
@@ -794,4 +794,41 @@ export async function updateBundleItemsOrder(bundleId: string, orderedItemIds: s
   }
 
   return true;
+}
+
+export async function getRecommendedUnstudiedBundles(userId: string, limit: number = 3) {
+  const supabase = createAdminClient();
+  
+  // 1. Get user's interacted bundle IDs
+  const { data: interactions } = await supabase
+    .from('user_bundle_interactions')
+    .select('bundle_id')
+    .eq('user_id', userId);
+    
+  const studiedBundleIds = interactions?.map((i) => i.bundle_id) || [];
+  
+  // 2. Fetch unstudied bundles
+  let query = supabase
+    .from('bundle')
+    .select(`
+      *,
+      bundle_category(id, name, name_en, icon_image_url, category_image_url),
+      bundle_type(id, name, code),
+      bundle_items(count)
+    `)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false });
+    
+  if (studiedBundleIds.length > 0) {
+    query = query.not('id', 'in', `(${studiedBundleIds.join(',')})`);
+  }
+  
+  const { data, error } = await query.limit(limit);
+  
+  if (error) {
+    console.error('Error fetching recommended bundles:', error);
+    return [];
+  }
+  
+  return data;
 }

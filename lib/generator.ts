@@ -353,6 +353,7 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
 7. 명사의 성별 정보는 pos에 넣지 말고 gender에 넣으세요.
 8. 동사인 경우 conjugations에 6개 시제 변화를 포함합니다.
 9. 명사/형용사인 경우 declensions에 성수 변화를 포함합니다.
+10. 명사가 고정된 성별을 가지는 경우(예: 여성 전용 명사), 해당하지 않는 성별의 declensions 값(ms, mp 등)은 빈 문자열("")로 비워두세요.
 `;
 
   try {

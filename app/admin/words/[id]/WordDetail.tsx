@@ -14,7 +14,7 @@ const POS_MAP: Record<string, string> = {
   'adj': '형용사', 'adv': '부사', 'n': '명사', 'v': '동사',
   'prep': '전치사', 'pron': '대명사', 'conj': '접속사',
   'det': '한정사', 'adp': '전치사', 'aux': '조동사',
-  'part': '조사', 'propn': '고유명사',
+  'part': '조사', 'propn': '고유명사', 'num': '수사',
 };
 
 const POS_CANONICAL_MAP: Record<string, string> = {
@@ -842,7 +842,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
             <div className="flex items-center gap-4">
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight flex items-baseline gap-3 leading-tight break-words">
                 {word.word}
-                {word.gender && (
+                {word.gender && word.gender !== 'null' && (
                   <span className="text-lg font-semibold text-gray-400 dark:text-gray-500">({formatGender(word.gender)})</span>
                 )}
               </h1>
@@ -902,7 +902,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           </section>
 
           {(validDeclensions.length > 0 || validConjugations.length > 0) && (
-            <div className={`grid grid-cols-1 ${validDeclensions.length > 0 && validConjugations.length > 0 ? 'md:grid-cols-2' : ''} gap-4`}>
+            <div className="flex flex-col gap-4">
               {validDeclensions.length > 0 && (
                 <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">

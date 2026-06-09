@@ -2,8 +2,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
+  BookOpen,
   Compass,
+  HelpCircle,
   Layers,
+  Shuffle,
   Star,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
@@ -13,7 +16,6 @@ import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-
 import { GoalCard } from './ProgressCards';
 import { SectionHeader } from './SectionHeader';
 import { StreakCard } from './StreakCard';
-import { lessonCards, quickPractice } from './learn-page-data';
 
 type DisplayLanguage = 'ko' | 'en';
 
@@ -72,13 +74,13 @@ const encouragementCopy = {
 
 const loggedInSectionCopy = {
   ko: {
-    todaysPicks: '오늘의 추천 학습',
+    exploreBundles: '새로운 번들 탐색하기',
     recentActivity: '최근 활동',
     browseBundles: '번들 둘러보기',
     noRecentActivityTitle: '아직 다른 활동이 없어요',
     noRecentActivityDescription: '번들을 더 학습하면 최근 활동이 여기에 표시됩니다.',
     quickPractice: '빠른 연습',
-    quickPracticeDescription: '스페인어 감각을 짧게 유지해보세요.',
+    quickPracticeDescription: (title: string) => `${title} 번들로 바로 연습해보세요.`,
     progressTitle: '학습 현황',
     completedSentences: '완료한 문장',
     earnedStars: '획득한 별',
@@ -88,13 +90,13 @@ const loggedInSectionCopy = {
     practiceAccuracy: '정답률',
   },
   en: {
-    todaysPicks: "Today's Picks for You",
+    exploreBundles: 'Explore More Bundles',
     recentActivity: 'Recent Activity',
     browseBundles: 'Browse bundles',
     noRecentActivityTitle: 'No other activity yet',
     noRecentActivityDescription: 'Study more bundles and your recent activity will appear here.',
     quickPractice: 'Quick Practice',
-    quickPracticeDescription: 'Short activities to keep your Spanish fresh.',
+    quickPracticeDescription: (title: string) => `Jump back into ${title} with a short practice session.`,
     progressTitle: 'Your Progress',
     completedSentences: 'Sentences Completed',
     earnedStars: 'Earned Stars',
@@ -109,6 +111,7 @@ export function LoggedInLearnPage({
   name,
   recentBundle,
   recentActivities,
+  recommendedBundles,
   streakSummary,
   goalSummary,
   progressSummary,
@@ -117,19 +120,22 @@ export function LoggedInLearnPage({
   name: string;
   recentBundle: RecentStudiedBundle | null;
   recentActivities: RecentLearningActivity[];
+  recommendedBundles: any[];
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
   progressSummary: LearningProgressSummary;
   language: DisplayLanguage;
 }) {
+  const hasRecommendedBundles = recommendedBundles.length > 0;
+
   return (
     <div className="mx-auto grid max-w-7xl gap-7 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100 lg:grid-cols-[1fr_360px]">
       <div className="space-y-9">
         <WelcomeSection name={name} language={language} />
         <ContinueLearningSection recentBundle={recentBundle} language={language} />
-        <TodaysPicksSection language={language} />
+        {hasRecommendedBundles && <ExploreBundlesSection bundles={recommendedBundles} language={language} />}
         <RecentActivitySection activities={recentActivities} language={language} />
-        <QuickPracticeSection language={language} />
+        <QuickPracticeSection recentBundle={recentBundle} language={language} />
       </div>
 
       <LearnSidebar
@@ -194,7 +200,7 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
               src={imageSrc}
               alt={title}
               fill
-              loading="eager"
+              priority
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, (max-width: 1280px) 42vw, 520px"
             />
@@ -240,10 +246,7 @@ function ContinueLearningEmptyState({ language }: { language: DisplayLanguage })
     <section>
       <SectionHeader
         title={t.sectionTitle}
-        href="/bundles"
-        actionLabel={t.viewAll}
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
-        actionClassName={continueLearningActionClassName}
       />
       <div className="mt-4 flex flex-col gap-5 rounded-xl border border-dashed border-zinc-300 bg-white p-7 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-black/20 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
@@ -263,32 +266,40 @@ function ContinueLearningEmptyState({ language }: { language: DisplayLanguage })
   );
 }
 
-function TodaysPicksSection({ language }: { language: DisplayLanguage }) {
+function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language: DisplayLanguage }) {
   const t = loggedInSectionCopy[language];
 
   return (
     <section>
-      <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.todaysPicks}</h2>
+      <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.exploreBundles}</h2>
       <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {lessonCards.map((card) => (
-          <Link
-            key={card.title}
-            href="/bundles"
-            className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
-          >
-            <div className="p-5">
-              <p className="text-xs font-black uppercase tracking-wide text-[#5a975d]">{card.label}</p>
-              <h3 className="mt-3 min-h-14 font-serif text-2xl font-semibold leading-tight">{card.title}</h3>
-            </div>
-            <div className="relative h-40">
-              <Image src={card.image} alt={card.title} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 260px" />
-            </div>
-            <div className="flex items-center justify-between px-5 py-4 text-xs text-zinc-500 dark:text-zinc-400">
-              <span>Beginner</span>
-              <span>{card.minutes}</span>
-            </div>
-          </Link>
-        ))}
+        {bundles.map((bundle) => {
+          const title = language === 'ko' ? bundle.title || bundle.title_en : bundle.title_en || bundle.title;
+          const imageSrc = bundle.thumbnail_url || '/images/heroimg_land.jpg';
+          const categoryName = language === 'ko'
+            ? bundle.bundle_category?.name || bundle.bundle_category?.name_en || bundle.bundle_type?.name || 'Bundle'
+            : bundle.bundle_category?.name_en || bundle.bundle_category?.name || bundle.bundle_type?.name || 'Bundle';
+
+          return (
+            <Link
+              key={bundle.id}
+              href={`/bundles/${bundle.id}`}
+              className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
+            >
+              <div className="p-5">
+                <p className="text-xs font-black uppercase tracking-wide text-[#5a975d]">{categoryName}</p>
+                <h3 className="mt-3 line-clamp-2 min-h-14 font-serif text-2xl font-semibold leading-tight">{title}</h3>
+              </div>
+              <div className="relative h-40">
+                <Image src={imageSrc} alt={title || ''} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 260px" />
+              </div>
+              <div className="flex items-center justify-between px-5 py-4 text-xs text-zinc-500 dark:text-zinc-400">
+                <span>Beginner</span>
+                <span>{bundle.bundle_items?.[0]?.count || 0} items</span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -366,35 +377,98 @@ function getActivityBundleMeta(activity: RecentLearningActivity, language: Displ
     : categoryName;
 }
 
-function QuickPracticeSection({ language }: { language: DisplayLanguage }) {
+function QuickPracticeSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
+  if (!recentBundle) return null;
+
   const t = loggedInSectionCopy[language];
+  const title = getRecentBundleTitle(recentBundle, language);
+  const practiceItems = getQuickPracticeItems(recentBundle.bundle.id, language);
 
   return (
     <section>
       <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.quickPractice}</h2>
-      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{t.quickPracticeDescription}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{t.quickPracticeDescription(title)}</p>
       <div className="mt-5 grid gap-5 md:grid-cols-3">
-        {quickPractice.map((item) => (
+        {practiceItems.map((item) => (
           <Link
             key={item.title}
-            href="/bundles"
+            href={item.href}
             className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <span className={`flex h-14 w-14 items-center justify-center rounded-full ${item.color}`}>
                 <item.icon className="h-7 w-7" />
               </span>
-              <span>
-                <strong className="block">{item.title}</strong>
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">{item.desc}</span>
+              <span className="min-w-0">
+                <strong className="block truncate">{item.title}</strong>
+                <span className="line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{item.desc}</span>
               </span>
             </div>
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-5 w-5 shrink-0" />
           </Link>
         ))}
       </div>
     </section>
   );
+}
+
+function getRecentBundleTitle(recentBundle: RecentStudiedBundle, language: DisplayLanguage) {
+  return language === 'ko'
+    ? recentBundle.bundle.title || recentBundle.bundle.title_en || continueLearningCopy[language].fallbackTitle
+    : recentBundle.bundle.title_en || recentBundle.bundle.title || continueLearningCopy[language].fallbackTitle;
+}
+
+function getQuickPracticeItems(bundleId: string, language: DisplayLanguage) {
+  const copy = {
+    ko: [
+      {
+        title: 'Flashcards',
+        desc: '표현을 빠르게 복습',
+        href: `/bundles/${bundleId}/flashcards`,
+        icon: BookOpen,
+        color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
+      },
+      {
+        title: 'Quick Quiz',
+        desc: '퀴즈로 이해도 확인',
+        href: `/bundles/${bundleId}/quiz`,
+        icon: HelpCircle,
+        color: 'bg-[#ede5fb] text-[#8564cf] dark:bg-violet-950/50 dark:text-violet-200',
+      },
+      {
+        title: 'Scramble',
+        desc: '문장 순서 맞추기',
+        href: `/bundles/${bundleId}/scramble`,
+        icon: Shuffle,
+        color: 'bg-[#fde8d5] text-[#c66f2e] dark:bg-orange-950/50 dark:text-orange-200',
+      },
+    ],
+    en: [
+      {
+        title: 'Flashcards',
+        desc: 'Review expressions',
+        href: `/bundles/${bundleId}/flashcards`,
+        icon: BookOpen,
+        color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
+      },
+      {
+        title: 'Quick Quiz',
+        desc: 'Check understanding',
+        href: `/bundles/${bundleId}/quiz`,
+        icon: HelpCircle,
+        color: 'bg-[#ede5fb] text-[#8564cf] dark:bg-violet-950/50 dark:text-violet-200',
+      },
+      {
+        title: 'Scramble',
+        desc: 'Rebuild sentences',
+        href: `/bundles/${bundleId}/scramble`,
+        icon: Shuffle,
+        color: 'bg-[#fde8d5] text-[#c66f2e] dark:bg-orange-950/50 dark:text-orange-200',
+      },
+    ],
+  };
+
+  return copy[language];
 }
 
 function LearnSidebar({

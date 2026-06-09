@@ -54,6 +54,7 @@ const POS_MAP: Record<string, string> = {
   'aux': '조동사',
   'part': '조사',
   'propn': '고유명사',
+  'num': '수사',
 };
 
 const POS_OPTIONS = [
@@ -577,7 +578,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 
                       <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-baseline gap-2">
                         {word.word}
-                        {word.gender && (
+                        {word.gender && word.gender !== 'null' && (
                           <span className="text-xs font-normal text-gray-400">({word.gender})</span>
                         )}
                       </h3>
