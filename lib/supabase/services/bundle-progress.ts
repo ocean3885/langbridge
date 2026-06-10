@@ -1274,7 +1274,7 @@ export async function recordBundleItemPractice(
 
       const newProficiencyLevel = isCorrect 
         ? Math.max(currentLevel, calculatedLevel)
-        : Math.max(0, currentLevel - 1);
+        : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
 
       const existingSentenceMetadata = existingSentenceInteraction?.metadata || {};
       const sentenceMetadata = {
@@ -1339,7 +1339,7 @@ export async function recordBundleItemPractice(
 
       const newProficiencyLevel = isCorrect
         ? Math.max(currentLevel, calculatedLevel)
-        : Math.max(0, currentLevel - 1);
+        : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
 
       const existingWordMetadata = existingWordInteraction?.metadata || {};
       const wordMetadata = {
@@ -1587,4 +1587,186 @@ async function getFirstMappedWordId(supabase: any, sentenceId: number): Promise<
 
   if (error || !data) return null;
   return Number(data.word_id);
+}
+
+export interface ReviewWordItem {
+  id: number;
+  word: string;
+  lang_code: string;
+  meaning_ko: string | null;
+  meaning_en: string | null;
+  pos: string[];
+  audio_url: string | null;
+  proficiency_level: number;
+  incorrect_count: number;
+  streak_count: number;
+  distractors?: Array<{ distractor: string; meaning_ko: string | null; meaning_en: string | null }>;
+}
+
+export async function getReviewWords(userId: string, limit: number = 20): Promise<ReviewWordItem[]> {
+  const supabase = createAdminClient();
+
+  const { data: interactions, error: interactionError } = await supabase
+    .from('user_word_interactions')
+    .select(`
+      word_id,
+      proficiency_level,
+      incorrect_count,
+      streak_count,
+      words (
+        id,
+        word,
+        lang_code,
+        meaning_ko,
+        meaning_en,
+        pos,
+        audio_url,
+        words_distractor (
+          distractor,
+          meaning_ko,
+          meaning_en
+        )
+      )
+    `)
+    .eq('user_id', userId)
+    .gt('proficiency_level', 0)
+    .lt('proficiency_level', 5)
+    .order('proficiency_level', { ascending: true })
+    .order('incorrect_count', { ascending: false })
+    .order('last_reviewed_at', { ascending: true, nullsFirst: true })
+    .limit(limit);
+
+  if (interactionError) {
+    console.error('Error fetching review words interactions:', interactionError);
+    return [];
+  }
+
+  if (!interactions || interactions.length === 0) {
+    return [];
+  }
+
+  const { formatWordMeaning } = await import('@/lib/word-meaning');
+
+  return interactions.flatMap((row) => {
+    const w = normalizeSingleRelation(row.words);
+    if (!w) return [];
+
+    const rawDistractors = Array.isArray(w.words_distractor) ? w.words_distractor : [];
+
+    return [{
+      id: Number(w.id),
+      word: w.word,
+      lang_code: w.lang_code,
+      meaning_ko: formatWordMeaning(w.meaning_ko),
+      meaning_en: formatWordMeaning(w.meaning_en),
+      pos: w.pos || [],
+      audio_url: w.audio_url || null,
+      proficiency_level: row.proficiency_level,
+      incorrect_count: row.incorrect_count,
+      streak_count: row.streak_count,
+      distractors: rawDistractors.map((d: any) => ({
+        distractor: d.distractor,
+        meaning_ko: d.meaning_ko,
+        meaning_en: d.meaning_en,
+      })),
+    }];
+  });
+}
+
+export async function recordWordReviewResult(
+  userId: string,
+  wordId: number,
+  isCorrect: boolean,
+  mode: 'quiz' | 'spelling' | 'flashcards',
+) {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: existingWordInteraction, error: wordFetchError } = await supabase
+    .from('user_word_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('word_id', wordId)
+    .maybeSingle();
+
+  if (wordFetchError) {
+    console.error('Error fetching word interaction for review:', wordFetchError);
+    throw wordFetchError;
+  }
+
+  const currentLevel = Number(existingWordInteraction?.proficiency_level || 0);
+  const newStreakCount = isCorrect ? Number(existingWordInteraction?.streak_count || 0) + 1 : 0;
+
+  let calculatedLevel = 0;
+  if (newStreakCount >= 15) calculatedLevel = 5;
+  else if (newStreakCount >= 10) calculatedLevel = 4;
+  else if (newStreakCount >= 6) calculatedLevel = 3;
+  else if (newStreakCount >= 3) calculatedLevel = 2;
+  else if (newStreakCount >= 1) calculatedLevel = 1;
+
+  const newProficiencyLevel = isCorrect
+    ? Math.max(currentLevel, calculatedLevel)
+    : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
+
+  const existingWordMetadata = existingWordInteraction?.metadata || {};
+  const wordMetadata = {
+    ...existingWordMetadata,
+    last_practice_mode: mode,
+    last_practice_is_correct: isCorrect,
+    practice_modes: updatePracticeModeMetadata(
+      (existingWordMetadata as any).practice_modes,
+      mode as any,
+      isCorrect,
+      now
+    ),
+  };
+
+  const { error: wordUpsertError } = await supabase
+    .from('user_word_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        word_id: wordId,
+        correct_count: Number(existingWordInteraction?.correct_count || 0) + (isCorrect ? 1 : 0),
+        incorrect_count: Number(existingWordInteraction?.incorrect_count || 0) + (isCorrect ? 0 : 1),
+        streak_count: newStreakCount,
+        proficiency_level: newProficiencyLevel,
+        last_reviewed_at: now,
+        metadata: wordMetadata,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,word_id',
+      }
+    );
+
+  if (wordUpsertError) {
+    console.error('Error upserting word interaction in review:', wordUpsertError);
+    throw wordUpsertError;
+  }
+
+  // Also record to user_learning_daily_activity to count streaks and daily goals
+  const statsBaselineReady = await ensureLearningStatsBaseline(supabase, userId);
+  const statsDelta = {
+    completedSentences: 0,
+    earnedStars: 0,
+    practicedWords: !existingWordInteraction ? 1 : 0,
+    totalCorrect: isCorrect ? 1 : 0,
+    totalIncorrect: isCorrect ? 0 : 1,
+  };
+
+  await safeIncrementLearningStats(supabase, userId, statsDelta);
+
+  try {
+    await recordLearningDailyActivity({
+      userId,
+      activityType: 'practice_result',
+      practiceMode: mode,
+      isCorrect: isCorrect,
+    });
+  } catch (error) {
+    console.error('Error recording daily learning activity for word:', error);
+  }
+
+  return { success: true };
 }

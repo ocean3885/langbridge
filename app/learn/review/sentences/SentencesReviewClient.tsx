@@ -136,6 +136,10 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
     setActiveItems(shuffled.slice(0, count));
     setCurrentIndex(0);
     setScore(0);
+    setIsCorrect(null);
+    setIsAnswered(false);
+    setSelectedOption(null);
+    setSelectedWords([]);
     setStep('practice');
   };
 
@@ -185,10 +189,19 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
       setStep('finished');
       return;
     }
+    setIsCorrect(null);
+    setIsAnswered(false);
+    setSelectedOption(null);
+    setSelectedWords([]);
     setCurrentIndex((prev) => prev + 1);
   };
 
   const restart = () => {
+    setIsCorrect(null);
+    setIsAnswered(false);
+    setSelectedOption(null);
+    setSelectedWords([]);
+    setCurrentIndex(0);
     setStep('setup');
   };
 
@@ -215,7 +228,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
         
         {/* Only character badge is shown as per user request */}
         <div className="my-6">
-          <CharacterAsset name="completebadge" size={200} className="animate-bounce" />
+          <CharacterAsset name="completebadge" size={200} />
         </div>
 
         <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.doneScore(score, activeItems.length)}</p>
@@ -347,7 +360,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
                 </button>
               )}
             </div>
-            <h2 className="mt-6 text-2xl font-black leading-relaxed dark:text-zinc-50">{currentItem.sentence}</h2>
+            <h2 className="mt-6 text-2xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.sentence}</h2>
 
             <div className="mt-8 space-y-3">
               {multipleChoiceOptions.map((option) => {
@@ -366,7 +379,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
                     key={option}
                     disabled={isAnswered}
                     onClick={() => selectOption(option)}
-                    className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${stateClass}`}
+                    className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-base font-bold transition ${stateClass}`}
                   >
                     <span>{option}</span>
                     {isAnswered && optionIsCorrect && <Check className="h-4 w-4" />}
@@ -390,7 +403,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
             
             {/* Show translation as prompt */}
             <p className="mt-6 text-xs font-bold text-zinc-400 dark:text-zinc-500">{isEnglish ? 'Translate this sentence:' : '이 문장을 완성해 보세요:'}</p>
-            <h2 className="mt-2 text-2xl font-black leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>
+            <h2 className="mt-2 text-2xl font-bold leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>
 
             {/* Answer construction zone */}
             <div className="mt-8 min-h-16 flex flex-wrap gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
@@ -454,10 +467,9 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
             <CharacterAsset
               name={isCorrect ? 'correctbadge' : 'tryagainbadge'}
               size={72}
-              className="animate-pulse"
             />
             <div>
-              <h3 className="text-lg font-black">{isCorrect ? t.correct : t.wrong}</h3>
+              <h3 className="text-lg font-bold">{isCorrect ? t.correct : t.wrong}</h3>
               <p className="mt-1 text-sm font-bold select-all">{currentItem.sentence}</p>
               {!isCorrect && (
                 <p className="text-xs mt-1 text-zinc-500 dark:text-zinc-400">

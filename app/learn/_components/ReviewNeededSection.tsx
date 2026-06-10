@@ -72,7 +72,7 @@ export function ReviewNeededSection({
                 label={t.words}
                 description={t.wordDescription}
                 value={summary.words}
-                reviewHref="/bundles"
+                reviewHref="/learn/review/words"
                 reviewLabel={t.startReview}
                 tone="amber"
               />
@@ -125,7 +125,7 @@ export function ReviewNeededSection({
               label={t.words}
               description={t.wordDescription}
               value={summary.words}
-              reviewHref="/bundles"
+              reviewHref="/learn/review/words"
               reviewLabel={t.startReview}
               tone="amber"
             />
@@ -213,7 +213,7 @@ function CompactReviewMetric({
     : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200';
 
   return (
-    <Link href={reviewHref} className="group grid gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto] sm:items-center">
+    <Link href={reviewHref} className="group grid grid-cols-[1fr_auto] items-center gap-3 py-4 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-start gap-3">
         <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${toneClass}`}>
           <Icon className="h-4 w-4" />
@@ -226,7 +226,7 @@ function CompactReviewMetric({
           <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{description}</p>
         </div>
       </div>
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition group-hover:border-[#8bbf87] group-hover:bg-[#f1f8ef] group-hover:text-[#3f7d42] dark:border-zinc-700 dark:text-zinc-400 dark:group-hover:border-emerald-700 dark:group-hover:bg-emerald-950/30 dark:group-hover:text-emerald-100 sm:justify-self-end" aria-label={reviewLabel}>
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition group-hover:border-[#8bbf87] group-hover:bg-[#f1f8ef] group-hover:text-[#3f7d42] dark:border-zinc-700 dark:text-zinc-400 dark:group-hover:border-emerald-700 dark:group-hover:bg-emerald-950/30 dark:group-hover:text-emerald-100 justify-self-end" aria-label={reviewLabel}>
         <ArrowRight className="h-4 w-4" />
       </span>
     </Link>
