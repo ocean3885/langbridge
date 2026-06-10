@@ -74,13 +74,13 @@ const loggedInSectionCopy = {
   ko: {
     exploreBundles: '새로운 번들 탐색하기',
     quickPractice: '빠른 연습',
-    quickPracticeDescription: (title: string) => `${title} 번들로 바로 연습해보세요.`,
+    quickPracticeDescription: (title: string) => `최근 학습하던 ${title} 번들로 돌아가 가볍게 복습해 보세요.`,
     progressTitle: '학습 현황',
     completedSentences: '완료한 문장',
     earnedStars: '획득한 별',
     completedBundles: '완료한 번들',
     activeBundles: '진행 중인 번들',
-    practicedWords: '연습한 단어',
+    practicedWords: '기억 중인 단어',
     practiceAccuracy: '정답률',
   },
   en: {
@@ -92,7 +92,7 @@ const loggedInSectionCopy = {
     earnedStars: 'Earned Stars',
     completedBundles: 'Bundles Completed',
     activeBundles: 'Active Bundles',
-    practicedWords: 'Words Practiced',
+    practicedWords: 'Words in Memory',
     practiceAccuracy: 'Practice Accuracy',
   },
 };

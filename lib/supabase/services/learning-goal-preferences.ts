@@ -95,7 +95,7 @@ export async function getTodayLearningGoalSummary(
 
   const todayCount = Number(activityResult.data?.activity_count || 0);
   const dailyGoalCount = normalizeDailyGoalCount(preferences.daily_goal_count);
-  const progressPercent = Math.min(100, Math.round((todayCount / dailyGoalCount) * 100));
+  const progressPercent = Math.round((todayCount / dailyGoalCount) * 100);
 
   return {
     todayCount,

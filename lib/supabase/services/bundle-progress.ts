@@ -172,7 +172,19 @@ interface ReviewCandidate {
 
 export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
   const supabase = createAdminClient();
-  const bundleCounts = await getLearningProgressBundleCounts(supabase, userId);
+  
+  const [bundleCounts, { count: wordsInMemory, error: wordsInMemoryError }] = await Promise.all([
+    getLearningProgressBundleCounts(supabase, userId),
+    supabase
+      .from('user_word_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('proficiency_level', 2),
+  ]);
+
+  if (wordsInMemoryError) {
+    console.error('Error counting words in memory:', wordsInMemoryError);
+  }
 
   const { data: stats, error: statsError } = await supabase
     .from('user_learning_stats')
@@ -180,21 +192,23 @@ export async function getLearningProgressSummary(userId: string): Promise<Learni
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (statsError) {
-    console.error('Error fetching learning stats:', statsError);
-    return calculateLearningProgressSummaryFromInteractions(supabase, userId, bundleCounts);
+  let summary: LearningProgressSummary;
+
+  if (statsError || !stats) {
+    try {
+      const seededStats = !stats ? await seedLearningStatsFromInteractions(supabase, userId) : null;
+      summary = toLearningProgressSummary(seededStats || await calculateLearningStatsFromInteractions(supabase, userId), bundleCounts);
+    } catch {
+      summary = toLearningProgressSummary(await calculateLearningStatsFromInteractions(supabase, userId), bundleCounts);
+    }
+  } else {
+    summary = toLearningProgressSummary(stats as LearningStatsValues, bundleCounts);
   }
 
-  if (stats) {
-    return toLearningProgressSummary(stats as LearningStatsValues, bundleCounts);
-  }
-
-  try {
-    const seededStats = await seedLearningStatsFromInteractions(supabase, userId);
-    return toLearningProgressSummary(seededStats, bundleCounts);
-  } catch {
-    return calculateLearningProgressSummaryFromInteractions(supabase, userId, bundleCounts);
-  }
+  return {
+    ...summary,
+    practicedWords: wordsInMemory || 0,
+  };
 }
 
 export async function getReviewNeededSummary(userId: string): Promise<ReviewNeededSummary> {
@@ -276,6 +290,97 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
     availableTotal: (availableSentences || 0) + (availableWords || 0),
   };
 }
+
+export interface ReviewSentenceItem {
+  id: number;
+  sentence: string;
+  translation: string;
+  translation_en: string | null;
+  audio_url: string | null;
+  bundle_id: string;
+  bundle_item_id: string;
+  proficiency_level: number;
+  incorrect_count: number;
+  streak_count: number;
+}
+
+export async function getReviewSentences(userId: string, limit: number = 20): Promise<ReviewSentenceItem[]> {
+  const supabase = createAdminClient();
+
+  const { data: interactions, error: interactionError } = await supabase
+    .from('user_sentence_interactions')
+    .select(`
+      sentence_id,
+      proficiency_level,
+      incorrect_count,
+      streak_count,
+      sentences (
+        id,
+        sentence,
+        translation,
+        translation_en,
+        audio_url
+      )
+    `)
+    .eq('user_id', userId)
+    .gt('proficiency_level', 0)
+    .lt('proficiency_level', 5)
+    .order('proficiency_level', { ascending: true })
+    .order('incorrect_count', { ascending: false })
+    .order('last_reviewed_at', { ascending: true, nullsFirst: true })
+    .limit(limit);
+
+  if (interactionError) {
+    console.error('Error fetching review sentences interactions:', interactionError);
+    return [];
+  }
+
+  if (!interactions || interactions.length === 0) {
+    return [];
+  }
+
+  const sentenceIds = interactions.map((row) => row.sentence_id);
+
+  const { data: bundleItems, error: itemsError } = await supabase
+    .from('bundle_items')
+    .select('id, bundle_id, sentence_id')
+    .in('sentence_id', sentenceIds);
+
+  if (itemsError) {
+    console.error('Error fetching bundle items for review sentences:', itemsError);
+    return [];
+  }
+
+  const itemMap = new Map<number, { id: string; bundle_id: string }>();
+  for (const item of bundleItems || []) {
+    itemMap.set(Number(item.sentence_id), {
+      id: item.id,
+      bundle_id: item.bundle_id,
+    });
+  }
+
+  return interactions.flatMap((row) => {
+    const s = normalizeSingleRelation(row.sentences);
+    if (!s) return [];
+
+    const itemInfo = itemMap.get(Number(row.sentence_id));
+    if (!itemInfo) return [];
+
+    return [{
+      id: Number(s.id),
+      sentence: s.sentence,
+      translation: s.translation,
+      translation_en: s.translation_en || null,
+      audio_url: s.audio_url || null,
+      bundle_id: itemInfo.bundle_id,
+      bundle_item_id: itemInfo.id,
+      proficiency_level: row.proficiency_level,
+      incorrect_count: row.incorrect_count,
+      streak_count: row.streak_count,
+    }];
+  });
+}
+
 
 function toReviewCandidates(rows: any[], type: ReviewCandidate['type']): ReviewCandidate[] {
   return rows.map((row) => ({

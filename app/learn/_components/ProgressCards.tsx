@@ -56,7 +56,8 @@ export function GoalCard({
   const [goalInput, setGoalInput] = useState(String(summary.dailyGoalCount));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const progressPercent = Math.min(100, Math.max(0, currentSummary.progressPercent));
+  const displayPercent = Math.max(0, currentSummary.progressPercent);
+  const progressPercent = Math.min(100, displayPercent);
   const progressDegrees = useMemo(() => `${progressPercent * 3.6}deg`, [progressPercent]);
   const helperText = currentSummary.goalMet
     ? t.goalMet
@@ -115,9 +116,9 @@ export function GoalCard({
       <div className="flex items-center gap-6">
         <div
           className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[#e8eee5] dark:bg-zinc-800"
-          aria-label={`${progressPercent}%`}
+          aria-label={`${displayPercent}%`}
           role="progressbar"
-          aria-valuenow={progressPercent}
+          aria-valuenow={displayPercent}
           aria-valuemin={0}
           aria-valuemax={100}
         >
@@ -126,7 +127,7 @@ export function GoalCard({
             style={{ background: `conic-gradient(#66a665 ${progressDegrees}, transparent 0deg)` }}
           />
           <div className="absolute inset-[9px] rounded-full bg-white dark:bg-zinc-900" />
-          <span className="relative text-2xl font-bold">{progressPercent}%</span>
+          <span className="relative text-2xl font-bold">{displayPercent}%</span>
         </div>
         <div className="min-w-0 flex-1">
           {isEditing ? (
