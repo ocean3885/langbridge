@@ -1,12 +1,13 @@
 import type { UserBundleItemInteraction } from '@/lib/supabase/services/bundle-progress';
 
 export type PracticeSessionMode = 'resume' | 'all' | 'incorrect' | 'correct' | 'incomplete';
-export type PracticeMode = 'quiz' | 'scramble';
+export type PracticeMode = 'quiz' | 'scramble' | 'wordfill';
 
 export const practiceSessionModes: PracticeSessionMode[] = ['resume', 'all', 'incorrect', 'correct', 'incomplete'];
 export const PRACTICE_MODE_STARS = {
   quiz: 1,
   scramble: 2,
+  wordfill: 1,
 } satisfies Record<PracticeMode, number>;
 
 export function isPracticeSessionMode(value: unknown): value is PracticeSessionMode {

@@ -20,7 +20,7 @@ const inter = Inter({
 });
 
 const noto = Noto_Sans_KR({ 
-  subsets: ['latin'],
+  preload: false,
   weight: ['100', '300', '400', '500', '700', '900'],
   variable: '--font-noto',
 });

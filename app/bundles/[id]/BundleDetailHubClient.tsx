@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  BookOpen,
   Info,
   Layers,
   Library,
@@ -54,10 +55,11 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: '연습 모드 설명 보기',
-    practiceModesInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
+    practiceModesInfo: 'Quiz, Scramble, Word Fill 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
+    wordFill: 'Word Fill',
   },
   en: {
     itemUnit: 'Items',
@@ -88,10 +90,11 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: 'View practice mode details',
-    practiceModesInfo: 'Earn stars by answering Quiz and Scramble challenges correctly.',
+    practiceModesInfo: 'Earn stars by answering Quiz, Scramble, and Word Fill challenges correctly.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
+    wordFill: 'Word Fill',
   },
 };
 
@@ -276,10 +279,11 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
             <p>{t.practiceModesInfo}</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 lg:gap-3">
+          <div className="grid grid-cols-2 gap-2 lg:gap-3">
             <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
             <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
             <ModeLink href={`/bundles/${bundle.id}/scramble`} icon={<Shuffle className="h-5 w-5" />} label={t.scramble} color="orange" />
+            <ModeLink href={`/bundles/${bundle.id}/wordfill`} icon={<BookOpen className="h-5 w-5" />} label={t.wordFill} color="blue" />
           </div>
         </section>
       </main>
@@ -318,6 +322,7 @@ function ProgressMeta({ label, value }: { label: string; value: string }) {
 const PRACTICE_MODE_STARS = {
   quiz: 1,
   scramble: 2,
+  wordfill: 1,
 } satisfies Record<string, number>;
 
 function calculatePracticeStars(itemInteractions: BundleProgressSummary['itemInteractions'], totalItems: number) {

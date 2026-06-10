@@ -832,3 +832,48 @@ export async function getRecommendedUnstudiedBundles(userId: string, limit: numb
   
   return data;
 }
+
+export async function listBundleItemsWithDistractors(bundleId: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_items')
+    .select(`
+      id,
+      order_index,
+      image_url,
+      audio_url,
+      sentences (
+        id,
+        sentence,
+        translation,
+        translation_en,
+        word_sentence_map (
+          id,
+          used_as,
+          word_id,
+          words (
+            id,
+            word,
+            lang_code,
+            meaning_ko,
+            meaning_en,
+            words_distractor (
+              id,
+              distractor,
+              meaning_ko,
+              meaning_en
+            )
+          )
+        )
+      )
+    `)
+    .eq('bundle_id', bundleId)
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching bundle items with distractors:', error);
+    return [];
+  }
+
+  return data ?? [];
+}

@@ -82,7 +82,7 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
         </Link>
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
-          <h1 className="truncate text-lg font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
+          <h1 className="truncate text-lg font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
 
@@ -94,11 +94,11 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
         onClick={() => setFlipped((value) => !value)}
         className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:border-zinc-700 dark:hover:shadow-black/30"
       >
-        <p className="mb-3 text-xs font-black uppercase text-zinc-400 dark:text-zinc-500">{index + 1} / {items.length}</p>
-        <span className="mb-5 rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-black text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
+        <p className="mb-3 text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{index + 1} / {items.length}</p>
+        <span className="mb-5 rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
           {flipped ? t.backSide : t.front}
         </span>
-        <p className="text-2xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{flipped ? current.translation : current.sentence}</p>
+        <p className="text-2xl font-bold leading-relaxed text-zinc-950 dark:text-zinc-50">{flipped ? current.translation : current.sentence}</p>
         <span className="mt-8 text-xs font-bold text-zinc-400 dark:text-zinc-500">{t.tap}</span>
       </button>
 
@@ -138,7 +138,7 @@ function EmptyMode({ bundleId, title, text, back }: { bundleId: string; title: s
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
       <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Flashcards</p>
-      <h1 className="text-2xl font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
+      <h1 className="text-2xl font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
       <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}

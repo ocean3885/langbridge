@@ -143,6 +143,7 @@ interface LearningStatsDelta {
 const LEARNING_PROGRESS_STARS = {
   quiz: 1,
   scramble: 2,
+  wordfill: 1,
 } satisfies Record<string, number>;
 
 export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
@@ -838,15 +839,16 @@ export async function recordBundleItemPractice(
   userId: string,
   bundleId: string,
   bundleItemId: string,
-  mode: 'quiz' | 'scramble',
+  mode: 'quiz' | 'scramble' | 'wordfill',
   isCorrect: boolean,
+  wordId?: number | null,
 ) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
   const { data: bundleItem, error: bundleItemError } = await supabase
     .from('bundle_items')
-    .select('id')
+    .select('id, sentence_id')
     .eq('id', bundleItemId)
     .eq('bundle_id', bundleId)
     .maybeSingle();
@@ -908,6 +910,135 @@ export async function recordBundleItemPractice(
   if (itemError) {
     console.error('Error marking bundle item completed:', itemError);
     throw itemError;
+  }
+
+  // user_sentence_interactions 테이블 업데이트 추가 (문장 학습 숙련도/스트릭 반영)
+  if (bundleItem.sentence_id) {
+    const { data: existingSentenceInteraction, error: sentenceFetchError } = await supabase
+      .from('user_sentence_interactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('sentence_id', bundleItem.sentence_id)
+      .maybeSingle();
+
+    if (sentenceFetchError) {
+      console.error('Error fetching sentence interaction:', sentenceFetchError);
+    } else {
+      const currentLevel = Number(existingSentenceInteraction?.proficiency_level || 0);
+      const newStreakCount = isCorrect ? Number(existingSentenceInteraction?.streak_count || 0) + 1 : 0;
+      
+      let calculatedLevel = 0;
+      if (newStreakCount >= 15) calculatedLevel = 5;
+      else if (newStreakCount >= 10) calculatedLevel = 4;
+      else if (newStreakCount >= 6) calculatedLevel = 3;
+      else if (newStreakCount >= 3) calculatedLevel = 2;
+      else if (newStreakCount >= 1) calculatedLevel = 1;
+
+      const newProficiencyLevel = isCorrect 
+        ? Math.max(currentLevel, calculatedLevel)
+        : Math.max(0, currentLevel - 1);
+
+      const existingSentenceMetadata = existingSentenceInteraction?.metadata || {};
+      const sentenceMetadata = {
+        ...existingSentenceMetadata,
+        last_practice_mode: mode,
+        last_practice_is_correct: isCorrect,
+        practice_modes: updatePracticeModeMetadata(
+          (existingSentenceMetadata as any).practice_modes,
+          mode,
+          isCorrect,
+          now
+        ),
+      };
+
+      const { error: sentenceUpsertError } = await supabase
+        .from('user_sentence_interactions')
+        .upsert(
+          {
+            user_id: userId,
+            sentence_id: bundleItem.sentence_id,
+            correct_count: Number(existingSentenceInteraction?.correct_count || 0) + (isCorrect ? 1 : 0),
+            incorrect_count: Number(existingSentenceInteraction?.incorrect_count || 0) + (isCorrect ? 0 : 1),
+            streak_count: newStreakCount,
+            proficiency_level: newProficiencyLevel,
+            last_reviewed_at: now,
+            metadata: sentenceMetadata,
+            updated_at: now,
+          },
+          {
+            onConflict: 'user_id,sentence_id',
+          }
+        );
+
+      if (sentenceUpsertError) {
+        console.error('Error upserting user sentence interaction:', sentenceUpsertError);
+      }
+    }
+  }
+
+  // user_word_interactions 테이블 업데이트 추가 (단어 학습 숙련도/스트릭 반영)
+  const targetWordId = wordId || (bundleItem.sentence_id ? await getFirstMappedWordId(supabase, Number(bundleItem.sentence_id)) : null);
+  if (targetWordId) {
+    const { data: existingWordInteraction, error: wordFetchError } = await supabase
+      .from('user_word_interactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('word_id', targetWordId)
+      .maybeSingle();
+
+    if (wordFetchError) {
+      console.error('Error fetching word interaction:', wordFetchError);
+    } else {
+      const currentLevel = Number(existingWordInteraction?.proficiency_level || 0);
+      const newStreakCount = isCorrect ? Number(existingWordInteraction?.streak_count || 0) + 1 : 0;
+
+      let calculatedLevel = 0;
+      if (newStreakCount >= 15) calculatedLevel = 5;
+      else if (newStreakCount >= 10) calculatedLevel = 4;
+      else if (newStreakCount >= 6) calculatedLevel = 3;
+      else if (newStreakCount >= 3) calculatedLevel = 2;
+      else if (newStreakCount >= 1) calculatedLevel = 1;
+
+      const newProficiencyLevel = isCorrect
+        ? Math.max(currentLevel, calculatedLevel)
+        : Math.max(0, currentLevel - 1);
+
+      const existingWordMetadata = existingWordInteraction?.metadata || {};
+      const wordMetadata = {
+        ...existingWordMetadata,
+        last_practice_mode: mode,
+        last_practice_is_correct: isCorrect,
+        practice_modes: updatePracticeModeMetadata(
+          (existingWordMetadata as any).practice_modes,
+          mode,
+          isCorrect,
+          now
+        ),
+      };
+
+      const { error: wordUpsertError } = await supabase
+        .from('user_word_interactions')
+        .upsert(
+          {
+            user_id: userId,
+            word_id: targetWordId,
+            correct_count: Number(existingWordInteraction?.correct_count || 0) + (isCorrect ? 1 : 0),
+            incorrect_count: Number(existingWordInteraction?.incorrect_count || 0) + (isCorrect ? 0 : 1),
+            streak_count: newStreakCount,
+            proficiency_level: newProficiencyLevel,
+            last_reviewed_at: now,
+            metadata: wordMetadata,
+            updated_at: now,
+          },
+          {
+            onConflict: 'user_id,word_id',
+          }
+        );
+
+      if (wordUpsertError) {
+        console.error('Error upserting user word interaction:', wordUpsertError);
+      }
+    }
   }
 
   if (statsBaselineReady) {
@@ -1054,7 +1185,7 @@ function countRowsByBundleId(rows: Array<{ bundle_id?: string | null }>) {
 
 function updatePracticeModeMetadata(
   value: unknown,
-  mode: 'quiz' | 'scramble',
+  mode: 'quiz' | 'scramble' | 'wordfill',
   isCorrect: boolean,
   practicedAt: string,
 ) {
@@ -1106,4 +1237,16 @@ function hasEarnedPracticeStar(metadata: Record<string, unknown> | null, mode: s
 
   const correctCount = Number(modeMetadata.correct_count || 0);
   return correctCount > 0 || Boolean(modeMetadata.first_correct_at);
+}
+
+async function getFirstMappedWordId(supabase: any, sentenceId: number): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('word_sentence_map')
+    .select('word_id')
+    .eq('sentence_id', sentenceId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return Number(data.word_id);
 }
