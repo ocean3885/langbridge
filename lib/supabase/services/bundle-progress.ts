@@ -115,6 +115,10 @@ export interface RecentLearningActivity {
   progressPercent: number;
 }
 
+export interface ActiveLearningBundle extends RecentLearningActivity {
+  currentBundleItemId: string | null;
+}
+
 export interface LearningProgressSummary {
   completedSentences: number;
   earnedStars: number;
@@ -122,6 +126,16 @@ export interface LearningProgressSummary {
   practiceAccuracyPercent: number;
   completedBundles: number;
   activeBundles: number;
+}
+
+export interface ReviewNeededSummary {
+  sentences: number;
+  words: number;
+  total: number;
+  limit: number;
+  availableSentences: number;
+  availableWords: number;
+  availableTotal: number;
 }
 
 interface LearningStatsValues {
@@ -145,6 +159,16 @@ const LEARNING_PROGRESS_STARS = {
   scramble: 2,
   wordfill: 1,
 } satisfies Record<string, number>;
+
+const REVIEW_RECOMMENDATION_LIMIT = 20;
+
+interface ReviewCandidate {
+  type: 'sentence' | 'word';
+  proficiencyLevel: number;
+  incorrectCount: number;
+  lastReviewedAt: string | null;
+  createdAt: string | null;
+}
 
 export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
   const supabase = createAdminClient();
@@ -171,6 +195,116 @@ export async function getLearningProgressSummary(userId: string): Promise<Learni
   } catch {
     return calculateLearningProgressSummaryFromInteractions(supabase, userId, bundleCounts);
   }
+}
+
+export async function getReviewNeededSummary(userId: string): Promise<ReviewNeededSummary> {
+  const supabase = createAdminClient();
+  const candidateLimit = REVIEW_RECOMMENDATION_LIMIT * 4;
+
+  const [
+    { data: sentenceRows, error: sentenceError },
+    { data: wordRows, error: wordError },
+    { count: availableSentences, error: sentenceCountError },
+    { count: availableWords, error: wordCountError },
+  ] = await Promise.all([
+    supabase
+      .from('user_sentence_interactions')
+      .select('proficiency_level, incorrect_count, last_reviewed_at, created_at')
+      .eq('user_id', userId)
+      .gt('proficiency_level', 0)
+      .lt('proficiency_level', 5)
+      .order('proficiency_level', { ascending: true })
+      .order('incorrect_count', { ascending: false })
+      .order('last_reviewed_at', { ascending: true, nullsFirst: true })
+      .limit(candidateLimit),
+    supabase
+      .from('user_word_interactions')
+      .select('proficiency_level, incorrect_count, last_reviewed_at, created_at')
+      .eq('user_id', userId)
+      .gt('proficiency_level', 0)
+      .lt('proficiency_level', 5)
+      .order('proficiency_level', { ascending: true })
+      .order('incorrect_count', { ascending: false })
+      .order('last_reviewed_at', { ascending: true, nullsFirst: true })
+      .limit(candidateLimit),
+    supabase
+      .from('user_sentence_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gt('proficiency_level', 0)
+      .lt('proficiency_level', 5),
+    supabase
+      .from('user_word_interactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gt('proficiency_level', 0)
+      .lt('proficiency_level', 5),
+  ]);
+
+  if (sentenceError) {
+    console.error('Error counting sentences needing review:', sentenceError);
+  }
+
+  if (wordError) {
+    console.error('Error counting words needing review:', wordError);
+  }
+
+  if (sentenceCountError) {
+    console.error('Error counting available sentences needing review:', sentenceCountError);
+  }
+
+  if (wordCountError) {
+    console.error('Error counting available words needing review:', wordCountError);
+  }
+
+  const candidates: ReviewCandidate[] = [
+    ...toReviewCandidates(sentenceRows || [], 'sentence'),
+    ...toReviewCandidates(wordRows || [], 'word'),
+  ].sort(compareReviewCandidates);
+
+  const recommended = candidates.slice(0, REVIEW_RECOMMENDATION_LIMIT);
+  const sentences = recommended.filter((item) => item.type === 'sentence').length;
+  const words = recommended.filter((item) => item.type === 'word').length;
+
+  return {
+    sentences,
+    words,
+    total: sentences + words,
+    limit: REVIEW_RECOMMENDATION_LIMIT,
+    availableSentences: availableSentences || 0,
+    availableWords: availableWords || 0,
+    availableTotal: (availableSentences || 0) + (availableWords || 0),
+  };
+}
+
+function toReviewCandidates(rows: any[], type: ReviewCandidate['type']): ReviewCandidate[] {
+  return rows.map((row) => ({
+    type,
+    proficiencyLevel: Number(row.proficiency_level || 0),
+    incorrectCount: Number(row.incorrect_count || 0),
+    lastReviewedAt: row.last_reviewed_at || null,
+    createdAt: row.created_at || null,
+  }));
+}
+
+function compareReviewCandidates(a: ReviewCandidate, b: ReviewCandidate) {
+  if (a.proficiencyLevel !== b.proficiencyLevel) {
+    return a.proficiencyLevel - b.proficiencyLevel;
+  }
+
+  if (a.incorrectCount !== b.incorrectCount) {
+    return b.incorrectCount - a.incorrectCount;
+  }
+
+  return getReviewCandidateTime(a) - getReviewCandidateTime(b);
+}
+
+function getReviewCandidateTime(candidate: ReviewCandidate) {
+  const value = candidate.lastReviewedAt || candidate.createdAt;
+  if (!value) return 0;
+
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
 
 async function calculateLearningProgressSummaryFromInteractions(
@@ -597,6 +731,105 @@ export async function getRecentLearningActivities(
       progressPercent: Math.round(progressRatio * 100),
     }];
   }).slice(0, limit);
+}
+
+export async function getActiveLearningBundles(userId: string): Promise<ActiveLearningBundle[]> {
+  const supabase = createAdminClient();
+
+  const { data: interactions, error: interactionError } = await supabase
+    .from('user_bundle_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_started', true)
+    .eq('is_completed', false)
+    .order('last_studied_at', { ascending: false, nullsFirst: false });
+
+  if (interactionError) {
+    console.error('Error fetching active learning bundles:', interactionError);
+    return [];
+  }
+
+  const bundleInteractions = (interactions || []) as UserBundleInteraction[];
+  const bundleIds = bundleInteractions.map((interaction) => interaction.bundle_id).filter(Boolean);
+
+  if (bundleIds.length === 0) {
+    return [];
+  }
+
+  const [
+    { data: bundles, error: bundleError },
+    { data: itemRows, error: itemError },
+    { data: completedRows, error: completedError },
+  ] = await Promise.all([
+    supabase
+      .from('bundle')
+      .select(`
+        id,
+        title,
+        title_en,
+        thumbnail_url,
+        bundle_category(id, name, name_en),
+        bundle_type(id, name, code)
+      `)
+      .in('id', bundleIds)
+      .eq('is_published', true),
+    supabase
+      .from('bundle_items')
+      .select('bundle_id')
+      .in('bundle_id', bundleIds),
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('bundle_id')
+      .eq('user_id', userId)
+      .eq('is_completed', true)
+      .in('bundle_id', bundleIds),
+  ]);
+
+  if (bundleError) {
+    console.error('Error fetching active learning bundle details:', bundleError);
+    return [];
+  }
+
+  if (itemError) {
+    console.error('Error counting active learning bundle items:', itemError);
+  }
+
+  if (completedError) {
+    console.error('Error counting completed active learning bundle items:', completedError);
+  }
+
+  const bundleById = new Map(
+    (bundles || []).map((bundle) => [
+      String(bundle.id),
+      {
+        ...bundle,
+        bundle_category: normalizeSingleRelation(bundle.bundle_category),
+        bundle_type: normalizeSingleRelation(bundle.bundle_type),
+      } as unknown as RecentLearningActivity['bundle'],
+    ]),
+  );
+  const totalByBundleId = countRowsByBundleId(itemRows || []);
+  const completedByBundleId = countRowsByBundleId(completedRows || []);
+
+  return bundleInteractions.flatMap((interaction) => {
+    const bundle = bundleById.get(interaction.bundle_id);
+    if (!bundle) return [];
+
+    const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
+    const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
+    const storedRatio = Number(interaction.progress_ratio);
+    const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
+    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+
+    return [{
+      interaction,
+      bundle,
+      totalItems,
+      completedItems,
+      progressPercent: Math.round(progressRatio * 100),
+      currentBundleItemId: interaction.current_bundle_item_id || null,
+    }];
+  });
 }
 
 export async function getBundleProgressSummary(

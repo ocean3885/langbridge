@@ -1,5 +1,5 @@
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getLearningProgressSummary, getRecentLearningActivities, getRecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
+import { getActiveLearningBundles, getLearningProgressSummary, getRecentStudiedBundle, getReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
 import { getRecommendedUnstudiedBundles } from '@/lib/supabase/services/bundles';
 import { getLearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import { getTodayLearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
@@ -15,23 +15,21 @@ export default async function LearnPage() {
   if (!user) return <AnonymousLearnPage language={language} />;
 
   const name = user.email?.split('@')[0] || 'Learner';
-  const [recentBundle, streakSummary, goalSummary, progressSummary, recommendedBundles] = await Promise.all([
+  const [recentBundle, streakSummary, goalSummary, progressSummary, recommendedBundles, activeBundles, reviewNeededSummary] = await Promise.all([
     getRecentStudiedBundle(user.id),
     getLearningStreakSummary(user.id),
     getTodayLearningGoalSummary(user.id),
     getLearningProgressSummary(user.id),
     getRecommendedUnstudiedBundles(user.id, 3),
+    getActiveLearningBundles(user.id),
+    getReviewNeededSummary(user.id),
   ]);
-  const recentActivities = await getRecentLearningActivities(user.id, {
-    excludeBundleId: recentBundle?.bundle.id,
-    limit: 4,
-  });
-
   return (
     <LoggedInLearnPage
       name={toDisplayName(name)}
       recentBundle={recentBundle}
-      recentActivities={recentActivities}
+      activeBundles={activeBundles}
+      reviewNeededSummary={reviewNeededSummary}
       recommendedBundles={recommendedBundles}
       streakSummary={streakSummary}
       goalSummary={goalSummary}

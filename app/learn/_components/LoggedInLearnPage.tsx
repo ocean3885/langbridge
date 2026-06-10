@@ -10,21 +10,20 @@ import {
   Star,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
-import type { LearningProgressSummary, RecentLearningActivity, RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
+import type { ActiveLearningBundle, LearningProgressSummary, RecentStudiedBundle, ReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
+import { ActiveBundlesSection } from './ActiveBundlesSection';
 import { GoalCard } from './ProgressCards';
+import { ReviewNeededSection } from './ReviewNeededSection';
 import { SectionHeader } from './SectionHeader';
 import { StreakCard } from './StreakCard';
 
 type DisplayLanguage = 'ko' | 'en';
 
-const continueLearningActionClassName = 'rounded-full border border-zinc-200 bg-white px-5 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition-colors hover:border-[#8bbf87] hover:bg-[#f1f8ef] hover:text-[#3f7d42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63a464]/35 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:shadow-black/20 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-100';
-
 const continueLearningCopy = {
   ko: {
     sectionTitle: '이어서 학습하기',
-    viewAll: '전체 보기',
     fallbackCategory: '학습 번들',
     fallbackTitle: '제목 없는 번들',
     currentItem: (current: number, total: number) => `${current} / ${total} 항목`,
@@ -40,7 +39,6 @@ const continueLearningCopy = {
   },
   en: {
     sectionTitle: 'Continue Learning',
-    viewAll: 'View all',
     fallbackCategory: 'Learning Bundle',
     fallbackTitle: 'Untitled Bundle',
     currentItem: (current: number, total: number) => `Item ${current} of ${total}`,
@@ -75,10 +73,6 @@ const encouragementCopy = {
 const loggedInSectionCopy = {
   ko: {
     exploreBundles: '새로운 번들 탐색하기',
-    recentActivity: '최근 활동',
-    browseBundles: '번들 둘러보기',
-    noRecentActivityTitle: '아직 다른 활동이 없어요',
-    noRecentActivityDescription: '번들을 더 학습하면 최근 활동이 여기에 표시됩니다.',
     quickPractice: '빠른 연습',
     quickPracticeDescription: (title: string) => `${title} 번들로 바로 연습해보세요.`,
     progressTitle: '학습 현황',
@@ -91,10 +85,6 @@ const loggedInSectionCopy = {
   },
   en: {
     exploreBundles: 'Explore More Bundles',
-    recentActivity: 'Recent Activity',
-    browseBundles: 'Browse bundles',
-    noRecentActivityTitle: 'No other activity yet',
-    noRecentActivityDescription: 'Study more bundles and your recent activity will appear here.',
     quickPractice: 'Quick Practice',
     quickPracticeDescription: (title: string) => `Jump back into ${title} with a short practice session.`,
     progressTitle: 'Your Progress',
@@ -110,7 +100,8 @@ const loggedInSectionCopy = {
 export function LoggedInLearnPage({
   name,
   recentBundle,
-  recentActivities,
+  activeBundles,
+  reviewNeededSummary,
   recommendedBundles,
   streakSummary,
   goalSummary,
@@ -119,7 +110,8 @@ export function LoggedInLearnPage({
 }: {
   name: string;
   recentBundle: RecentStudiedBundle | null;
-  recentActivities: RecentLearningActivity[];
+  activeBundles: ActiveLearningBundle[];
+  reviewNeededSummary: ReviewNeededSummary;
   recommendedBundles: any[];
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
@@ -133,14 +125,19 @@ export function LoggedInLearnPage({
       <div className="space-y-9">
         <WelcomeSection name={name} language={language} />
         <ContinueLearningSection recentBundle={recentBundle} language={language} />
+        <ActiveBundlesSection
+          bundles={activeBundles}
+          featuredBundleId={recentBundle?.bundle.id}
+          language={language}
+        />
         {hasRecommendedBundles && <ExploreBundlesSection bundles={recommendedBundles} language={language} />}
-        <RecentActivitySection activities={recentActivities} language={language} />
         <QuickPracticeSection recentBundle={recentBundle} language={language} />
       </div>
 
       <LearnSidebar
         streakSummary={streakSummary}
         goalSummary={goalSummary}
+        reviewNeededSummary={reviewNeededSummary}
         progressSummary={progressSummary}
         language={language}
       />
@@ -188,10 +185,7 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
     <section>
       <SectionHeader
         title={t.sectionTitle}
-        href="/learn/active"
-        actionLabel={t.viewAll}
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
-        actionClassName={continueLearningActionClassName}
       />
       <div className="mt-4 grid gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
         <div className="relative aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
@@ -305,78 +299,6 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
   );
 }
 
-function RecentActivitySection({ activities, language }: { activities: RecentLearningActivity[]; language: DisplayLanguage }) {
-  const t = loggedInSectionCopy[language];
-
-  return (
-    <section>
-      <SectionHeader
-        title={t.recentActivity}
-        titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
-      />
-      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-        {activities.length === 0 ? (
-          <div className="p-6 text-center">
-            <h3 className="font-bold">{t.noRecentActivityTitle}</h3>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{t.noRecentActivityDescription}</p>
-          </div>
-        ) : (
-          activities.map((activity) => {
-            const title = getActivityBundleTitle(activity, language);
-            const meta = getActivityBundleMeta(activity, language);
-            const status = activity.interaction.is_completed
-              ? (language === 'ko' ? '완료' : 'Completed')
-              : `${activity.progressPercent}%`;
-            const date = formatRelativeStudyDate(activity.interaction.last_studied_at, language);
-            const image = activity.bundle.thumbnail_url || '/images/heroimg_land.jpg';
-
-            return (
-              <Link
-                key={activity.interaction.id}
-                href={`/bundles/${activity.bundle.id}`}
-                className="grid grid-cols-[76px_1fr_auto] items-center gap-4 border-b border-zinc-100 p-4 transition hover:bg-zinc-50 last:border-b-0 dark:border-zinc-800 dark:hover:bg-zinc-800/70"
-              >
-                <div className="relative h-14 overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
-                  <Image src={image} alt="" fill className="object-cover" sizes="76px" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="truncate font-bold">{title}</h3>
-                  <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{meta}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-[#4f934f]">{status}</p>
-                  {date && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{date}</p>}
-                </div>
-              </Link>
-            );
-          })
-        )}
-        <div className="flex justify-center p-4">
-          <Link href="/bundles" className="rounded-full border border-zinc-200 px-10 py-2 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
-            {t.browseBundles}
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function getActivityBundleTitle(activity: RecentLearningActivity, language: DisplayLanguage) {
-  return language === 'ko'
-    ? activity.bundle.title || activity.bundle.title_en || continueLearningCopy[language].fallbackTitle
-    : activity.bundle.title_en || activity.bundle.title || continueLearningCopy[language].fallbackTitle;
-}
-
-function getActivityBundleMeta(activity: RecentLearningActivity, language: DisplayLanguage) {
-  const categoryName = language === 'ko'
-    ? activity.bundle.bundle_category?.name || activity.bundle.bundle_category?.name_en || activity.bundle.bundle_type?.name || continueLearningCopy[language].fallbackCategory
-    : activity.bundle.bundle_category?.name_en || activity.bundle.bundle_category?.name || activity.bundle.bundle_type?.name || continueLearningCopy[language].fallbackCategory;
-
-  return activity.totalItems > 0
-    ? `${categoryName} · ${continueLearningCopy[language].completedItems(activity.completedItems, activity.totalItems)}`
-    : categoryName;
-}
-
 function QuickPracticeSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
   if (!recentBundle) return null;
 
@@ -474,11 +396,13 @@ function getQuickPracticeItems(bundleId: string, language: DisplayLanguage) {
 function LearnSidebar({
   streakSummary,
   goalSummary,
+  reviewNeededSummary,
   progressSummary,
   language,
 }: {
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
+  reviewNeededSummary: ReviewNeededSummary;
   progressSummary: LearningProgressSummary;
   language: DisplayLanguage;
 }) {
@@ -486,6 +410,7 @@ function LearnSidebar({
     <aside className="space-y-5 lg:self-start">
       <StreakCard summary={streakSummary} language={language} />
       <GoalCard summary={goalSummary} language={language} editable />
+      <ReviewNeededSection summary={reviewNeededSummary} language={language} compact />
       <ProgressSummaryCard summary={progressSummary} language={language} />
       <EncouragementCard language={language} />
     </aside>
