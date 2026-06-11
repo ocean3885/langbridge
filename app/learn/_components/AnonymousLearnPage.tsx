@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Check, CheckCircle2, Leaf, Volume2 } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, Clock3, Leaf, ShieldCheck, Volume2 } from 'lucide-react';
 import { ExcellenthalfAsset } from '@/components/assets/CharacterBadges';
+import { getPublicUrl } from '@/lib/utils';
 import { GoalCard, MiniListCard, ProgressChartCard } from './ProgressCards';
 import { StreakCard } from './StreakCard';
 import { learningCycleSteps } from './learn-page-data';
@@ -20,7 +21,7 @@ const anonymousCopy = {
         </>
       ),
       description: '짧은 레슨, 실제 대화, 스마트 복습으로 스페인어를 자연스럽게 익혀보세요.',
-      cta: '레슨 시작하기',
+      cta: '번들 둘러보기',
       lovedBy: '10,000명 이상의 학습자가 함께해요',
       imageAlt: '햇살이 드는 창가에서 스페인어를 공부하는 학습자',
       phraseMeaning: '좋은 아침!',
@@ -65,25 +66,25 @@ const anonymousCopy = {
       ),
       description: '아래 카드는 실제 계정 데이터가 아닌 예시입니다. 학습을 시작하면 오늘의 목표, 연속 학습, 복습 단어, 주간 흐름이 내 기록으로 채워집니다.',
       dashboardTitle: '샘플 Progress 대시보드',
-      sampleBadge: 'Sample data',
-      cta: '무료로 시작하기',
+      sampleBadge: '예시 데이터',
+      cta: '학습 기록 시작하기',
       items: ['오늘 목표 달성률', '연속 학습 기록', '최근 학습 단어', '이번 주 학습 흐름'],
     },
     cta: {
-      eyebrow: '계정 만들고 이어가기',
+      eyebrow: '시작할 준비가 되셨나요?',
       title: (
         <>
-          오늘 학습한 기록을
+          Start your first
           <br />
-          내 Progress로 저장하세요
+          Spanish bundle today.
         </>
       ),
-      description: '무료 계정으로 시작하면 목표 달성률, 연속 학습, 복습할 단어와 문장이 자동으로 쌓입니다.',
-      button: '무료 계정 만들기',
+      description: '짧은 레슨, 스마트 복습, 그리고 실제 성장을 경험해보세요. 첫 걸음부터 함께할게요.',
+      button: '학습 시작하기',
       secondary: '로그인',
-      note: '신용카드 없이 바로 시작할 수 있어요.',
-      benefits: ['학습 기록 자동 저장', '복습할 문장과 단어 추천', '목표와 연속 학습 추적'],
-      imageAlt: '스페인어 학습 책상',
+      note: '계정을 만들면 학습 진행이 자동으로 저장됩니다.',
+      benefits: ['무료로 시작', '언제든 연습', '몇 분 만에 시작'],
+      imageAlt: '스페인어 학습을 시작하라고 안내하는 HolaLingo 캐릭터',
     },
   },
   en: {
@@ -97,7 +98,7 @@ const anonymousCopy = {
         </>
       ),
       description: 'Short lessons, real conversations, and smart review help you learn and remember.',
-      cta: 'Try a Lesson Now',
+      cta: 'Explore Bundles',
       lovedBy: 'Loved by 10,000+ learners',
       imageAlt: 'Spanish learner studying near a sunny window',
       phraseMeaning: 'Good morning!',
@@ -142,20 +143,20 @@ const anonymousCopy = {
       items: ['Daily goal progress', 'Study streaks', 'Recently learned words', 'Weekly learning rhythm'],
     },
     cta: {
-      eyebrow: 'Create an account to continue',
+      eyebrow: 'READY TO START?',
       title: (
         <>
-          Save today&apos;s learning
+          Start your first
           <br />
-          into your Progress
+          Spanish lesson today.
         </>
       ),
-      description: 'Start with a free account and your goals, streaks, review words, and sentences will be tracked automatically.',
-      button: 'Create free account',
+      description: 'Short lessons, smart review, and real progress. We&apos;ll be with you every step of the way.',
+      button: 'Start Learning',
       secondary: 'Log in',
-      note: 'No credit card required',
-      benefits: ['Save learning history', 'Get sentence and word review', 'Track goals and streaks'],
-      imageAlt: 'Spanish study desk',
+      note: 'Create your account and keep your progress synced.',
+      benefits: ['Free to start', 'Practice anytime', 'Start in minutes'],
+      imageAlt: 'HolaLingo character inviting learners to start Spanish lessons',
     },
   },
 };
@@ -178,7 +179,7 @@ function AnonymousHeroSection({ language }: { language: DisplayLanguage }) {
   return (
     <section className="grid min-h-[360px] gap-8 overflow-hidden rounded-[28px] bg-[#fffdfa] dark:bg-zinc-900 lg:grid-cols-[1fr_1.05fr]">
       <div className="flex flex-col justify-center px-4 py-8 sm:px-9 lg:px-10">
-        <p className="mb-4 text-xs font-black uppercase tracking-widest text-[#4f8a50]">
+        <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#4f8a50] dark:text-emerald-300">
           {t.eyebrow}
         </p>
         <h1 className="font-serif text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
@@ -189,8 +190,8 @@ function AnonymousHeroSection({ language }: { language: DisplayLanguage }) {
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-5">
           <Link
-            href="/auth/sign-up?redirectTo=/learn"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]"
+            href="/bundles"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#477f4a]"
           >
             {t.cta}
             <ArrowRight className="h-4 w-4" />
@@ -279,16 +280,16 @@ function LearningCycleSection({ language }: { language: DisplayLanguage }) {
 
   return (
     <section className="rounded-[28px] bg-[#fffdfa] px-5 py-8 text-center shadow-sm dark:bg-zinc-900 dark:shadow-black/20">
-      <h2 className={getAnonymousHeadingClass(language, 'text-3xl')}>{t.title}</h2>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-300">{t.description}</p>
+      <h2 className={`${language === 'ko' ? 'break-keep' : ''} ${getAnonymousHeadingClass(language, 'text-3xl')}`}>{t.title}</h2>
+      <p className={`mt-2 text-zinc-600 dark:text-zinc-300 ${language === 'ko' ? 'break-keep' : ''}`}>{t.description}</p>
       <div className="mt-9 grid gap-6 md:grid-cols-4">
         {learningCycleSteps.map((step, index) => (
           <div key={step.title} className="flex flex-col items-center">
             <div className={`mb-4 flex h-20 w-20 items-center justify-center rounded-full ${step.bg}`}>
               <step.icon className="h-9 w-9 text-[#5c7f56] dark:text-emerald-200" />
             </div>
-            <h3 className="font-bold">{t.steps[index]?.title || step.title}</h3>
-            <p className="mt-2 max-w-48 text-sm leading-6 text-zinc-600 dark:text-zinc-400">{t.steps[index]?.desc || step.desc}</p>
+            <h3 className={`font-bold ${language === 'ko' ? 'break-keep' : ''}`}>{t.steps[index]?.title || step.title}</h3>
+            <p className={`mt-2 max-w-48 text-sm leading-6 text-zinc-600 dark:text-zinc-400 ${language === 'ko' ? 'break-keep' : ''}`}>{t.steps[index]?.desc || step.desc}</p>
           </div>
         ))}
       </div>
@@ -302,7 +303,7 @@ function ProgressPreviewSection({ language }: { language: 'ko' | 'en' }) {
   return (
     <section className="grid gap-8 rounded-[28px] bg-[#fff8ec] p-6 shadow-sm dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[0.55fr_1fr] lg:p-9">
       <div>
-        <p className="mb-3 text-xs font-black uppercase tracking-widest text-[#4f8a50]">
+        <p className="mb-3 text-xs font-black uppercase tracking-widest text-[#4f8a50] dark:text-emerald-300">
           {t.eyebrow}
         </p>
         <h2 className={getAnonymousHeadingClass(language, 'text-3xl')}>
@@ -318,8 +319,8 @@ function ProgressPreviewSection({ language }: { language: 'ko' | 'en' }) {
           ))}
         </ul>
         <Link
-          href="/auth/sign-up?redirectTo=/learn"
-          className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]"
+          href="/auth/login?redirectTo=/learn"
+          className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#477f4a]"
         >
           {t.cta}
           <ArrowRight className="h-4 w-4" />
@@ -347,37 +348,68 @@ function ProgressPreviewSection({ language }: { language: 'ko' | 'en' }) {
 
 function StartCtaSection({ language }: { language: DisplayLanguage }) {
   const t = anonymousCopy[language].cta;
+  const ctaImageUrl = getPublicUrl('assets/characters/learn_cta_img.webp');
+  const ctaImageSrc = ctaImageUrl?.startsWith('http')
+    ? ctaImageUrl
+    : '/images/heroimg_port.jpg';
+  const benefitIcons = [Leaf, ShieldCheck, Clock3];
 
   return (
-    <section className="grid overflow-hidden rounded-[28px] border border-[#ead8bd] bg-[#fffdfa] shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,1fr)_420px]">
-      <div className="flex flex-col justify-center p-7 sm:p-9 lg:p-10">
-        <p className="text-xs font-black uppercase tracking-widest text-[#4f8a50]">{t.eyebrow}</p>
-        <h2 className={`mt-3 ${getAnonymousHeadingClass(language, 'text-3xl')}`}>
+    <section className="relative grid overflow-hidden rounded-[24px] border border-[#ead8bd] bg-[#fffaf0] shadow-[0_14px_42px_rgba(91,66,32,0.08)] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
+      <div className="order-2 flex flex-col justify-center px-6 pb-8 pt-6 sm:px-10 sm:pb-10 sm:pt-8 lg:order-1 lg:px-12 lg:py-11">
+        <div className="relative w-fit">
+          <p className="text-xs font-extrabold uppercase tracking-normal text-[#3d7d49] dark:text-emerald-300">
+            {t.eyebrow}
+          </p>
+        </div>
+
+        <h2 className="mt-4 max-w-2xl font-serif text-[2.15rem] font-semibold leading-[1.1] tracking-normal text-[#1f1b18] dark:text-zinc-50 sm:text-[2.9rem] lg:text-[3.05rem]">
           {t.title}
         </h2>
-        <p className="mt-4 max-w-2xl leading-7 text-zinc-600 dark:text-zinc-300">{t.description}</p>
-        <div className="mt-6 grid gap-3 text-sm text-zinc-700 dark:text-zinc-300 sm:grid-cols-3">
-          {t.benefits.map((benefit) => (
-            <span key={benefit} className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#63a464]" />
-              {benefit}
-            </span>
-          ))}
+
+        <p className="mt-5 max-w-xl text-base leading-7 text-zinc-600 dark:text-zinc-300 sm:text-[1.05rem]">
+          {t.description}
+        </p>
+
+        <div className="mt-6 grid gap-3 text-sm font-medium text-[#1f1b18] dark:text-zinc-200 sm:grid-cols-3 lg:max-w-2xl">
+          {t.benefits.map((benefit, index) => {
+            const BenefitIcon = benefitIcons[index] ?? CheckCircle2;
+            return (
+              <span
+                key={benefit}
+                className="flex min-w-0 items-center gap-2.5 border-zinc-200/70 dark:border-zinc-700/70 sm:border-r sm:pr-4 last:sm:border-r-0"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e4f1df] text-[#4d8a55] dark:bg-emerald-950/50 dark:text-emerald-200">
+                  <BenefitIcon className="h-4 w-4" />
+                </span>
+                <span className="truncate">{benefit}</span>
+              </span>
+            );
+          })}
         </div>
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Link href="/auth/sign-up?redirectTo=/learn" className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
+
+        <div className="mt-7 flex flex-wrap items-center gap-5">
+          <Link
+            href="/bundles"
+            className="inline-flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#2f7d45] px-7 text-base font-semibold text-white shadow-sm transition hover:bg-[#286c3c] focus:outline-none focus:ring-2 focus:ring-[#2f7d45] focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+          >
             {t.button}
             <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link href="/auth/login?redirectTo=/learn" className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-5 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700">
-            {t.secondary}
-          </Link>
+          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            {t.note}
+          </span>
         </div>
-        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">{t.note}</p>
       </div>
-      <div className="relative min-h-[240px] overflow-hidden lg:min-h-[320px]">
-        <Image src="/images/heroimg_port.jpg" alt={t.imageAlt} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 420px" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+
+      <div className="relative order-1 min-h-[210px] overflow-hidden sm:min-h-[285px] lg:order-2 lg:min-h-[350px]">
+        <Image
+          src={ctaImageSrc}
+          alt={t.imageAlt}
+          fill
+          className="object-contain object-center px-16 pt-10 sm:px-24 sm:pt-12 lg:px-20 lg:py-12"
+          sizes="(max-width: 1024px) 100vw, 48vw"
+        />
       </div>
     </section>
   );

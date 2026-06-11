@@ -171,10 +171,10 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                 className="mt-2 w-56 rounded-lg border border-zinc-200 bg-[#F9F7F2]/95 p-2 shadow-lg shadow-zinc-900/10 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:shadow-black/30"
               >
                 <DropdownMenuLabel className="rounded-md bg-white/70 px-3 py-2.5 dark:bg-zinc-900/80">
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#85A094] dark:text-emerald-300">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-[#85A094] dark:text-emerald-300">
                     {t.myAccount}
                   </span>
-                  <span className="mt-1 block truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  <span className="mt-1 block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {userDisplayName}
                   </span>
                 </DropdownMenuLabel>
@@ -185,7 +185,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   <Link
                     href="/pricing"
                     prefetch={false}
-                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-zinc-700 transition-colors hover:bg-[#FBE9E2] hover:text-[#C65D47] focus:bg-[#FBE9E2] focus:text-[#C65D47] dark:text-zinc-200 dark:hover:bg-orange-950/30 dark:hover:text-orange-200 dark:focus:bg-orange-950/30 dark:focus:text-orange-200"
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-[#FBE9E2] hover:text-[#C65D47] focus:bg-[#FBE9E2] focus:text-[#C65D47] dark:text-zinc-200 dark:hover:bg-orange-950/30 dark:hover:text-orange-200 dark:focus:bg-orange-950/30 dark:focus:text-orange-200"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
                       <CreditCard size={16} strokeWidth={2.5} />
@@ -198,7 +198,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   <Link
                     href="/profile"
                     prefetch={false}
-                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-zinc-700 transition-colors hover:bg-[#DFF1E5] hover:text-[#2F7D4A] focus:bg-[#DFF1E5] focus:text-[#2F7D4A] dark:text-zinc-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-100 dark:focus:bg-emerald-950/40 dark:focus:text-emerald-100"
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-[#DFF1E5] hover:text-[#2F7D4A] focus:bg-[#DFF1E5] focus:text-[#2F7D4A] dark:text-zinc-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-100 dark:focus:bg-emerald-950/40 dark:focus:text-emerald-100"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EAF4E8] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200">
                       <UserIcon size={16} strokeWidth={2.5} />
@@ -209,7 +209,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
 
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="mt-1 flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-[#C65D47] transition-colors hover:bg-[#FBE9E2] focus:bg-[#FBE9E2] focus:text-[#A94C3A] dark:text-orange-300 dark:hover:bg-orange-950/30 dark:focus:bg-orange-950/30"
+                  className="mt-1 flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-[#C65D47] transition-colors hover:bg-[#FBE9E2] focus:bg-[#FBE9E2] focus:text-[#A94C3A] dark:text-orange-300 dark:hover:bg-orange-950/30 dark:focus:bg-orange-950/30"
                 >
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
                     <LogOut size={16} strokeWidth={2.5} />
