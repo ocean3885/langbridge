@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
-import { updateAuthUserPasswordById } from '@/lib/supabase/services/auth-users';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,18 +17,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
     }
 
-    const updated = await updateAuthUserPasswordById({
-      userId: user.id,
-      newPassword: password,
-    });
+    const supabase = await createClient();
+    const { error } = await supabase.auth.updateUser({ password });
 
-    if (!updated) {
-      return NextResponse.json({ error: 'SQLite 사용자 비밀번호 변경에 실패했습니다.' }, { status: 404 });
+    if (error) {
+      console.error('Supabase Auth update password error:', error.message);
+      return NextResponse.json({ error: '비밀번호 변경에 실패했습니다.' }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('SQLite update password error:', error);
+    console.error('Supabase Auth update password error:', error);
     return NextResponse.json({ error: '비밀번호 변경 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

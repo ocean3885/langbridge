@@ -10,9 +10,11 @@ import {
   Star,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import type { ActiveLearningBundle, LearningProgressSummary, RecentStudiedBundle, ReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
+import { bundleItemCount, getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
 import { ActiveBundlesSection } from './ActiveBundlesSection';
 import { GoalCard } from './ProgressCards';
 import { ReviewNeededSection } from './ReviewNeededSection';
@@ -268,11 +270,12 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
       <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.exploreBundles}</h2>
       <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {bundles.map((bundle) => {
-          const title = language === 'ko' ? bundle.title || bundle.title_en : bundle.title_en || bundle.title;
+          const title = getBundleTitle(bundle, language);
           const imageSrc = bundle.thumbnail_url || '/images/heroimg_land.jpg';
-          const categoryName = language === 'ko'
-            ? bundle.bundle_category?.name || bundle.bundle_category?.name_en || bundle.bundle_type?.name || 'Bundle'
-            : bundle.bundle_category?.name_en || bundle.bundle_category?.name || bundle.bundle_type?.name || 'Bundle';
+          const categoryName = getCategoryName(bundle, language);
+          const level = getBundleLevelDisplay(bundle.level, language);
+          const itemCount = bundleItemCount(bundle);
+          const itemLabel = language === 'ko' ? `${itemCount}개 항목` : `${itemCount} items`;
 
           return (
             <Link
@@ -282,14 +285,14 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
             >
               <div className="p-5">
                 <p className="text-xs font-black uppercase tracking-wide text-[#5a975d]">{categoryName}</p>
-                <h3 className="mt-3 line-clamp-2 min-h-14 font-serif text-2xl font-semibold leading-tight">{title}</h3>
+                <h3 className={`mt-3 line-clamp-2 min-h-14 text-2xl leading-tight ${getDisplayHeadingClass(language)}`}>{title}</h3>
               </div>
               <div className="relative h-40">
                 <Image src={imageSrc} alt={title || ''} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 260px" />
               </div>
               <div className="flex items-center justify-between px-5 py-4 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>Beginner</span>
-                <span>{bundle.bundle_items?.[0]?.count || 0} items</span>
+                <span>{level.label}</span>
+                <span>{itemLabel}</span>
               </div>
             </Link>
           );

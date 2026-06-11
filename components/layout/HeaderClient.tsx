@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, LogOut, Video, Globe, Layers, Sun, Moon, Menu, X } from 'lucide-react';
+import { User as UserIcon, CreditCard, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -31,9 +31,8 @@ const translations = {
     admin: 'Admin',
     login: '로그인',
     myAccount: '내 계정',
-    lbVideos: 'LB 영상',
     bundles: 'Bundles',
-    myVideos: '내 영상',
+    pricing: '구독',
     profile: '프로필',
     logout: '로그아웃',
   },
@@ -44,9 +43,8 @@ const translations = {
     admin: 'Admin',
     login: 'Login',
     myAccount: 'My Account',
-    lbVideos: 'LB Videos',
     bundles: 'Bundles',
-    myVideos: 'My Videos',
+    pricing: 'Subscription',
     profile: 'Profile',
     logout: 'Logout',
   }
@@ -54,6 +52,7 @@ const translations = {
 
 export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'en' }: Props) {
   const t = translations[language];
+  const userDisplayName = userEmail?.split('@')[0] || null;
   const supabase = createClient();
   const pathname = usePathname();
   const router = useRouter();
@@ -164,47 +163,58 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   <div className="w-7 h-7 rounded-full bg-[#85A094] flex items-center justify-center text-white">
                     <UserIcon size={14} strokeWidth={3} />
                   </div>
-                  <span className="hidden sm:inline text-xs font-bold text-zinc-700 dark:text-zinc-300 max-w-[100px] truncate">{userEmail}</span>
+                  <span className="hidden sm:inline text-xs font-bold text-zinc-700 dark:text-zinc-300 max-w-[100px] truncate">{userDisplayName}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-64 mt-2 p-2 rounded-[1.5rem] shadow-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 animate-in fade-in zoom-in-95 duration-200"
+                className="mt-2 w-56 rounded-lg border border-zinc-200 bg-[#F9F7F2]/95 p-2 shadow-lg shadow-zinc-900/10 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 dark:shadow-black/30"
               >
-                <DropdownMenuLabel className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
-                  {t.myAccount}
+                <DropdownMenuLabel className="rounded-md bg-white/70 px-3 py-2.5 dark:bg-zinc-900/80">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#85A094] dark:text-emerald-300">
+                    {t.myAccount}
+                  </span>
+                  <span className="mt-1 block truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    {userDisplayName}
+                  </span>
                 </DropdownMenuLabel>
 
-                <DropdownMenuSeparator className="mx-2 mb-2 bg-zinc-100 dark:bg-zinc-800" />
+                <DropdownMenuSeparator className="mx-1 my-2 bg-zinc-200/80 dark:bg-zinc-800" />
 
-                {[
-                  { name: t.lbVideos, href: '/lb-videos', icon: <Globe size={18} />, color: 'text-blue-500', bg: 'hover:bg-blue-50 dark:hover:bg-blue-950/30' },
-                  { name: t.bundles, href: '/bundles', icon: <Layers size={18} />, color: 'text-purple-500', bg: 'hover:bg-purple-50 dark:hover:bg-purple-950/30' },
-                  { name: t.myVideos, href: '/my-videos', icon: <Video size={18} />, color: 'text-emerald-500', bg: 'hover:bg-emerald-50 dark:hover:bg-emerald-950/30' },
-                  { name: t.profile, href: '/profile', icon: <UserIcon size={18} />, color: 'text-[#E27D60]', bg: 'hover:bg-orange-50 dark:hover:bg-orange-950/30' }
-                ].map((item) => (
-                  <DropdownMenuItem key={item.href} asChild>
-                    <Link
-                      href={item.href}
-                      prefetch={false}
-                      className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 ${item.bg}`}
-                    >
-                      <div className={`${item.color}`}>
-                        {item.icon}
-                      </div>
-                      <span className="font-bold text-sm text-zinc-700 dark:text-zinc-200">{item.name}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/pricing"
+                    prefetch={false}
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-zinc-700 transition-colors hover:bg-[#FBE9E2] hover:text-[#C65D47] focus:bg-[#FBE9E2] focus:text-[#C65D47] dark:text-zinc-200 dark:hover:bg-orange-950/30 dark:hover:text-orange-200 dark:focus:bg-orange-950/30 dark:focus:text-orange-200"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
+                      <CreditCard size={16} strokeWidth={2.5} />
+                    </span>
+                    <span>{t.pricing}</span>
+                  </Link>
+                </DropdownMenuItem>
 
-                <DropdownMenuSeparator className="mx-2 my-2 bg-zinc-100 dark:bg-zinc-800" />
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/profile"
+                    prefetch={false}
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-zinc-700 transition-colors hover:bg-[#DFF1E5] hover:text-[#2F7D4A] focus:bg-[#DFF1E5] focus:text-[#2F7D4A] dark:text-zinc-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-100 dark:focus:bg-emerald-950/40 dark:focus:text-emerald-100"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EAF4E8] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200">
+                      <UserIcon size={16} strokeWidth={2.5} />
+                    </span>
+                    <span>{t.profile}</span>
+                  </Link>
+                </DropdownMenuItem>
 
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-red-500 focus:text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200"
+                  className="mt-1 flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold text-[#C65D47] transition-colors hover:bg-[#FBE9E2] focus:bg-[#FBE9E2] focus:text-[#A94C3A] dark:text-orange-300 dark:hover:bg-orange-950/30 dark:focus:bg-orange-950/30"
                 >
-                  <LogOut size={18} />
-                  <span className="font-bold text-sm">{t.logout}</span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
+                    <LogOut size={16} strokeWidth={2.5} />
+                  </span>
+                  <span>{t.logout}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

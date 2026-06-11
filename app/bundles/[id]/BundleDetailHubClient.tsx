@@ -9,6 +9,7 @@ import {
   Info,
   Layers,
   Library,
+  Lock,
   MessageCircleQuestion,
   Shuffle,
   Star,
@@ -16,6 +17,7 @@ import {
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { estimateBundleMinutes, getBundleDescription, getBundleTitle, getCategoryHref } from '../bundle-utils';
 import type { BundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
+import type { BundleAccessResult } from '@/lib/bundle-access';
 
 interface BundleDetailHubClientProps {
   bundle: any;
@@ -23,6 +25,7 @@ interface BundleDetailHubClientProps {
   language: 'ko' | 'en';
   progress: BundleProgressSummary;
   isLoggedIn: boolean;
+  access: BundleAccessResult;
 }
 
 const copy = {
@@ -52,6 +55,10 @@ const copy = {
     noRecord: '-',
     continue: 'Continue Learning',
     start: 'Start Learning',
+    premium: 'Premium',
+    subscribe: '구독하고 학습하기',
+    loginToAccess: '로그인하고 학습하기',
+    premiumNotice: '프리미엄 번들은 활성 구독 회원만 학습할 수 있습니다.',
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: '연습 모드 설명 보기',
@@ -87,6 +94,10 @@ const copy = {
     noRecord: '-',
     continue: 'Continue Learning',
     start: 'Start Learning',
+    premium: 'Premium',
+    subscribe: 'Subscribe to learn',
+    loginToAccess: 'Log in to learn',
+    premiumNotice: 'Premium bundles are available to active subscribers.',
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: 'View practice mode details',
@@ -98,7 +109,7 @@ const copy = {
   },
 };
 
-export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn }: BundleDetailHubClientProps) {
+export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn, access }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
   const [isUpdatingPinned, setIsUpdatingPinned] = useState(false);
@@ -123,6 +134,13 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
   const learnHref = progress.currentBundleItemId
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
     : `/bundles/${bundle.id}/learn`;
+  const canAccessLearning = access.canView;
+  const gatedHref = access.reason === 'login_required'
+    ? `/auth/login?redirectTo=${encodeURIComponent(learnHref)}`
+    : `/pricing?redirectTo=${encodeURIComponent(learnHref)}`;
+  const primaryHref = canAccessLearning ? learnHref : gatedHref;
+  const primaryLabel = canAccessLearning ? (hasStarted ? t.continue : t.start) : access.reason === 'login_required' ? t.loginToAccess : t.subscribe;
+  const modeHref = (path: string) => canAccessLearning ? path : gatedHref;
   const practiceStars = calculatePracticeStars(progress.itemInteractions, items.length);
 
   const handleTogglePinned = async () => {
@@ -190,6 +208,12 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           <span className="inline-flex rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/80 dark:text-emerald-300">
             {categoryName}
           </span>
+          {access.isPremium && (
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
+              <Lock className="h-3 w-3" />
+              {t.premium}
+            </span>
+          )}
           <h1 className="mt-3 text-2xl font-bold leading-tight tracking-normal text-zinc-950 dark:text-zinc-50 lg:max-w-2xl lg:text-5xl">{title}</h1>
           <p className="mt-3 text-sm font-normal leading-6 text-zinc-700 dark:text-zinc-300 lg:max-w-xl lg:text-base lg:leading-7">{description}</p>
         </section>
@@ -258,13 +282,18 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <ProgressMeta label={t.lastStudied} value={lastStudiedLabel} />
           </div>
           <Link
-            href={learnHref}
+            href={primaryHref}
             className="mt-5 flex h-12 w-full items-center justify-center rounded-lg bg-[#3f8d54] text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
-            {hasStarted ? t.continue : t.start}
+            {primaryLabel}
           </Link>
+          {!canAccessLearning && (
+            <p className="mt-2 rounded-lg bg-[#FBE9E2] px-3 py-2 text-center text-xs font-semibold leading-5 text-[#A94C3A] dark:bg-orange-950/30 dark:text-orange-200">
+              {t.premiumNotice}
+            </p>
+          )}
           <Link
-            href={`/bundles/${bundle.id}/items`}
+            href={modeHref(`/bundles/${bundle.id}/items`)}
             className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           >
             {t.viewItems}
@@ -280,10 +309,10 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <p>{t.practiceModesInfo}</p>
           </div>
           <div className="grid grid-cols-2 gap-2 lg:gap-3">
-            <ModeLink href={`/bundles/${bundle.id}/flashcards`} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
-            <ModeLink href={`/bundles/${bundle.id}/quiz`} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
-            <ModeLink href={`/bundles/${bundle.id}/scramble`} icon={<Shuffle className="h-5 w-5" />} label={t.scramble} color="orange" />
-            <ModeLink href={`/bundles/${bundle.id}/wordfill`} icon={<BookOpen className="h-5 w-5" />} label={t.wordFill} color="blue" />
+            <ModeLink href={modeHref(`/bundles/${bundle.id}/flashcards`)} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
+            <ModeLink href={modeHref(`/bundles/${bundle.id}/quiz`)} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
+            <ModeLink href={modeHref(`/bundles/${bundle.id}/scramble`)} icon={<Shuffle className="h-5 w-5" />} label={t.scramble} color="orange" />
+            <ModeLink href={modeHref(`/bundles/${bundle.id}/wordfill`)} icon={<BookOpen className="h-5 w-5" />} label={t.wordFill} color="blue" />
           </div>
         </section>
       </main>

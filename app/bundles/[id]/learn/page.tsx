@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary, recordBundleStudyAccess } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
@@ -21,8 +21,12 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
   ]);
   if (!bundle) notFound();
 
-  const isAdminUser = user ? await isSuperAdmin({ userId: user.id, email: user.email }) : false;
-  if (!bundle.is_published && !isAdminUser) notFound();
+  const access = await getBundleAccess(bundle, user);
+  if (!access.canView) {
+    if (access.reason === 'unpublished') notFound();
+    const redirectTo = `/bundles/${bundle.id}/learn`;
+    redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
+  }
 
   const items = await listBundleItems(id);
   const sentenceIds = items.filter((bundleItem) => bundleItem.sentence_id).map((bundleItem) => bundleItem.sentence_id as number);

@@ -271,14 +271,14 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
     console.error('Error counting available words needing review:', wordCountError);
   }
 
-  const candidates: ReviewCandidate[] = [
-    ...toReviewCandidates(sentenceRows || [], 'sentence'),
-    ...toReviewCandidates(wordRows || [], 'word'),
-  ].sort(compareReviewCandidates);
-
-  const recommended = candidates.slice(0, REVIEW_RECOMMENDATION_LIMIT);
-  const sentences = recommended.filter((item) => item.type === 'sentence').length;
-  const words = recommended.filter((item) => item.type === 'word').length;
+  const sentences = toReviewCandidates(sentenceRows || [], 'sentence')
+    .sort(compareReviewCandidates)
+    .slice(0, REVIEW_RECOMMENDATION_LIMIT)
+    .length;
+  const words = toReviewCandidates(wordRows || [], 'word')
+    .sort(compareReviewCandidates)
+    .slice(0, REVIEW_RECOMMENDATION_LIMIT)
+    .length;
 
   return {
     sentences,

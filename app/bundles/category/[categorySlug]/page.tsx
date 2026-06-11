@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Clock3,
   Home,
+  Lock,
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -155,6 +156,7 @@ function CategoryBundleCard({
 }) {
   const copy = translations[language];
   const title = getBundleTitle(bundle, language);
+  const isPremium = bundle.access_level === 'premium';
 
   return (
     <Link
@@ -172,6 +174,12 @@ function CategoryBundleCard({
         <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
           {status.label}
         </span>
+        {isPremium && (
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] shadow-sm dark:bg-orange-950/60 dark:text-orange-200">
+            <Lock className="h-3 w-3" />
+            Premium
+          </span>
+        )}
       </div>
       <div className="p-4">
         <h3 className="line-clamp-2 min-h-11 text-lg font-bold leading-snug text-[#1f1b18] dark:text-zinc-100">{title}</h3>
@@ -383,6 +391,12 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               {featuredStatus && (
                 <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredStatus.className}`}>
                   {featuredStatus.label}
+                </span>
+              )}
+              {featuredBundle.access_level === 'premium' && (
+                <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] shadow-sm dark:bg-orange-950/60 dark:text-orange-200">
+                  <Lock className="h-3 w-3" />
+                  Premium
                 </span>
               )}
             </Link>

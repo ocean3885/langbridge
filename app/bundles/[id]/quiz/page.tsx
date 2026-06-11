@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getBundleTitle } from '../../bundle-utils';
@@ -23,6 +24,13 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
   ]);
 
   if (!bundle) notFound();
+
+  const access = await getBundleAccess(bundle, user);
+  if (!access.canView) {
+    if (access.reason === 'unpublished') notFound();
+    const redirectTo = `/bundles/${bundle.id}/quiz`;
+    redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
+  }
 
   const quizItems = items
     .filter((item) => item.sentences?.sentence)

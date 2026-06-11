@@ -286,6 +286,7 @@ export default function BundleCreateForm({ userId }: Props) {
     category_id: '',
     type_id: '',
     thumbnail_url: '',
+    access_level: 'free' as 'free' | 'premium',
     is_published: false
   });
   const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultSentenceTtsOptions);
@@ -574,6 +575,7 @@ export default function BundleCreateForm({ userId }: Props) {
         category_id: '',
         type_id: '',
         thumbnail_url: '',
+        access_level: 'free' as 'free' | 'premium',
         is_published: false
       };
       setBundleMeta({ ...defaultMeta, ...(draft.bundleMeta || {}) });
@@ -672,6 +674,7 @@ export default function BundleCreateForm({ userId }: Props) {
         category_id: '',
         type_id: '',
         thumbnail_url: '',
+        access_level: 'free' as 'free' | 'premium',
         is_published: false
       });
       setSentenceTtsOptions(defaultSentenceTtsOptions);
@@ -1655,6 +1658,29 @@ export default function BundleCreateForm({ userId }: Props) {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">접근 등급</label>
+                    <div className="flex items-center gap-6 py-2 ml-1">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="radio"
+                          checked={bundleMeta.access_level === 'free'}
+                          onChange={() => setBundleMeta({...bundleMeta, access_level: 'free'})}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">무료</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="radio"
+                          checked={bundleMeta.access_level === 'premium'}
+                          onChange={() => setBundleMeta({...bundleMeta, access_level: 'premium'})}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">유료</span>
+                      </label>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">공개 여부</label>

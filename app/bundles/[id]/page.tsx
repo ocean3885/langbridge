@@ -2,6 +2,8 @@ import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import Link from 'next/link';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getBundleAccess } from '@/lib/bundle-access';
+import { notFound } from 'next/navigation';
 import BundleDetailHubClient from './BundleDetailHubClient';
 
 interface BundleDetailsPageProps {
@@ -46,7 +48,10 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
     );
   }
 
+  const access = await getBundleAccess(bundle, user);
+  if (access.reason === 'unpublished') notFound();
+
   const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
 
-  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} isLoggedIn={Boolean(user)} />;
+  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} isLoggedIn={Boolean(user)} access={access} />;
 }

@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, BookOpen, StickyNote } from 'lucide-react';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
@@ -58,8 +58,12 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
 
   if (!bundle) notFound();
 
-  const isAdminUser = user ? await isSuperAdmin({ userId: user.id, email: user.email }) : false;
-  if (!bundle.is_published && !isAdminUser) notFound();
+  const access = await getBundleAccess(bundle, user);
+  if (!access.canView) {
+    if (access.reason === 'unpublished') notFound();
+    const redirectTo = `/bundles/${bundle.id}/items`;
+    redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
+  }
 
   const items = await listBundleItems(id);
   const sentenceIds = items

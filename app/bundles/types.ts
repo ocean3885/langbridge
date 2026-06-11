@@ -21,6 +21,7 @@ export type BundleRow = {
   level?: number | null;
   created_at?: string;
   is_published?: boolean | null;
+  access_level?: 'free' | 'premium' | null;
   bundle_category?: BundleCategoryRow | null;
   bundle_items?: Array<{ count: number }> | null;
 };

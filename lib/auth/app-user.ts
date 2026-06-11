@@ -1,8 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { getUserProfileById } from '@/lib/supabase/services/user-profiles';
-
-const SESSION_COOKIE = 'lb_user_id';
+import { createClient } from '@/lib/supabase/server';
 
 export type AppUser = {
   id: string;
@@ -14,19 +13,20 @@ export type AppUser = {
 const LANG_COOKIE = 'lb_display_language';
 
 export async function getAppUserFromServer(): Promise<AppUser | null> {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!userId) return null;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const profile = await getUserProfileById(userId);
-  if (!profile) return null;
+  if (user) {
+    const profile = await getUserProfileById(user.id);
+    return {
+      id: user.id,
+      email: profile?.email || user.email || null,
+      createdAt: profile?.created_at || user.created_at || null,
+      source: 'supabase',
+    };
+  }
 
-  return {
-    id: userId,
-    email: profile.email,
-    createdAt: profile.created_at,
-    source: 'supabase',
-  };
+  return null;
 }
 
 export async function getDisplayLanguage(): Promise<'ko' | 'en'> {
@@ -38,16 +38,18 @@ export async function getDisplayLanguage(): Promise<'ko' | 'en'> {
 export async function getAppUserFromRequest(
   request: NextRequest
 ): Promise<AppUser | null> {
-  const userId = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!userId) return null;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const profile = await getUserProfileById(userId);
-  if (!profile) return null;
+  if (user) {
+    const profile = await getUserProfileById(user.id);
+    return {
+      id: user.id,
+      email: profile?.email || user.email || null,
+      createdAt: profile?.created_at || user.created_at || null,
+      source: 'supabase',
+    };
+  }
 
-  return {
-    id: userId,
-    email: profile.email,
-    createdAt: profile.created_at,
-    source: 'supabase',
-  };
+  return null;
 }

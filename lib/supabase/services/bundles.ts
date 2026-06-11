@@ -293,6 +293,7 @@ export async function createBundleWithItems(
     type_id: string | null;
     thumbnail_url?: string | null;
     is_published: boolean;
+    access_level?: 'free' | 'premium';
   },
   items: {
     sentence: string;
@@ -351,6 +352,7 @@ export async function createBundleWithItems(
       category_id: bundleMeta.category_id || null,
       type_id: bundleMeta.type_id || null,
       is_published: bundleMeta.is_published,
+      access_level: bundleMeta.access_level || 'free',
       thumbnail_url: bundleMeta.thumbnail_url || items[0]?.imageUrl || null
     }])
     .select()

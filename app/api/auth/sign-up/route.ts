@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthUser, getAuthUserByEmail } from '@/lib/supabase/services/auth-users';
+import { upsertAuthUserMirror } from '@/lib/supabase/services/auth-users';
 import { upsertUserProfile } from '@/lib/supabase/services/user-profiles';
-
-const SESSION_COOKIE = 'lb_user_id';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,35 +17,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
     }
 
-    const existing = await getAuthUserByEmail(email);
-    if (existing) {
-      return NextResponse.json({ error: '이미 가입된 이메일입니다.' }, { status: 409 });
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${request.nextUrl.origin}/auth/confirm?next=/`,
+      },
+    });
+
+    if (error || !data.user) {
+      return NextResponse.json({ error: error?.message || '회원가입에 실패했습니다.' }, { status: 400 });
     }
 
-    const user = await createAuthUser({ email, password });
+    const user = data.user;
 
-    await upsertUserProfile({
-      id: user.id,
-      email: user.email,
-      createdAt: user.created_at,
-    });
+    await Promise.all([
+      upsertUserProfile({
+        id: user.id,
+        email: user.email || email,
+        createdAt: user.created_at,
+      }),
+      upsertAuthUserMirror({
+        id: user.id,
+        email: user.email || email,
+        createdAt: user.created_at,
+      }),
+    ]);
 
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email },
-    });
-
-    response.cookies.set(SESSION_COOKIE, user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      user: { id: user.id, email: user.email || email },
     });
 
     return response;
   } catch (error) {
-    console.error('SQLite sign-up error:', error);
+    console.error('Supabase Auth sign-up error:', error);
     return NextResponse.json({ error: '회원가입 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

@@ -15,10 +15,43 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+type DisplayLanguage = 'ko' | 'en';
+
+const copy = {
+  ko: {
+    title: '로그인',
+    description: '계정 이메일과 비밀번호를 입력하세요.',
+    email: '이메일',
+    password: '비밀번호',
+    forgotPassword: '비밀번호를 잊으셨나요?',
+    login: '로그인',
+    loggingIn: '로그인 중...',
+    noAccount: '계정이 없으신가요?',
+    signUp: '회원가입',
+    fallbackError: '오류가 발생했습니다.',
+    loginFailed: '로그인에 실패했습니다.',
+  },
+  en: {
+    title: 'Login',
+    description: 'Enter your email and password to log in to your account.',
+    email: 'Email',
+    password: 'Password',
+    forgotPassword: 'Forgot your password?',
+    login: 'Login',
+    loggingIn: 'Logging in...',
+    noAccount: "Don't have an account?",
+    signUp: 'Sign up',
+    fallbackError: 'An error occurred',
+    loginFailed: 'Login failed.',
+  },
+};
+
 export function LoginForm({
   className,
+  language = 'en',
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & { language?: DisplayLanguage }) {
+  const t = copy[language];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,12 +73,12 @@ export function LoginForm({
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result?.error || '로그인에 실패했습니다.');
+        throw new Error(result?.error || t.loginFailed);
       }
 
       window.location.href = redirectTo;
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(error instanceof Error ? error.message : t.fallbackError);
       setIsLoading(false);
     }
   };
@@ -54,16 +87,16 @@ export function LoginForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
+          <CardTitle className="text-2xl">{t.title}</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            {t.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t.email}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -75,12 +108,12 @@ export function LoginForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t.password}</Label>
                   <Link
                     href="/auth/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
                   >
-                    Forgot your password?
+                    {t.forgotPassword}
                   </Link>
                 </div>
                 <Input
@@ -93,16 +126,16 @@ export function LoginForm({
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
+                {isLoading ? t.loggingIn : t.login}
               </Button>
             </div>
             <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
+              {t.noAccount}{" "}
               <Link
                 href="/auth/sign-up"
                 className="underline underline-offset-4"
               >
-                Sign up
+                {t.signUp}
               </Link>
             </div>
           </form>

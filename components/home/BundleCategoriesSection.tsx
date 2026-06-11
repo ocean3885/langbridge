@@ -7,6 +7,7 @@ import {
   FileText,
   Gift,
   Grid2X2,
+  Lock,
 } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import {
@@ -163,6 +164,7 @@ export default function BundleCategoriesSection({
               const title = getBundleTitle(bundle, lang);
               const description = getBundleDescription(bundle, lang);
               const level = getBundleLevelDisplay(bundle.level, lang);
+              const isPremium = bundle.access_level === 'premium';
 
               return (
                 <Link
@@ -181,8 +183,16 @@ export default function BundleCategoriesSection({
                   </div>
 
                   <div className="p-5 sm:p-6">
-                    <div className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${style.badge} ${style.text}`}>
-                      {getCategoryName(bundle, lang)}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${style.badge} ${style.text}`}>
+                        {getCategoryName(bundle, lang)}
+                      </div>
+                      {isPremium && (
+                        <div className="inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
+                          <Lock className="h-3 w-3" />
+                          Premium
+                        </div>
+                      )}
                     </div>
                     <h3 className="mt-4 break-words text-xl font-bold leading-snug text-[#1D1D1D] dark:text-zinc-100 sm:text-2xl">
                       {title}

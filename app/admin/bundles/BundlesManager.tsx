@@ -19,6 +19,7 @@ export interface Bundle {
   level: number;
   thumbnail_url: string | null;
   is_published: boolean;
+  access_level?: 'free' | 'premium' | null;
   created_at: string;
   updated_at: string;
   bundle_category?: {
@@ -192,8 +193,11 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                   <div className="flex items-center justify-between pt-6 border-t border-gray-50 dark:border-gray-800">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${bundle.is_published ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'}`} />
-                      <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                        {bundle.is_published ? '공개 중' : '비공개'}
+                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
+                      {bundle.is_published ? '공개 중' : '비공개'}
+                    </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${bundle.access_level === 'premium' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
+                        {bundle.access_level === 'premium' ? '유료' : '무료'}
                       </span>
                     </div>
                     <span className="text-xs text-gray-300 dark:text-gray-600">

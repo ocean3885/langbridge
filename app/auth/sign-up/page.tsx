@@ -1,10 +1,13 @@
 import { SignUpForm } from "@/components/auth/sign-up-form";
+import { getDisplayLanguage } from "@/lib/auth/app-user";
 
-export default function Page() {
+export default async function Page() {
+  const language = await getDisplayLanguage();
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
-        <SignUpForm />
+        <SignUpForm language={language} />
       </div>
     </div>
   );

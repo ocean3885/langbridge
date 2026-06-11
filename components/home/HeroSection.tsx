@@ -118,7 +118,7 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-6">
             <Link
-              href="/bundles"
+              href="/learn"
               className="w-full sm:w-auto px-8 py-4 bg-[#E27D60] hover:bg-[#c96a4f] text-white hover:text-orange-100 text-lg font-bold rounded-[1.25rem] flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               {t.primaryCta}

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthUserPassword } from '@/lib/supabase/services/auth-users';
+import { upsertAuthUserMirror } from '@/lib/supabase/services/auth-users';
 import { upsertUserProfile } from '@/lib/supabase/services/user-profiles';
-
-const SESSION_COOKIE = 'lb_user_id';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,33 +13,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이메일과 비밀번호를 입력하세요.' }, { status: 400 });
     }
 
-    const user = await verifyAuthUserPassword({ email, password });
-    if (!user) {
+    const supabase = await createClient();
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError || !authData.user) {
+      console.error('Supabase Auth login failed:', authError?.message);
       return NextResponse.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
     }
 
     await upsertUserProfile({
-      id: user.id,
-      email: user.email,
-      createdAt: user.created_at,
+      id: authData.user.id,
+      email: authData.user.email || email,
+      createdAt: authData.user.created_at,
     });
 
-    const response = NextResponse.json({
+    await upsertAuthUserMirror({
+      id: authData.user.id,
+      email: authData.user.email || email,
+      createdAt: authData.user.created_at,
+    });
+
+    return NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email },
+      user: { id: authData.user.id, email: authData.user.email || email },
     });
-
-    response.cookies.set(SESSION_COOKIE, user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    return response;
   } catch (error) {
-    console.error('SQLite login error:', error);
+    console.error('Supabase Auth login error:', error);
     return NextResponse.json({ error: '로그인 처리 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

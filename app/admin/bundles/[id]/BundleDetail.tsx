@@ -110,6 +110,7 @@ export default function BundleDetail({
     description_en: initialBundle.description_en || '',
     level: initialBundle.level,
     is_published: initialBundle.is_published,
+    access_level: (initialBundle.access_level || 'free') as 'free' | 'premium',
     category_id: initialBundle.category_id,
     type_id: initialBundle.type_id,
     thumbnail_url: initialBundle.thumbnail_url || ''
@@ -205,6 +206,7 @@ export default function BundleDetail({
       description_en: bundle.description_en || '',
       level: bundle.level,
       is_published: bundle.is_published,
+      access_level: (bundle.access_level || 'free') as 'free' | 'premium',
       category_id: bundle.category_id,
       type_id: bundle.type_id,
       thumbnail_url: bundle.thumbnail_url || ''
@@ -583,6 +585,29 @@ export default function BundleDetail({
                     </label>
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">접근 등급</label>
+                  <div className="flex items-center gap-6 py-2 ml-1">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        checked={editForm.access_level === 'free'}
+                        onChange={() => setEditForm({...editForm, access_level: 'free'})}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-emerald-600 transition-colors">무료</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        checked={editForm.access_level === 'premium'}
+                        onChange={() => setEditForm({...editForm, access_level: 'premium'})}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400 group-hover:text-orange-600 transition-colors">유료</span>
+                    </label>
+                  </div>
+                </div>
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-bold text-gray-700 ml-1">썸네일 이미지</label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1">
@@ -674,6 +699,9 @@ export default function BundleDetail({
                       비공개
                     </span>
                   )}
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${bundle.access_level === 'premium' ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>
+                    {bundle.access_level === 'premium' ? '유료' : '무료'}
+                  </span>
                 </div>
                 
                 <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">{bundle.title}</h1>

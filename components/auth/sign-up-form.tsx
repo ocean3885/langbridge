@@ -14,10 +14,45 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
 
+type DisplayLanguage = 'ko' | 'en';
+
+const copy = {
+  ko: {
+    title: '회원가입',
+    description: '새 계정을 만드세요.',
+    email: '이메일',
+    password: '비밀번호',
+    repeatPassword: '비밀번호 확인',
+    passwordMismatch: '비밀번호가 일치하지 않습니다.',
+    fallbackError: '오류가 발생했습니다.',
+    signUpFailed: '회원가입에 실패했습니다.',
+    creating: '계정 생성 중...',
+    signUp: '회원가입',
+    hasAccount: '이미 계정이 있으신가요?',
+    login: '로그인',
+  },
+  en: {
+    title: 'Sign up',
+    description: 'Create a new account.',
+    email: 'Email',
+    password: 'Password',
+    repeatPassword: 'Repeat Password',
+    passwordMismatch: 'Passwords do not match',
+    fallbackError: 'An error occurred',
+    signUpFailed: 'Sign up failed.',
+    creating: 'Creating an account...',
+    signUp: 'Sign up',
+    hasAccount: 'Already have an account?',
+    login: 'Login',
+  },
+};
+
 export function SignUpForm({
   className,
+  language = 'en',
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & { language?: DisplayLanguage }) {
+  const t = copy[language];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
@@ -30,7 +65,7 @@ export function SignUpForm({
     setError(null);
 
     if (password !== repeatPassword) {
-      setError("Passwords do not match");
+      setError(t.passwordMismatch);
       setIsLoading(false);
       return;
     }
@@ -44,12 +79,12 @@ export function SignUpForm({
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result?.error || '회원가입에 실패했습니다.');
+        throw new Error(result?.error || t.signUpFailed);
       }
 
       window.location.href = '/';
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(error instanceof Error ? error.message : t.fallbackError);
     } finally {
       setIsLoading(false);
     }
@@ -59,14 +94,14 @@ export function SignUpForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+          <CardTitle className="text-2xl">{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t.email}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -78,7 +113,7 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t.password}</Label>
                 </div>
                 <Input
                   id="password"
@@ -90,7 +125,7 @@ export function SignUpForm({
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="repeat-password">Repeat Password</Label>
+                  <Label htmlFor="repeat-password">{t.repeatPassword}</Label>
                 </div>
                 <Input
                   id="repeat-password"
@@ -102,13 +137,13 @@ export function SignUpForm({
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating an account..." : "Sign up"}
+                {isLoading ? t.creating : t.signUp}
               </Button>
             </div>
             <div className="mt-4 text-center text-sm">
-              Already have an account?{" "}
+              {t.hasAccount}{" "}
               <Link href="/auth/login" className="underline underline-offset-4">
-                Login
+                {t.login}
               </Link>
             </div>
           </form>

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState, useTransition } from 'react';
+import { Star } from 'lucide-react';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
 
 type DisplayLanguage = 'ko' | 'en';
@@ -38,6 +39,43 @@ const previewGoalSummary: LearningGoalSummary = {
   dailyGoalCount: 20,
   progressPercent: 80,
   goalMet: false,
+};
+
+const previewCopy = {
+  ko: {
+    learnedTitle: '최근 학습한 단어',
+    review: '복습하기',
+    progressTitle: '학습 추이',
+    progressRows: [
+      ['획득한 별', '42'],
+      ['완료한 문장', '128'],
+      ['정답률', '86%'],
+    ],
+    words: [
+      ['pedir', '주문하다'],
+      ['delicioso', '맛있는'],
+      ['el menu', '메뉴'],
+      ['la cuenta', '계산서'],
+      ['gracias', '고마워요'],
+    ],
+  },
+  en: {
+    learnedTitle: 'Recently Learned',
+    review: 'Review',
+    progressTitle: 'Progress',
+    progressRows: [
+      ['Earned Stars', '42'],
+      ['Sentences Completed', '128'],
+      ['Practice Accuracy', '86%'],
+    ],
+    words: [
+      ['pedir', 'to order'],
+      ['delicioso', 'delicious'],
+      ['el menu', 'the menu'],
+      ['la cuenta', 'the bill'],
+      ['gracias', 'thank you'],
+    ],
+  },
 };
 
 export function GoalCard({
@@ -181,40 +219,50 @@ export function GoalCard({
   );
 }
 
-export function MiniListCard() {
+export function MiniListCard({ language = 'en' }: { language?: DisplayLanguage }) {
+  const t = previewCopy[language];
+
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-      <h3 className="mb-4 font-bold">Recently Learned</h3>
-      {[
-        ['pedir', 'to order'],
-        ['delicioso', 'delicious'],
-        ['el menu', 'the menu'],
-      ].map(([word, meaning]) => (
+      <h3 className="mb-4 font-bold">{t.learnedTitle}</h3>
+      {t.words.map(([word, meaning]) => (
         <div key={word} className="flex items-center justify-between py-2 text-sm">
           <strong>{word}</strong>
           <span className="text-zinc-500 dark:text-zinc-400">{meaning}</span>
         </div>
       ))}
-      <button className="mt-4 w-full rounded-lg border border-zinc-200 py-2 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">Review</button>
+      <button className="mt-4 w-full rounded-lg border border-zinc-200 py-2 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+        {t.review}
+      </button>
     </div>
   );
 }
 
-export function ProgressChartCard() {
-  const bars = [18, 24, 22, 33, 50, 72, 78];
+export function ProgressChartCard({ language = 'en' }: { language?: DisplayLanguage }) {
+  const t = previewCopy[language];
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-      <div className="mb-5 flex items-center justify-between">
-        <h3 className="font-bold">Progress</h3>
-        <span className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">This Week</span>
+    <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
+      <div className="mb-5">
+        <h3 className={`${language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold'} text-xl`}>
+          {t.progressTitle}
+        </h3>
       </div>
-      <div className="flex h-36 items-end gap-2 border-b border-l border-zinc-100 pl-2 dark:border-zinc-800">
-        {bars.map((bar, index) => (
-          <div key={index} className="flex flex-1 items-end">
-            <div className="w-full rounded-t bg-[#9cc99b]" style={{ height: `${bar}%` }} />
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {t.progressRows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between py-3 text-sm">
+            <span className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              {label === t.progressRows[0][0] && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+              {label}
+            </span>
+            <strong>{value}</strong>
           </div>
         ))}
+      </div>
+      <div className="mt-5 rounded-lg bg-[#f5f8f1] px-3 py-2 text-xs font-medium text-[#5f7f56] dark:bg-zinc-800 dark:text-emerald-200">
+        {language === 'ko'
+          ? '가입 후 학습 기록이 쌓이면 이 수치들이 자동으로 업데이트됩니다.'
+          : 'These numbers update automatically as you learn after signing up.'}
       </div>
     </div>
   );

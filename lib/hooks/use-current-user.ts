@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 type CurrentUser = {
   id: string;
   email: string | null;
-  source: 'supabase' | 'sqlite';
+  source: 'supabase';
   createdAt: string | null;
 };
 

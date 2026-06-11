@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Clock, Play, ArrowRight, FileText } from 'lucide-react';
+import { Clock, Play, ArrowRight, FileText, Lock } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import type { BundleRow, Language } from '../types';
 import {
@@ -30,6 +30,7 @@ export function BundleRowCard({
   const lessonsCount = bundleItemCount(bundle);
   const duration = getDurationDisplay(lessonsCount, language);
   const categoryName = getCategoryName(bundle, language);
+  const isPremium = bundle.access_level === 'premium';
 
   return (
     <div className="group flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:items-center">
@@ -49,10 +50,16 @@ export function BundleRowCard({
       <div className="flex flex-1 flex-col justify-between self-stretch py-1">
         <div>
           {/* Category Tag */}
-          <div className="flex items-center">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${categoryStyle.color} ${categoryStyle.iconColor}`}>
               {categoryName}
             </span>
+            {isPremium && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
+                <Lock className="h-3 w-3" />
+                Premium
+              </span>
+            )}
           </div>
 
           {/* Title */}

@@ -46,7 +46,6 @@ export async function updateSession(request: NextRequest) {
   // with the Supabase client, your users may be randomly logged out.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
-  const sqliteSessionUserId = request.cookies.get('lb_user_id')?.value;
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
 
   if (isApiRoute) {
@@ -60,7 +59,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // 로그인이 필요한 경로이고 사용자가 없으면 로그인 페이지로 리다이렉트
-  if (!isPublicPath && !user && !sqliteSessionUserId) {
+  if (!isPublicPath && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set('redirectTo', request.nextUrl.pathname);
