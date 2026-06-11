@@ -15,15 +15,17 @@ export default async function LearnPage() {
   if (!user) return <AnonymousLearnPage language={language} />;
 
   const name = user.email?.split('@')[0] || 'Learner';
-  const [recentBundle, streakSummary, goalSummary, progressSummary, recommendedBundles, activeBundles, reviewNeededSummary] = await Promise.all([
+  const [recentBundle, streakSummary, goalSummary, progressSummary, activeBundles, reviewNeededSummary] = await Promise.all([
     getRecentStudiedBundle(user.id),
     getLearningStreakSummary(user.id),
     getTodayLearningGoalSummary(user.id),
     getLearningProgressSummary(user.id),
-    getRecommendedUnstudiedBundles(user.id, 3),
     getActiveLearningBundles(user.id),
     getReviewNeededSummary(user.id),
   ]);
+  const recommendedBundleLimit = !recentBundle && activeBundles.length === 0 ? 6 : 3;
+  const recommendedBundles = await getRecommendedUnstudiedBundles(user.id, recommendedBundleLimit);
+
   return (
     <LoggedInLearnPage
       name={toDisplayName(name)}

@@ -16,6 +16,8 @@ const copy = {
     collapse: '접기',
     continue: '계속하기',
     completedItems: (completed: number, total: number) => `${completed} / ${total} 완료`,
+    emptyTitle: '진행 중인 번들이 없습니다',
+    emptyDescription: '관심 있는 번들을 선택하고 학습을 시작하면 여기에 표시됩니다.',
     fallbackCategory: '학습 번들',
     fallbackTitle: '제목 없는 번들',
     today: '오늘',
@@ -29,6 +31,8 @@ const copy = {
     collapse: 'Collapse',
     continue: 'Continue',
     completedItems: (completed: number, total: number) => `${completed} of ${total} completed`,
+    emptyTitle: 'No active bundles yet',
+    emptyDescription: 'Start learning from a bundle and it will appear here.',
     fallbackCategory: 'Learning Bundle',
     fallbackTitle: 'Untitled Bundle',
     today: 'Today',
@@ -60,10 +64,6 @@ export function ActiveBundlesSection({
   );
   const hasMore = displayBundles.length > PREVIEW_COUNT;
 
-  if (displayBundles.length === 0) {
-    return null;
-  }
-
   return (
     <section>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -83,13 +83,20 @@ export function ActiveBundlesSection({
         )}
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {visibleBundles.map((item) => (
-            <ActiveBundleRow key={item.interaction.id} item={item} language={language} />
-          ))}
+      {displayBundles.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-dashed border-zinc-300 bg-white p-7 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-black/20">
+          <h3 className={`${getDisplayHeadingClass(language)} text-xl`}>{t.emptyTitle}</h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{t.emptyDescription}</p>
         </div>
-      </div>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {visibleBundles.map((item) => (
+              <ActiveBundleRow key={item.interaction.id} item={item} language={language} />
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

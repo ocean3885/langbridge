@@ -9,7 +9,7 @@ import {
   getBundleTitle,
   getCategoryName,
   bundleItemCount,
-  getDurationDisplay,
+  estimateBundleMinutes,
 } from '../bundle-utils';
 
 export function BundleRowCard({
@@ -28,7 +28,8 @@ export function BundleRowCard({
   const image = getBundleImage(bundle, 0);
   const level = getBundleLevelDisplay(bundle.level, language);
   const lessonsCount = bundleItemCount(bundle);
-  const duration = getDurationDisplay(lessonsCount, language);
+  const duration = `${estimateBundleMinutes(lessonsCount)} min`;
+  const itemLabel = language === 'ko' ? '항목' : 'items';
   const categoryName = getCategoryName(bundle, language);
   const isPremium = bundle.access_level === 'premium';
 
@@ -77,7 +78,7 @@ export function BundleRowCard({
         <div className="mt-4 flex flex-wrap items-center gap-6 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-zinc-400" />
-            <span>{lessonsCount} Lessons</span>
+            <span>{lessonsCount} {itemLabel}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex h-4 w-4 items-center justify-center text-zinc-400">

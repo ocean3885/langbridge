@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpen,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Home,
   Lock,
@@ -41,6 +40,12 @@ interface CategoryBundlesPageProps {
   params: Promise<{
     categorySlug: string;
   }>;
+  searchParams?: Promise<{
+    q?: string | string[];
+    level?: string | string[];
+    status?: string | string[];
+    sort?: string | string[];
+  }>;
 }
 
 const pageCopy = {
@@ -48,15 +53,22 @@ const pageCopy = {
     home: '홈',
     filters: ['전체', 'A1', 'A2', '진행 중', '시작 전', '완료'],
     level: '레벨',
-    duration: '소요 시간',
     status: '상태',
+    allLevels: '모든 레벨',
+    allStatuses: '모든 상태',
+    apply: '적용',
     newest: '최신순',
+    oldest: '오래된순',
+    shortest: '짧은순',
+    longest: '긴 순',
     new: '신규',
     inProgress: '진행 중',
     notStarted: '시작 전',
     completed: '완료',
     preview: '미리보기',
     searchPrefix: '검색',
+    noResultsTitle: '조건에 맞는 번들이 없습니다',
+    noResultsDesc: '검색어나 필터를 조금 넓혀보세요.',
     noBundlesTitle: '아직 공개된 번들이 없습니다',
     noBundlesDesc: '이 카테고리의 새 번들을 준비하고 있어요.',
     quizTitle: '어디서 시작할지 고민되나요?',
@@ -68,15 +80,22 @@ const pageCopy = {
     home: 'Home',
     filters: ['All', 'A1', 'A2', 'In Progress', 'Not Started', 'Completed'],
     level: 'Level',
-    duration: 'Duration',
     status: 'Status',
+    allLevels: 'All levels',
+    allStatuses: 'All statuses',
+    apply: 'Apply',
     newest: 'Newest',
+    oldest: 'Oldest',
+    shortest: 'Shortest',
+    longest: 'Longest',
     new: 'New',
     inProgress: 'In Progress',
     notStarted: 'Not Started',
     completed: 'Completed',
     preview: 'Preview',
     searchPrefix: 'Search',
+    noResultsTitle: 'No bundles match your filters',
+    noResultsDesc: 'Try broadening your search or filters.',
     noBundlesTitle: 'No published bundles yet',
     noBundlesDesc: 'New bundles for this category are being prepared.',
     quizTitle: 'Not sure where to start?',
@@ -85,6 +104,17 @@ const pageCopy = {
     quizTime: 'It only takes 2 minutes!',
   },
 } satisfies Record<Language, Record<string, string | string[]>>;
+
+const FILTER_SECTION_ID = 'bundle-filters';
+
+type BundleProgressStatus = 'inProgress' | 'notStarted' | 'completed';
+type FilterStatusValue = 'in_progress' | 'not_started' | 'completed';
+
+type BundleWithStatus = {
+  bundle: BundleRow;
+  statusKey: BundleProgressStatus;
+  badge: BundleStatusBadge;
+};
 
 type BundleStatusBadge = {
   label: string;
@@ -133,6 +163,20 @@ function getBundleStatusBadge({
   }
 
   return getStatusBadge('notStarted', language);
+}
+
+function getBundleProgressStatus(interaction?: UserBundleInteraction): BundleProgressStatus {
+  const progressRatio = Number(interaction?.progress_ratio || 0);
+
+  if (interaction?.is_completed || progressRatio >= 1) {
+    return 'completed';
+  }
+
+  if (interaction?.is_started || progressRatio > 0) {
+    return 'inProgress';
+  }
+
+  return 'notStarted';
 }
 
 function levelLabel(bundle: BundleRow, language: Language) {
@@ -205,17 +249,181 @@ function CategoryBundleCard({
   );
 }
 
-function SelectButton({ children }: { children: React.ReactNode }) {
+function FilterSelect({
+  label,
+  name,
+  value,
+  options,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+}) {
   return (
-    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-[#1f1b18] shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:shadow-black/20 dark:hover:bg-zinc-800">
-      {children}
-      <ChevronDown className="h-4 w-4" />
-    </button>
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <select
+        name={name}
+        defaultValue={value}
+        className="h-11 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold text-[#1f1b18] shadow-sm outline-none transition hover:bg-zinc-50 focus:border-[#8dbd8f] focus:ring-2 focus:ring-[#dff1e5] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:shadow-black/20 dark:hover:bg-zinc-800 dark:focus:border-emerald-700 dark:focus:ring-emerald-950 sm:w-auto"
+      >
+        {options.map((option) => (
+          <option key={option.value || option.label} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
-export default async function CategoryBundlesPage({ params }: CategoryBundlesPageProps) {
+function getQueryValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] || '';
+  return value || '';
+}
+
+function toStatusQueryValue(status: BundleProgressStatus): FilterStatusValue {
+  if (status === 'inProgress') return 'in_progress';
+  if (status === 'completed') return 'completed';
+  return 'not_started';
+}
+
+function filterAndSortBundles({
+  bundles,
+  interactionByBundleId,
+  language,
+  newestBundleId,
+  query,
+  selectedLevel,
+  selectedStatus,
+  selectedSort,
+}: {
+  bundles: BundleRow[];
+  interactionByBundleId: Map<string, UserBundleInteraction>;
+  language: Language;
+  newestBundleId: string | null;
+  query: string;
+  selectedLevel: string;
+  selectedStatus: string;
+  selectedSort: string;
+}): BundleWithStatus[] {
+  const normalizedQuery = query.toLowerCase();
+
+  const result = bundles
+    .map((bundle) => {
+      const interaction = interactionByBundleId.get(bundle.id);
+
+      return {
+        bundle,
+        statusKey: getBundleProgressStatus(interaction),
+        badge: getBundleStatusBadge({ bundle, interaction, language, newestBundleId }),
+      };
+    })
+    .filter((entry) => {
+      if (!normalizedQuery) return true;
+
+      const title = getBundleTitle(entry.bundle, language).toLowerCase();
+      const description = getBundleDescription(entry.bundle, language).toLowerCase();
+      return title.includes(normalizedQuery) || description.includes(normalizedQuery);
+    })
+    .filter((entry) => {
+      if (!selectedLevel) return true;
+      return String(getBundleLevelDisplay(entry.bundle.level, language).value) === selectedLevel;
+    })
+    .filter((entry) => {
+      if (!selectedStatus) return true;
+      return toStatusQueryValue(entry.statusKey) === selectedStatus;
+    });
+
+  return result.sort((a, b) => {
+    if (selectedSort === 'oldest') {
+      return getBundleTime(a.bundle) - getBundleTime(b.bundle);
+    }
+    if (selectedSort === 'shortest') {
+      return estimateBundleMinutesForBundle(a.bundle) - estimateBundleMinutesForBundle(b.bundle);
+    }
+    if (selectedSort === 'longest') {
+      return estimateBundleMinutesForBundle(b.bundle) - estimateBundleMinutesForBundle(a.bundle);
+    }
+
+    return getBundleTime(b.bundle) - getBundleTime(a.bundle);
+  });
+}
+
+function getBundleTime(bundle: BundleRow) {
+  const time = bundle.created_at ? new Date(bundle.created_at).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function getQuickFilters(labels: string[], selectedLevel: string, selectedStatus: string) {
+  return [
+    {
+      label: labels[0],
+      level: '',
+      status: '',
+      active: !selectedLevel && !selectedStatus,
+    },
+    {
+      label: labels[1],
+      level: '2',
+      status: '',
+      active: selectedLevel === '2',
+    },
+    {
+      label: labels[2],
+      level: '3',
+      status: '',
+      active: selectedLevel === '3',
+    },
+    {
+      label: labels[3],
+      level: '',
+      status: 'in_progress',
+      active: selectedStatus === 'in_progress',
+    },
+    {
+      label: labels[4],
+      level: '',
+      status: 'not_started',
+      active: selectedStatus === 'not_started',
+    },
+    {
+      label: labels[5],
+      level: '',
+      status: 'completed',
+      active: selectedStatus === 'completed',
+    },
+  ];
+}
+
+function buildFilterHref(
+  category: BundleCategoryRow,
+  language: Language,
+  values: {
+    q: string;
+    level: string;
+    status: string;
+    sort: string;
+  },
+) {
+  const params = new URLSearchParams();
+  if (values.q) params.set('q', values.q);
+  if (values.level) params.set('level', values.level);
+  if (values.status) params.set('status', values.status);
+  if (values.sort && values.sort !== 'newest') params.set('sort', values.sort);
+
+  const query = params.toString();
+  return `${getCategoryHref(category, language)}${query ? `?${query}` : ''}#${FILTER_SECTION_ID}`;
+}
+
+export default async function CategoryBundlesPage({ params, searchParams }: CategoryBundlesPageProps) {
   const { categorySlug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const query = getQueryValue(resolvedSearchParams?.q).trim();
+  const selectedLevel = getQueryValue(resolvedSearchParams?.level);
+  const selectedStatus = getQueryValue(resolvedSearchParams?.status);
+  const selectedSort = getQueryValue(resolvedSearchParams?.sort) || 'newest';
   const [allBundles, categories, language, user] = await Promise.all([
     listBundles(),
     listCategories(),
@@ -237,19 +445,24 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
   const categoryBundles = (allBundles as BundleRow[])
     .filter((bundle) => bundle.is_published)
     .filter((bundle) => getCategoryKey(bundle.bundle_category) === categoryKey);
-  const featuredBundle = categoryBundles[0] ?? null;
-  const gridBundles = featuredBundle ? categoryBundles.slice(1) : categoryBundles;
   const newestBundleId = categoryBundles[0]?.id ?? null;
   const bundleInteractions = await listUserBundleInteractionsForBundles(user?.id, categoryBundles.map((bundle) => bundle.id));
   const interactionByBundleId = new Map(bundleInteractions.map((interaction) => [interaction.bundle_id, interaction]));
-  const featuredStatus = featuredBundle
-    ? getBundleStatusBadge({
-        bundle: featuredBundle,
-        interaction: interactionByBundleId.get(featuredBundle.id),
-        language,
-        newestBundleId,
-      })
-    : null;
+  const filteredBundleEntries = filterAndSortBundles({
+    bundles: categoryBundles,
+    interactionByBundleId,
+    language,
+    newestBundleId,
+    query,
+    selectedLevel,
+    selectedStatus,
+    selectedSort,
+  });
+  const featuredEntry = filteredBundleEntries[0] ?? null;
+  const featuredBundle = featuredEntry?.bundle ?? null;
+  const gridEntries = featuredEntry ? filteredBundleEntries.slice(1) : filteredBundleEntries;
+  const hasCategoryBundles = categoryBundles.length > 0;
+  const hasFilteredResults = filteredBundleEntries.length > 0;
   const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/heroimg_land.jpg');
   const minutesRange = getBundleMinutesRange(categoryBundles);
   const minutesRangeLabel = minutesRange
@@ -334,66 +547,106 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
         </nav>
       </div>
 
-      <div className="border-y border-zinc-200 bg-background dark:border-zinc-800">
+      <div id={FILTER_SECTION_ID} className="scroll-mt-4 border-y border-zinc-200 bg-background dark:border-zinc-800">
         <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <form action={`${getCategoryHref(category, language)}#${FILTER_SECTION_ID}`} className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative block w-full lg:max-w-[420px]">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
               <input
+                name="q"
+                defaultValue={query}
                 className="h-12 w-full rounded-xl border border-zinc-200 bg-white pl-12 pr-4 text-sm shadow-sm outline-none placeholder:text-zinc-500 focus:border-[#8dbd8f] focus:ring-2 focus:ring-[#dff1e5] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:shadow-black/20 dark:placeholder:text-zinc-500 dark:focus:border-emerald-700 dark:focus:ring-emerald-950"
                 placeholder={`${localCopy.searchPrefix as string} ${categoryTitle} bundles...`}
               />
             </label>
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-end">
-              <SelectButton>{localCopy.level as string}</SelectButton>
-              <SelectButton>{localCopy.duration as string}</SelectButton>
-              <SelectButton>{localCopy.status as string}</SelectButton>
-              <SelectButton>
+              <FilterSelect
+                label={localCopy.level as string}
+                name="level"
+                value={selectedLevel}
+                options={[
+                  { label: localCopy.allLevels as string, value: '' },
+                  { label: 'Beginner', value: '1' },
+                  { label: 'A1', value: '2' },
+                  { label: 'A2', value: '3' },
+                  { label: 'B1', value: '4' },
+                  { label: 'B2', value: '5' },
+                  { label: 'C1', value: '6' },
+                  { label: 'C2', value: '7' },
+                ]}
+              />
+              <FilterSelect
+                label={localCopy.status as string}
+                name="status"
+                value={selectedStatus}
+                options={[
+                  { label: localCopy.allStatuses as string, value: '' },
+                  { label: localCopy.inProgress as string, value: 'in_progress' },
+                  { label: localCopy.notStarted as string, value: 'not_started' },
+                  { label: localCopy.completed as string, value: 'completed' },
+                ]}
+              />
+              <FilterSelect
+                label={localCopy.newest as string}
+                name="sort"
+                value={selectedSort}
+                options={[
+                  { label: localCopy.newest as string, value: 'newest' },
+                  { label: localCopy.oldest as string, value: 'oldest' },
+                  { label: localCopy.shortest as string, value: 'shortest' },
+                  { label: localCopy.longest as string, value: 'longest' },
+                ]}
+              />
+              <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#57985a] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a] sm:w-auto">
                 <SlidersHorizontal className="h-4 w-4" />
-                {localCopy.newest as string}
-              </SelectButton>
+                {localCopy.apply as string}
+              </button>
             </div>
-          </div>
+          </form>
 
           <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {(localCopy.filters as string[]).map((filter, index) => (
-                <button
-                  key={filter}
+              {getQuickFilters(localCopy.filters as string[], selectedLevel, selectedStatus).map((filter) => (
+                <Link
+                  key={filter.label}
+                  href={buildFilterHref(category, language, {
+                    q: query,
+                    level: filter.level,
+                    status: filter.status,
+                    sort: selectedSort,
+                  })}
                   className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    index === 0
+                    filter.active
                       ? 'border-[#dff1e5] bg-[#dff1e5] text-[#2f7d4a] dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                       : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
-                  {filter}
-                </button>
+                  {filter.label}
+                </Link>
               ))}
             </div>
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              {categoryBundles.length} {copy.bundles}
+              {filteredBundleEntries.length} / {categoryBundles.length} {copy.bundles}
             </p>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {featuredBundle ? (
+        {featuredEntry ? (
           <section className="grid gap-6 overflow-hidden rounded-lg border border-[#f4c89c] bg-[#fffaf1] p-3 shadow-sm dark:border-orange-900/70 dark:bg-zinc-900 dark:shadow-black/20 md:grid-cols-[320px_1fr_auto] md:items-center md:p-4 lg:grid-cols-[340px_1fr_210px]">
-            <Link href={`/bundles/${featuredBundle.id}`} className="relative aspect-[2/1] overflow-hidden rounded-md bg-[#f3ede3] dark:bg-zinc-800">
+            <Link href={`/bundles/${featuredEntry.bundle.id}`} className="relative aspect-[2/1] overflow-hidden rounded-md bg-[#f3ede3] dark:bg-zinc-800">
               <Image
-                src={getBundleImage(featuredBundle, 0)}
-                alt={getBundleTitle(featuredBundle, language)}
+                src={getBundleImage(featuredEntry.bundle, 0)}
+                alt={getBundleTitle(featuredEntry.bundle, language)}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 92vw, 340px"
               />
-              {featuredStatus && (
-                <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredStatus.className}`}>
-                  {featuredStatus.label}
-                </span>
-              )}
-              {featuredBundle.access_level === 'premium' && (
+              <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredEntry.badge.className}`}>
+                {featuredEntry.badge.label}
+              </span>
+              {featuredEntry.bundle.access_level === 'premium' && (
                 <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] shadow-sm dark:bg-orange-950/60 dark:text-orange-200">
                   <Lock className="h-3 w-3" />
                   Premium
@@ -401,33 +654,38 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
               )}
             </Link>
             <div className="px-1 md:px-0">
-              <h2 className={`${getDisplayFontClass(getBundleTitle(featuredBundle, language))} text-2xl font-bold leading-tight sm:text-3xl`}>
-                {getBundleTitle(featuredBundle, language)}
+              <h2 className={`${getDisplayFontClass(getBundleTitle(featuredEntry.bundle, language))} text-2xl font-bold leading-tight sm:text-3xl`}>
+                {getBundleTitle(featuredEntry.bundle, language)}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-700 dark:text-zinc-300">
-                {getBundleDescription(featuredBundle, language)}
+                {getBundleDescription(featuredEntry.bundle, language)}
               </p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#735b31] dark:text-amber-300">
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{levelLabel(featuredBundle, language)}</span>
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{bundleItemCount(featuredBundle)} {copy.items}</span>
-                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{estimateBundleMinutesForBundle(featuredBundle)} {copy.minutes}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{levelLabel(featuredEntry.bundle, language)}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{bundleItemCount(featuredEntry.bundle)} {copy.items}</span>
+                <span className="rounded-full bg-[#fff0c8] px-3 py-1 dark:bg-amber-950/70">{estimateBundleMinutesForBundle(featuredEntry.bundle)} {copy.minutes}</span>
               </div>
             </div>
             <div className="flex flex-col gap-3 md:px-2">
               <Link
-                href={`/bundles/${featuredBundle.id}/learn`}
+                href={`/bundles/${featuredEntry.bundle.id}/learn`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#57985a] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#477f4a] dark:bg-emerald-600 dark:hover:bg-emerald-500"
               >
                 {copy.start}
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href={`/bundles/${featuredBundle.id}`}
+                href={`/bundles/${featuredEntry.bundle.id}`}
                 className="inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-[#1f1b18] transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
               >
                 {localCopy.preview as string}
               </Link>
             </div>
+          </section>
+        ) : hasCategoryBundles && !hasFilteredResults ? (
+          <section className="rounded-lg border border-zinc-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
+            <h2 className="text-xl font-bold">{localCopy.noResultsTitle as string}</h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{localCopy.noResultsDesc as string}</p>
           </section>
         ) : (
           <section className="rounded-lg border border-zinc-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
@@ -436,20 +694,15 @@ export default async function CategoryBundlesPage({ params }: CategoryBundlesPag
           </section>
         )}
 
-        {gridBundles.length > 0 && (
+        {gridEntries.length > 0 && (
           <section className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {gridBundles.map((bundle, index) => (
+            {gridEntries.map((entry, index) => (
               <CategoryBundleCard
-                key={bundle.id}
-                bundle={bundle}
+                key={entry.bundle.id}
+                bundle={entry.bundle}
                 index={index + 1}
                 language={language}
-                status={getBundleStatusBadge({
-                  bundle,
-                  interaction: interactionByBundleId.get(bundle.id),
-                  language,
-                  newestBundleId,
-                })}
+                status={entry.badge}
               />
             ))}
           </section>
