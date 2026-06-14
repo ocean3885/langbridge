@@ -11,6 +11,8 @@ interface CharacterAssetProps {
   className?: string;
   imageClassName?: string;
   priority?: boolean;
+  quality?: number;
+  unoptimized?: boolean;
 }
 
 export function CharacterAsset({
@@ -22,6 +24,8 @@ export function CharacterAsset({
   className,
   imageClassName,
   priority = false,
+  quality,
+  unoptimized = false,
 }: CharacterAssetProps) {
   const asset = characterAssets[name];
   const imageWidth = width ?? size;
@@ -38,6 +42,8 @@ export function CharacterAsset({
         width={imageWidth}
         height={imageHeight}
         priority={priority}
+        quality={quality}
+        unoptimized={unoptimized}
         className={cn('h-full w-full object-contain', imageClassName)}
       />
     </span>

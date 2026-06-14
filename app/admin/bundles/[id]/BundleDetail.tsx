@@ -87,7 +87,9 @@ export default function BundleDetail({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingBundleImage, setIsUploadingBundleImage] = useState(false);
   const pendingThumbnailUploadsRef = useRef<string[]>([]);
+  const pendingBundleImageUploadsRef = useRef<string[]>([]);
   
   // Selection Mode State
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -113,6 +115,7 @@ export default function BundleDetail({
     access_level: (initialBundle.access_level || 'free') as 'free' | 'premium',
     category_id: initialBundle.category_id,
     type_id: initialBundle.type_id,
+    image_url: initialBundle.image_url || '',
     thumbnail_url: initialBundle.thumbnail_url || ''
   });
 
@@ -196,8 +199,11 @@ export default function BundleDetail({
 
   const handleCancelEdit = async () => {
     const pendingUploads = pendingThumbnailUploadsRef.current;
+    const pendingBundleImageUploads = pendingBundleImageUploadsRef.current;
     pendingThumbnailUploadsRef.current = [];
+    pendingBundleImageUploadsRef.current = [];
     await deleteThumbnailUrls(pendingUploads);
+    await deleteThumbnailUrls(pendingBundleImageUploads);
 
     setEditForm({
       title: bundle.title,
@@ -209,6 +215,7 @@ export default function BundleDetail({
       access_level: (bundle.access_level || 'free') as 'free' | 'premium',
       category_id: bundle.category_id,
       type_id: bundle.type_id,
+      image_url: bundle.image_url || '',
       thumbnail_url: bundle.thumbnail_url || ''
     });
     setItemMappings(buildMappingsFromItems(currentItems));
@@ -293,12 +300,44 @@ export default function BundleDetail({
     }
   };
 
+  const handleBundleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingBundleImage(true);
+
+    try {
+      const compressedFile = await compressImageForUpload(file, { maxWidth: 1024 });
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+
+      const url = await uploadThumbnail(formData, `bundles/${bundle.id}/image`);
+      const previousPendingUpload = pendingBundleImageUploadsRef.current.find(uploadedUrl => uploadedUrl === editForm.image_url);
+
+      if (previousPendingUpload) {
+        pendingBundleImageUploadsRef.current = pendingBundleImageUploadsRef.current.filter(uploadedUrl => uploadedUrl !== previousPendingUpload);
+        await deleteThumbnailUrls([previousPendingUpload]);
+      }
+
+      pendingBundleImageUploadsRef.current = [...pendingBundleImageUploadsRef.current, url];
+      setEditForm(prev => ({ ...prev, image_url: url }));
+      e.target.value = '';
+    } catch (err: any) {
+      alert(err.message || '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploadingBundleImage(false);
+    }
+  };
+
   const handleUpdate = async () => {
     setIsLoading(true);
     try {
+      const previousBundleImageUrl = bundle.image_url || '';
+      const nextBundleImageUrl = editForm.image_url || '';
       const previousThumbnailUrl = bundle.thumbnail_url || '';
       const nextThumbnailUrl = editForm.thumbnail_url || '';
       const pendingUploads = pendingThumbnailUploadsRef.current;
+      const pendingBundleImageUploads = pendingBundleImageUploadsRef.current;
 
       // 1. 번들 기본 정보 업데이트
       const updated = await updateBundle(bundle.id, {
@@ -343,13 +382,21 @@ export default function BundleDetail({
       setItemMappings(buildMappingsFromItems(updatedItems));
 
       const stalePendingUploads = pendingUploads.filter(url => url !== nextThumbnailUrl);
+      const stalePendingBundleImageUploads = pendingBundleImageUploads.filter(url => url !== nextBundleImageUrl);
+      const shouldDeletePreviousBundleImage =
+        previousBundleImageUrl &&
+        previousBundleImageUrl !== nextBundleImageUrl &&
+        !pendingBundleImageUploads.includes(previousBundleImageUrl);
       const shouldDeletePreviousThumbnail =
         previousThumbnailUrl &&
         previousThumbnailUrl !== nextThumbnailUrl &&
         !pendingUploads.includes(previousThumbnailUrl);
 
       pendingThumbnailUploadsRef.current = [];
+      pendingBundleImageUploadsRef.current = [];
       await deleteThumbnailUrls([
+        ...stalePendingBundleImageUploads,
+        ...(shouldDeletePreviousBundleImage ? [previousBundleImageUrl] : []),
         ...stalePendingUploads,
         ...(shouldDeletePreviousThumbnail ? [previousThumbnailUrl] : [])
       ]);
@@ -653,6 +700,57 @@ export default function BundleDetail({
                           value={editForm.thumbnail_url}
                           onChange={(e) => setEditForm({...editForm, thumbnail_url: e.target.value})}
                           className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all font-mono text-xs text-gray-900 dark:text-gray-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-bold text-gray-700 ml-1">학습 플레이어 기본 이미지</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1">
+                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex items-center justify-center">
+                      {editForm.image_url ? (
+                        <img
+                          src={editForm.image_url}
+                          alt="Player default preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                      )}
+                      {isUploadingBundleImage && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-3">
+                      <div className="relative group">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleBundleImageFileChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl group-hover:border-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-900/20 transition-all">
+                          <UploadCloud className="w-6 h-6 text-gray-400 group-hover:text-emerald-500" />
+                          <span className="text-sm font-medium text-gray-500 group-hover:text-emerald-600">
+                            {isUploadingBundleImage ? '업로드 중...' : '플레이어 기본 이미지를 선택하세요'}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-medium text-gray-400">
+                        아이템별 이미지가 없을 때 학습 플레이어에 표시됩니다.
+                      </p>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">직접 URL 입력</span>
+                        <input
+                          type="text"
+                          placeholder="https://example.com/player-image.jpg"
+                          value={editForm.image_url}
+                          onChange={(e) => setEditForm({...editForm, image_url: e.target.value})}
+                          className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-900/20 focus:border-emerald-400 dark:focus:border-emerald-500 outline-none transition-all font-mono text-xs text-gray-900 dark:text-gray-100"
                         />
                       </div>
                     </div>

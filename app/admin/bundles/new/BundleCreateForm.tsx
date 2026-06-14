@@ -285,12 +285,14 @@ export default function BundleCreateForm({ userId }: Props) {
     level: 1,
     category_id: '',
     type_id: '',
+    image_url: '',
     thumbnail_url: '',
     access_level: 'free' as 'free' | 'premium',
     is_published: false
   });
   const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultSentenceTtsOptions);
   const [speakerTtsOptions, setSpeakerTtsOptions] = useState<SpeakerTtsOptions>({});
+  const [bundleImageFile, setBundleImageFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploadedImages, setUploadedImages] = useState<{file?: File, previewUrl: string, remoteUrl?: string}[]>([]);
   const [itemImageMappings, setItemImageMappings] = useState<(number | null)[]>([]);
@@ -465,7 +467,16 @@ export default function BundleCreateForm({ userId }: Props) {
   const saveDraft = async () => {
     setIsSaving(true);
     try {
-      // 1. Upload main thumbnail if pending
+      // 1. Upload bundle-level images if pending
+      let finalBundleImageUrl = bundleMeta.image_url;
+      if (bundleImageFile) {
+        const compressedFile = await compressImageForUpload(bundleImageFile, { maxWidth: 1024 });
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        finalBundleImageUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/image`);
+        setBundleImageFile(null);
+      }
+
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
         const compressedFile = await compressImageForUpload(thumbnailFile, { maxWidth: 768 });
@@ -504,7 +515,7 @@ export default function BundleCreateForm({ userId }: Props) {
         wordJsonItems: createWordJsonDraftItems(),
         autoWordResults,
         wordGenerationProvider,
-        bundleMeta: { ...bundleMeta, thumbnail_url: finalThumbnailUrl },
+        bundleMeta: { ...bundleMeta, image_url: finalBundleImageUrl, thumbnail_url: finalThumbnailUrl },
         sentenceTtsOptions,
         speakerTtsOptions,
         pendingBundleId,
@@ -513,7 +524,7 @@ export default function BundleCreateForm({ userId }: Props) {
       };
       
       const saved = await saveAdminDraft(userId, DRAFT_TYPE, draftData, currentDraftId || undefined);
-      setBundleMeta(prev => ({ ...prev, thumbnail_url: finalThumbnailUrl }));
+      setBundleMeta(prev => ({ ...prev, image_url: finalBundleImageUrl, thumbnail_url: finalThumbnailUrl }));
       setLastSaved(saved.updated_at);
       setCurrentDraftId(saved.id);
       alert('서버에 임시 저장되었습니다. (이미지 업로드 포함)');
@@ -574,6 +585,7 @@ export default function BundleCreateForm({ userId }: Props) {
         level: 1,
         category_id: '',
         type_id: '',
+        image_url: '',
         thumbnail_url: '',
         access_level: 'free' as 'free' | 'premium',
         is_published: false
@@ -630,7 +642,9 @@ export default function BundleCreateForm({ userId }: Props) {
         await deleteFilesInFolder(`bundles/${pendingId}`);
       } else if (!completedBundle) {
         const urls = new Set<string>();
+        const imageUrl = draftRecord.data?.bundleMeta?.image_url;
         const thumbnailUrl = draftRecord.data?.bundleMeta?.thumbnail_url;
+        if (imageUrl) urls.add(imageUrl);
         if (thumbnailUrl) urls.add(thumbnailUrl);
         if (Array.isArray(draftRecord.data?.savedImages)) {
           draftRecord.data.savedImages.forEach((url: string) => urls.add(url));
@@ -643,9 +657,10 @@ export default function BundleCreateForm({ userId }: Props) {
       if (currentDraftId === id) {
         setCurrentDraftId(null);
         setLastSaved(null);
+        setBundleImageFile(null);
         setThumbnailFile(null);
         setUploadedImages([]);
-        setBundleMeta(prev => ({ ...prev, thumbnail_url: '' }));
+        setBundleMeta(prev => ({ ...prev, image_url: '', thumbnail_url: '' }));
       }
       await fetchDraftsList();
     } catch (err: any) {
@@ -673,12 +688,14 @@ export default function BundleCreateForm({ userId }: Props) {
         level: 1,
         category_id: '',
         type_id: '',
+        image_url: '',
         thumbnail_url: '',
         access_level: 'free' as 'free' | 'premium',
         is_published: false
       });
       setSentenceTtsOptions(defaultSentenceTtsOptions);
       setSpeakerTtsOptions({});
+      setBundleImageFile(null);
       setThumbnailFile(null);
       setItemImageMappings([]);
       setLastSaved(null);
@@ -1070,7 +1087,15 @@ export default function BundleCreateForm({ userId }: Props) {
 
     setIsSubmitting(true);
     try {
-      // 1. Upload main thumbnail if pending
+      // 1. Upload bundle-level images if pending
+      let finalBundleImageUrl = bundleMeta.image_url;
+      if (bundleImageFile) {
+        const compressedFile = await compressImageForUpload(bundleImageFile, { maxWidth: 1024 });
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        finalBundleImageUrl = await uploadThumbnail(formData, `bundles/${pendingBundleId}/image`);
+      }
+
       let finalThumbnailUrl = bundleMeta.thumbnail_url;
       if (thumbnailFile) {
         const compressedFile = await compressImageForUpload(thumbnailFile, { maxWidth: 768 });
@@ -1122,7 +1147,7 @@ export default function BundleCreateForm({ userId }: Props) {
 
       // 4. Create bundle with items
       const bundle = await createBundleWithItems(
-        { ...bundleMeta, id: pendingBundleId, thumbnail_url: finalThumbnailUrl },
+        { ...bundleMeta, id: pendingBundleId, image_url: finalBundleImageUrl, thumbnail_url: finalThumbnailUrl },
         itemsToCreate,
         sentenceTtsOptions
       );
@@ -1564,6 +1589,74 @@ export default function BundleCreateForm({ userId }: Props) {
                       </label>
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-4 max-w-sm mx-auto">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex justify-center items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-emerald-500" />
+                    학습 플레이어 기본 이미지
+                  </label>
+                  <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-200 dark:border-gray-700 group hover:border-emerald-400 dark:hover:border-emerald-500 transition-all shadow-inner">
+                    {bundleMeta.image_url || bundleImageFile ? (
+                      <>
+                        <img
+                          src={bundleImageFile ? URL.createObjectURL(bundleImageFile) : bundleMeta.image_url}
+                          className="w-full h-full object-cover"
+                          alt="Bundle player default"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <label className="p-2 bg-white text-emerald-600 rounded-full cursor-pointer hover:bg-emerald-50 transition-colors shadow-lg">
+                            <ImagePlus className="w-5 h-5" />
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setBundleImageFile(file);
+                              }}
+                            />
+                          </label>
+                          <button
+                            onClick={() => {
+                              setBundleImageFile(null);
+                              setBundleMeta({...bundleMeta, image_url: ''});
+                            }}
+                            className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50 transition-colors shadow-lg"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer">
+                        <div className="w-12 h-12 bg-white dark:bg-gray-900 rounded-2xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <ImagePlus className="w-6 h-6 text-emerald-500" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-400">플레이어 이미지 업로드</span>
+                        <p className="text-[10px] text-gray-400 mt-1">아이템 이미지가 없을 때 학습 화면에 표시됩니다.</p>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setBundleImageFile(file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="https://example.com/player-image.jpg"
+                    value={bundleMeta.image_url}
+                    onChange={(e) => {
+                      setBundleImageFile(null);
+                      setBundleMeta({...bundleMeta, image_url: e.target.value});
+                    }}
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-900/20 focus:border-emerald-400 dark:focus:border-emerald-500 outline-none transition-all font-mono text-xs text-gray-900 dark:text-gray-100"
+                  />
                 </div>
 
                 {/* 2. Metadata Fields Section */}

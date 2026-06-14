@@ -17,6 +17,7 @@ export type BundleRow = {
   title_en?: string | null;
   description?: string | null;
   description_en?: string | null;
+  image_url?: string | null;
   thumbnail_url?: string | null;
   level?: number | null;
   created_at?: string;

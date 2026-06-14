@@ -11,6 +11,9 @@ import {
   deleteCategory,
 } from '@/lib/supabase/services/bundles';
 import { uploadThumbnail } from '@/lib/supabase/services/storage';
+import { compressImageForUpload } from '@/lib/image-compression';
+
+const CATEGORY_ICON_MAX_WIDTH = 500;
 
 interface Category {
   id: string;
@@ -119,10 +122,11 @@ export default function CategoryManagerModal({
     if (!file) return;
 
     setIsUploadingNewIcon(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      const compressedFile = await compressImageForUpload(file, { maxWidth: CATEGORY_ICON_MAX_WIDTH });
+      const formData = new FormData();
+      formData.append('file', compressedFile);
       const url = await uploadThumbnail(formData, 'bundle-categories');
       setNewCategory((prev) => ({ ...prev, icon_image_url: url }));
     } catch (err: any) {
@@ -138,10 +142,11 @@ export default function CategoryManagerModal({
     if (!file) return;
 
     setUploadingEditIconId(categoryId);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      const compressedFile = await compressImageForUpload(file, { maxWidth: CATEGORY_ICON_MAX_WIDTH });
+      const formData = new FormData();
+      formData.append('file', compressedFile);
       const url = await uploadThumbnail(formData, 'bundle-categories');
       setEditCategory((prev) => ({ ...prev, icon_image_url: url }));
     } catch (err: any) {

@@ -182,7 +182,7 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
 
       {selected && (
         <div className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${isCorrect ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
-          <CharacterAsset name={isCorrect ? 'correctbadge' : 'tryagainbadge'} alt="" size={64} className="sm:!h-20 sm:!w-20" />
+          <CharacterAsset name={isCorrect ? 'correctbadge' : 'tryagainbadge'} alt="" size={96} className="!h-16 !w-16 sm:!h-20 sm:!w-20" unoptimized />
           {isCorrect ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {isCorrect ? (
             <span>{t.correct}</span>

@@ -291,6 +291,7 @@ export async function createBundleWithItems(
     level: number;
     category_id: string | null;
     type_id: string | null;
+    image_url?: string | null;
     thumbnail_url?: string | null;
     is_published: boolean;
     access_level?: 'free' | 'premium';
@@ -353,6 +354,7 @@ export async function createBundleWithItems(
       type_id: bundleMeta.type_id || null,
       is_published: bundleMeta.is_published,
       access_level: bundleMeta.access_level || 'free',
+      image_url: bundleMeta.image_url || null,
       thumbnail_url: bundleMeta.thumbnail_url || items[0]?.imageUrl || null
     }])
     .select()
@@ -801,13 +803,25 @@ export async function updateBundleItemsOrder(bundleId: string, orderedItemIds: s
 export async function getRecommendedUnstudiedBundles(userId: string, limit: number = 3) {
   const supabase = createAdminClient();
   
-  // 1. Get user's interacted bundle IDs
-  const { data: interactions } = await supabase
-    .from('user_bundle_interactions')
-    .select('bundle_id')
-    .eq('user_id', userId);
+  // 1. Get bundle IDs where the user has made real progress.
+  const [{ data: interactions }, { data: completedItems }] = await Promise.all([
+    supabase
+      .from('user_bundle_interactions')
+      .select('bundle_id, progress_ratio, is_completed')
+      .eq('user_id', userId),
+    supabase
+      .from('user_bundle_item_interactions')
+      .select('bundle_id')
+      .eq('user_id', userId)
+      .eq('is_completed', true),
+  ]);
     
-  const studiedBundleIds = interactions?.map((i) => i.bundle_id) || [];
+  const studiedBundleIds = Array.from(new Set([
+    ...(interactions || [])
+      .filter((interaction) => interaction.is_completed || Number(interaction.progress_ratio) > 0)
+      .map((interaction) => interaction.bundle_id),
+    ...(completedItems || []).map((item) => item.bundle_id),
+  ]));
   
   // 2. Fetch unstudied bundles
   let query = supabase
@@ -847,6 +861,7 @@ export async function listBundleItemsWithDistractors(bundleId: string) {
       sentences (
         id,
         sentence,
+        audio_url,
         translation,
         translation_en,
         word_sentence_map (

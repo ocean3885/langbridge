@@ -6,7 +6,7 @@ export type PracticeMode = 'quiz' | 'scramble' | 'wordfill';
 export const practiceSessionModes: PracticeSessionMode[] = ['resume', 'all', 'incorrect', 'correct', 'incomplete'];
 export const PRACTICE_MODE_STARS = {
   quiz: 1,
-  scramble: 2,
+  scramble: 1,
   wordfill: 1,
 } satisfies Record<PracticeMode, number>;
 

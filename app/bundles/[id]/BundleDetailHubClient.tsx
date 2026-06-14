@@ -350,7 +350,7 @@ function ProgressMeta({ label, value }: { label: string; value: string }) {
 
 const PRACTICE_MODE_STARS = {
   quiz: 1,
-  scramble: 2,
+  scramble: 1,
   wordfill: 1,
 } satisfies Record<string, number>;
 

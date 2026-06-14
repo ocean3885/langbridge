@@ -127,7 +127,7 @@ export default function BundleCategoriesSection({
           </p>
         </div>
 
-        <nav className="mt-10 flex gap-3 overflow-x-auto pb-4 scrollbar-hide" aria-label={lang === 'ko' ? '번들 카테고리' : 'Bundle categories'}>
+        <nav className="mt-10 flex gap-3 overflow-x-auto pb-4 scrollbar-hide lg:flex-wrap lg:justify-center lg:overflow-visible lg:pb-0" aria-label={lang === 'ko' ? '번들 카테고리' : 'Bundle categories'}>
           <Link
             href="/bundles"
             className="flex shrink-0 items-center gap-2 rounded-full border border-[#5B8A61] bg-[#5B8A61] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-900/10 transition-all duration-200 hover:bg-[#4D7953]"
@@ -139,7 +139,7 @@ export default function BundleCategoriesSection({
             <Link
               key={getCategoryKey(category)}
               href={getCategoryHref(category, lang)}
-              className="flex shrink-0 items-center gap-2 rounded-full border border-[#E8E3DC] bg-white px-5 py-2.5 text-sm font-bold text-[#555] transition-all duration-200 hover:border-[#C7D8C9] hover:bg-[#F7FBF7] hover:text-[#5B8A61] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="flex max-w-full shrink-0 items-center gap-2 rounded-full border border-[#E8E3DC] bg-white px-5 py-2.5 text-sm font-bold text-[#555] transition-all duration-200 hover:border-[#C7D8C9] hover:bg-[#F7FBF7] hover:text-[#5B8A61] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:shrink"
             >
               {category.icon_image_url ? (
                 <Image
@@ -152,7 +152,7 @@ export default function BundleCategoriesSection({
               ) : (
                 <BookOpen className="h-4 w-4" />
               )}
-              {getCategoryTitle(category, lang)}
+              <span className="truncate">{getCategoryTitle(category, lang)}</span>
             </Link>
           ))}
         </nav>

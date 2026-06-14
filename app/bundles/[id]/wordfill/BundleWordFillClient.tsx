@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { getPublicUrl } from '@/lib/utils';
 
 interface OptionData {
   word: string;
@@ -14,7 +15,8 @@ interface WordFillItem {
   id: string; // bundle_item_id
   sentence: string;
   translation: string;
-  targetWord: string; // Correct lemma (e.g., hablar)
+  audioUrl: string | null;
+  targetWord: string; // Dictionary form (e.g., hablar)
   targetMeaning: string;
   usedAs: string; // Exact word in sentence (e.g., hablo)
   wordId: number;
@@ -35,7 +37,7 @@ const copy = {
   ko: {
     back: '상세로 돌아가기',
     mode: 'Word Fill',
-    prompt: '빈칸에 들어갈 올바른 단어 기본형을 고르세요',
+    prompt: '빈칸에 들어갈 올바른 단어를 고르세요',
     empty: '빈칸 채우기로 학습할 문장이 없습니다.',
     correct: '정답입니다!',
     wrong: '다시 확인해보세요.',
@@ -44,11 +46,12 @@ const copy = {
     done: '학습 완료',
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
+    dictionaryFormLabel: '기본형',
   },
   en: {
     back: 'Back to detail',
     mode: 'Word Fill',
-    prompt: 'Choose the correct dictionary form of the word for the blank',
+    prompt: 'Choose the correct word for the blank',
     empty: 'No sentences for word fill.',
     correct: 'Correct!',
     wrong: 'Try again.',
@@ -57,6 +60,7 @@ const copy = {
     done: 'Word Fill complete',
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
+    dictionaryFormLabel: 'Dictionary form',
   },
 };
 
@@ -92,16 +96,18 @@ export default function BundleWordFillClient({
     return sentence.replace(simpleRegex, '_____');
   }, [current]);
 
+  const sentenceDisplay = selected ? current?.sentence || '' : blankedSentence;
+
   // 문제의 4지선다 보기 리스트 생성
   const options = useMemo(() => {
     if (!current) return [];
 
-    const correctAns = { word: current.targetWord, meaning: current.targetMeaning };
+    const correctAns = { word: current.usedAs, meaning: current.targetMeaning };
     
     // 1. 해당 단어 고유의 오답 후보군 수집
     let finalDistractors = [...current.distractors];
 
-    // 2. 만약 오답 후보군이 부족한 경우, 같은 번들 내 다른 단어들의 기본형(targetWord)으로 채움
+    // 2. 만약 오답 후보군이 부족한 경우, 기존처럼 같은 번들 내 다른 단어들의 기본형(targetWord)으로 채움
     if (finalDistractors.length < 3) {
       const bundleLemmas = optionItems
         .filter((item) => item.targetWord && item.targetWord.toLowerCase().trim() !== correctAns.word.toLowerCase().trim())
@@ -127,7 +133,11 @@ export default function BundleWordFillClient({
   }, [current, optionItems]);
 
   const progress = items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0;
-  const isCorrect = selected === current?.targetWord;
+  const isCorrect = selected === current?.usedAs;
+  const audioSrc = getPublicUrl(current?.audioUrl || null);
+  const shouldShowDictionaryForm = current
+    ? current.targetWord.toLowerCase().trim() !== current.usedAs.toLowerCase().trim()
+    : false;
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -150,13 +160,14 @@ export default function BundleWordFillClient({
   const choose = (option: string) => {
     if (selected) return;
     setSelected(option);
-    const answerIsCorrect = option.toLowerCase().trim() === current.targetWord.toLowerCase().trim();
+    const answerIsCorrect = option.toLowerCase().trim() === current.usedAs.toLowerCase().trim();
     if (answerIsCorrect) {
       setScore((value) => value + 1);
     }
     if (isLoggedIn) {
       recordPracticeResult(bundleId, current.id, 'wordfill', answerIsCorrect, current.wordId);
     }
+    playSentenceAudio(current.audioUrl);
   };
 
   const goNext = () => {
@@ -230,9 +241,22 @@ export default function BundleWordFillClient({
           {index + 1} / {items.length}
         </p>
         <p className="mt-4 text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
-        <h2 className="mt-3 text-2xl font-bold leading-relaxed text-zinc-950 dark:text-zinc-50">
-          {blankedSentence}
-        </h2>
+        <div className="mt-3 flex items-start gap-3">
+          <h2 className="min-w-0 flex-1 text-2xl font-bold leading-relaxed text-zinc-950 dark:text-zinc-50">
+            {sentenceDisplay}
+          </h2>
+          {selected && audioSrc && (
+            <button
+              type="button"
+              onClick={() => playSentenceAudio(current.audioUrl)}
+              className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 dark:hover:bg-emerald-900"
+              aria-label="Play sentence audio"
+              title="Play sentence audio"
+            >
+              <Volume2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <p className="mt-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">
           {current.translation}
         </p>
@@ -241,7 +265,7 @@ export default function BundleWordFillClient({
       <div className="space-y-2">
         {options.map((option) => {
           const isSelected = selected === option.word;
-          const optionIsCorrect = option.word.toLowerCase().trim() === current.targetWord.toLowerCase().trim();
+          const optionIsCorrect = option.word.toLowerCase().trim() === current.usedAs.toLowerCase().trim();
           const stateClass = selected
             ? optionIsCorrect
               ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-200'
@@ -275,8 +299,9 @@ export default function BundleWordFillClient({
           <CharacterAsset
             name={isCorrect ? 'correctbadge' : 'tryagainbadge'}
             alt=""
-            size={64}
-            className="sm:!h-20 sm:!w-20"
+            size={96}
+            className="!h-16 !w-16 sm:!h-20 sm:!w-20"
+            unoptimized
           />
           {isCorrect ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {isCorrect ? (
@@ -285,7 +310,8 @@ export default function BundleWordFillClient({
             <span className="flex flex-col gap-1">
               <span>{t.wrong}</span>
               <span className="font-black text-emerald-600 dark:text-emerald-400">
-                {current.targetWord} (문장 속 형태: {current.usedAs})
+                {current.usedAs}
+                {shouldShowDictionaryForm && ` (${t.dictionaryFormLabel}: ${current.targetWord})`}
               </span>
             </span>
           )}
@@ -324,6 +350,15 @@ function shuffle<T>(values: T[]) {
     [copy[index], copy[target]] = [copy[target], copy[index]];
   }
   return copy;
+}
+
+function playSentenceAudio(audioUrl: string | null) {
+  const src = getPublicUrl(audioUrl);
+  if (!src) return;
+
+  new Audio(src).play().catch((error) => {
+    console.error('Failed to play word fill sentence audio:', error);
+  });
 }
 
 function recordPracticeResult(

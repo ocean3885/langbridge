@@ -76,7 +76,8 @@ const loggedInSectionCopy = {
   ko: {
     exploreBundles: '새로운 번들 탐색하기',
     quickPractice: '빠른 연습',
-    quickPracticeDescription: (title: string) => `최근 학습하던 ${title} 번들로 돌아가 가볍게 복습해 보세요.`,
+    quickPracticeDescriptionPrefix: '최근 학습하던',
+    quickPracticeDescriptionSuffix: '번들로 돌아가 가볍게 복습해 보세요.',
     progressTitle: '학습 현황',
     completedSentences: '완료한 문장',
     earnedStars: '획득한 별',
@@ -84,11 +85,13 @@ const loggedInSectionCopy = {
     activeBundles: '진행 중인 번들',
     practicedWords: '기억 중인 단어',
     practiceAccuracy: '정답률',
+    viewAllBundles: '전체 번들 보기',
   },
   en: {
     exploreBundles: 'Explore More Bundles',
     quickPractice: 'Quick Practice',
-    quickPracticeDescription: (title: string) => `Jump back into ${title} with a short practice session.`,
+    quickPracticeDescriptionPrefix: 'Jump back into',
+    quickPracticeDescriptionSuffix: 'with a short practice session.',
     progressTitle: 'Your Progress',
     completedSentences: 'Sentences Completed',
     earnedStars: 'Earned Stars',
@@ -96,6 +99,7 @@ const loggedInSectionCopy = {
     activeBundles: 'Active Bundles',
     practicedWords: 'Words in Memory',
     practiceAccuracy: 'Practice Accuracy',
+    viewAllBundles: 'View all bundles',
   },
 };
 
@@ -267,7 +271,16 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
 
   return (
     <section>
-      <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.exploreBundles}</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.exploreBundles}</h2>
+        <Link
+          href="/bundles"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-5 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition hover:border-[#8bbf87] hover:bg-[#f1f8ef] hover:text-[#3f7d42] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:shadow-black/20 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-100"
+        >
+          {t.viewAllBundles}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
       <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {bundles.map((bundle) => {
           const title = getBundleTitle(bundle, language);
@@ -312,7 +325,11 @@ function QuickPracticeSection({ recentBundle, language }: { recentBundle: Recent
   return (
     <section>
       <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.quickPractice}</h2>
-      <p className="mt-2 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{t.quickPracticeDescription(title)}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">
+        {t.quickPracticeDescriptionPrefix}{' '}
+        <strong className="font-bold text-zinc-800 dark:text-zinc-100">"{title}"</strong>{' '}
+        {t.quickPracticeDescriptionSuffix}
+      </p>
       <div className="mt-5 grid gap-5 md:grid-cols-3">
         {practiceItems.map((item) => (
           <Link

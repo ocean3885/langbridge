@@ -63,6 +63,7 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
         id: item.id,
         sentence: sentence.sentence,
         translation: (language === 'en' ? sentence.translation_en : sentence.translation) || sentence.translation || '',
+        audioUrl: item.audio_url || sentence.audio_url || null,
         targetWord,
         targetMeaning,
         usedAs,

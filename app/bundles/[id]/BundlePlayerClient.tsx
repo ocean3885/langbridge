@@ -121,7 +121,7 @@ export default function BundlePlayerClient({
   const categoryName = getCategoryName(bundle, language);
   const level = getBundleLevelDisplay(bundle.level, language).label;
   const audioSrc = getPublicUrl(currentItem?.audio_url || currentItem?.sentences?.audio_url || currentItem?.words?.audio_url);
-  const imageSrc = currentItem?.image_url || bundle.thumbnail_url;
+  const imageSrc = currentItem?.image_url || bundle.image_url || bundle.thumbnail_url;
   const keywords = useMemo(() => getKeywords(currentItem, language), [currentItem, language]);
   const isConversationBundle = bundle.bundle_type?.code === 'conversation';
   const hasSpeakerInfo = isConversationBundle && Boolean(

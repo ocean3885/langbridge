@@ -5,14 +5,14 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
-  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Home,
   Lock,
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
-import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { listUserBundleInteractionsForBundles, type UserBundleInteraction } from '@/lib/supabase/services/bundle-progress';
@@ -43,6 +43,7 @@ interface CategoryBundlesPageProps {
   searchParams?: Promise<{
     q?: string | string[];
     level?: string | string[];
+    page?: string | string[];
     status?: string | string[];
     sort?: string | string[];
   }>;
@@ -71,10 +72,6 @@ const pageCopy = {
     noResultsDesc: '검색어나 필터를 조금 넓혀보세요.',
     noBundlesTitle: '아직 공개된 번들이 없습니다',
     noBundlesDesc: '이 카테고리의 새 번들을 준비하고 있어요.',
-    quizTitle: '어디서 시작할지 고민되나요?',
-    quizDesc: '짧은 퀴즈로 지금 레벨과 목표에 맞는 번들을 추천받아보세요.',
-    quizButton: '퀴즈 시작',
-    quizTime: '2분이면 충분해요!',
   },
   en: {
     home: 'Home',
@@ -98,14 +95,11 @@ const pageCopy = {
     noResultsDesc: 'Try broadening your search or filters.',
     noBundlesTitle: 'No published bundles yet',
     noBundlesDesc: 'New bundles for this category are being prepared.',
-    quizTitle: 'Not sure where to start?',
-    quizDesc: "Take a quick quiz and we'll recommend bundles for your level and goals.",
-    quizButton: 'Take the Quiz',
-    quizTime: 'It only takes 2 minutes!',
   },
 } satisfies Record<Language, Record<string, string | string[]>>;
 
 const FILTER_SECTION_ID = 'bundle-filters';
+const ITEMS_PER_PAGE = 6;
 
 type BundleProgressStatus = 'inProgress' | 'notStarted' | 'completed';
 type FilterStatusValue = 'in_progress' | 'not_started' | 'completed';
@@ -113,7 +107,7 @@ type FilterStatusValue = 'in_progress' | 'not_started' | 'completed';
 type BundleWithStatus = {
   bundle: BundleRow;
   statusKey: BundleProgressStatus;
-  badge: BundleStatusBadge;
+  badge: BundleStatusBadge | null;
 };
 
 type BundleStatusBadge = {
@@ -142,12 +136,16 @@ function getBundleStatusBadge({
   interaction,
   language,
   newestBundleId,
+  isLoggedIn,
 }: {
   bundle: BundleRow;
   interaction?: UserBundleInteraction;
   language: Language;
   newestBundleId: string | null;
+  isLoggedIn: boolean;
 }) {
+  if (!isLoggedIn) return null;
+
   if (bundle.id === newestBundleId) {
     return getStatusBadge('new', language);
   }
@@ -196,7 +194,7 @@ function CategoryBundleCard({
   bundle: BundleRow;
   index: number;
   language: Language;
-  status: BundleStatusBadge;
+  status: BundleStatusBadge | null;
 }) {
   const copy = translations[language];
   const title = getBundleTitle(bundle, language);
@@ -215,9 +213,11 @@ function CategoryBundleCard({
           className="object-cover transition duration-500 group-hover:scale-105"
           sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 280px"
         />
-        <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
-          {status.label}
-        </span>
+        {status && (
+          <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+            {status.label}
+          </span>
+        )}
         {isPremium && (
           <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] shadow-sm dark:bg-orange-950/60 dark:text-orange-200">
             <Lock className="h-3 w-3" />
@@ -283,6 +283,12 @@ function getQueryValue(value: string | string[] | undefined) {
   return value || '';
 }
 
+function getPageValue(value: string | string[] | undefined) {
+  const page = Number(getQueryValue(value));
+  if (!Number.isFinite(page)) return 1;
+  return Math.max(1, Math.floor(page));
+}
+
 function toStatusQueryValue(status: BundleProgressStatus): FilterStatusValue {
   if (status === 'inProgress') return 'in_progress';
   if (status === 'completed') return 'completed';
@@ -298,6 +304,7 @@ function filterAndSortBundles({
   selectedLevel,
   selectedStatus,
   selectedSort,
+  isLoggedIn,
 }: {
   bundles: BundleRow[];
   interactionByBundleId: Map<string, UserBundleInteraction>;
@@ -307,6 +314,7 @@ function filterAndSortBundles({
   selectedLevel: string;
   selectedStatus: string;
   selectedSort: string;
+  isLoggedIn: boolean;
 }): BundleWithStatus[] {
   const normalizedQuery = query.toLowerCase();
 
@@ -317,7 +325,7 @@ function filterAndSortBundles({
       return {
         bundle,
         statusKey: getBundleProgressStatus(interaction),
-        badge: getBundleStatusBadge({ bundle, interaction, language, newestBundleId }),
+        badge: getBundleStatusBadge({ bundle, interaction, language, newestBundleId, isLoggedIn }),
       };
     })
     .filter((entry) => {
@@ -417,11 +425,63 @@ function buildFilterHref(
   return `${getCategoryHref(category, language)}${query ? `?${query}` : ''}#${FILTER_SECTION_ID}`;
 }
 
+function buildPageHref(
+  category: BundleCategoryRow,
+  language: Language,
+  values: {
+    q: string;
+    level: string;
+    status: string;
+    sort: string;
+    page: number;
+  },
+) {
+  const params = new URLSearchParams();
+  if (values.q) params.set('q', values.q);
+  if (values.level) params.set('level', values.level);
+  if (values.status) params.set('status', values.status);
+  if (values.sort && values.sort !== 'newest') params.set('sort', values.sort);
+  if (values.page > 1) params.set('page', String(values.page));
+
+  const query = params.toString();
+  return `${getCategoryHref(category, language)}${query ? `?${query}` : ''}#${FILTER_SECTION_ID}`;
+}
+
+function getPageNumbers(currentPage: number, totalPages: number) {
+  const pages: Array<number | '...'> = [];
+
+  if (totalPages <= 7) {
+    for (let page = 1; page <= totalPages; page += 1) {
+      pages.push(page);
+    }
+    return pages;
+  }
+
+  pages.push(1);
+  if (currentPage > 3) {
+    pages.push('...');
+  }
+
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (currentPage < totalPages - 2) {
+    pages.push('...');
+  }
+  pages.push(totalPages);
+
+  return pages;
+}
+
 export default async function CategoryBundlesPage({ params, searchParams }: CategoryBundlesPageProps) {
   const { categorySlug } = await params;
   const resolvedSearchParams = await searchParams;
   const query = getQueryValue(resolvedSearchParams?.q).trim();
   const selectedLevel = getQueryValue(resolvedSearchParams?.level);
+  const requestedPage = getPageValue(resolvedSearchParams?.page);
   const selectedStatus = getQueryValue(resolvedSearchParams?.status);
   const selectedSort = getQueryValue(resolvedSearchParams?.sort) || 'newest';
   const [allBundles, categories, language, user] = await Promise.all([
@@ -457,10 +517,18 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
     selectedLevel,
     selectedStatus,
     selectedSort,
+    isLoggedIn: Boolean(user),
   });
-  const featuredEntry = filteredBundleEntries[0] ?? null;
+  const totalPages = Math.max(1, Math.ceil(filteredBundleEntries.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const pageEntries = filteredBundleEntries.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
+  const featuredEntry = pageEntries[0] ?? null;
   const featuredBundle = featuredEntry?.bundle ?? null;
-  const gridEntries = featuredEntry ? filteredBundleEntries.slice(1) : filteredBundleEntries;
+  const gridEntries = featuredEntry ? pageEntries.slice(1) : pageEntries;
   const hasCategoryBundles = categoryBundles.length > 0;
   const hasFilteredResults = filteredBundleEntries.length > 0;
   const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/heroimg_land.jpg');
@@ -524,7 +592,7 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
           </div>
         </section>
 
-        <nav className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" aria-label="Bundle categories">
+        <nav className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide lg:flex-wrap lg:justify-center lg:overflow-visible lg:pb-0" aria-label="Bundle categories">
           {bundleCategories.map((item) => {
             const itemKey = getCategoryKey(item);
             const isActive = itemKey === categoryKey;
@@ -533,14 +601,14 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
               <Link
                 key={itemKey}
                 href={getCategoryHref(item, language)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                className={`max-w-full shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition lg:shrink ${
                   isActive
                     ? 'border-[#dff1e5] bg-[#dff1e5] text-[#2f7d4a] dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                     : 'border-zinc-200 bg-white text-zinc-700 hover:border-[#b9d8bc] hover:bg-[#f5faf6] hover:text-[#2f7d4a] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {getCategoryTitle(item, language)}
+                <span className="block truncate">{getCategoryTitle(item, language)}</span>
               </Link>
             );
           })}
@@ -632,7 +700,7 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pb-20 lg:px-8">
         {featuredEntry ? (
           <section className="grid gap-6 overflow-hidden rounded-lg border border-[#f4c89c] bg-[#fffaf1] p-3 shadow-sm dark:border-orange-900/70 dark:bg-zinc-900 dark:shadow-black/20 md:grid-cols-[320px_1fr_auto] md:items-center md:p-4 lg:grid-cols-[340px_1fr_210px]">
             <Link href={`/bundles/${featuredEntry.bundle.id}`} className="relative aspect-[2/1] overflow-hidden rounded-md bg-[#f3ede3] dark:bg-zinc-800">
@@ -643,9 +711,11 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
                 className="object-cover"
                 sizes="(max-width: 768px) 92vw, 340px"
               />
-              <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredEntry.badge.className}`}>
-                {featuredEntry.badge.label}
-              </span>
+              {featuredEntry.badge && (
+                <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${featuredEntry.badge.className}`}>
+                  {featuredEntry.badge.label}
+                </span>
+              )}
               {featuredEntry.bundle.access_level === 'premium' && (
                 <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] shadow-sm dark:bg-orange-950/60 dark:text-orange-200">
                   <Lock className="h-3 w-3" />
@@ -708,26 +778,79 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
           </section>
         )}
 
-        <section className="mt-8 grid items-center gap-5 rounded-lg border border-zinc-200 bg-[#f9f7ed] p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:grid-cols-[220px_1fr_auto] sm:p-6">
-          <CharacterAsset name="studyfull" width={190} height={140} className="mx-auto sm:mx-0" />
-          <div>
-            <h2 className={`${getDisplayFontClass(localCopy.quizTitle as string)} text-2xl font-bold`}>{localCopy.quizTitle as string}</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-700 dark:text-zinc-300">{localCopy.quizDesc as string}</p>
-          </div>
-          <div className="flex flex-col items-center gap-2 sm:items-end">
+        {totalPages > 1 && (
+          <nav className="flex items-center justify-center gap-2 pt-8" aria-label="Pagination">
             <Link
-              href="/learn"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#57985a] px-8 py-3 text-sm font-bold text-white transition hover:bg-[#477f4a] dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              href={buildPageHref(category, language, {
+                q: query,
+                level: selectedLevel,
+                status: selectedStatus,
+                sort: selectedSort,
+                page: Math.max(1, currentPage - 1),
+              })}
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 ${
+                currentPage === 1 ? 'pointer-events-none opacity-50 hover:bg-white dark:hover:bg-zinc-800' : ''
+              }`}
+              aria-disabled={currentPage === 1}
+              aria-label="Previous page"
             >
-              {localCopy.quizButton as string}
-              <ArrowRight className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4" />
             </Link>
-            <span className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {localCopy.quizTime as string}
-            </span>
-          </div>
-        </section>
+
+            {pageNumbers.map((page, index) => {
+              if (page === '...') {
+                return (
+                  <span
+                    key={`dots-${index}`}
+                    className="flex h-9 w-9 items-center justify-center text-sm font-medium text-zinc-400"
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const isCurrent = page === currentPage;
+              return (
+                <Link
+                  key={`page-${page}`}
+                  href={buildPageHref(category, language, {
+                    q: query,
+                    level: selectedLevel,
+                    status: selectedStatus,
+                    sort: selectedSort,
+                    page,
+                  })}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+                    isCurrent
+                      ? 'pointer-events-none bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
+                      : 'border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                  }`}
+                  aria-current={isCurrent ? 'page' : undefined}
+                >
+                  {page}
+                </Link>
+              );
+            })}
+
+            <Link
+              href={buildPageHref(category, language, {
+                q: query,
+                level: selectedLevel,
+                status: selectedStatus,
+                sort: selectedSort,
+                page: Math.min(totalPages, currentPage + 1),
+              })}
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 ${
+                currentPage === totalPages ? 'pointer-events-none opacity-50 hover:bg-white dark:hover:bg-zinc-800' : ''
+              }`}
+              aria-disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </nav>
+        )}
+
       </div>
     </div>
   );

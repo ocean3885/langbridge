@@ -13,11 +13,11 @@ const goalCopy = {
     edit: '수정',
     save: '저장',
     cancel: '취소',
-    unit: '학습',
+    unit: '문제',
     goalMet: '오늘 목표를 달성했어요!',
     empty: '오늘 첫 학습을 시작해봐요.',
     keepGoing: '계속 좋아요!',
-    inputLabel: '하루 목표 학습 수',
+    inputLabel: '하루 목표 문제 수',
     error: '목표를 저장하지 못했습니다.',
   },
   en: {
@@ -25,11 +25,11 @@ const goalCopy = {
     edit: 'Edit',
     save: 'Save',
     cancel: 'Cancel',
-    unit: 'sessions',
+    unit: 'answers',
     goalMet: 'Goal complete for today!',
-    empty: 'Start your first session today.',
+    empty: 'Answer your first question today.',
     keepGoing: 'Keep going!',
-    inputLabel: 'Daily goal sessions',
+    inputLabel: 'Daily goal answers',
     error: 'Could not save goal.',
   },
 };
@@ -95,6 +95,7 @@ export function GoalCard({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const displayPercent = Math.max(0, currentSummary.progressPercent);
+  const displayPercentText = Math.min(999, displayPercent);
   const progressPercent = Math.min(100, displayPercent);
   const progressDegrees = useMemo(() => `${progressPercent * 3.6}deg`, [progressPercent]);
   const helperText = currentSummary.goalMet
@@ -154,18 +155,18 @@ export function GoalCard({
       <div className="flex items-center gap-6">
         <div
           className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-[#e8eee5] dark:bg-zinc-800"
-          aria-label={`${displayPercent}%`}
+          aria-label={`${displayPercentText}%`}
           role="progressbar"
-          aria-valuenow={displayPercent}
+          aria-valuenow={displayPercentText}
           aria-valuemin={0}
-          aria-valuemax={100}
+          aria-valuemax={999}
         >
           <div
             className="absolute inset-0 rounded-full"
             style={{ background: `conic-gradient(#66a665 ${progressDegrees}, transparent 0deg)` }}
           />
           <div className="absolute inset-[9px] rounded-full bg-white dark:bg-zinc-900" />
-          <span className="relative text-2xl font-bold">{displayPercent}%</span>
+          <span className="relative text-2xl font-bold">{displayPercentText}%</span>
         </div>
         <div className="min-w-0 flex-1">
           {isEditing ? (
