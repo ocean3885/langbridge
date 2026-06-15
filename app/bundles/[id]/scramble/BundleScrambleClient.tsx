@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, SkipForward, Trophy, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, SkipForward, Trophy, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 
 interface ScrambleItem {
   id: string;
   sentence: string;
   translation: string;
+  audioUrl: string | null;
 }
 
 interface WordToken {
@@ -43,6 +44,7 @@ const copy = {
     check: '정답 확인',
     next: '다음 문장',
     skip: '건너뛰기',
+    listen: '문장 다시 듣기',
     done: '스크램블 완료',
     doneDesc: (total: number) => `${total}개 문장을 모두 마쳤습니다.`,
     retry: '다시 학습하기',
@@ -60,6 +62,7 @@ const copy = {
     check: 'Check',
     next: 'Next',
     skip: 'Skip',
+    listen: 'Listen again',
     done: 'Scramble complete',
     doneDesc: (total: number) => `You finished ${total} sentences.`,
     retry: 'Retry',
@@ -76,6 +79,8 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [completedCount, setCompletedCount] = useState(initialIndex);
   const [isFinished, setIsFinished] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -130,6 +135,14 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   }, [currentIndex, initQuestion]);
 
   useEffect(() => {
+    setIsAudioPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [currentIndex]);
+
+  useEffect(() => {
     if (!isLoggedIn) return;
     if (!currentItem) return;
     recordCurrentPracticeItem(bundleId, 'scramble', currentItem.id);
@@ -147,6 +160,21 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
     setAvailableWords((prev) => (prev.some((item) => item.id === word.id) ? prev : [...prev, word]));
   };
 
+  const playCurrentAudio = useCallback(() => {
+    if (!currentItem?.audioUrl) return;
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.src = currentItem.audioUrl;
+    audio.onended = () => setIsAudioPlaying(false);
+    audio.onpause = () => setIsAudioPlaying(false);
+    audio.currentTime = 0;
+    setIsAudioPlaying(true);
+    audio.play().catch((error) => {
+      console.error('Sentence audio playback failed:', error);
+      setIsAudioPlaying(false);
+    });
+  }, [currentItem]);
+
   const checkAnswer = () => {
     const answer: string[] = [];
     let userIndex = 0;
@@ -163,6 +191,9 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
 
     const isCorrect = answer.join(' ') === correctWords.join(' ');
     setResult(isCorrect ? 'correct' : 'wrong');
+    if (isCorrect) {
+      playCurrentAudio();
+    }
     if (isLoggedIn) {
       recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
     }
@@ -260,7 +291,7 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
       </div>
 
       {result && (
-        <div className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
+        <div className={`flex flex-wrap items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
           <CharacterAsset name={result === 'correct' ? 'correctbadge' : 'tryagainbadge'} alt="" size={96} className="!h-16 !w-16 sm:!h-20 sm:!w-20" unoptimized />
           {result === 'correct' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {result === 'correct' ? (
@@ -270,6 +301,17 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
               <span>{t.wrong}</span>
               <span>{currentItem.sentence}</span>
             </span>
+          )}
+          {result === 'correct' && currentItem.audioUrl && (
+            <button
+              type="button"
+              onClick={playCurrentAudio}
+              aria-label={t.listen}
+              title={t.listen}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 dark:bg-zinc-900 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 ${isAudioPlaying ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}
+            >
+              <Volume2 className="h-5 w-5" />
+            </button>
           )}
         </div>
       )}

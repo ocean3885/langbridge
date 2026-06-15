@@ -3,6 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getPublicUrl } from '@/lib/utils';
 import { getBundleTitle } from '../../bundle-utils';
 import PracticeSessionSelector from '../_components/PracticeSessionSelector';
 import { filterPracticeItems, getPracticeModeStarProgress, getPracticeSessionCounts, isPracticeSessionMode } from '../practice-session';
@@ -38,6 +39,7 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
       id: item.id,
       sentence: item.sentences.sentence,
       translation: (language === 'en' ? item.sentences.translation_en : item.sentences.translation) || item.sentences.translation || '',
+      audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
     }))
     .filter((item) => item.translation);
 
@@ -53,7 +55,7 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
         modeName="Quick Quiz"
         basePath={`/bundles/${bundle.id}/quiz`}
         language={language}
-        counts={getPracticeSessionCounts(quizItems, progress.itemInteractions, 'quiz')}
+        counts={getPracticeSessionCounts(quizItems, progress.itemInteractions, 'quiz', progress.currentPracticeItemIds.quiz)}
         starProgress={getPracticeModeStarProgress(quizItems, progress.itemInteractions, 'quiz')}
       />
     );

@@ -66,7 +66,7 @@ export function getPublicUrl(path: string | null): string | null {
   if (!path) return null;
   if (path.startsWith('http')) return path;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const bucket = 'langbridge';
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'holalingo';
   if (!supabaseUrl) return path;
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path.replace(/^\/+/, '')}`;
 }

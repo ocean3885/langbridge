@@ -3,7 +3,6 @@ import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { generateTTS } from '@/lib/tts';
 import { getWordById, updateWord } from '@/lib/supabase/services/words';
 import { deleteFileFromPublicUrl } from '@/lib/supabase/services/storage';
-import { getStorageBucket } from '@/lib/supabase/storage';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -41,34 +40,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'TTS 생성 실패' }, { status: 500 });
     }
 
-    // 2. DB 저장용 상대 경로 추출 (URL인 경우)
-    let storagePath = finalAudioUrl;
-    if (finalAudioUrl.startsWith('http')) {
-      try {
-        const bucket = getStorageBucket();
-        const urlObj = new URL(finalAudioUrl);
-        const pathParts = urlObj.pathname.split('/');
-        const bucketIndex = pathParts.findIndex(p => p === bucket);
-        if (bucketIndex !== -1 && bucketIndex + 1 < pathParts.length) {
-          storagePath = decodeURIComponent(pathParts.slice(bucketIndex + 1).join('/'));
-        }
-      } catch (e) {
-        console.error('URL 파싱 실패, 원본 사용:', e);
-      }
-    }
-
-    // 3. words 테이블 업데이트
+    // 2. words 테이블 업데이트
+    // 기존 words.audio_url 데이터와 동일하게 전체 public URL을 저장한다.
     try {
       await updateWord(Number(wordId), {
-        audioUrl: storagePath
+        audioUrl: finalAudioUrl
       });
     } catch (error) {
-      await deleteFileFromPublicUrl(storagePath);
+      await deleteFileFromPublicUrl(finalAudioUrl);
       throw error;
     }
 
-    // 4. 기존 오디오 파일 삭제
-    if (oldAudioUrl && oldAudioUrl !== storagePath) {
+    // 3. 기존 오디오 파일 삭제
+    if (oldAudioUrl && oldAudioUrl !== finalAudioUrl) {
       deleteFileFromPublicUrl(oldAudioUrl).catch(err =>
         console.error(`기존 단어 오디오 삭제 실패 (word id: ${wordId}):`, err)
       );
@@ -76,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      audio_url: storagePath 
+      audio_url: finalAudioUrl 
     });
 
   } catch (error) {

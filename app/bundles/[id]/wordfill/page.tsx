@@ -84,7 +84,7 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
         modeName="Word Fill"
         basePath={`/bundles/${bundle.id}/wordfill`}
         language={language}
-        counts={getPracticeSessionCounts(wordFillItems, progress.itemInteractions, 'wordfill')}
+        counts={getPracticeSessionCounts(wordFillItems, progress.itemInteractions, 'wordfill', progress.currentPracticeItemIds.wordfill)}
         starProgress={getPracticeModeStarProgress(wordFillItems, progress.itemInteractions, 'wordfill')}
       />
     );

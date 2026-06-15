@@ -12,13 +12,14 @@ function sanitizeStorageFolder(folder: string) {
 }
 
 /**
- * 이미지를 Supabase Storage의 'langbridge' 버킷에 업로드합니다.
+ * 이미지를 Supabase Storage 버킷에 업로드합니다.
  */
 export async function uploadThumbnail(formData: FormData, folder = 'bundles') {
   const file = formData.get('file') as File;
   if (!file) throw new Error('파일이 없습니다.');
   
   const supabase = createAdminClient();
+  const bucket = getStorageBucket();
   
   // 파일 확장자 추출
   const fileExt = file.name.split('.').pop();
@@ -31,7 +32,7 @@ export async function uploadThumbnail(formData: FormData, folder = 'bundles') {
   const buffer = Buffer.from(arrayBuffer);
 
   const { data, error } = await supabase.storage
-    .from('langbridge')
+    .from(bucket)
     .upload(filePath, buffer, {
       contentType: file.type,
       upsert: true
@@ -40,11 +41,11 @@ export async function uploadThumbnail(formData: FormData, folder = 'bundles') {
   if (error) {
     console.error('Thumbnail upload error:', error);
     // 버킷이 없는 경우 등의 에러 처리가 필요할 수 있음
-    throw new Error('이미지 업로드에 실패했습니다. (langbridge 버킷 확인 필요)');
+    throw new Error(`이미지 업로드에 실패했습니다. (${bucket} 버킷 확인 필요)`);
   }
 
   const { data: { publicUrl } } = supabase.storage
-    .from('langbridge')
+    .from(bucket)
     .getPublicUrl(filePath);
 
   return publicUrl;
@@ -83,7 +84,7 @@ export async function deleteFileFromPublicUrl(url: string) {
 
 export async function deleteFilesInFolder(folder: string) {
   const supabase = createAdminClient();
-  const bucket = 'langbridge';
+  const bucket = getStorageBucket();
   const safeFolder = sanitizeStorageFolder(folder);
 
   if (!safeFolder) return true;
@@ -126,7 +127,7 @@ export async function deleteFilesInFolder(folder: string) {
 
 export async function listPublicUrlsInFolder(folder: string) {
   const supabase = createAdminClient();
-  const bucket = 'langbridge';
+  const bucket = getStorageBucket();
   const safeFolder = sanitizeStorageFolder(folder);
 
   if (!safeFolder) return [];

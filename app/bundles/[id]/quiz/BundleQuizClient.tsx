@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 
 interface QuizItem {
   id: string;
   sentence: string;
   translation: string;
+  audioUrl: string | null;
 }
 
 interface BundleQuizClientProps {
@@ -31,6 +32,7 @@ const copy = {
     wrong: '다시 확인해보세요.',
     next: '다음 문제',
     finish: '완료',
+    listen: '문장 다시 듣기',
     done: '퀴즈 완료',
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
@@ -44,6 +46,7 @@ const copy = {
     wrong: 'Try again.',
     next: 'Next',
     finish: 'Finish',
+    listen: 'Listen again',
     done: 'Quiz complete',
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
@@ -57,6 +60,8 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const current = items[index];
 
   const options = useMemo(() => {
@@ -82,12 +87,36 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
     recordCurrentQuizItem(bundleId, current.id);
   }, [bundleId, current, isLoggedIn]);
 
+  useEffect(() => {
+    setIsAudioPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [index]);
+
+  const playCurrentAudio = useCallback(() => {
+    if (!current?.audioUrl) return;
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.src = current.audioUrl;
+    audio.onended = () => setIsAudioPlaying(false);
+    audio.onpause = () => setIsAudioPlaying(false);
+    audio.currentTime = 0;
+    setIsAudioPlaying(true);
+    audio.play().catch((error) => {
+      console.error('Sentence audio playback failed:', error);
+      setIsAudioPlaying(false);
+    });
+  }, [current]);
+
   const choose = (option: string) => {
     if (selected) return;
     setSelected(option);
     const answerIsCorrect = option === current.translation;
     if (answerIsCorrect) {
       setScore((value) => value + 1);
+      playCurrentAudio();
     }
     if (isLoggedIn) {
       recordPracticeResult(bundleId, current.id, 'quiz', answerIsCorrect);
@@ -181,7 +210,7 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
       </div>
 
       {selected && (
-        <div className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${isCorrect ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
+        <div className={`flex flex-wrap items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${isCorrect ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
           <CharacterAsset name={isCorrect ? 'correctbadge' : 'tryagainbadge'} alt="" size={96} className="!h-16 !w-16 sm:!h-20 sm:!w-20" unoptimized />
           {isCorrect ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {isCorrect ? (
@@ -191,6 +220,17 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
               <span>{t.wrong}</span>
               <span>{current.translation}</span>
             </span>
+          )}
+          {isCorrect && current.audioUrl && (
+            <button
+              type="button"
+              onClick={playCurrentAudio}
+              aria-label={t.listen}
+              title={t.listen}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 dark:bg-zinc-900 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 ${isAudioPlaying ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}
+            >
+              <Volume2 className="h-5 w-5" />
+            </button>
           )}
         </div>
       )}

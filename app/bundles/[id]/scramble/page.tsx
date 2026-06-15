@@ -3,6 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getPublicUrl } from '@/lib/utils';
 import { getBundleTitle } from '../../bundle-utils';
 import PracticeSessionSelector from '../_components/PracticeSessionSelector';
 import { filterPracticeItems, getPracticeModeStarProgress, getPracticeSessionCounts, isPracticeSessionMode } from '../practice-session';
@@ -38,6 +39,7 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
       id: item.id,
       sentence: item.sentences.sentence,
       translation: (language === 'en' ? item.sentences.translation_en : item.sentences.translation) || item.sentences.translation || '',
+      audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
     }))
     .filter((item) => item.translation);
 
@@ -53,7 +55,7 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
         modeName="Scramble"
         basePath={`/bundles/${bundle.id}/scramble`}
         language={language}
-        counts={getPracticeSessionCounts(scrambleItems, progress.itemInteractions, 'scramble')}
+        counts={getPracticeSessionCounts(scrambleItems, progress.itemInteractions, 'scramble', progress.currentPracticeItemIds.scramble)}
         starProgress={getPracticeModeStarProgress(scrambleItems, progress.itemInteractions, 'scramble')}
       />
     );

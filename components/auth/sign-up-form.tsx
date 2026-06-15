@@ -82,7 +82,7 @@ export function SignUpForm({
         throw new Error(result?.error || t.signUpFailed);
       }
 
-      window.location.href = '/';
+      window.location.href = '/auth/sign-up-success';
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : t.fallbackError);
     } finally {

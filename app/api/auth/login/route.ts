@@ -21,6 +21,17 @@ export async function POST(request: NextRequest) {
 
     if (authError || !authData.user) {
       console.error('Supabase Auth login failed:', authError?.message);
+      const authMessage = authError?.message?.toLowerCase() || '';
+      const authCode = String(authError?.code || '').toLowerCase();
+      const isEmailNotConfirmed =
+        authCode.includes('email_not_confirmed') ||
+        authMessage.includes('email not confirmed') ||
+        authMessage.includes('email_not_confirmed');
+
+      if (isEmailNotConfirmed) {
+        return NextResponse.json({ error: '이메일 인증이 완료되지 않았습니다. 메일함에서 인증 링크를 확인해 주세요.' }, { status: 403 });
+      }
+
       return NextResponse.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 });
     }
 

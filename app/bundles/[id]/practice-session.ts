@@ -84,9 +84,12 @@ export function getPracticeSessionCounts<T extends PracticeItem>(
   items: T[],
   interactions: UserBundleItemInteraction[],
   practiceMode: PracticeMode,
+  currentPracticeItemId?: string | null,
 ) {
+  const canResume = Boolean(currentPracticeItemId && items.some((item) => item.id === currentPracticeItemId));
+
   return {
-    resume: items.length,
+    resume: canResume ? items.length : 0,
     all: items.length,
     incorrect: filterPracticeItems(items, interactions, 'incorrect', practiceMode).length,
     correct: filterPracticeItems(items, interactions, 'correct', practiceMode).length,
