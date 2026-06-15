@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'holalingo.app',
+      },
     ],
     qualities: [75, 90],
   },
@@ -30,6 +34,7 @@ const nextConfig: NextConfig = {
         'localhost:3000',
         '*.app.github.dev',
         'animated-meme-x7v6wv5vqxj3pwx6-3000.app.github.dev',
+        'holalingo.app',
         'lang.ai.kr',
       ]
     }
