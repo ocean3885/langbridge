@@ -20,6 +20,7 @@ export const DailygoalbadgeAsset = createCharacterAsset('dailygoalbadge');
 export const EncouragebadgeAsset = createCharacterAsset('encouragebadge');
 export const ExcellentfullAsset = createCharacterAsset('excellentfull');
 export const ExcellenthalfAsset = createCharacterAsset('excellenthalf');
+export const LearnCtaImgAsset = createCharacterAsset('learnCtaImg');
 export const LincostudycardAsset = createCharacterAsset('lincostudycard');
 export const ListenbadgeAsset = createCharacterAsset('listenbadge');
 export const ReviewbadgeAsset = createCharacterAsset('reviewbadge');

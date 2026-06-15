@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const STORAGE_FOLDER = 'assets/characters';
+const PUBLIC_FOLDER = 'assets/characters';
+const PUBLIC_DIR = join('public', PUBLIC_FOLDER);
 const MANIFEST_PATH = 'lib/assets/character-assets.ts';
-const RENDERER_PATH = 'components/assets/CharacterAsset.tsx';
 const BADGES_PATH = 'components/assets/CharacterBadges.tsx';
-const INDEX_PATH = 'components/assets/index.ts';
 
 function loadEnvFile(filePath) {
   try {
@@ -71,11 +71,105 @@ function createUniqueName(name, usedNames) {
   return uniqueName;
 }
 
+function readTextFile(filePath) {
+  try {
+    return readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function getExistingAssetKeys(manifest) {
+  const keys = new Set();
+  const keyPattern = /^  ([a-zA-Z_$][\w$]*): \{/gm;
+  let match;
+
+  while ((match = keyPattern.exec(manifest)) !== null) {
+    keys.add(match[1]);
+  }
+
+  return keys;
+}
+
+function getExistingBadgeExports(badges) {
+  const exports = new Set();
+  const exportPattern = /^export const ([a-zA-Z_$][\w$]*) = createCharacterAsset\('([^']+)'\);$/gm;
+  let match;
+
+  while ((match = exportPattern.exec(badges)) !== null) {
+    exports.add(match[2]);
+  }
+
+  return exports;
+}
+
+function createManifestEntry(asset) {
+  return `  ${asset.key}: {
+    fileName: '${escapeSingleQuote(asset.fileName)}',
+    path: '${escapeSingleQuote(asset.publicPath)}',
+    alt: '${escapeSingleQuote(asset.alt)}',
+  },`;
+}
+
+function createManifest(assets) {
+  return `export const characterAssets = {
+${assets.map(createManifestEntry).join('\n')}
+} as const;
+
+export type CharacterAssetName = keyof typeof characterAssets;
+
+export function getCharacterAssetUrl(name: CharacterAssetName) {
+  return characterAssets[name].path;
+}
+`;
+}
+
+function appendManifestEntries(manifest, assets) {
+  if (assets.length === 0) return manifest;
+
+  const marker = '\n} as const;';
+  const markerIndex = manifest.indexOf(marker);
+
+  if (markerIndex === -1) {
+    throw new Error(`Could not find manifest insertion point in ${MANIFEST_PATH}.`);
+  }
+
+  const insert = `${assets.map(createManifestEntry).join('\n')}\n`;
+  return `${manifest.slice(0, markerIndex)}${insert}${manifest.slice(markerIndex)}`;
+}
+
+function createBadges(assets) {
+  return `import type * as React from 'react';
+import { CharacterAsset } from './CharacterAsset';
+import type { CharacterAssetName } from '@/lib/assets/character-assets';
+
+type NamedCharacterAssetProps = Omit<React.ComponentProps<typeof CharacterAsset>, 'name'>;
+
+function createCharacterAsset(name: CharacterAssetName) {
+  return function NamedCharacterAsset(props: NamedCharacterAssetProps) {
+    return <CharacterAsset name={name} {...props} />;
+  };
+}
+
+${assets.map((asset) => `export const ${asset.componentName} = createCharacterAsset('${asset.key}');`).join('\n')}
+`;
+}
+
+function appendBadgeExports(badges, assets) {
+  if (assets.length === 0) return badges;
+
+  const suffix = `${assets
+    .map((asset) => `export const ${asset.componentName} = createCharacterAsset('${asset.key}');`)
+    .join('\n')}\n`;
+
+  return badges.endsWith('\n') ? `${badges}${suffix}` : `${badges}\n${suffix}`;
+}
+
 loadEnvFile(join(process.cwd(), '.env.local'));
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'langbridge';
+const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'holalingo';
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
@@ -97,127 +191,76 @@ if (error) {
   throw new Error(`Failed to list ${STORAGE_FOLDER}: ${error.message}`);
 }
 
-const usedNames = new Set();
-const assets = (data || [])
-  .filter((entry) => entry.name.toLowerCase().endsWith('.webp'))
-  .map((entry) => {
-    const pascalName = createUniqueName(toPascalCase(entry.name), usedNames);
-    const key = toCamelCase(pascalName);
-    const path = `${STORAGE_FOLDER}/${entry.name}`;
+const manifestFile = readTextFile(MANIFEST_PATH);
+const badgesFile = readTextFile(BADGES_PATH);
+const existingKeys = manifestFile ? getExistingAssetKeys(manifestFile) : new Set();
+const existingBadgeExports = badgesFile ? getExistingBadgeExports(badgesFile) : new Set();
+const usedNames = new Set([...existingKeys].map((key) => key.charAt(0).toUpperCase() + key.slice(1)));
+const assets = [];
+const skippedAssets = [];
 
-    return {
-      key,
-      componentName: `${pascalName}Asset`,
+for (const entry of data || []) {
+  if (!entry.name.toLowerCase().endsWith('.webp')) continue;
+
+  const basePascalName = toPascalCase(entry.name);
+  const baseKey = toCamelCase(basePascalName);
+  const storagePath = `${STORAGE_FOLDER}/${entry.name}`;
+  const publicPath = `/${PUBLIC_FOLDER}/${entry.name}`;
+
+  if (existingKeys.has(baseKey)) {
+    skippedAssets.push({
+      key: baseKey,
       fileName: entry.name,
-      path,
-      alt: pascalName.replace(/([a-z0-9])([A-Z])/g, '$1 $2'),
-    };
-  });
+      storagePath,
+      publicPath,
+    });
+    continue;
+  }
 
-if (assets.length === 0) {
+  const pascalName = createUniqueName(basePascalName, usedNames);
+  const key = toCamelCase(pascalName);
+
+  assets.push({
+    key,
+    componentName: `${pascalName}Asset`,
+    fileName: entry.name,
+    storagePath,
+    publicPath,
+    alt: pascalName.replace(/([a-z0-9])([A-Z])/g, '$1 $2'),
+  });
+}
+
+const webpCount = assets.length + skippedAssets.length;
+
+if (webpCount === 0) {
   throw new Error(`No .webp files found in ${bucket}/${STORAGE_FOLDER}. Existing generated files were not changed.`);
 }
 
-const manifest = `import { getPublicUrl } from '@/lib/utils';
+mkdirSync(PUBLIC_DIR, { recursive: true });
 
-export const characterAssets = {
-${assets
-  .map(
-    (asset) => `  ${asset.key}: {
-    fileName: '${escapeSingleQuote(asset.fileName)}',
-    path: '${escapeSingleQuote(asset.path)}',
-    alt: '${escapeSingleQuote(asset.alt)}',
-  },`,
-  )
-  .join('\n')}
-} as const;
+const assetsToDownload = [...skippedAssets, ...assets].filter((asset) => !existsSync(join(PUBLIC_DIR, asset.fileName)));
 
-export type CharacterAssetName = keyof typeof characterAssets;
+for (const asset of assetsToDownload) {
+  const { data: file, error: downloadError } = await supabase.storage.from(bucket).download(asset.storagePath);
 
-export function getCharacterAssetUrl(name: CharacterAssetName) {
-  return getPublicUrl(characterAssets[name].path) ?? characterAssets[name].path;
-}
-`;
+  if (downloadError) {
+    throw new Error(`Failed to download ${asset.storagePath}: ${downloadError.message}`);
+  }
 
-const renderer = `import Image from 'next/image';
-import { cn } from '@/lib/utils';
-import { characterAssets, getCharacterAssetUrl, type CharacterAssetName } from '@/lib/assets/character-assets';
-
-interface CharacterAssetProps {
-  name: CharacterAssetName;
-  alt?: string;
-  size?: number;
-  width?: number;
-  height?: number;
-  className?: string;
-  imageClassName?: string;
-  priority?: boolean;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  writeFileSync(join(PUBLIC_DIR, asset.fileName), buffer);
 }
 
-export function CharacterAsset({
-  name,
-  alt,
-  size = 96,
-  width,
-  height,
-  className,
-  imageClassName,
-  priority = false,
-}: CharacterAssetProps) {
-  const asset = characterAssets[name];
-  const imageWidth = width ?? size;
-  const imageHeight = height ?? size;
+if (assets.length > 0) {
+  writeFileSync(MANIFEST_PATH, manifestFile ? appendManifestEntries(manifestFile, assets) : createManifest(assets));
 
-  return (
-    <span
-      className={cn('inline-flex shrink-0 items-center justify-center', className)}
-      style={{ width: imageWidth, height: imageHeight }}
-    >
-      <Image
-        src={getCharacterAssetUrl(name)}
-        alt={alt ?? asset.alt}
-        width={imageWidth}
-        height={imageHeight}
-        priority={priority}
-        className={cn('h-full w-full object-contain', imageClassName)}
-      />
-    </span>
-  );
-}
-`;
-
-const badges = `import type * as React from 'react';
-import { CharacterAsset } from './CharacterAsset';
-import type { CharacterAssetName } from '@/lib/assets/character-assets';
-
-type NamedCharacterAssetProps = Omit<React.ComponentProps<typeof CharacterAsset>, 'name'>;
-
-function createCharacterAsset(name: CharacterAssetName) {
-  return function NamedCharacterAsset(props: NamedCharacterAssetProps) {
-    return <CharacterAsset name={name} {...props} />;
-  };
+  const badgeAssets = assets.filter((asset) => !existingBadgeExports.has(asset.key));
+  writeFileSync(BADGES_PATH, badgesFile ? appendBadgeExports(badgesFile, badgeAssets) : createBadges(assets));
 }
 
-${assets
-  .map((asset) => `export const ${asset.componentName} = createCharacterAsset('${asset.key}');`)
-  .join('\n')}
-`;
-
-const index = `export { CharacterAsset } from './CharacterAsset';
-export * from './CharacterBadges';
-export {
-  characterAssets,
-  getCharacterAssetUrl,
-  type CharacterAssetName,
-} from '@/lib/assets/character-assets';
-`;
-
-writeFileSync(MANIFEST_PATH, manifest);
-writeFileSync(RENDERER_PATH, renderer);
-writeFileSync(BADGES_PATH, badges);
-writeFileSync(INDEX_PATH, index);
-
-console.log(`Generated ${assets.length} character assets from ${bucket}/${STORAGE_FOLDER}`);
+console.log(`Found ${webpCount} character assets from ${bucket}/${STORAGE_FOLDER}`);
+console.log(`Added ${assets.length} new character assets`);
+console.log(`Downloaded ${assetsToDownload.length} missing files to ${PUBLIC_DIR}`);
 for (const asset of assets) {
-  console.log(`- ${asset.fileName} -> ${asset.componentName}`);
+  console.log(`- ${asset.storagePath} -> ${asset.publicPath} -> ${asset.componentName}`);
 }
