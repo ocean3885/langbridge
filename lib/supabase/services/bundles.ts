@@ -34,6 +34,21 @@ export async function listBundles(options?: { publishedOnly?: boolean; limit?: n
   return data ?? [];
 }
 
+export async function countPublishedBundles(): Promise<number> {
+  const supabase = createAdminClient();
+  const { count, error } = await supabase
+    .from('bundle')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_published', true);
+
+  if (error) {
+    console.error('Error counting published bundles:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export async function listBundleItems(bundleId: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase

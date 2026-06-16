@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { formatDate } from '@/lib/utils';
@@ -27,6 +28,11 @@ export interface Bundle {
     name: string;
     name_en: string | null;
   } | null;
+  bundle_type?: {
+    id: string;
+    name: string;
+    code: string | null;
+  } | null;
 }
 
 export interface BundleItem {
@@ -51,20 +57,105 @@ export interface BundleItem {
 export default function BundlesManager({ initialBundles }: { initialBundles: Bundle[] }) {
   const [bundles, setBundles] = useState<Bundle[]>(initialBundles);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedLevel, setSelectedLevel] = useState('all');
+  const [selectedPublishStatus, setSelectedPublishStatus] = useState('all');
+  const [selectedAccessLevel, setSelectedAccessLevel] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
+  const itemsPerPage = 12;
 
   const refreshBundles = async () => {
     const data = await listBundles();
     setBundles(data as Bundle[]);
+    setCurrentPage(1);
   };
 
-  const filteredBundles = bundles.filter(bundle => 
-    bundle.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (bundle.title_en || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bundle.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bundle.description_en?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const categoryOptions = useMemo(() => {
+    const categories = new Map<string, string>();
+    bundles.forEach((bundle) => {
+      if (!bundle.bundle_category?.id) return;
+      categories.set(String(bundle.bundle_category.id), bundle.bundle_category.name);
+    });
+    return Array.from(categories.entries()).sort((a, b) => a[1].localeCompare(b[1], 'ko'));
+  }, [bundles]);
+
+  const typeOptions = useMemo(() => {
+    const types = new Map<string, string>();
+    bundles.forEach((bundle) => {
+      if (!bundle.bundle_type?.id) return;
+      types.set(String(bundle.bundle_type.id), bundle.bundle_type.name);
+    });
+    return Array.from(types.entries()).sort((a, b) => a[1].localeCompare(b[1], 'ko'));
+  }, [bundles]);
+
+  const levelOptions = useMemo(() => {
+    const levels = Array.from(new Set(bundles.map((bundle) => Number(bundle.level || 1)))).filter(Number.isFinite);
+    return levels.sort((a, b) => a - b);
+  }, [bundles]);
+
+  const filteredBundles = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return bundles.filter((bundle) => {
+      const matchesSearch = !normalizedQuery ||
+        bundle.title.toLowerCase().includes(normalizedQuery) ||
+        (bundle.title_en || '').toLowerCase().includes(normalizedQuery) ||
+        (bundle.description || '').toLowerCase().includes(normalizedQuery) ||
+        (bundle.description_en || '').toLowerCase().includes(normalizedQuery);
+
+      const matchesCategory = selectedCategory === 'all' || String(bundle.bundle_category?.id || '') === selectedCategory;
+      const matchesType = selectedType === 'all' || String(bundle.bundle_type?.id || '') === selectedType;
+      const matchesLevel = selectedLevel === 'all' || String(getBundleLevelDisplay(bundle.level, 'ko').value) === selectedLevel;
+      const matchesPublishStatus =
+        selectedPublishStatus === 'all' ||
+        (selectedPublishStatus === 'published' ? bundle.is_published : !bundle.is_published);
+      const matchesAccessLevel =
+        selectedAccessLevel === 'all' ||
+        (selectedAccessLevel === 'premium' ? bundle.access_level === 'premium' : bundle.access_level !== 'premium');
+
+      return matchesSearch && matchesCategory && matchesType && matchesLevel && matchesPublishStatus && matchesAccessLevel;
+    });
+  }, [
+    bundles,
+    searchQuery,
+    selectedCategory,
+    selectedType,
+    selectedLevel,
+    selectedPublishStatus,
+    selectedAccessLevel,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBundles.length / itemsPerPage));
+  const displayedBundles = useMemo(() => {
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * itemsPerPage;
+    return filteredBundles.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredBundles, currentPage, totalPages]);
+
+  const pageNumbers = useMemo(() => getPageNumbers(Math.min(currentPage, totalPages), totalPages), [currentPage, totalPages]);
+
+  const resetToFirstPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSelectedType('all');
+    setSelectedLevel('all');
+    setSelectedPublishStatus('all');
+    setSelectedAccessLevel('all');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters =
+    searchQuery.trim() ||
+    selectedCategory !== 'all' ||
+    selectedType !== 'all' ||
+    selectedLevel !== 'all' ||
+    selectedPublishStatus !== 'all' ||
+    selectedAccessLevel !== 'all';
 
   return (
     <div className="md:ml-64 p-4 md:p-8 pt-20 md:pt-8 bg-gray-50 dark:bg-background min-h-[calc(100vh-5rem)]">
@@ -108,14 +199,106 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
               type="text"
               placeholder="번들 제목 또는 설명으로 검색..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                resetToFirstPage();
+              }}
               className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
             />
           </div>
-          <button className="inline-flex items-center gap-2 px-5 py-3.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl text-gray-600 dark:text-gray-400 font-medium shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div className="inline-flex items-center gap-2 px-5 py-3.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl text-gray-600 dark:text-gray-400 font-medium shadow-sm">
             <Filter className="w-5 h-5" />
-            <span>필터</span>
-          </button>
+            <span>{filteredBundles.length} / {bundles.length}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <FilterSelect
+            label="카테고리"
+            value={selectedCategory}
+            onChange={(value) => {
+              setSelectedCategory(value);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '모든 카테고리' },
+              ...categoryOptions.map(([value, label]) => ({ value, label })),
+            ]}
+          />
+          <FilterSelect
+            label="타입"
+            value={selectedType}
+            onChange={(value) => {
+              setSelectedType(value);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '모든 타입' },
+              ...typeOptions.map(([value, label]) => ({ value, label })),
+            ]}
+          />
+          <FilterSelect
+            label="난이도"
+            value={selectedLevel}
+            onChange={(value) => {
+              setSelectedLevel(value);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '모든 난이도' },
+              ...levelOptions.map((level) => ({
+                value: String(getBundleLevelDisplay(level, 'ko').value),
+                label: getBundleLevelDisplay(level, 'ko').label,
+              })),
+            ]}
+          />
+          <FilterSelect
+            label="공개 상태"
+            value={selectedPublishStatus}
+            onChange={(value) => {
+              setSelectedPublishStatus(value);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '전체 상태' },
+              { value: 'published', label: '공개 중' },
+              { value: 'draft', label: '비공개' },
+            ]}
+          />
+          <FilterSelect
+            label="접근 권한"
+            value={selectedAccessLevel}
+            onChange={(value) => {
+              setSelectedAccessLevel(value);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '전체 권한' },
+              { value: 'free', label: '무료' },
+              { value: 'premium', label: '유료' },
+            ]}
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            조건에 맞는 번들 <span className="font-bold text-gray-900 dark:text-gray-100">{filteredBundles.length}</span>개
+            {filteredBundles.length > 0 && (
+              <span className="ml-1">
+                ({Math.min((Math.min(currentPage, totalPages) - 1) * itemsPerPage + 1, filteredBundles.length)}-
+                {Math.min(Math.min(currentPage, totalPages) * itemsPerPage, filteredBundles.length)} 표시)
+              </span>
+            )}
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              필터 초기화
+            </button>
+          )}
         </div>
 
         {/* Bundles Grid */}
@@ -129,7 +312,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredBundles.map(bundle => (
+            {displayedBundles.map(bundle => (
               <Link 
                 key={bundle.id}
                 href={`/admin/bundles/${bundle.id}`}
@@ -138,10 +321,12 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                 {/* Thumbnail Area */}
                 <div className="relative aspect-video overflow-hidden bg-gray-50 dark:bg-gray-800">
                   {bundle.thumbnail_url ? (
-                    <img 
-                      src={bundle.thumbnail_url} 
+                    <Image
+                      src={bundle.thumbnail_url}
                       alt={bundle.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-950 flex items-center justify-center">
@@ -209,6 +394,56 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
             ))}
           </div>
         )}
+
+        {filteredBundles.length > itemsPerPage && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage <= 1}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              aria-label="이전 페이지"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            {pageNumbers.map((page, index) => {
+              if (page === '...') {
+                return (
+                  <span key={`dots-${index}`} className="flex h-10 w-10 items-center justify-center text-sm font-bold text-gray-400">
+                    ...
+                  </span>
+                );
+              }
+
+              const isCurrent = page === Math.min(currentPage, totalPages);
+              return (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition ${
+                    isCurrent
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage >= totalPages}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              aria-label="다음 페이지"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <CategoryManagerModal 
@@ -224,4 +459,58 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
       />
     </div>
   );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="ml-1 text-xs font-bold text-gray-500 dark:text-gray-400">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-500 dark:focus:ring-blue-900/20"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function getPageNumbers(currentPage: number, totalPages: number) {
+  const pages: Array<number | '...'> = [];
+
+  if (totalPages <= 7) {
+    for (let page = 1; page <= totalPages; page += 1) {
+      pages.push(page);
+    }
+    return pages;
+  }
+
+  pages.push(1);
+  if (currentPage > 3) pages.push('...');
+
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (currentPage < totalPages - 2) pages.push('...');
+  pages.push(totalPages);
+
+  return pages;
 }

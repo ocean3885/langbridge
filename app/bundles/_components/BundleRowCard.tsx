@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Clock, Play, ArrowRight, FileText, Lock } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
-import type { BundleRow, Language } from '../types';
+import type { BundleProgressSnapshot, BundleRow, Language } from '../types';
 import {
   getBundleDescription,
   getBundleImage,
@@ -16,11 +16,15 @@ export function BundleRowCard({
   bundle,
   language,
   categoryStyle,
+  progress,
+  isLoggedIn = false,
   priority = false,
 }: {
   bundle: BundleRow;
   language: Language;
   categoryStyle: { color: string; iconColor: string };
+  progress?: BundleProgressSnapshot | null;
+  isLoggedIn?: boolean;
   priority?: boolean;
 }) {
   const title = getBundleTitle(bundle, language);
@@ -32,6 +36,9 @@ export function BundleRowCard({
   const itemLabel = language === 'ko' ? '항목' : 'items';
   const categoryName = getCategoryName(bundle, language);
   const isPremium = bundle.access_level === 'premium';
+  const progressPercent = getProgressPercent(progress);
+  const progressBadge = isLoggedIn ? getProgressBadge(progress, progressPercent, language) : null;
+  const progressLabel = language === 'ko' ? '학습 진행률' : 'Learning progress';
 
   return (
     <div className="group flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:items-center">
@@ -59,6 +66,11 @@ export function BundleRowCard({
               <span className="inline-flex items-center gap-1 rounded-full bg-[#FBE9E2] px-3 py-1 text-xs font-bold text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
                 <Lock className="h-3 w-3" />
                 Premium
+              </span>
+            )}
+            {progressBadge && (
+              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${progressBadge.className}`}>
+                {progressBadge.label}
               </span>
             )}
           </div>
@@ -93,6 +105,21 @@ export function BundleRowCard({
             <span>{duration}</span>
           </div>
         </div>
+
+        {isLoggedIn && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              <span>{progressLabel}</span>
+              <span className="tabular-nums">{progressPercent}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-[#63a464] transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Buttons */}
@@ -114,4 +141,35 @@ export function BundleRowCard({
       </div>
     </div>
   );
+}
+
+function getProgressPercent(progress?: BundleProgressSnapshot | null) {
+  const ratio = Number(progress?.progress_ratio || 0);
+  if (!Number.isFinite(ratio)) return 0;
+  return Math.min(100, Math.max(0, Math.round(ratio * 100)));
+}
+
+function getProgressBadge(
+  progress: BundleProgressSnapshot | null | undefined,
+  progressPercent: number,
+  language: Language,
+) {
+  if (progress?.is_completed || progressPercent >= 100) {
+    return {
+      label: language === 'ko' ? '완료' : 'Completed',
+      className: 'bg-[#edf7ed] text-[#497a4d] dark:bg-green-950/90 dark:text-green-300',
+    };
+  }
+
+  if (progress?.is_started || progressPercent > 0) {
+    return {
+      label: language === 'ko' ? '진행 중' : 'In Progress',
+      className: 'bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-950/90 dark:text-emerald-300',
+    };
+  }
+
+  return {
+    label: language === 'ko' ? '시작 전' : 'Not Started',
+    className: 'bg-[#fff7e6] text-[#7f6330] dark:bg-amber-950/90 dark:text-amber-300',
+  };
 }

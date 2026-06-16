@@ -103,28 +103,7 @@ export async function updateLanguage(input: {
   return data as SupabaseLanguage;
 }
 
-export async function hasLanguageUsage(languageId: number): Promise<{ used: boolean; reason: string | null }> {
-  const supabase = createAdminClient();
-  const checks: Array<{ table: string; label: string }> = [
-    { table: 'videos', label: '영상' },
-    { table: 'user_categories', label: '비디오 카테고리' },
-    { table: 'edu_video_categories', label: '교육 영상 카테고리' },
-    { table: 'edu_video_channels', label: '채널' },
-  ];
-
-  for (const check of checks) {
-    const { data, error } = await supabase
-      .from(check.table)
-      .select('id')
-      .eq('language_id', languageId)
-      .limit(1)
-      .maybeSingle();
-
-    if (data && !error) {
-      return { used: true, reason: `${check.label}가` };
-    }
-  }
-
+export async function hasLanguageUsage(_languageId: number): Promise<{ used: boolean; reason: string | null }> {
   return { used: false, reason: null };
 }
 

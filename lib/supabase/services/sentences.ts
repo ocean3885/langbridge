@@ -56,6 +56,20 @@ export async function listSentences(): Promise<SupabaseSentence[]> {
   })) as SupabaseSentence[];
 }
 
+export async function countSentences(): Promise<number> {
+  const supabase = createAdminClient();
+  const { count, error } = await supabase
+    .from('sentences')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    console.error('Error counting sentences:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export async function getSentenceById(id: number): Promise<SupabaseSentence | null> {
   const supabase = createAdminClient();
   const { data: sentence, error: sentenceError } = await supabase

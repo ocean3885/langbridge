@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
+import { countAuthUsers } from '@/lib/supabase/services/auth-users';
+import { countPublishedBundles } from '@/lib/supabase/services/bundles';
+import { countSentences } from '@/lib/supabase/services/sentences';
+import { countWords } from '@/lib/supabase/services/words';
 import AdminDashboard from './AdminDashboard';
 import AdminSidebar from './AdminSidebar';
 
@@ -19,11 +23,25 @@ export default async function AdminPage() {
   if (!isAdminUser) {
     redirect('/');
   }
+
+  const [totalUsers, publishedBundles, totalWords, totalSentences] = await Promise.all([
+    countAuthUsers(),
+    countPublishedBundles(),
+    countWords(),
+    countSentences(),
+  ]);
   
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} language={lang} />
-      <AdminDashboard />
+      <AdminDashboard
+        stats={{
+          totalUsers,
+          publishedBundles,
+          totalWords,
+          totalSentences,
+        }}
+      />
     </>
   );
 }

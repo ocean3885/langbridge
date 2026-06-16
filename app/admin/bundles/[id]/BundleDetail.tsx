@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
@@ -661,10 +662,12 @@ export default function BundleDetail({
                     {/* Preview */}
                     <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex items-center justify-center">
                       {editForm.thumbnail_url ? (
-                        <img 
-                          src={editForm.thumbnail_url} 
+                        <Image
+                          src={editForm.thumbnail_url}
                           alt="Thumbnail preview"
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 33vw"
                         />
                       ) : (
                         <ImageIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" />
@@ -710,10 +713,12 @@ export default function BundleDetail({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1">
                     <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex items-center justify-center">
                       {editForm.image_url ? (
-                        <img
+                        <Image
                           src={editForm.image_url}
                           alt="Player default preview"
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 33vw"
                         />
                       ) : (
                         <ImageIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" />
@@ -763,11 +768,13 @@ export default function BundleDetail({
               {/* 1. Thumbnail Row (Independent & Centered) */}
               <div className="p-6 md:p-8 pb-0 flex justify-center">
                 {bundle.thumbnail_url ? (
-                  <div className="w-full max-w-xl aspect-video rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 shrink-0">
-                    <img 
-                      src={bundle.thumbnail_url} 
+                  <div className="relative w-full max-w-xl aspect-video rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 shrink-0">
+                    <Image
+                      src={bundle.thumbnail_url}
                       alt={bundle.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 576px"
                     />
                   </div>
                 ) : (
@@ -1110,7 +1117,7 @@ export default function BundleDetail({
 
                       {!isEditing && item.image_url && (
                         <div className="mt-3 relative w-32 aspect-video rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800">
-                          <img src={item.image_url} alt="Item" className="w-full h-full object-cover" />
+                          <Image src={item.image_url} alt="Item" fill className="object-cover" sizes="128px" />
                         </div>
                       )}
                     </div>

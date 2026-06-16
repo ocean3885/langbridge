@@ -9,10 +9,7 @@ import {
   Languages,
   BookOpen,
   MessageSquare,
-  GitMerge,
   BookMarked,
-  FolderTree,
-  Video,
   Images,
   Menu,
   X,
@@ -35,8 +32,6 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
     { id: 'sentences', label: '문장 관리', icon: MessageSquare, href: '/admin/sentences' },
     { id: 'bundles', label: '번들 관리', icon: BookMarked, href: '/admin/bundles' },
     { id: 'assets', label: '에셋 관리', icon: Images, href: '/admin/assets' },
-    { id: 'channels', label: '채널 관리', icon: FolderTree, href: '/admin/channels' },
-    { id: 'videos', label: '영상 관리', icon: Video, href: '/admin/videos' },
   ];
 
   return (

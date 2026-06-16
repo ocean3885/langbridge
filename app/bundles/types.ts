@@ -27,6 +27,13 @@ export type BundleRow = {
   bundle_items?: Array<{ count: number }> | null;
 };
 
+export type BundleProgressSnapshot = {
+  bundle_id: string;
+  is_started: boolean;
+  is_completed: boolean;
+  progress_ratio: number;
+};
+
 export type BundleCopy = {
   title: string;
   description: string;

@@ -5,7 +5,6 @@ import {
   BookOpen,
   Compass,
   HelpCircle,
-  Layers,
   Shuffle,
   Star,
 } from 'lucide-react';
@@ -83,7 +82,8 @@ const loggedInSectionCopy = {
     earnedStars: '획득한 별',
     completedBundles: '완료한 번들',
     activeBundles: '진행 중인 번들',
-    practicedWords: '기억 중인 단어',
+    practicedWords: '연습한 단어',
+    wordsInMemory: '기억 중인 단어',
     practiceAccuracy: '정답률',
     viewAllBundles: '전체 번들 보기',
   },
@@ -97,7 +97,8 @@ const loggedInSectionCopy = {
     earnedStars: 'Earned Stars',
     completedBundles: 'Bundles Completed',
     activeBundles: 'Active Bundles',
-    practicedWords: 'Words in Memory',
+    practicedWords: 'Practiced Words',
+    wordsInMemory: 'Words in Memory',
     practiceAccuracy: 'Practice Accuracy',
     viewAllBundles: 'View all bundles',
   },
@@ -124,7 +125,10 @@ export function LoggedInLearnPage({
   progressSummary: LearningProgressSummary;
   language: DisplayLanguage;
 }) {
-  const hasRecommendedBundles = recommendedBundles.length > 0;
+  const displayedProgressSummary = {
+    ...progressSummary,
+    activeBundles: activeBundles.length,
+  };
 
   return (
     <div className="mx-auto grid max-w-7xl gap-7 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100 lg:grid-cols-[1fr_360px]">
@@ -136,7 +140,7 @@ export function LoggedInLearnPage({
           featuredBundleId={recentBundle?.bundle.id}
           language={language}
         />
-        {hasRecommendedBundles && <ExploreBundlesSection bundles={recommendedBundles} language={language} />}
+        {recommendedBundles.length > 0 && <ExploreBundlesSection bundles={recommendedBundles} language={language} />}
         <QuickPracticeSection recentBundle={recentBundle} language={language} />
       </div>
 
@@ -144,7 +148,7 @@ export function LoggedInLearnPage({
         streakSummary={streakSummary}
         goalSummary={goalSummary}
         reviewNeededSummary={reviewNeededSummary}
-        progressSummary={progressSummary}
+        progressSummary={displayedProgressSummary}
         language={language}
       />
     </div>
@@ -195,20 +199,14 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
       />
       <div className="mt-4 grid gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
         <div className="relative aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
-          {imageSrc ? (
-            <Image
-              src={imageSrc}
-              alt={title}
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, (max-width: 1280px) 42vw, 520px"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-[#8b7c66] dark:text-zinc-500">
-              <Layers className="h-14 w-14" />
-            </div>
-          )}
+          <Image
+            src={imageSrc}
+            alt={title}
+            fill
+            priority
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, (max-width: 1280px) 42vw, 520px"
+          />
         </div>
         <div className="flex min-w-0 flex-col justify-center px-1 pb-2 pt-1 sm:px-2 lg:p-0 lg:pr-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -445,6 +443,7 @@ function ProgressSummaryCard({ summary, language }: { summary: LearningProgressS
     [t.activeBundles, formatCount(summary.activeBundles)],
     [t.completedSentences, formatCount(summary.completedSentences)],
     [t.practicedWords, formatCount(summary.practicedWords)],
+    [t.wordsInMemory, formatCount(summary.wordsInMemory)],
     [t.practiceAccuracy, `${summary.practiceAccuracyPercent}%`],
   ];
 

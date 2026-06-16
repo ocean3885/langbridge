@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Trash2, Edit2, Loader2, ImageIcon, Upload, MoveUp, MoveDown } from 'lucide-react';
 import {
@@ -461,7 +462,7 @@ function CategoryIconPreview({ iconUrl }: { iconUrl?: string | null }) {
   return (
     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
       {iconUrl ? (
-        <img src={iconUrl} alt="" className="h-full w-full object-cover" />
+        <Image src={iconUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
       ) : (
         <ImageIcon className="h-5 w-5 text-gray-400" />
       )}

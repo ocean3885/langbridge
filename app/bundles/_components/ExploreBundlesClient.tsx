@@ -2,29 +2,70 @@
 
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { BundlesHero } from './BundlesHero';
 import { BundleRowCard } from './BundleRowCard';
 import { categoryStyles } from '../bundle-data';
 import { getCategoryKey, getCategoryTitle, getBundleTitle, getBundleDescription } from '../bundle-utils';
-import type { BundleCategoryRow, BundleCopy, BundleRow, Language } from '../types';
+import type { BundleCategoryRow, BundleCopy, BundleProgressSnapshot, BundleRow, Language } from '../types';
+
+type BundleProgressStatus = 'in_progress' | 'not_started' | 'completed';
+
+const levelFilterValues = ['1', '2', '3', '4', '5', '6', '7'];
+
+function getProgressStatus(progress?: BundleProgressSnapshot | null): BundleProgressStatus {
+  const ratio = Number(progress?.progress_ratio || 0);
+
+  if (progress?.is_completed || ratio >= 1) {
+    return 'completed';
+  }
+
+  if (progress?.is_started || ratio > 0) {
+    return 'in_progress';
+  }
+
+  return 'not_started';
+}
 
 export function ExploreBundlesClient({
   bundles,
   categories,
+  bundleProgress,
+  isLoggedIn,
   copy,
   language,
 }: {
   bundles: BundleRow[];
   categories: BundleCategoryRow[];
+  bundleProgress: BundleProgressSnapshot[];
+  isLoggedIn: boolean;
   copy: BundleCopy;
   language: Language;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedLevel, setSelectedLevel] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [currentPage, setCurrentPage] = useState(1);
 
   const itemsPerPage = 6;
+
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    bundles.forEach((bundle) => {
+      const categoryKey = getCategoryKey(bundle.bundle_category);
+      counts.set(categoryKey, (counts.get(categoryKey) || 0) + 1);
+    });
+
+    return counts;
+  }, [bundles]);
+
+  const progressByBundleId = useMemo(
+    () => new Map(bundleProgress.map((progress) => [progress.bundle_id, progress])),
+    [bundleProgress],
+  );
 
   // Filtered & Sorted Bundles
   const processedBundles = useMemo(() => {
@@ -49,7 +90,21 @@ export function ExploreBundlesClient({
       });
     }
 
-    // 3. Sorting
+    // 3. Level Filter
+    if (selectedLevel) {
+      result = result.filter(
+        (b) => String(getBundleLevelDisplay(b.level, language).value) === selectedLevel
+      );
+    }
+
+    // 4. Progress Status Filter (logged-in users only)
+    if (isLoggedIn && selectedStatus) {
+      result = result.filter(
+        (b) => getProgressStatus(progressByBundleId.get(b.id)) === selectedStatus
+      );
+    }
+
+    // 5. Sorting
     result.sort((a, b) => {
       const dateA = new Date(a.created_at || 0).getTime();
       const dateB = new Date(b.created_at || 0).getTime();
@@ -63,7 +118,7 @@ export function ExploreBundlesClient({
     });
 
     return result;
-  }, [bundles, activeCategory, searchQuery, sortBy, language]);
+  }, [bundles, activeCategory, searchQuery, selectedLevel, selectedStatus, sortBy, language, isLoggedIn, progressByBundleId]);
 
   // Pagination Calculations
   const totalItems = processedBundles.length;
@@ -115,67 +170,161 @@ export function ExploreBundlesClient({
       />
 
       {/* Category Tabs & Sort Filter */}
-      <div className="flex flex-col gap-4 border-b border-zinc-200/50 pb-5 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
-        {/* Horizontal tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* "All" Tab */}
-          <button
-            onClick={() => {
-              setActiveCategory('all');
-              setCurrentPage(1);
-            }}
-            className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
-              activeCategory === 'all'
-                ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
-                : 'border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
-            }`}
-          >
-            {language === 'ko' ? '전체' : 'All'}
-          </button>
-
-          {/* Categories Tabs */}
-          {categories.map((category, index) => {
-            const catKey = getCategoryKey(category);
-            const title = getCategoryTitle(category, language);
-            const isActive = activeCategory === catKey;
-
-            return (
-              <button
-                key={catKey}
-                onClick={() => {
-                  setActiveCategory(catKey);
-                  setCurrentPage(1);
-                }}
-                className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
-                  isActive
-                    ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
-                    : 'border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
-                }`}
-              >
-                {title}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sort Dropdown */}
-        <div className="flex justify-end">
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
+      <div className="border-b border-zinc-200/50 pb-5 dark:border-zinc-800">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {/* Horizontal tabs */}
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            {/* "All" Tab */}
+            <button
+              onClick={() => {
+                setActiveCategory('all');
                 setCurrentPage(1);
               }}
-              className="appearance-none rounded-xl border border-zinc-200 bg-white pl-4 pr-10 py-2 text-xs md:text-sm font-semibold text-zinc-700 shadow-sm outline-none cursor-pointer hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 transition-colors"
+              className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
+                activeCategory === 'all'
+                  ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
+                  : 'border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
+              }`}
             >
-              <option value="latest">{language === 'ko' ? '최신순' : 'Latest'}</option>
-              <option value="oldest">{language === 'ko' ? '오래된순' : 'Oldest'}</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
-              <ChevronDown className="h-4 w-4" />
+              <span>{language === 'ko' ? '전체' : 'All'}</span>
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] ${
+                activeCategory === 'all'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300'
+              }`}>
+                {bundles.length}
+              </span>
+            </button>
+
+            {/* Categories Tabs */}
+            {categories.map((category) => {
+              const catKey = getCategoryKey(category);
+              const title = getCategoryTitle(category, language);
+              const isActive = activeCategory === catKey;
+              const categoryCount = categoryCounts.get(catKey) || 0;
+
+              return (
+                <button
+                  key={catKey}
+                  onClick={() => {
+                    setActiveCategory(catKey);
+                    setCurrentPage(1);
+                  }}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
+                    isActive
+                      ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
+                      : 'border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750'
+                  }`}
+                >
+                  <span>{title}</span>
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300'
+                  }`}>
+                    {categoryCount}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Filters & Sort Dropdown */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:flex-wrap md:items-center md:justify-end">
+            <div className="relative md:hidden">
+              <select
+                value={activeCategory}
+                onChange={(e) => {
+                  setActiveCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750"
+                aria-label={language === 'ko' ? '카테고리 필터' : 'Category filter'}
+              >
+                <option value="all">{language === 'ko' ? `전체 (${bundles.length})` : `All (${bundles.length})`}</option>
+                {categories.map((category) => {
+                  const catKey = getCategoryKey(category);
+                  const title = getCategoryTitle(category, language);
+                  const categoryCount = categoryCounts.get(catKey) || 0;
+
+                  return (
+                    <option key={catKey} value={catKey}>
+                      {title} ({categoryCount})
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="relative">
+              <select
+                value={selectedLevel}
+                onChange={(e) => {
+                  setSelectedLevel(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                aria-label={language === 'ko' ? '난이도 필터' : 'Level filter'}
+              >
+                <option value="">{language === 'ko' ? '모든 난이도' : 'All levels'}</option>
+                {levelFilterValues.map((levelValue) => (
+                  <option key={levelValue} value={levelValue}>
+                    {getBundleLevelDisplay(Number(levelValue), language).shortLabel}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+            {isLoggedIn && (
+              <div className="relative">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                  aria-label={language === 'ko' ? '진행단계 필터' : 'Progress status filter'}
+                >
+                  <option value="">{language === 'ko' ? '모든 진행단계' : 'All statuses'}</option>
+                  <option value="in_progress">{language === 'ko' ? '진행 중' : 'In Progress'}</option>
+                  <option value="not_started">{language === 'ko' ? '시작 전' : 'Not Started'}</option>
+                  <option value="completed">{language === 'ko' ? '완료' : 'Completed'}</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            )}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+              >
+                <option value="latest">{language === 'ko' ? '최신순' : 'Latest'}</option>
+                <option value="oldest">{language === 'ko' ? '오래된순' : 'Oldest'}</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+                <ChevronDown className="h-4 w-4" />
+              </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 md:text-sm">
+            {language === 'ko'
+              ? `${totalItems} / ${bundles.length}개 번들`
+              : `${totalItems} / ${bundles.length} ${copy.bundles}`}
+          </p>
         </div>
       </div>
 
@@ -198,6 +347,8 @@ export function ExploreBundlesClient({
                 bundle={bundle}
                 language={language}
                 categoryStyle={style}
+                progress={isLoggedIn ? progressByBundleId.get(bundle.id) || null : null}
+                isLoggedIn={isLoggedIn}
                 priority={index < 2}
               />
             );

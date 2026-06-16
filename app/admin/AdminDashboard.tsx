@@ -1,13 +1,51 @@
-'use client';
-
 import { 
   Users, 
   BookOpen, 
-  FolderTree, 
+  BookMarked,
   MessageSquare
 } from 'lucide-react';
 
-export default function AdminDashboard() {
+type AdminDashboardStats = {
+  totalUsers: number;
+  publishedBundles: number;
+  totalWords: number;
+  totalSentences: number;
+};
+
+interface AdminDashboardProps {
+  stats: AdminDashboardStats;
+}
+
+const statCards = [
+  {
+    label: '전체 사용자',
+    valueKey: 'totalUsers',
+    icon: Users,
+    iconClassName: 'text-blue-500',
+  },
+  {
+    label: '공개 번들',
+    valueKey: 'publishedBundles',
+    icon: BookMarked,
+    iconClassName: 'text-emerald-500',
+  },
+  {
+    label: '전체 단어',
+    valueKey: 'totalWords',
+    icon: BookOpen,
+    iconClassName: 'text-green-500',
+  },
+  {
+    label: '전체 문장',
+    valueKey: 'totalSentences',
+    icon: MessageSquare,
+    iconClassName: 'text-orange-500',
+  },
+] as const;
+
+export default function AdminDashboard({ stats }: AdminDashboardProps) {
+  const numberFormatter = new Intl.NumberFormat('ko-KR');
+
   return (
     <div className="min-h-screen bg-[#F9F7F2] dark:bg-zinc-950">
       {/* 메인 콘텐츠 영역 */}
@@ -20,57 +58,26 @@ export default function AdminDashboard() {
 
           {/* 통계 카드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 사용자</p>
-                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
-                </div>
-                <Users className="w-10 h-10 text-blue-500" />
-              </div>
-            </div>
+            {statCards.map((card) => {
+              const Icon = card.icon;
 
-            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 단어</p>
-                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
+              return (
+                <div
+                  key={card.valueKey}
+                  className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm p-6 border border-zinc-200 dark:border-zinc-800"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">{card.label}</p>
+                      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                        {numberFormatter.format(stats[card.valueKey])}
+                      </p>
+                    </div>
+                    <Icon className={`w-10 h-10 ${card.iconClassName}`} />
+                  </div>
                 </div>
-                <BookOpen className="w-10 h-10 text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">카테고리</p>
-                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
-                </div>
-                <FolderTree className="w-10 h-10 text-purple-500" />
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 border border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">전체 문장</p>
-                  <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">-</p>
-                </div>
-                <MessageSquare className="w-10 h-10 text-orange-500" />
-              </div>
-            </div>
-          </div>
-
-          {/* 최근 활동 */}
-          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-            <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">최근 활동</h2>
-            </div>
-            <div className="p-6">
-              <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">
-                기능을 하나씩 추가할 예정입니다.
-              </p>
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>

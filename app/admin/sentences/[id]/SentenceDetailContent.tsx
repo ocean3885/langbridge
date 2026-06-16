@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -343,9 +344,9 @@ export default function SentenceDetailContent({
               {relatedBundles.map((b: any) => (
                 <Link href={`/admin/bundles/${b.id}`} key={b.id} className="group">
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 group-hover:border-amber-200 dark:group-hover:border-amber-900 transition-all shadow-sm group-hover:shadow-md">
-                    <div className="w-16 aspect-video rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    <div className="relative w-16 aspect-video rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                       {b.thumbnail_url ? (
-                        <img src={b.thumbnail_url} alt={b.title} className="w-full h-full object-cover" />
+                        <Image src={b.thumbnail_url} alt={b.title} fill className="object-cover" sizes="64px" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-amber-100 text-amber-600">
                           <Layout className="w-6 h-6" />

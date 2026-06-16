@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { ImageIcon, Trash2, Plus, Loader2, Check, X } from 'lucide-react';
 import { uploadThumbnail, deleteFileFromPublicUrl, listPublicUrlsInFolder } from '@/lib/supabase/services/storage';
 import { compressImageForUpload } from '@/lib/image-compression';
@@ -171,7 +172,7 @@ export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder =
                 onClick={() => setSelectedImageUrl(url)}
                 className={`relative aspect-video rounded-2xl border-2 overflow-hidden cursor-pointer transition-all ${selectedImageUrl === url ? 'border-blue-500 ring-4 ring-blue-50 shadow-lg' : 'border-white hover:border-gray-200'}`}
               >
-                <img src={url} alt={`Bundle image ${i}`} className="w-full h-full object-cover" />
+                <Image src={url} alt={`Bundle image ${i}`} fill className="object-cover" sizes="(max-width: 640px) 50vw, 180px" />
                 <div className="absolute top-2 right-2 flex gap-1">
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDeleteImage(url); }}
@@ -275,7 +276,13 @@ export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder =
             <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-1">선택된 이미지 정보</span>
               <div className="flex items-center gap-3">
-                <img src={selectedImageUrl} className="w-12 h-8 object-cover rounded-md border border-white" />
+                <Image
+                  src={selectedImageUrl}
+                  alt="Selected bundle image"
+                  width={48}
+                  height={32}
+                  className="h-8 w-12 rounded-md border border-white object-cover"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-gray-500 truncate font-mono">{selectedImageUrl}</p>
                 </div>

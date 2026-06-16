@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
@@ -294,6 +295,8 @@ export default function BundleCreateForm({ userId }: Props) {
   const [speakerTtsOptions, setSpeakerTtsOptions] = useState<SpeakerTtsOptions>({});
   const [bundleImageFile, setBundleImageFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState('');
+  const [bundleImagePreviewUrl, setBundleImagePreviewUrl] = useState('');
   const [uploadedImages, setUploadedImages] = useState<{file?: File, previewUrl: string, remoteUrl?: string}[]>([]);
   const [itemImageMappings, setItemImageMappings] = useState<(number | null)[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -313,6 +316,30 @@ export default function BundleCreateForm({ userId }: Props) {
 
   const DRAFT_TYPE = 'bundle_create';
   const isConversationBundle = parsedData?.type === 'conversation';
+
+  useEffect(() => {
+    if (!thumbnailFile) {
+      setThumbnailPreviewUrl(bundleMeta.thumbnail_url);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(thumbnailFile);
+    setThumbnailPreviewUrl(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [thumbnailFile, bundleMeta.thumbnail_url]);
+
+  useEffect(() => {
+    if (!bundleImageFile) {
+      setBundleImagePreviewUrl(bundleMeta.image_url);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(bundleImageFile);
+    setBundleImagePreviewUrl(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [bundleImageFile, bundleMeta.image_url]);
   const selectedBundleType = bundleTypes.find(type => type.id === bundleMeta.type_id);
   const isConversationTypeSelected = selectedBundleType?.code === 'conversation';
   const selectedWordGenerationProvider = WORD_GENERATION_PROVIDERS.find(
@@ -1539,12 +1566,15 @@ export default function BundleCreateForm({ userId }: Props) {
                     번들 대표 썸네일
                   </label>
                   <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-200 dark:border-gray-700 group hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-inner">
-                    {bundleMeta.thumbnail_url || thumbnailFile ? (
+                    {thumbnailPreviewUrl ? (
                       <>
-                        <img 
-                          src={thumbnailFile ? URL.createObjectURL(thumbnailFile) : bundleMeta.thumbnail_url} 
-                          className="w-full h-full object-cover" 
-                          alt="Bundle Thumbnail" 
+                        <Image
+                          src={thumbnailPreviewUrl}
+                          className="object-cover"
+                          alt="Bundle Thumbnail"
+                          fill
+                          sizes="(max-width: 640px) 100vw, 384px"
+                          unoptimized={Boolean(thumbnailFile)}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <label className="p-2 bg-white text-blue-600 rounded-full cursor-pointer hover:bg-blue-50 transition-colors shadow-lg">
@@ -1597,12 +1627,15 @@ export default function BundleCreateForm({ userId }: Props) {
                     학습 플레이어 기본 이미지
                   </label>
                   <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-3xl overflow-hidden bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-200 dark:border-gray-700 group hover:border-emerald-400 dark:hover:border-emerald-500 transition-all shadow-inner">
-                    {bundleMeta.image_url || bundleImageFile ? (
+                    {bundleImagePreviewUrl ? (
                       <>
-                        <img
-                          src={bundleImageFile ? URL.createObjectURL(bundleImageFile) : bundleMeta.image_url}
-                          className="w-full h-full object-cover"
+                        <Image
+                          src={bundleImagePreviewUrl}
+                          className="object-cover"
                           alt="Bundle player default"
+                          fill
+                          sizes="(max-width: 640px) 100vw, 384px"
+                          unoptimized={Boolean(bundleImageFile)}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <label className="p-2 bg-white text-emerald-600 rounded-full cursor-pointer hover:bg-emerald-50 transition-colors shadow-lg">
@@ -2102,7 +2135,7 @@ export default function BundleCreateForm({ userId }: Props) {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {uploadedImages.map((img, idx) => (
                       <div key={idx} className="group relative aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
-                        <img src={img.previewUrl} alt={`Uploaded ${idx}`} className="w-full h-full object-cover" />
+                        <Image src={img.previewUrl} alt={`Uploaded ${idx}`} fill className="object-cover" sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw" unoptimized />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button 
                             type="button"
@@ -2168,11 +2201,14 @@ export default function BundleCreateForm({ userId }: Props) {
                         </td>
                         <td className="px-6 py-6">
                           {itemImageMappings[index] !== null ? (
-                            <div className="w-24 aspect-video rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-gray-100 dark:bg-gray-800">
-                              <img 
-                                src={uploadedImages[itemImageMappings[index]!].previewUrl} 
-                                alt="Preview" 
-                                className="w-full h-full object-cover"
+                            <div className="relative w-24 aspect-video rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-gray-100 dark:bg-gray-800">
+                              <Image
+                                src={uploadedImages[itemImageMappings[index]!].previewUrl}
+                                alt="Preview"
+                                fill
+                                className="object-cover"
+                                sizes="96px"
+                                unoptimized
                               />
                             </div>
                           ) : (

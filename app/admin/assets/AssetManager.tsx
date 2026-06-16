@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Image from 'next/image';
 import {
   CheckCircle2,
   Clipboard,
@@ -372,9 +373,9 @@ export default function AssetManager({ bucket }: AssetManagerProps) {
                   {assets.map((asset) => (
                     <div key={asset.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                       <div className="flex gap-4">
-                        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800">
+                        <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800">
                           {asset.previewUrl ? (
-                            <img src={asset.previewUrl} alt="" className="h-full w-full object-contain p-2" />
+                            <Image src={asset.previewUrl} alt="" fill className="object-contain p-2" sizes="96px" unoptimized />
                           ) : (
                             <FileImage className="h-8 w-8 text-zinc-400" />
                           )}

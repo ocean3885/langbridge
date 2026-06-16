@@ -123,6 +123,7 @@ export interface LearningProgressSummary {
   completedSentences: number;
   earnedStars: number;
   practicedWords: number;
+  wordsInMemory: number;
   practiceAccuracyPercent: number;
   completedBundles: number;
   activeBundles: number;
@@ -202,7 +203,7 @@ export async function getLearningProgressSummary(userId: string): Promise<Learni
 
   return {
     ...summary,
-    practicedWords: wordsInMemory || 0,
+    wordsInMemory: wordsInMemory || 0,
   };
 }
 
@@ -743,6 +744,7 @@ function toLearningProgressSummary(
     completedSentences: stats.completed_sentences,
     earnedStars: stats.earned_stars,
     practicedWords: stats.practiced_words,
+    wordsInMemory: 0,
     practiceAccuracyPercent: totalAttempts > 0 ? Math.round((stats.total_correct_count / totalAttempts) * 100) : 0,
     completedBundles: bundleCounts.completedBundles,
     activeBundles: bundleCounts.activeBundles,

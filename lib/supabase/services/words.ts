@@ -40,6 +40,20 @@ export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   })) as SupabaseWord[];
 }
 
+export async function countWords(): Promise<number> {
+  const supabase = createAdminClient();
+  const { count, error } = await supabase
+    .from('words')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    console.error('Error counting words:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export async function getWordById(id: number): Promise<SupabaseWord | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
