@@ -62,7 +62,7 @@ export function ReviewNeededSection({
                 icon={BookOpenCheck}
                 label={t.sentences}
                 description={t.sentenceDescription}
-                value={summary.sentences}
+                value={summary.availableSentences}
                 reviewHref="/learn/review/sentences"
                 reviewLabel={t.startReview}
                 tone="emerald"
@@ -71,7 +71,7 @@ export function ReviewNeededSection({
                 icon={Layers}
                 label={t.words}
                 description={t.wordDescription}
-                value={summary.words}
+                value={summary.availableWords}
                 reviewHref="/learn/review/words"
                 reviewLabel={t.startReview}
                 tone="amber"
@@ -115,7 +115,7 @@ export function ReviewNeededSection({
               icon={BookOpenCheck}
               label={t.sentences}
               description={t.sentenceDescription}
-              value={summary.sentences}
+              value={summary.availableSentences}
               reviewHref="/learn/review/sentences"
               reviewLabel={t.startReview}
               tone="emerald"
@@ -124,7 +124,7 @@ export function ReviewNeededSection({
               icon={Layers}
               label={t.words}
               description={t.wordDescription}
-              value={summary.words}
+              value={summary.availableWords}
               reviewHref="/learn/review/words"
               reviewLabel={t.startReview}
               tone="amber"

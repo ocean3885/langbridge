@@ -9,6 +9,7 @@ import { getPublicUrl } from '@/lib/utils';
 
 interface SentencesReviewClientProps {
   initialItems: ReviewSentenceItem[];
+  availableReviewCount: number;
   language: 'ko' | 'en';
 }
 
@@ -35,7 +36,7 @@ const copy = {
     doneTitle: '복습을 완료했습니다!',
     doneScore: (score: number, total: number) => `총 ${total}문제 중 ${score}문제를 맞혔습니다!`,
     restartBtn: '다시 복습하기',
-    itemsLeft: (count: number) => `남은 복습 대상 문장: ${count}개`,
+    itemsLeft: (count: number) => `전체 복습 후보 문장: ${count}개`,
   },
   en: {
     title: 'Sentence Review Session',
@@ -59,13 +60,14 @@ const copy = {
     doneTitle: 'Review Complete!',
     doneScore: (score: number, total: number) => `You answered ${score} of ${total} correctly!`,
     restartBtn: 'Review Again',
-    itemsLeft: (count: number) => `${count} sentences remaining in your pool`,
+    itemsLeft: (count: number) => `${count} sentence review candidates`,
   },
 };
 
-export default function SentencesReviewClient({ initialItems, language }: SentencesReviewClientProps) {
+export default function SentencesReviewClient({ initialItems, availableReviewCount, language }: SentencesReviewClientProps) {
   const t = copy[language];
   const isEnglish = language === 'en';
+  const headingClass = getReviewHeadingClass(language);
 
   // State
   const [step, setStep] = useState<'setup' | 'practice' | 'finished'>('setup');
@@ -210,7 +212,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
         <CharacterAsset name="tryagainbadge" size={128} />
-        <h1 className="font-serif text-3xl font-semibold dark:text-zinc-100">{t.emptyTitle}</h1>
+        <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.emptyTitle}</h1>
         <p className="text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">{t.emptyDesc}</p>
         <Link href="/learn" className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
           <ArrowLeft className="h-4 w-4" />
@@ -224,7 +226,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
   if (step === 'finished') {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
-        <h1 className="font-serif text-4xl font-semibold dark:text-zinc-100">{t.doneTitle}</h1>
+        <h1 className={`${headingClass} text-4xl dark:text-zinc-100`}>{t.doneTitle}</h1>
         
         {/* Only character badge is shown as per user request */}
         <div className="my-6">
@@ -255,7 +257,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="font-serif text-3xl font-semibold dark:text-zinc-100">{t.title}</h1>
+            <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.title}</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t.description}</p>
           </div>
         </header>
@@ -285,7 +287,7 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
                 );
               })}
             </div>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(initialItems.length)}</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
           </div>
 
           {/* Mode Selection */}
@@ -470,12 +472,9 @@ export default function SentencesReviewClient({ initialItems, language }: Senten
             />
             <div>
               <h3 className="text-lg font-bold">{isCorrect ? t.correct : t.wrong}</h3>
-              <p className="mt-1 text-sm font-bold select-all">{currentItem.sentence}</p>
-              {!isCorrect && (
-                <p className="text-xs mt-1 text-zinc-500 dark:text-zinc-400">
-                  {t.correctAnswer} <span className="font-semibold">{currentItem.sentence}</span>
-                </p>
-              )}
+              <p className="mt-1 text-sm font-bold select-all">
+                {isCorrect ? currentItem.sentence : `${t.correctAnswer} ${currentItem.sentence}`}
+              </p>
             </div>
           </div>
 
@@ -502,6 +501,10 @@ function shuffle<T>(array: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function getReviewHeadingClass(language: 'ko' | 'en') {
+  return language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold';
 }
 
 // Distractor Builder

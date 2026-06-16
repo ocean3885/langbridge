@@ -9,6 +9,7 @@ import { getPublicUrl } from '@/lib/utils';
 
 interface WordsReviewClientProps {
   initialItems: ReviewWordItem[];
+  availableReviewCount: number;
   language: 'ko' | 'en';
 }
 
@@ -42,11 +43,12 @@ const copy = {
     doneTitle: '복습을 완료했습니다!',
     doneScore: (score: number, total: number) => `총 ${total}문제 중 ${score}문제를 맞혔습니다!`,
     restartBtn: '다시 복습하기',
-    itemsLeft: (count: number) => `남은 복습 대상 단어: ${count}개`,
+    itemsLeft: (count: number) => `전체 복습 후보 단어: ${count}개`,
     knowBtn: '알고 있어요',
     dontKnowBtn: '아직 잘 몰라요',
     flipCardPrompt: '카드를 탭해서 뜻을 확인하세요.',
     spellingPrompt: '뜻과 품사를 보고 스펠링을 완성해 보세요:',
+    spellingHint: (firstLetter: string, count: number) => `힌트: ${firstLetter} · ${count}글자`,
     posLabels: {
       noun: '명사',
       verb: '동사',
@@ -82,11 +84,12 @@ const copy = {
     doneTitle: 'Review Complete!',
     doneScore: (score: number, total: number) => `You answered ${score} of ${total} correctly!`,
     restartBtn: 'Review Again',
-    itemsLeft: (count: number) => `${count} words remaining in your pool`,
+    itemsLeft: (count: number) => `${count} word review candidates`,
     knowBtn: 'I know it',
     dontKnowBtn: "I'm not sure yet",
     flipCardPrompt: 'Tap the card to reveal the meaning.',
     spellingPrompt: 'Complete the spelling based on the meaning and POS:',
+    spellingHint: (firstLetter: string, count: number) => `Hint: ${firstLetter} · ${count} letters`,
     posLabels: {
       noun: 'Noun',
       verb: 'Verb',
@@ -101,9 +104,10 @@ const copy = {
   },
 };
 
-export default function WordsReviewClient({ initialItems, language }: WordsReviewClientProps) {
+export default function WordsReviewClient({ initialItems, availableReviewCount, language }: WordsReviewClientProps) {
   const t = copy[language];
   const isEnglish = language === 'en';
+  const headingClass = getReviewHeadingClass(language);
 
   // State
   const [step, setStep] = useState<'setup' | 'practice' | 'finished'>('setup');
@@ -281,7 +285,7 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
         <CharacterAsset name="tryagainbadge" size={128} />
-        <h1 className="font-serif text-3xl font-semibold dark:text-zinc-100">{t.emptyTitle}</h1>
+        <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.emptyTitle}</h1>
         <p className="text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">{t.emptyDesc}</p>
         <Link href="/learn" className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
           <ArrowLeft className="h-4 w-4" />
@@ -295,7 +299,7 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
   if (step === 'finished') {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
-        <h1 className="font-serif text-4xl font-semibold dark:text-zinc-100">{t.doneTitle}</h1>
+        <h1 className={`${headingClass} text-4xl dark:text-zinc-100`}>{t.doneTitle}</h1>
         <div className="my-6">
           <CharacterAsset name="completebadge" size={200} />
         </div>
@@ -322,7 +326,7 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="font-serif text-3xl font-semibold dark:text-zinc-100">{t.title}</h1>
+            <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.title}</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t.description}</p>
           </div>
         </header>
@@ -351,7 +355,7 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
                 );
               })}
             </div>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(initialItems.length)}</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
           </div>
 
           {/* Mode Selection */}
@@ -395,6 +399,10 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
 
   // Active Practice state
   const correctMeaning = (isEnglish ? currentItem?.meaning_en : currentItem?.meaning_ko) || currentItem?.meaning_ko || '';
+  const posLabel = formatPos(currentItem.pos);
+  const meaningWithPos = `${correctMeaning} ${posLabel}`.trim();
+  const wrongAnswer = currentItemMode === 'quiz' ? meaningWithPos : currentItem.word;
+  const spellingHint = getSpellingHint(currentItem.word);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -478,6 +486,9 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
               <h2 className="text-3xl font-bold leading-relaxed dark:text-zinc-50">{correctMeaning}</h2>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
             </div>
+            <p className="mt-2 inline-flex rounded-full bg-[#f4fbf6] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/30 dark:text-emerald-300">
+              {t.spellingHint(spellingHint.firstLetter, spellingHint.letterCount)}
+            </p>
 
             {/* Answer assembly zone */}
             <div className="mt-8 min-h-16 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
@@ -613,10 +624,21 @@ export default function WordsReviewClient({ initialItems, language }: WordsRevie
             />
             <div>
               <h3 className="text-lg font-bold">{isCorrect ? t.correct : t.wrong}</h3>
-              <p className="mt-1 text-base font-bold select-all">{currentItem.word}</p>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {t.correctAnswer} <span className="font-semibold">{correctMeaning} {formatPos(currentItem.pos)}</span>
-              </p>
+              {isCorrect ? (
+                <>
+                  <p className="mt-1 text-base font-bold select-all">{currentItem.word}</p>
+                  <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{meaningWithPos}</p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-base font-bold select-all">
+                    {t.correctAnswer} <span className="font-semibold">{wrongAnswer}</span>
+                  </p>
+                  {currentItemMode !== 'quiz' && (
+                    <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{meaningWithPos}</p>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -643,6 +665,18 @@ function shuffle<T>(array: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function getSpellingHint(word: string) {
+  const trimmed = word.trim();
+  return {
+    firstLetter: trimmed.charAt(0),
+    letterCount: trimmed.replace(/\s+/g, '').length,
+  };
+}
+
+function getReviewHeadingClass(language: 'ko' | 'en') {
+  return language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold';
 }
 
 // Distractor Builder for word meanings

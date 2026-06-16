@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const DEFAULT_ACTIVITY_TIME_ZONE = 'Asia/Seoul';
-export const DEFAULT_DAILY_GOAL_COUNT = 20;
+export const DEFAULT_DAILY_GOAL_COUNT = 50;
 export const MIN_DAILY_GOAL_COUNT = 1;
 export const MAX_DAILY_GOAL_COUNT = 100;
 

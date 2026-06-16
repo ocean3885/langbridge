@@ -105,21 +105,23 @@ export default function BundleWordFillClient({
     const correctAns = { word: current.usedAs, meaning: current.targetMeaning };
     
     // 1. 해당 단어 고유의 오답 후보군 수집
-    let finalDistractors = [...current.distractors];
+    let finalDistractors = uniqueOptions(
+      current.distractors.filter((d) => normalizeOptionWord(d.word) !== normalizeOptionWord(correctAns.word))
+    );
 
     // 2. 만약 오답 후보군이 부족한 경우, 기존처럼 같은 번들 내 다른 단어들의 기본형(targetWord)으로 채움
     if (finalDistractors.length < 3) {
       const bundleLemmas = optionItems
-        .filter((item) => item.targetWord && item.targetWord.toLowerCase().trim() !== correctAns.word.toLowerCase().trim())
+        .filter((item) => item.targetWord && normalizeOptionWord(item.targetWord) !== normalizeOptionWord(correctAns.word))
         .map((item) => ({ word: item.targetWord, meaning: item.targetMeaning }));
       
       const seen = new Set<string>();
-      seen.add(correctAns.word.toLowerCase().trim());
-      finalDistractors.forEach((d) => seen.add(d.word.toLowerCase().trim()));
+      seen.add(normalizeOptionWord(correctAns.word));
+      finalDistractors.forEach((d) => seen.add(normalizeOptionWord(d.word)));
 
       for (const item of shuffle(bundleLemmas)) {
         if (finalDistractors.length >= 3) break;
-        const normalized = item.word.toLowerCase().trim();
+        const normalized = normalizeOptionWord(item.word);
         if (!seen.has(normalized)) {
           seen.add(normalized);
           finalDistractors.push(item);
@@ -350,6 +352,20 @@ function shuffle<T>(values: T[]) {
     [copy[index], copy[target]] = [copy[target], copy[index]];
   }
   return copy;
+}
+
+function uniqueOptions(options: OptionData[]) {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    const normalized = normalizeOptionWord(option.word);
+    if (!normalized || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function normalizeOptionWord(value: string) {
+  return value.toLowerCase().trim();
 }
 
 function playSentenceAudio(audioUrl: string | null) {

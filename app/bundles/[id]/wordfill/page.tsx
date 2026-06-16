@@ -39,13 +39,13 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
       const sentence = item.sentences;
       if (!sentence) return false;
       const maps = sentence.word_sentence_map || [];
-      return maps.some((m: any) => m.words?.word);
+      return getWordFillMapCandidates(sentence.sentence, maps).length > 0;
     })
     .map((item: any) => {
       const sentence = item.sentences;
       const maps = sentence.word_sentence_map || [];
-      // 첫 번째 유효한 단어 정보를 매핑 대상으로 선택
-      const map = maps.find((m: any) => m.words?.word);
+      // 세션이 시작될 때 문장에 연결된 단어 중 하나를 랜덤으로 선택
+      const map = pickRandomMap(getWordFillMapCandidates(sentence.sentence, maps));
       const targetWord = map.words.word;
       const targetMeaning = formatWordMeaning(language === 'en' ? map.words.meaning_en : map.words.meaning_ko) || '';
       const usedAs = map.used_as || targetWord;
@@ -57,7 +57,10 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
           word: d.distractor,
           meaning: (language === 'en' ? d.meaning_en : d.meaning_ko) || d.meaning_ko || '',
         }))
-        .filter((d: any) => d.word && d.word.toLowerCase().trim() !== targetWord.toLowerCase().trim());
+        .filter((d: any) => {
+          const distractor = normalizeOptionWord(d.word);
+          return distractor && distractor !== normalizeOptionWord(targetWord) && distractor !== normalizeOptionWord(usedAs);
+        });
 
       return {
         id: item.id,
@@ -109,4 +112,33 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
       isLoggedIn={Boolean(user)}
     />
   );
+}
+
+function getWordFillMapCandidates(sentence: string, maps: any[]) {
+  const validMaps = maps.filter((map: any) => map.words?.word);
+  const replaceableMaps = validMaps.filter((map: any) => {
+    const target = map.used_as || map.words.word;
+    return sentenceIncludesTarget(sentence, target);
+  });
+
+  return replaceableMaps.length > 0 ? replaceableMaps : validMaps;
+}
+
+function sentenceIncludesTarget(sentence: string, target: string) {
+  const escaped = escapeRegex(target);
+  const wordBoundaryRegex = new RegExp(`\\b${escaped}\\b`, 'i');
+
+  return wordBoundaryRegex.test(sentence) || new RegExp(escaped, 'i').test(sentence);
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+function pickRandomMap<T>(maps: T[]) {
+  return maps[Math.floor(Math.random() * maps.length)];
+}
+
+function normalizeOptionWord(value: string) {
+  return value.toLowerCase().trim();
 }

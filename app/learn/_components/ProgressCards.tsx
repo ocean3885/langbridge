@@ -36,8 +36,8 @@ const goalCopy = {
 
 const previewGoalSummary: LearningGoalSummary = {
   todayCount: 16,
-  dailyGoalCount: 20,
-  progressPercent: 80,
+  dailyGoalCount: 50,
+  progressPercent: 32,
   goalMet: false,
 };
 
