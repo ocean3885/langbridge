@@ -36,6 +36,8 @@ const translations = {
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
+    company: '회사명',
+    businessNumber: '사업자등록번호',
   },
   en: {
     tagline: 'Learn Spanish, the cozy way.',
@@ -63,6 +65,8 @@ const translations = {
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
+    company: 'Company',
+    businessNumber: 'Business Registration No.',
   }
 };
 
@@ -199,7 +203,14 @@ export default function Footer({ language = 'ko' }: Props) {
 
         {/* 하단 바 */}
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-center text-xs text-[#eae6df]/75">
-          <p>&copy; {year} HolaLingo. All rights reserved.</p>
+          <div className="flex flex-col items-center sm:items-start gap-1.5">
+            <p>&copy; {year} HolaLingo. All rights reserved.</p>
+            <p className="flex flex-wrap justify-center sm:justify-start items-center gap-x-2 gap-y-1 text-[#eae6df]/60">
+              <span>{t.company} LangBridge</span>
+              <span className="hidden sm:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
+              <span>{t.businessNumber} 264-34-01855</span>
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-1 text-[#eae6df]/75">
             <span className="hover:text-white hover:underline cursor-pointer">{t.terms}</span>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
