@@ -531,7 +531,7 @@ export default async function CategoryBundlesPage({ params, searchParams }: Cate
   const gridEntries = featuredEntry ? pageEntries.slice(1) : pageEntries;
   const hasCategoryBundles = categoryBundles.length > 0;
   const hasFilteredResults = filteredBundleEntries.length > 0;
-  const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/heroimg_land.jpg');
+  const heroImage = category.category_image_url || (featuredBundle ? getBundleImage(featuredBundle, 0) : '/images/bundle-fallback.webp');
   const minutesRange = getBundleMinutesRange(categoryBundles);
   const minutesRangeLabel = minutesRange
     ? `${minutesRange.min}${minutesRange.min === minutesRange.max ? '' : `-${minutesRange.max}`}`

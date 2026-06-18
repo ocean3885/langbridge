@@ -1179,10 +1179,8 @@ export default function BundleCreateForm({ userId }: Props) {
         sentenceTtsOptions
       );
 
-      alert('번들이 성공적으로 생성되었습니다!');
       await deleteAdminDraft(userId, DRAFT_TYPE);
-      router.push(`/admin/bundles/${bundle.id}`);
-      router.refresh();
+      router.replace(`/admin/bundles/${bundle.id}`);
     } catch (err: any) {
       alert(err.message || '번들 생성 중 오류가 발생했습니다.');
     } finally {

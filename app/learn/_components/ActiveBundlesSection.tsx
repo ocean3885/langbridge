@@ -115,7 +115,7 @@ function ActiveBundleRow({
   const categoryName = language === 'ko'
     ? item.bundle.bundle_category?.name || item.bundle.bundle_category?.name_en || item.bundle.bundle_type?.name || t.fallbackCategory
     : item.bundle.bundle_category?.name_en || item.bundle.bundle_category?.name || item.bundle.bundle_type?.name || t.fallbackCategory;
-  const imageSrc = item.bundle.thumbnail_url || '/images/heroimg_land.jpg';
+  const imageSrc = item.bundle.thumbnail_url || '/images/bundle-fallback.webp';
   const lastStudied = formatRelativeStudyDate(item.interaction.last_studied_at, language);
   const href = item.currentBundleItemId
     ? `/bundles/${item.bundle.id}/learn?item=${item.currentBundleItemId}`

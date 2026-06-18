@@ -178,7 +178,7 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
   const title = language === 'ko'
     ? bundle.title || bundle.title_en || t.fallbackTitle
     : bundle.title_en || bundle.title || t.fallbackTitle;
-  const imageSrc = bundle.thumbnail_url || '/images/heroimg_land.jpg';
+  const imageSrc = bundle.thumbnail_url || '/images/bundle-fallback.webp';
   const currentLabel = currentItem?.order_index != null
     ? t.currentItem(currentItem.order_index + 1, Math.max(totalItems, currentItem.order_index + 1))
     : t.completedItems(completedItems, totalItems);
@@ -282,7 +282,7 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
       <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {bundles.map((bundle) => {
           const title = getBundleTitle(bundle, language);
-          const imageSrc = bundle.thumbnail_url || '/images/heroimg_land.jpg';
+          const imageSrc = bundle.thumbnail_url || '/images/bundle-fallback.webp';
           const categoryName = getCategoryName(bundle, language);
           const level = getBundleLevelDisplay(bundle.level, language);
           const itemCount = bundleItemCount(bundle);

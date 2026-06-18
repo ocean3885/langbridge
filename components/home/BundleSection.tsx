@@ -80,19 +80,13 @@ export default function BundleSection({ bundles, lang = 'ko' }: BundleSectionPro
                 className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-100 dark:hover:border-blue-900/50 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-gray-50 dark:bg-gray-800">
-                  {bundle.thumbnail_url ? (
-                    <Image
-                      src={bundle.thumbnail_url}
-                      alt={displayTitle}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-700"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-200 dark:text-gray-700">
-                      <Layers className="w-12 h-12" />
-                    </div>
-                  )}
+                  <Image
+                    src={bundle.thumbnail_url || '/images/bundle-fallback.webp'}
+                    alt={displayTitle}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  />
                   <div className="absolute top-3 left-3">
                     <span className="px-2.5 py-0.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-full shadow-sm uppercase tracking-wider">
                       {level.shortLabel}

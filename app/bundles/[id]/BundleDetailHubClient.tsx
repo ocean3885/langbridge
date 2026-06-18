@@ -219,13 +219,14 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
         </section>
 
         <div className="relative z-10 h-44 w-full overflow-hidden lg:h-[360px]">
-          {bundle.thumbnail_url ? (
-            <Image src={bundle.thumbnail_url} alt={title} fill priority className="object-cover" sizes="(max-width: 1024px) 448px, 760px" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-[#f3ede3] text-[#8b7c66] dark:bg-zinc-800 dark:text-zinc-500">
-              <Layers className="h-14 w-14" />
-            </div>
-          )}
+          <Image
+            src={bundle.thumbnail_url || '/images/bundle-fallback.webp'}
+            alt={title}
+            fill
+            priority
+            className="object-cover"
+            sizes="(max-width: 1024px) 448px, 760px"
+          />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent dark:from-zinc-900" />
         </div>
 

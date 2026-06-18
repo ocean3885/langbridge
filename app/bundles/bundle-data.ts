@@ -86,7 +86,5 @@ export const categoryStyles: {
 ];
 
 export const fallbackImages = [
-  '/images/heroimg_land.jpg',
-  '/images/main.png',
-  '/images/heroimg_port.jpg',
+  '/images/bundle-fallback.webp',
 ];
