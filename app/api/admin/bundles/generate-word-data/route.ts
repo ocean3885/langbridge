@@ -17,8 +17,8 @@ type BundleWordDataItem = {
   sentence: string;
 };
 
-const SENTENCE_EXTRACTION_BATCH_SIZE = 15;
-const WORD_INFO_BATCH_SIZE = 12;
+const SENTENCE_EXTRACTION_BATCH_SIZE = 3;
+const WORD_INFO_BATCH_SIZE = 4;
 const MAX_CONCURRENT_AI_BATCHES = 2;
 const AI_RETRY_DELAY_MS = 500;
 

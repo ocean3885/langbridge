@@ -30,6 +30,7 @@ export default function WordExtractor({ sentenceId, sentenceText, langCode }: Wo
           sentenceId,
           word: selectedWord.trim(),
           langCode,
+          sentenceText,
         }),
       });
 

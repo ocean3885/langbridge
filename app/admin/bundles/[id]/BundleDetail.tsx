@@ -661,17 +661,14 @@ export default function BundleDetail({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1">
                     {/* Preview */}
                     <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden flex items-center justify-center">
-                      {editForm.thumbnail_url ? (
-                        <Image
-                          src={editForm.thumbnail_url}
-                          alt="Thumbnail preview"
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                        />
-                      ) : (
-                        <ImageIcon className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                      )}
+                      <Image
+                        src={editForm.thumbnail_url || '/images/bundle-fallback.webp'}
+                        alt="Thumbnail preview"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        priority
+                      />
                       {isUploading && (
                         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
                           <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -767,21 +764,16 @@ export default function BundleDetail({
             <div className="flex flex-col">
               {/* 1. Thumbnail Row (Independent & Centered) */}
               <div className="p-6 md:p-8 pb-0 flex justify-center">
-                {bundle.thumbnail_url ? (
-                  <div className="relative w-full max-w-xl aspect-video rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 shrink-0">
-                    <Image
-                      src={bundle.thumbnail_url}
-                      alt={bundle.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 576px"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full max-w-xl aspect-video bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center rounded-3xl overflow-hidden shrink-0">
-                    <Layout className="w-16 h-16 text-white/20" />
-                  </div>
-                )}
+                <div className="relative w-full max-w-xl aspect-video rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 shrink-0 bg-gray-50 dark:bg-gray-800">
+                  <Image
+                    src={bundle.thumbnail_url || '/images/bundle-fallback.webp'}
+                    alt={bundle.title}
+                    fill
+                    className="object-cover animate-in fade-in duration-300"
+                    sizes="(max-width: 768px) 100vw, 576px"
+                    priority
+                  />
+                </div>
               </div>
               
               {/* 2. Content Row */}

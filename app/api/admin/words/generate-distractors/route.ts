@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       existing_distractors: existingDistractors ?? [],
     };
 
+    const meaningKo = formatWordMeaning(word.meaning_ko);
     const meaningEn = formatWordMeaning(word.meaning_en);
     if (!meaningEn) {
       throw new Error('오답 생성 기준으로 사용할 영어 뜻이 없습니다.');
@@ -85,8 +86,9 @@ export async function POST(request: NextRequest) {
       word: word.word,
       langCode: word.lang_code,
       pos: Array.isArray(word.pos) ? word.pos : [],
+      meaningKo: meaningKo || '',
       meaningEn,
-      count,
+      count: count + 4, // 필터링(원본단어 중복 등) 대비 넉넉하게 생성 요청
     });
 
     if (!distractors || distractors.length === 0) {

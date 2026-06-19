@@ -706,20 +706,22 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const handleCopyBulkReportForChatGPT = async () => {
     if (!bulkReport) return;
 
-    const reviewData = bulkReport.map((item) => ({
-      word_id: item.id,
-      source: {
-        word: item.word,
-        language: item.lang_code,
-        pos: item.pos,
-        meaning_ko: item.meaning_ko,
-        meaning_en: item.meaning_en,
-        previous_distractor_count: item.previousDistractorCount,
-      },
-      generation_status: item.status,
-      error: item.error ?? null,
-      generated_distractors: item.distractors,
-    }));
+    const reviewData = bulkReport
+      .filter((item) => item.status === 'success')
+      .map((item) => ({
+        word_id: item.id,
+        source: {
+          word: item.word,
+          language: item.lang_code,
+          pos: item.pos,
+          meaning_ko: item.meaning_ko,
+          meaning_en: item.meaning_en,
+          previous_distractor_count: item.previousDistractorCount,
+        },
+        generation_status: item.status,
+        error: item.error ?? null,
+        generated_distractors: item.distractors,
+      }));
 
     const prompt = `아래는 어학 학습 서비스에서 AI로 생성한 오답 선택지(distractor) 결과입니다.
 각 원본 단어와 생성된 오답을 검수해주세요.
@@ -731,8 +733,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
 4. 오답의 한국어/영어 뜻이 정확하고 서로 일치하는지
 5. 퀴즈 오답으로 쓰기에 지나치게 무관하거나, 반대로 정답으로도 인정될 정도로 의미가 같은 항목이 없는지
 6. 철자 오류, 잘못된 성·수·품사, 부자연스러운 표현이 없는지
-7. 생성 실패 항목이 있다면 오류 내역도 함께 요약할 것
-8. 각 원본 단어는 최종적으로 정확히 ${TARGET_DISTRACTOR_COUNT}개의 오답으로 기존 데이터를 전체 교체할 예정임
+7. 각 원본 단어는 최종적으로 정확히 ${TARGET_DISTRACTOR_COUNT}개의 오답으로 기존 데이터를 전체 교체할 예정임
 
 문제가 있는 단어만 아래 형식으로 줄바꿈하여 작성해주세요.
 

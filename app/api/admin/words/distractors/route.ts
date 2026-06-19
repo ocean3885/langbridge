@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
     });
 
     const supabase = createAdminClient();
+
+    // 기존 등록된 혼동 어휘 일괄 삭제
+    const { error: deleteError } = await supabase
+      .from('words_distractor')
+      .delete()
+      .eq('word_id', Number(wordId));
+
+    if (deleteError) {
+      throw new Error(`기존 혼동 어휘 삭제 실패: ${deleteError.message}`);
+    }
+
     const { data, error } = await supabase
       .from('words_distractor')
       .insert(insertData)

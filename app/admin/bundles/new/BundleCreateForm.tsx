@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
@@ -330,6 +330,9 @@ export default function BundleCreateForm({ userId }: Props) {
   const [autoWordError, setAutoWordError] = useState<string | null>(null);
   const [wordGenerationProvider, setWordGenerationProvider] = useState<WordGenerationProvider>('deepseek');
   const [sourceGenerationDraftId, setSourceGenerationDraftId] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<{ total: number; current: number; currentText: string } | null>(null);
+  const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+  const generationCancelledRef = useRef(false);
 
   const DRAFT_TYPE = 'bundle_create';
   const isConversationBundle = parsedData?.type === 'conversation';
@@ -985,6 +988,7 @@ export default function BundleCreateForm({ userId }: Props) {
   const generateWordData = async (targetIndexes?: number[]) => {
     if (!parsedData) return;
 
+    const isBulk = !targetIndexes;
     const indexes = targetIndexes || parsedData.items
       .map((_, index) => index)
       .filter((index) => !wordJsons[index]?.trim());
@@ -997,6 +1001,8 @@ export default function BundleCreateForm({ userId }: Props) {
     setIsGeneratingWords(true);
     setAutoWordError(null);
     setGeneratingWordIndexes(new Set(indexes));
+
+    // Clear previous values/errors for target indexes
     setWordJsons(prev => {
       const next = [...prev];
       for (const index of indexes) {
@@ -1019,73 +1025,134 @@ export default function BundleCreateForm({ userId }: Props) {
       return next;
     });
 
+    if (isBulk) {
+      generationCancelledRef.current = false;
+      setIsProgressModalOpen(true);
+      setGenerationProgress({
+        total: indexes.length,
+        current: 0,
+        currentText: '대기 중...',
+      });
+    }
+
     try {
-      const response = await fetch('/api/admin/bundles/generate-word-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          langCode: 'es',
-          modelProvider: wordGenerationProvider,
-          items: indexes.map((index) => ({
-            index,
-            sentence: parsedData.items[index].sentence,
-          })),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+      const CHUNK_SIZE = isBulk ? 3 : indexes.length;
+      const chunks: number[][] = [];
+      for (let i = 0; i < indexes.length; i += CHUNK_SIZE) {
+        chunks.push(indexes.slice(i, i + CHUNK_SIZE));
       }
 
-      const generatedWordJsons: Record<number, string> = {};
-      const generatedResults: Record<number, AutoWordGenerationResult> = {};
-      for (const index of indexes) {
-        generatedWordJsons[index] = '';
+      let processedCount = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (isBulk && generationCancelledRef.current) {
+          throw new Error('사용자에 의해 작업이 취소되었습니다.');
+        }
+
+        const chunk = chunks[i];
+        
+        // Update generating indexes to just the active chunk for UI spinners
+        setGeneratingWordIndexes(new Set(chunk));
+
+        if (isBulk) {
+          setGenerationProgress({
+            total: indexes.length,
+            current: processedCount,
+            currentText: `문장 ${processedCount + 1}~${Math.min(processedCount + chunk.length, indexes.length)} 분석 중...`,
+          });
+        }
+
+        const response = await fetch('/api/admin/bundles/generate-word-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            langCode: 'es',
+            modelProvider: wordGenerationProvider,
+            items: chunk.map((index) => ({
+              index,
+              sentence: parsedData.items[index].sentence,
+            })),
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+        }
+
+        const generatedWordJsons: Record<number, string> = {};
+        const generatedResults: Record<number, AutoWordGenerationResult> = {};
+
+        for (const result of data.results || []) {
+          const index = Number(result.index);
+          if (!Number.isInteger(index)) continue;
+
+          generatedWordJsons[index] = JSON.stringify(result.wordJson || { words: {} }, null, 2);
+          generatedResults[index] = {
+            status: result.status === 'partial' ? 'partial' : 'completed',
+            existingWords: Array.isArray(result.existingWords) ? result.existingWords : [],
+            generatedWords: Array.isArray(result.generatedWords) ? result.generatedWords : [],
+            failedWords: Array.isArray(result.failedWords) ? result.failedWords : [],
+            excludedWords: Array.isArray(result.excludedWords) ? result.excludedWords : [],
+            error: typeof result.error === 'string' ? result.error : null,
+          };
+        }
+
+        // Apply chunk results immediately to state
+        setWordJsons(prev => {
+          const next = [...prev];
+          for (const [index, value] of Object.entries(generatedWordJsons)) {
+            next[Number(index)] = value;
+          }
+          return next;
+        });
+
+        setWordErrors(prev => {
+          const next = [...prev];
+          for (const index of chunk) {
+            next[index] = null;
+          }
+          return next;
+        });
+
+        setAutoWordResults(prev => {
+          const next = { ...prev };
+          for (const index of chunk) {
+            delete next[index];
+          }
+          return { ...next, ...generatedResults };
+        });
+
+        processedCount += chunk.length;
+
+        if (isBulk) {
+          setGenerationProgress({
+            total: indexes.length,
+            current: processedCount,
+            currentText: `문장 ${processedCount}개 완료`,
+          });
+        }
       }
-
-      for (const result of data.results || []) {
-        const index = Number(result.index);
-        if (!Number.isInteger(index)) continue;
-
-        generatedWordJsons[index] = JSON.stringify(result.wordJson || { words: {} }, null, 2);
-        generatedResults[index] = {
-          status: result.status === 'partial' ? 'partial' : 'completed',
-          existingWords: Array.isArray(result.existingWords) ? result.existingWords : [],
-          generatedWords: Array.isArray(result.generatedWords) ? result.generatedWords : [],
-          failedWords: Array.isArray(result.failedWords) ? result.failedWords : [],
-          excludedWords: Array.isArray(result.excludedWords) ? result.excludedWords : [],
-          error: typeof result.error === 'string' ? result.error : null,
-        };
-      }
-
-      setWordJsons(prev => {
-        const next = [...prev];
-        for (const [index, value] of Object.entries(generatedWordJsons)) {
-          next[Number(index)] = value;
-        }
-        return next;
-      });
-      setWordErrors(prev => {
-        const next = [...prev];
-        for (const index of indexes) {
-          next[index] = null;
-        }
-        return next;
-      });
-      setAutoWordResults(prev => {
-        const next = { ...prev };
-        for (const index of indexes) {
-          delete next[index];
-        }
-        return { ...next, ...generatedResults };
-      });
     } catch (err: any) {
-      setAutoWordError(err.message || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+      if (isBulk) {
+        setAutoWordError(err.message || '단어 데이터 자동 생성 중 오류가 발생했습니다.');
+      } else {
+        // For individual retry, set the error on the specific index
+        const firstIdx = indexes[0];
+        setWordErrors(prev => {
+          const next = [...prev];
+          next[firstIdx] = err.message || '자동 생성 실패';
+          return next;
+        });
+      }
     } finally {
       setIsGeneratingWords(false);
       setGeneratingWordIndexes(new Set());
+      if (isBulk) {
+        setIsProgressModalOpen(false);
+        setGenerationProgress(null);
+      }
     }
   };
 
@@ -2445,6 +2512,45 @@ export default function BundleCreateForm({ userId }: Props) {
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Modal */}
+      {isProgressModalOpen && generationProgress && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" />
+          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-2xl overflow-hidden p-8 animate-in zoom-in-95 slide-in-from-bottom-8 duration-300 flex flex-col items-center">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center mb-6">
+              <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">단어 데이터 생성 중</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
+              AI가 각 문장을 분석하여 단어 사전을 작성하고 있습니다.<br />잠시만 기다려 주세요.
+            </p>
+
+            <div className="w-full bg-gray-100 dark:bg-gray-800 h-3 rounded-full overflow-hidden mb-3 relative">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${(generationProgress.current / generationProgress.total) * 100}%` }}
+              />
+            </div>
+
+            <div className="flex justify-between w-full text-xs font-bold text-gray-400 mb-6 px-1">
+              <span>{generationProgress.currentText}</span>
+              <span>{Math.round((generationProgress.current / generationProgress.total) * 100)}% ({generationProgress.current}/{generationProgress.total})</span>
+            </div>
+
+            <button
+              onClick={() => {
+                generationCancelledRef.current = true;
+                setGenerationProgress(prev => prev ? { ...prev, currentText: '작업 취소 중...' } : null);
+              }}
+              className="w-full py-3.5 bg-gray-50 hover:bg-red-50 hover:text-red-600 dark:bg-gray-800/50 dark:hover:bg-red-950/20 dark:hover:text-red-400 text-gray-500 font-bold rounded-2xl transition-all outline-none focus:ring-2 focus:ring-red-100 dark:focus:ring-red-950/20 active:scale-95"
+            >
+              취소
+            </button>
           </div>
         </div>
       )}

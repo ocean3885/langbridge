@@ -601,7 +601,7 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
       const newDistractors = await res.json();
       setWord({
         ...word,
-        distractors: [...(word.distractors || []), ...newDistractors]
+        distractors: newDistractors
       });
       setIsDistractorModalOpen(false);
       setDistractorJsonInput('');

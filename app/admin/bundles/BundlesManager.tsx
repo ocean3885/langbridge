@@ -323,7 +323,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {displayedBundles.map(bundle => (
+            {displayedBundles.map((bundle, index) => (
               <Link 
                 key={bundle.id}
                 href={`/admin/bundles/${bundle.id}`}
@@ -331,19 +331,14 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
               >
                 {/* Thumbnail Area */}
                 <div className="relative aspect-video overflow-hidden bg-gray-50 dark:bg-gray-800">
-                  {bundle.thumbnail_url ? (
-                    <Image
-                      src={bundle.thumbnail_url}
-                      alt={bundle.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-800 dark:to-gray-950 flex items-center justify-center">
-                      <Layout className="w-12 h-12 text-gray-300 dark:text-gray-700" />
-                    </div>
-                  )}
+                  <Image
+                    src={bundle.thumbnail_url || '/images/bundle-fallback.webp'}
+                    alt={bundle.title}
+                    fill
+                    className="object-cover animate-in fade-in duration-300"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                    priority={index < 3}
+                  />
                   
                   {/* Category Badge */}
                   {bundle.bundle_category && (

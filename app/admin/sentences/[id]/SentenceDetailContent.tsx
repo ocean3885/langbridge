@@ -328,6 +328,7 @@ export default function SentenceDetailContent({
 
           <JSONWordImporter 
             sentenceId={sentence.id}
+            sentenceText={sentence.sentence}
             langCode={sentence.lang_code || ACTIVE_LANGUAGE}
           />
         </section>
