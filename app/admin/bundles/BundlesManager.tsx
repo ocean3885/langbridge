@@ -166,35 +166,39 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">번들 관리</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">학습 컨텐츠를 번들 단위로 구성하고 관리합니다.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/bundles/make-items"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl transition-all shadow-sm active:scale-95"
-            >
-              <Sparkles className="w-5 h-5" />
-              문장 생성
-            </Link>
-            <button 
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
-            >
-              <Settings2 className="w-5 h-5" />
-              카테고리
-            </button>
-            <button 
-              onClick={() => setIsTypeModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"
-            >
-              <Layers className="w-5 h-5" />
-              번들 타입
-            </button>
-            <Link 
-              href="/admin/bundles/new"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-sm active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              번들 생성
-            </Link>
+          <div className="flex w-full flex-col gap-2 md:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <Settings2 className="h-4 w-4" />
+                카테고리
+              </button>
+              <button
+                onClick={() => setIsTypeModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-900 active:scale-95 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <Layers className="h-4 w-4" />
+                번들 타입
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Link
+                href="/admin/bundles/make-items"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 shadow-sm transition-all hover:border-violet-300 hover:bg-violet-100 active:scale-95 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300 dark:hover:bg-violet-950/50"
+              >
+                <Sparkles className="h-4 w-4" />
+                문장 초안
+              </Link>
+              <Link
+                href="/admin/bundles/new"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+                새 번들
+              </Link>
+            </div>
           </div>
         </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw, Copy, Check } from 'lucide-react';
 import AudioButton from '@/components/AudioButton';
 
 const POS_MAP: Record<string, string> = {
@@ -309,6 +309,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const [isSavingDistractors, setIsSavingDistractors] = useState(false);
   const [distractorJsonInput, setDistractorJsonInput] = useState('');
   const [distractorJsonError, setDistractorJsonError] = useState<string | null>(null);
+  const [isDistractorPromptCopied, setIsDistractorPromptCopied] = useState(false);
   const [editingDistractorId, setEditingDistractorId] = useState<number | null>(null);
   const [distractorEditForm, setDistractorEditForm] = useState({
     distractor: '',
@@ -496,7 +497,47 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
   const openDistractorModal = () => {
     setDistractorJsonInput('');
     setDistractorJsonError(null);
+    setIsDistractorPromptCopied(false);
     setIsDistractorModalOpen(true);
+  };
+
+  const handleCopyDistractorPrompt = async () => {
+    const languageName = word.lang_code === 'es' ? 'Spanish' : `language code "${word.lang_code}"`;
+    const prompt = `You are a language education expert designing vocabulary quiz distractors.
+Create exactly 6 incorrect answer choices for a quiz asking for the specified English meaning of the source word below.
+
+Source:
+- word: ${JSON.stringify(word.word)}
+- language: ${languageName}
+- part of speech: ${JSON.stringify(Array.isArray(word.pos) ? word.pos : [])}
+- English meaning: ${JSON.stringify(getMeaningDisplay(word.meaning_en))}
+
+Requirements:
+1. Prefer words with the same part of speech as the source word.
+2. Choose words that look similar or belong to a related topic, but have clearly different meanings.
+3. Exclude synonyms or words that could also be accepted as the correct answer.
+4. Exclude inflected forms, gender/number variants, and simple spelling variants of the source word.
+5. Use only real and natural ${languageName} words or phrases.
+6. All 6 choices must be distinct.
+7. Provide accurate Korean and English meanings for each distractor.
+8. Do not include the source word itself.
+
+Return only a JSON array in this exact format. Do not use markdown code fences or add explanations.
+[
+  {
+    "word": "distractor word",
+    "meaning_ko": "한국어 뜻",
+    "meaning_en": "English meaning"
+  }
+]`;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setIsDistractorPromptCopied(true);
+      window.setTimeout(() => setIsDistractorPromptCopied(false), 1800);
+    } catch {
+      setDistractorJsonError('프롬프트를 클립보드에 복사하지 못했습니다.');
+    }
   };
 
   const handleCreateDistractors = async () => {
@@ -1121,6 +1162,23 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-150px)]">
+              <div className="flex flex-col justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900/40 dark:bg-blue-950/20 sm:flex-row sm:items-center">
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">ChatGPT로 JSON 생성</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    단어·품사·영어 뜻을 포함한 생성 프롬프트를 복사합니다.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyDistractorPrompt()}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                >
+                  {isDistractorPromptCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {isDistractorPromptCopied ? '프롬프트 복사됨' : '프롬프트 생성'}
+                </button>
+              </div>
+
               <textarea
                 value={distractorJsonInput}
                 onChange={(e) => {

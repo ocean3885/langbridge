@@ -621,51 +621,68 @@ function normalizeConjugations(val: any): Record<string, string> {
 
 /**
  * 헷갈릴 만한 유사 단어(Distractors)를 생성합니다.
- * @param word 기준 단어
- * @param count 생성할 개수 (기본 6개)
  */
-export async function generateDistractorsDeepseek(word: string, count: number = 6): Promise<any[]> {
+export type DistractorGenerationInput = {
+  word: string;
+  langCode: string;
+  pos: string[];
+  meaningEn: string;
+  count?: number;
+};
+
+export type GeneratedDistractor = {
+  word: string;
+  meaning_ko: string;
+  meaning_en: string;
+};
+
+export async function generateDistractorsDeepseek({
+  word,
+  langCode,
+  pos,
+  meaningEn,
+  count = 6,
+}: DistractorGenerationInput): Promise<GeneratedDistractor[]> {
+  const languageName = langCode === 'es' ? 'Spanish' : `language code "${langCode}"`;
   const prompt = `
-당신은 스페인어 교육 전문가입니다. 학습자가 제시된 단어 '${word}'의 뜻을 맞히는 퀴즈를 풀 때, 헷갈릴 만한 유사 단어(Distractors) ${count}개를 생성해야 합니다.
+당신은 어휘 학습 퀴즈를 설계하는 언어 교육 전문가입니다.
+학습자가 아래 원본 단어의 지정된 영어 의미를 맞히는 문제에 사용할 오답 선택지(Distractors) ${count}개를 생성하세요.
 
-유사 단어 선정 기준:
-1. '${word}'와 철자가 유사하여 시각적으로 혼동을 주는 단어
-2. '${word}'와 의미가 비슷하여 개념적으로 혼동을 주는 단어(유의어)
+원본 정보:
+- word: ${JSON.stringify(word)}
+- language: ${languageName}
+- pos: ${JSON.stringify(pos)}
+- meaning_en: ${JSON.stringify(meaningEn)}
 
-출력 형식:
-반드시 다음 구조의 JSON 리스트 형식으로만 출력하세요.
-[
-  {"word": "유사단어1", "meaning_ko": "한국어 뜻", "meaning_en": "영어 뜻"},
-  ...
-]
+선정 기준:
+1. 원본과 같은 품사의 단어를 우선하세요.
+2. 철자가 비슷하거나 같은 주제 영역에 속하지만, 지정된 원본 의미와는 명확히 다른 단어를 선택하세요.
+3. 원본의 유의어처럼 정답으로 인정될 수 있는 단어는 제외하세요.
+4. 원본 단어의 활용형, 성·수 변화형, 단순 철자 변형은 제외하세요.
+5. 실제로 사용되는 자연스러운 ${languageName} 단어 또는 어구만 사용하세요.
+6. 결과 ${count}개는 서로 중복되지 않아야 합니다.
+7. 각 오답의 한국어와 영어 뜻은 해당 오답 단어의 실제 의미와 정확히 일치해야 합니다.
 
-주의사항:
-- 생성되는 유사 단어("word" 키의 값)는 반드시 스페인어(Spanish) 단어 또는 어구여야 합니다.
-- 뜻은 한국어(meaning_ko)와 영어(meaning_en)로 각각 작성하세요.
-- 제시된 원래 단어 '${word}'는 절대로 결과 리스트에 포함하지 마세요. 오직 유사 단어만 생성하세요.
-- 인사말이나 설명 없이 오직 JSON 데이터만 반환하세요.
+반드시 다음 JSON 객체만 반환하세요:
+{
+  "distractors": [
+    {
+      "word": "오답 단어",
+      "meaning_ko": "한국어 뜻",
+      "meaning_en": "English meaning"
+    }
+  ]
+}
 `;
 
   try {
     const data = await generateProviderJson(
       'deepseek',
       prompt,
-      "스페인어 교육 전문가로서 JSON 형식으로만 응답하세요."
+      "언어 교육 및 어휘 퀴즈 설계 전문가로서 JSON 형식으로만 응답하세요."
     );
-    
-    let distractorsList: any[] = [];
-    if (Array.isArray(data)) {
-      distractorsList = data;
-    } else if (typeof data === 'object' && data !== null) {
-      const list = Object.values(data).find(val => Array.isArray(val));
-      if (list) distractorsList = list as any[];
-    }
 
-    // 원본 단어와 동일한 단어가 포함된 경우 필터링
-    const normalizedWord = word.toLowerCase().trim();
-    return distractorsList.filter(d => 
-      d.word && d.word.toLowerCase().trim() !== normalizedWord
-    );
+    return Array.isArray(data?.distractors) ? data.distractors : [];
   } catch (error) {
     console.error(`Error generating distractors for ${word}:`, error);
     return [];
