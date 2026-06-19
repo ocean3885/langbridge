@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Layout, Plus, Search, Filter, Layers, ExternalLink, Settings2, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
@@ -167,6 +167,13 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
             <p className="text-gray-500 dark:text-gray-400 mt-1">학습 컨텐츠를 번들 단위로 구성하고 관리합니다.</p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/bundles/make-items"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl transition-all shadow-sm active:scale-95"
+            >
+              <Sparkles className="w-5 h-5" />
+              문장 생성
+            </Link>
             <button 
               onClick={() => setIsCategoryModalOpen(true)}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl transition-all shadow-sm active:scale-95"

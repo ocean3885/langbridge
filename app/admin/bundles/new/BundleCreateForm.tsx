@@ -35,6 +35,7 @@ import {
   listAdminDrafts,
   deleteAdminDraftById
 } from '@/lib/supabase/services/admin-drafts';
+import { markBundleGenerationDraftConverted } from '@/lib/supabase/services/bundle-generation-drafts';
 import { 
   Clock,
   X,
@@ -79,6 +80,10 @@ type SpeakerTtsOptions = Record<string, {
 }>;
 
 interface BundleJsonInput {
+  title?: string;
+  title_en?: string;
+  description?: string;
+  description_en?: string;
   type?: string;
   speakers?: ConversationSpeakerInput[];
   items: BundleItemInput[];
@@ -93,6 +98,7 @@ type AutoWordGenerationResult = {
   generatedWords: string[];
   failedWords: string[];
   excludedWords: string[];
+  error?: string | null;
 };
 
 interface TTSOption {
@@ -264,6 +270,16 @@ function getItemError(index: number, message: string) {
   return `items[${index + 1}]: ${message}`;
 }
 
+function getTemporaryTitleFromJsonInput(input: string) {
+  try {
+    const parsed = JSON.parse(input);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return '';
+    return getTrimmedString(parsed.title_en) || getTrimmedString(parsed.title);
+  } catch {
+    return '';
+  }
+}
+
 export default function BundleCreateForm({ userId }: Props) {
   const router = useRouter();
   const [pendingBundleId, setPendingBundleId] = useState(createPendingBundleId);
@@ -313,6 +329,7 @@ export default function BundleCreateForm({ userId }: Props) {
   const [autoWordResults, setAutoWordResults] = useState<Record<number, AutoWordGenerationResult>>({});
   const [autoWordError, setAutoWordError] = useState<string | null>(null);
   const [wordGenerationProvider, setWordGenerationProvider] = useState<WordGenerationProvider>('deepseek');
+  const [sourceGenerationDraftId, setSourceGenerationDraftId] = useState<string | null>(null);
 
   const DRAFT_TYPE = 'bundle_create';
   const isConversationBundle = parsedData?.type === 'conversation';
@@ -379,6 +396,50 @@ export default function BundleCreateForm({ userId }: Props) {
     };
     fetchDraft();
   }, [userId]);
+
+  useEffect(() => {
+    const transferKey = 'langbridge:bundle-generation-draft';
+    const transferred = sessionStorage.getItem(transferKey);
+    if (!transferred) return;
+
+    try {
+      const draft = JSON.parse(transferred);
+      const items = Array.isArray(draft.items)
+        ? draft.items
+            .map((item: any) => ({
+              ...item,
+              sentence: String(item?.sentence || '').trim(),
+              translation: String(item?.translation || '').trim(),
+              translation_en: String(item?.translation_en || '').trim(),
+            }))
+            .filter((item: BundleItemInput) => item.sentence)
+        : [];
+
+      if (items.length === 0) return;
+
+      setJsonInput(JSON.stringify({
+        ...(draft.type ? { type: draft.type } : {}),
+        ...(Array.isArray(draft.speakers) ? { speakers: draft.speakers } : {}),
+        items,
+      }, null, 2));
+      setTempTitle(String(draft.title_en || '').trim());
+      setBundleMeta(prev => ({
+        ...prev,
+        category_id: String(draft.category_id || ''),
+        title: String(draft.title || '').trim(),
+        title_en: String(draft.title_en || '').trim(),
+        description: String(draft.description || '').trim(),
+        description_en: String(draft.description_en || '').trim(),
+      }));
+      setSourceGenerationDraftId(
+        typeof draft.generationDraftId === 'string' ? draft.generationDraftId : null
+      );
+    } catch (transferError) {
+      console.error('Failed to load transferred bundle generation draft', transferError);
+    } finally {
+      sessionStorage.removeItem(transferKey);
+    }
+  }, []);
 
   useEffect(() => {
     if (parsedData?.type !== 'conversation' || bundleMeta.type_id) return;
@@ -861,6 +922,10 @@ export default function BundleCreateForm({ userId }: Props) {
       }
       
       const normalized: BundleJsonInput = {
+        title: getTrimmedString(parsed.title) || undefined,
+        title_en: getTrimmedString(parsed.title_en) || undefined,
+        description: getTrimmedString(parsed.description) || undefined,
+        description_en: getTrimmedString(parsed.description_en) || undefined,
         type: parsed.type === 'conversation' ? 'conversation' : parsed.type,
         speakers: normalizedSpeakers,
         items: normalizedItems
@@ -872,6 +937,21 @@ export default function BundleCreateForm({ userId }: Props) {
       });
 
       setParsedData(normalized);
+      const importedTitle = getTrimmedString(parsed.title);
+      const importedTitleEn = getTrimmedString(parsed.title_en);
+      const importedDescription = getTrimmedString(parsed.description);
+      const importedDescriptionEn = getTrimmedString(parsed.description_en);
+
+      if (importedTitle || importedTitleEn || importedDescription || importedDescriptionEn) {
+        setBundleMeta(prev => ({
+          ...prev,
+          ...(importedTitle ? { title: importedTitle } : {}),
+          ...(importedTitleEn ? { title_en: importedTitleEn } : {}),
+          ...(importedDescription ? { description: importedDescription } : {}),
+          ...(importedDescriptionEn ? { description_en: importedDescriptionEn } : {}),
+        }));
+        setTempTitle(importedTitleEn || importedTitle || tempTitle);
+      }
       if (repairedInput) {
         setJsonInput(JSON.stringify(normalized, null, 2));
       }
@@ -949,8 +1029,6 @@ export default function BundleCreateForm({ userId }: Props) {
           items: indexes.map((index) => ({
             index,
             sentence: parsedData.items[index].sentence,
-            translation: parsedData.items[index].translation,
-            translation_en: parsedData.items[index].translation_en,
           })),
         }),
       });
@@ -978,6 +1056,7 @@ export default function BundleCreateForm({ userId }: Props) {
           generatedWords: Array.isArray(result.generatedWords) ? result.generatedWords : [],
           failedWords: Array.isArray(result.failedWords) ? result.failedWords : [],
           excludedWords: Array.isArray(result.excludedWords) ? result.excludedWords : [],
+          error: typeof result.error === 'string' ? result.error : null,
         };
       }
 
@@ -1179,6 +1258,13 @@ export default function BundleCreateForm({ userId }: Props) {
         sentenceTtsOptions
       );
 
+      if (sourceGenerationDraftId) {
+        try {
+          await markBundleGenerationDraftConverted(sourceGenerationDraftId, bundle.id);
+        } catch (draftUpdateError) {
+          console.error('Bundle created, but generation draft status update failed', draftUpdateError);
+        }
+      }
       await deleteAdminDraft(userId, DRAFT_TYPE);
       router.replace(`/admin/bundles/${bundle.id}`);
     } catch (err: any) {
@@ -1189,6 +1275,10 @@ export default function BundleCreateForm({ userId }: Props) {
   };
 
   const exampleJson = `{
+  "title": "과거의 직업에 대해 말하기",
+  "title_en": "Talking About Past Jobs",
+  "description": "과거에 했던 일과 경험을 설명하는 표현을 학습합니다.",
+  "description_en": "Learn expressions for describing previous jobs and experiences.",
   "items": [
     {
       "sentence": "Hoy vengo a hablar de mis trabajos pasados.",
@@ -1199,6 +1289,10 @@ export default function BundleCreateForm({ userId }: Props) {
 }`;
 
   const conversationExampleJson = `{
+  "title": "친구와의 짧은 대화",
+  "title_en": "A Short Conversation with a Friend",
+  "description": "친구와 현재 상황을 묻고 답하는 자연스러운 대화를 연습합니다.",
+  "description_en": "Practice a natural conversation about availability and what is happening.",
   "type": "conversation",
   "speakers": [
     {
@@ -1354,8 +1448,16 @@ export default function BundleCreateForm({ userId }: Props) {
                   </div>
                   <textarea
                     value={jsonInput}
-                    onChange={(e) => setJsonInput(e.target.value)}
-                    placeholder='{"items": [{"sentence": "...", "translation": "...", "translation_en": "..."}]}'
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setJsonInput(value);
+
+                      const importedTitle = getTemporaryTitleFromJsonInput(value);
+                      if (importedTitle) {
+                        setTempTitle(importedTitle);
+                      }
+                    }}
+                    placeholder='{"title":"...","title_en":"...","description":"...","description_en":"...","items":[{"sentence":"...","translation":"...","translation_en":"..."}]}'
                     className={`w-full h-96 p-6 font-mono text-sm bg-gray-900 text-gray-300 rounded-3xl border-0 focus:ring-4 ${error ? 'focus:ring-red-500/10 border-red-500' : 'focus:ring-blue-500/10'} outline-none transition-all resize-none shadow-inner`}
                   />
                 </div>
@@ -1501,12 +1603,12 @@ export default function BundleCreateForm({ userId }: Props) {
                     )}
                     {autoResult && (
                       <div className={`mt-4 rounded-2xl border p-4 text-xs ${
-                        autoResult.failedWords.length > 0
+                        autoResult.failedWords.length > 0 || autoResult.error
                           ? 'border-amber-100 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300'
                           : 'border-green-100 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-900/10 dark:text-green-300'
                       }`}>
                         <div className="flex items-center gap-2 font-bold">
-                          {autoResult.failedWords.length > 0 ? (
+                          {autoResult.failedWords.length > 0 || autoResult.error ? (
                             <AlertCircle className="w-4 h-4" />
                           ) : (
                             <CheckCircle2 className="w-4 h-4" />
@@ -1516,6 +1618,9 @@ export default function BundleCreateForm({ userId }: Props) {
                             {autoResult.failedWords.length > 0 && ` · 실패 ${autoResult.failedWords.length}개`}
                           </span>
                         </div>
+                        {autoResult.error && (
+                          <p className="mt-2 font-bold">{autoResult.error}</p>
+                        )}
                         <p className="mt-2 leading-relaxed">
                           {[
                             autoResult.existingWords.length > 0 ? `기존: ${autoResult.existingWords.join(', ')}` : '',

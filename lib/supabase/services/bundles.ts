@@ -380,20 +380,119 @@ export async function createBundleWithItems(
     throw new Error('번들 생성에 실패했습니다.');
   }
 
+  const uniqueSentenceTexts = Array.from(new Set(
+    items.map(item => item.sentence.trim()).filter(Boolean)
+  ));
+  const sentenceByText = new Map<string, any>();
+
+  if (uniqueSentenceTexts.length > 0) {
+    const { data: existingSentences, error: existingSentencesError } = await supabase
+      .from('sentences')
+      .select('*')
+      .in('sentence', uniqueSentenceTexts)
+      .order('id', { ascending: true });
+
+    if (existingSentencesError) {
+      console.error('Error preloading bundle sentences:', existingSentencesError);
+      throw new Error('기존 문장 조회에 실패했습니다.');
+    }
+
+    for (const sentence of existingSentences || []) {
+      if (!sentenceByText.has(sentence.sentence)) {
+        sentenceByText.set(sentence.sentence, sentence);
+      }
+    }
+  }
+
+  const missingSentenceItems = uniqueSentenceTexts
+    .filter(sentence => !sentenceByText.has(sentence))
+    .map(sentence => items.find(item => item.sentence.trim() === sentence)!)
+    .filter(Boolean);
+
+  if (missingSentenceItems.length > 0) {
+    const { data: newSentences, error: newSentencesError } = await supabase
+      .from('sentences')
+      .insert(missingSentenceItems.map(item => ({
+        sentence: item.sentence.trim(),
+        translation: item.translation,
+        translation_en: item.translation_en || null,
+        audio_url: null,
+      })))
+      .select();
+
+    if (newSentencesError) {
+      console.error('Error creating bundle sentences:', newSentencesError);
+      throw new Error('문장 생성에 실패했습니다.');
+    }
+
+    for (const sentence of newSentences || []) {
+      sentenceByText.set(sentence.sentence, sentence);
+    }
+  }
+
+  const wordInfoByNormalizedWord = new Map<string, any>();
+  for (const item of items) {
+    if (!item.wordJson) continue;
+
+    try {
+      const parsed = JSON.parse(item.wordJson);
+      for (const wordInfo of Object.values(parsed.words || {}) as any[]) {
+        const normalizedWord =
+          wordInfo && typeof wordInfo.word === 'string'
+            ? wordInfo.word.toLowerCase().trim()
+            : '';
+
+        if (normalizedWord && !wordInfoByNormalizedWord.has(normalizedWord)) {
+          wordInfoByNormalizedWord.set(normalizedWord, wordInfo);
+        }
+      }
+    } catch (error) {
+      console.error('Error collecting word JSON before bundle creation:', error);
+    }
+  }
+
+  const existingWordsByText = new Map<string, any>();
+  const normalizedWords = Array.from(wordInfoByNormalizedWord.keys());
+  if (normalizedWords.length > 0) {
+    const { data: existingWords, error: existingWordsError } = await supabase
+      .from('words')
+      .select('*')
+      .eq('lang_code', 'es')
+      .in('word', normalizedWords);
+
+    if (existingWordsError) {
+      console.error('Error preloading bundle words:', existingWordsError);
+      throw new Error('기존 단어 조회에 실패했습니다.');
+    }
+
+    for (const word of existingWords || []) {
+      existingWordsByText.set(word.word.toLowerCase().trim(), word);
+    }
+  }
+
+  const desiredWordMappings: {
+    word_id: number;
+    sentence_id: number;
+    used_as: string;
+  }[] = [];
+  const usedSentenceIds = new Set<number>();
+  const itemErrors: string[] = [];
+
   // 2. 각 아이템 처리
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
 
     try {
-      // a. 문장 생성 (또는 검색) & TTS 생성
-      const { data: existingSentence } = await supabase
-        .from('sentences')
-        .select('*')
-        .eq('sentence', item.sentence.trim())
-        .maybeSingle();
+      // a. 일괄 조회/생성한 문장 재사용 & TTS 생성
+      const sentenceText = item.sentence.trim();
+      const sentenceRecord = sentenceByText.get(sentenceText);
+      if (!sentenceRecord) {
+        throw new Error(`문장 정보를 찾을 수 없습니다: ${sentenceText}`);
+      }
 
-      let sentenceId: number;
-      let audioUrl = existingSentence?.audio_url;
+      const sentenceId = Number(sentenceRecord.id);
+      usedSentenceIds.add(sentenceId);
+      let audioUrl = sentenceRecord.audio_url;
       const isConversationItem = Boolean(item.speakerKey);
 
       // 오디오가 없는 경우 TTS 생성
@@ -401,44 +500,33 @@ export async function createBundleWithItems(
         audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`, 'es', 0.8, sentenceTtsOptions);
       }
 
-      if (existingSentence) {
-        sentenceId = existingSentence.id;
-        const sentenceUpdates: {
-          audio_url?: string | null;
-          translation?: string;
-          translation_en?: string | null;
-        } = {};
+      const sentenceUpdates: {
+        audio_url?: string | null;
+        translation?: string;
+        translation_en?: string | null;
+      } = {};
 
-        if (!existingSentence.audio_url && audioUrl) {
-          sentenceUpdates.audio_url = audioUrl;
-        }
-        if (!existingSentence.translation && item.translation) {
-          sentenceUpdates.translation = item.translation;
-        }
-        if (!existingSentence.translation_en && item.translation_en) {
-          sentenceUpdates.translation_en = item.translation_en;
-        }
+      if (!sentenceRecord.audio_url && audioUrl) {
+        sentenceUpdates.audio_url = audioUrl;
+      }
+      if (!sentenceRecord.translation && item.translation) {
+        sentenceUpdates.translation = item.translation;
+      }
+      if (!sentenceRecord.translation_en && item.translation_en) {
+        sentenceUpdates.translation_en = item.translation_en;
+      }
 
-        if (Object.keys(sentenceUpdates).length > 0) {
-          await supabase
-            .from('sentences')
-            .update(sentenceUpdates)
-            .eq('id', sentenceId);
-        }
-      } else {
-        const { data: newSentence, error: sError } = await supabase
+      if (Object.keys(sentenceUpdates).length > 0) {
+        const { error: sentenceUpdateError } = await supabase
           .from('sentences')
-          .insert({
-            sentence: item.sentence,
-            translation: item.translation,
-            translation_en: item.translation_en || null,
-            audio_url: audioUrl
-          })
-          .select()
-          .single();
+          .update(sentenceUpdates)
+          .eq('id', sentenceId);
 
-        if (sError) throw sError;
-        sentenceId = newSentence.id;
+        if (sentenceUpdateError) throw sentenceUpdateError;
+        sentenceByText.set(sentenceText, {
+          ...sentenceRecord,
+          ...sentenceUpdates,
+        });
       }
 
       let itemAudioUrl = item.audioUrl || null;
@@ -453,15 +541,6 @@ export async function createBundleWithItems(
             ...(item.ttsOptions || {})
           }
         );
-      }
-
-      if (isConversationItem && itemAudioUrl && !audioUrl) {
-        await supabase
-          .from('sentences')
-          .update({ audio_url: itemAudioUrl })
-          .eq('id', sentenceId);
-
-        audioUrl = itemAudioUrl;
       }
 
       // b. 단어 정보 처리 (있는 경우)
@@ -482,13 +561,8 @@ export async function createBundleWithItems(
                 continue;
               }
 
-              // 단어 검색 또는 생성 & TTS 생성
-              const { data: existingWord } = await supabase
-                .from('words')
-                .select('*')
-                .eq('word', normalizedWord)
-                .eq('lang_code', 'es')
-                .maybeSingle();
+              // 요청 시작 시 일괄 조회한 단어를 재사용
+              const existingWord = existingWordsByText.get(normalizedWord);
 
               let wordId: number;
               let wordAudioUrl = existingWord?.audio_url;
@@ -509,6 +583,10 @@ export async function createBundleWithItems(
                     .from('words')
                     .update({ audio_url: wordAudioUrl })
                     .eq('id', wordId);
+                  existingWordsByText.set(normalizedWord, {
+                    ...existingWord,
+                    audio_url: wordAudioUrl,
+                  });
                 }
               } else {
                 const { data: newWord, error: wError } = await supabase
@@ -532,25 +610,14 @@ export async function createBundleWithItems(
                   continue;
                 }
                 wordId = newWord.id;
+                existingWordsByText.set(normalizedWord, newWord);
               }
 
-              // 단어-문장 매핑 (중복 확인 후 생성)
-              const { data: existingMap } = await supabase
-                .from('word_sentence_map')
-                .select('id')
-                .eq('word_id', wordId)
-                .eq('sentence_id', sentenceId)
-                .maybeSingle();
-
-              if (!existingMap) {
-                await supabase
-                  .from('word_sentence_map')
-                  .insert({
-                    word_id: wordId,
-                    sentence_id: sentenceId,
-                    used_as: originalText
-                  });
-              }
+              desiredWordMappings.push({
+                word_id: wordId,
+                sentence_id: sentenceId,
+                used_as: originalText,
+              });
             }
           }
         } catch (err) {
@@ -577,6 +644,55 @@ export async function createBundleWithItems(
 
     } catch (err) {
       console.error(`Error processing bundle item ${i}:`, err);
+      itemErrors.push(`아이템 ${i + 1}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (itemErrors.length > 0) {
+    await supabase.from('bundle').delete().eq('id', bundle.id);
+    throw new Error(`번들 아이템 처리에 실패했습니다. ${itemErrors.join(' / ')}`);
+  }
+
+  if (desiredWordMappings.length > 0) {
+    const desiredWordIds = Array.from(new Set(
+      desiredWordMappings.map(mapping => mapping.word_id)
+    ));
+    const { data: existingMappings, error: existingMappingsError } = await supabase
+      .from('word_sentence_map')
+      .select('word_id, sentence_id')
+      .in('sentence_id', Array.from(usedSentenceIds))
+      .in('word_id', desiredWordIds);
+
+    if (existingMappingsError) {
+      console.error('Error preloading word sentence mappings:', existingMappingsError);
+      await supabase.from('bundle').delete().eq('id', bundle.id);
+      throw new Error('단어-문장 연결 조회에 실패했습니다.');
+    }
+
+    const existingMappingKeys = new Set(
+      (existingMappings || []).map(mapping => `${mapping.word_id}:${mapping.sentence_id}`)
+    );
+    const pendingMappingKeys = new Set<string>();
+    const mappingsToInsert = desiredWordMappings.filter(mapping => {
+      const key = `${mapping.word_id}:${mapping.sentence_id}`;
+      if (existingMappingKeys.has(key) || pendingMappingKeys.has(key)) {
+        return false;
+      }
+
+      pendingMappingKeys.add(key);
+      return true;
+    });
+
+    if (mappingsToInsert.length > 0) {
+      const { error: mappingInsertError } = await supabase
+        .from('word_sentence_map')
+        .insert(mappingsToInsert);
+
+      if (mappingInsertError) {
+        console.error('Error creating word sentence mappings:', mappingInsertError);
+        await supabase.from('bundle').delete().eq('id', bundle.id);
+        throw new Error('단어-문장 연결 생성에 실패했습니다.');
+      }
     }
   }
 

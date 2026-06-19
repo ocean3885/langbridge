@@ -55,6 +55,11 @@ export interface WordInfoGenerationContext {
   expectedPos?: string[];
 }
 
+export interface WordInfoGenerationRequest {
+  lemma: string;
+  context?: WordInfoGenerationContext;
+}
+
 function normalizePosValues(values: unknown[]) {
   const aliases: Record<string, string> = {
     adjective: 'adj',
@@ -394,8 +399,112 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
   }
 }
 
+export async function generateWordInfosDeepseek(
+  requests: WordInfoGenerationRequest[],
+  provider: WordGenerationProvider = 'deepseek'
+): Promise<Map<string, WordInfo>> {
+  const normalizedRequests = requests
+    .map(({ lemma, context = {} }) => {
+      const normalizedLemma = lemma.toLowerCase().trim();
+      const surface = context.surface?.trim();
+      const expectedPos = Array.from(new Set([
+        ...(Array.isArray(context.expectedPos) ? normalizePosValues(context.expectedPos) : []),
+        ...inferExpectedPosFromSurface(normalizedLemma, surface),
+      ]));
+
+      return {
+        lemma: normalizedLemma,
+        surface: surface || undefined,
+        expectedPos,
+      };
+    })
+    .filter(request => request.lemma);
+
+  if (normalizedRequests.length === 0) {
+    return new Map();
+  }
+
+  const prompt = `
+당신은 스페인어 전문가입니다. 아래 단어들의 사전 데이터를 JSON으로 생성하세요.
+
+### [입력]
+${JSON.stringify(normalizedRequests, null, 2)}
+
+### [출력 스키마]
+{
+  "results": [
+    {
+      "lemma": "입력으로 받은 lemma를 그대로 반환",
+      "word": "원형",
+      "pos": ["품사"],
+      "meaning_ko": { "품사": "한국어 뜻" },
+      "meaning_en": { "품사": "영어 뜻" },
+      "gender": "m/f/mf/null",
+      "conjugations": {
+        "pres": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
+        "pret": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
+        "impf": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
+        "futr": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
+        "cond": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
+        "perf": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." }
+      },
+      "declensions": { "ms": "...", "mp": "...", "fs": "...", "fp": "..." }
+    }
+  ]
+}
+
+### [지침]
+1. 입력의 모든 lemma에 대해 결과를 하나씩 반환하고 lemma 값은 입력값을 그대로 사용하세요.
+2. meaning_en에는 영어 번역만, meaning_ko에는 한국어 번역만 작성하세요.
+3. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj" 중 하나 이상만 사용하세요.
+4. expectedPos는 문장 속 쓰임에 대한 참고 정보이며 자연스러운 경우 pos 배열 앞쪽에 배치하세요.
+5. 동사인 경우에만 conjugations를 채우고, 명사/형용사인 경우에만 declensions를 채우세요.
+6. 해당하지 않는 conjugations와 declensions는 빈 객체로 반환하세요.
+7. 인사말이나 설명 없이 JSON만 반환하세요.
+`;
+
+  try {
+    const rawData = await generateProviderJson(
+      provider,
+      prompt,
+      "스페인어 교육 전문가로서 JSON 형식으로만 응답하세요."
+    );
+    const rows = Array.isArray(rawData.results) ? rawData.results : [];
+    const requestedLemmas = new Set(normalizedRequests.map(request => request.lemma));
+    const results = new Map<string, WordInfo>();
+
+    for (const row of rows) {
+      const lemma = String(row?.lemma || '').toLowerCase().trim();
+      if (!lemma || !requestedLemmas.has(lemma)) continue;
+
+      if (row.conjugations && typeof row.conjugations === 'object') {
+        const normalizedConjugations: Record<string, Record<string, string>> = {};
+        for (const tense of Object.keys(row.conjugations)) {
+          normalizedConjugations[tense] = normalizeConjugations(row.conjugations[tense]);
+        }
+        row.conjugations = normalizedConjugations;
+      }
+
+      if (row.declensions && typeof row.declensions === 'object') {
+        const isEmpty = Object.values(row.declensions).every(value => value === '' || value === null);
+        if (isEmpty) row.declensions = {};
+      }
+
+      results.set(lemma, {
+        ...row,
+        word: String(row.word || lemma).toLowerCase().trim(),
+      } as WordInfo);
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Error generating word info batch:', error);
+    return new Map();
+  }
+}
+
 export async function generateSentenceWordCandidatesDeepseek(
-  items: { index: number; sentence: string; translation?: string; translation_en?: string }[],
+  items: { index: number; sentence: string }[],
   provider: WordGenerationProvider = 'deepseek'
 ): Promise<SentenceWordExtractionResult[]> {
   const prompt = `

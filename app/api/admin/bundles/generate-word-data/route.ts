@@ -4,7 +4,10 @@ import { isSuperAdmin } from '@/lib/auth/super-admin';
 import {
   generateSentenceWordCandidatesDeepseek,
   generateWordInfoDeepseek,
+  generateWordInfosDeepseek,
   normalizeWordGenerationProvider,
+  SentenceWordExtractionResult,
+  WordGenerationProvider,
   WordInfo
 } from '@/lib/generator';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,9 +15,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 type BundleWordDataItem = {
   index: number;
   sentence: string;
-  translation?: string;
-  translation_en?: string;
 };
+
+const SENTENCE_EXTRACTION_BATCH_SIZE = 15;
+const WORD_INFO_BATCH_SIZE = 12;
+const MAX_CONCURRENT_AI_BATCHES = 2;
+const AI_RETRY_DELAY_MS = 500;
 
 type WordJsonEntry = {
   word: string;
@@ -182,6 +188,59 @@ async function fetchExistingWords(lemmas: string[], langCode: string) {
   return new Map((data || []).map((row: any) => [normalizeWord(row.word), row]));
 }
 
+function chunkItems<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+  return results;
+}
+
+function wait(milliseconds: number) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function extractSentencesWithRetry(
+  items: BundleWordDataItem[],
+  modelProvider: WordGenerationProvider
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await generateSentenceWordCandidatesDeepseek(items, modelProvider);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await wait(AI_RETRY_DELAY_MS);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getAppUserFromRequest(request);
@@ -203,8 +262,6 @@ export async function POST(request: NextRequest) {
       .map((item) => ({
         index: Number(item.index),
         sentence: String(item.sentence || '').trim(),
-        translation: item.translation,
-        translation_en: item.translation_en,
       }))
       .filter((item) => Number.isInteger(item.index) && item.sentence);
 
@@ -212,10 +269,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '분석할 문장이 없습니다.' }, { status: 400 });
     }
 
-    const rawExtractionResults = await generateSentenceWordCandidatesDeepseek(validItems, modelProvider);
+    const extractionBatches = chunkItems(validItems, SENTENCE_EXTRACTION_BATCH_SIZE);
+    const batchExtractionResults = await mapWithConcurrency(
+      extractionBatches,
+      MAX_CONCURRENT_AI_BATCHES,
+      async batch => {
+        try {
+          return await extractSentencesWithRetry(batch, modelProvider);
+        } catch (error) {
+          console.error('문장 단어 추출 배치 실패:', error);
+          return [];
+        }
+      }
+    );
+    const requestedItemByIndex = new Map(validItems.map(item => [item.index, item]));
+    const extractionResultByIndex = new Map<number, SentenceWordExtractionResult>();
+
+    for (const result of batchExtractionResults.flat()) {
+      if (
+        requestedItemByIndex.has(result.index) &&
+        !extractionResultByIndex.has(result.index)
+      ) {
+        extractionResultByIndex.set(result.index, result);
+      }
+    }
+
+    const missingExtractionItems = validItems.filter(
+      item => !extractionResultByIndex.has(item.index)
+    );
+    const fallbackExtractionResults = await mapWithConcurrency(
+      missingExtractionItems,
+      MAX_CONCURRENT_AI_BATCHES,
+      async item => {
+        try {
+          const results = await extractSentencesWithRetry([item], modelProvider);
+          return results.find(result => result.index === item.index) || null;
+        } catch (error) {
+          console.error(`문장 ${item.index} 단어 추출 재시도 실패:`, error);
+          return null;
+        }
+      }
+    );
+
+    for (const result of fallbackExtractionResults) {
+      if (result && !extractionResultByIndex.has(result.index)) {
+        extractionResultByIndex.set(result.index, result);
+      }
+    }
+
+    const failedExtractionIndexes = new Set(
+      validItems
+        .filter(item => !extractionResultByIndex.has(item.index))
+        .map(item => item.index)
+    );
     const sentenceByIndex = new Map(validItems.map((item) => [item.index, item.sentence]));
-    const extractionResults = rawExtractionResults.map((result) =>
+    const extractionResults = Array.from(extractionResultByIndex.values()).map((result) =>
       filterExcludedCandidates(result, sentenceByIndex.get(result.index) || '')
+    );
+    const filteredExtractionResultByIndex = new Map(
+      extractionResults.map(result => [result.index, result])
     );
     const lemmaSet = new Set<string>();
     const generationContextByLemma = new Map<string, { surface?: string; expectedPos?: string[] }>();
@@ -239,14 +351,60 @@ export async function POST(request: NextRequest) {
     const generatedWords = new Map<string, WordInfo>();
     const missingLemmas = Array.from(lemmaSet).filter((lemma) => !existingWords.has(lemma));
 
-    for (const lemma of missingLemmas) {
-      const wordInfo = await generateWordInfoDeepseek(lemma, generationContextByLemma.get(lemma), modelProvider);
-      if (!wordInfo.error) {
-        generatedWords.set(normalizeWord(wordInfo.word || lemma), wordInfo);
+    const wordInfoBatches = chunkItems(missingLemmas, WORD_INFO_BATCH_SIZE);
+    const generatedWordBatches = await mapWithConcurrency(
+      wordInfoBatches,
+      MAX_CONCURRENT_AI_BATCHES,
+      batch => generateWordInfosDeepseek(
+        batch.map(lemma => ({
+          lemma,
+          context: generationContextByLemma.get(lemma),
+        })),
+        modelProvider
+      )
+    );
+
+    for (const generatedWordBatch of generatedWordBatches) {
+      for (const [lemma, wordInfo] of generatedWordBatch) {
+        generatedWords.set(lemma, wordInfo);
       }
     }
 
-    const results = extractionResults.map((result) => {
+    const unresolvedLemmas = missingLemmas.filter(lemma => !generatedWords.has(lemma));
+    const fallbackResults = await mapWithConcurrency(
+      unresolvedLemmas,
+      MAX_CONCURRENT_AI_BATCHES,
+      async lemma => ({
+        lemma,
+        wordInfo: await generateWordInfoDeepseek(
+          lemma,
+          generationContextByLemma.get(lemma),
+          modelProvider
+        ),
+      })
+    );
+
+    for (const { lemma, wordInfo } of fallbackResults) {
+      if (!wordInfo.error) {
+        generatedWords.set(lemma, wordInfo);
+      }
+    }
+
+    const results = validItems.map((item) => {
+      const result = filteredExtractionResultByIndex.get(item.index);
+      if (!result || failedExtractionIndexes.has(item.index)) {
+        return {
+          index: item.index,
+          status: 'partial',
+          existingWords: [],
+          generatedWords: [],
+          failedWords: [],
+          excludedWords: [],
+          error: '문장 단어 분석에 실패했습니다. 해당 문장만 다시 시도해주세요.',
+          wordJson: { words: {} },
+        };
+      }
+
       const wordsJson: Record<string, WordJsonEntry> = {};
       const existing: string[] = [];
       const generated: string[] = [];
@@ -278,6 +436,7 @@ export async function POST(request: NextRequest) {
         generatedWords: generated,
         failedWords: failed,
         excludedWords: result.excludedWords,
+        error: null,
         wordJson: { words: wordsJson },
       };
     });
