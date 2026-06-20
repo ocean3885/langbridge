@@ -322,6 +322,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
     lang_code: initialWord.lang_code,
     gender: String(initialWord.gender || '').toLowerCase(),
     meaningRows: createMeaningEditRows(initialWord),
+    is_verified: initialWord.is_verified || false,
+    difficulty: initialWord.difficulty || 1,
   });
 
   // Sync state when initialWord changes (e.g. navigation)
@@ -332,6 +334,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       lang_code: initialWord.lang_code,
       gender: String(initialWord.gender || '').toLowerCase(),
       meaningRows: createMeaningEditRows(initialWord),
+      is_verified: initialWord.is_verified || false,
+      difficulty: initialWord.difficulty || 1,
     });
   }, [initialWord]);
 
@@ -343,6 +347,8 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
         lang_code: word.lang_code,
         gender: String(word.gender || '').toLowerCase(),
         meaningRows: createMeaningEditRows(word),
+        is_verified: word.is_verified || false,
+        difficulty: word.difficulty || 1,
       });
     }
   }, [isEditing, word]);
@@ -381,7 +387,9 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
           meaning_en: buildMeaningObject(normalizedRows, 'enText'),
           gender: formData.gender || null,
           pos: posList,
-          audio_url: word.audio_url
+          audio_url: word.audio_url,
+          is_verified: formData.is_verified,
+          difficulty: formData.difficulty,
         }),
       });
 
@@ -726,6 +734,33 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
                   ))}
                 </select>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">난이도</label>
+                <select
+                  value={formData.difficulty}
+                  onChange={(e) => setFormData({ ...formData, difficulty: Number(e.target.value) })}
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 outline-none text-gray-900 dark:text-gray-100"
+                >
+                  <option value="1">1단계 (입문/Beginner)</option>
+                  <option value="2">2단계 (A1 초급)</option>
+                  <option value="3">3단계 (A2 초급)</option>
+                  <option value="4">4단계 (B1 중급)</option>
+                  <option value="5">5단계 (B2 중상급)</option>
+                  <option value="6">6단계 (C1 고급)</option>
+                  <option value="7">7단계 (C2 최상급)</option>
+                </select>
+              </div>
+              <div className="space-y-1 flex items-center pt-5">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_verified}
+                    onChange={(e) => setFormData({ ...formData, is_verified: e.target.checked })}
+                    className="w-5 h-5 accent-blue-600 rounded"
+                  />
+                  검수 완료 표시
+                </label>
+              </div>
               <div className="md:col-span-2 space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-bold text-gray-400 uppercase ml-1">품사별 의미</label>
@@ -872,6 +907,25 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
                     </span>
                   ))}
                 </div>
+                {word.is_verified ? (
+                  <span className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 px-3 py-1 rounded-md text-xs font-semibold">
+                    검수 완료
+                  </span>
+                ) : (
+                  <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 px-3 py-1 rounded-md text-xs font-semibold">
+                    검수 대기
+                  </span>
+                )}
+                {word.difficulty && (
+                  <span className="bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 px-3 py-1 rounded-md text-xs font-semibold">
+                    {(() => {
+                      const levels: Record<number, string> = {
+                        1: 'Beginner', 2: 'A1', 3: 'A2', 4: 'B1', 5: 'B2', 6: 'C1', 7: 'C2'
+                      };
+                      return levels[word.difficulty] || `Level ${word.difficulty}`;
+                    })()}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
                 <span>ID: {word.id}</span>
@@ -913,7 +967,7 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
                 {meaningRows.map((row) => (
                   <div key={row.pos} className="grid grid-cols-1 gap-2 bg-white px-4 py-3 dark:bg-gray-900 md:grid-cols-[96px_1fr_1fr] md:items-start md:gap-4">
                     <div className="flex items-center gap-2 md:block">
-                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                         {formatPOS(row.pos)}
                       </span>
                       <span className="text-[10px] font-bold uppercase text-gray-300 dark:text-gray-600 md:mt-1 md:block">
@@ -921,13 +975,13 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
                       </span>
                     </div>
                     <div className="flex min-w-0 gap-2">
-                      <span className="mt-0.5 shrink-0 text-[11px] font-black text-blue-500">KO</span>
+                      <span className="mt-0.5 shrink-0 text-[11px] font-bold text-blue-500">KO</span>
                       <p className="min-w-0 text-sm font-semibold leading-relaxed text-gray-900 dark:text-gray-100">
                         {row.ko.length > 0 ? row.ko.join(', ') : <span className="text-gray-300 dark:text-gray-600">-</span>}
                       </p>
                     </div>
                     <div className="flex min-w-0 gap-2">
-                      <span className="mt-0.5 shrink-0 text-[11px] font-black text-gray-400">EN</span>
+                      <span className="mt-0.5 shrink-0 text-[11px] font-bold text-gray-400">EN</span>
                       <p className="min-w-0 text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-300">
                         {row.en.length > 0 ? row.en.join(', ') : <span className="text-gray-300 dark:text-gray-600">-</span>}
                       </p>
@@ -976,7 +1030,7 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
                       })
                       .map(([key, val]: [string, any]) => (
                         <div key={key} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-orange-100 dark:hover:border-orange-900 transition-colors">
-                          <h3 className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase mb-2 pb-1 border-b border-orange-100 dark:border-orange-900/30 flex justify-between items-baseline">
+                          <h3 className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase mb-2 pb-1 border-b border-orange-100 dark:border-orange-900/30 flex justify-between items-baseline">
                             {formatGrammarKey(key)}
                             <span className="text-[9px] text-gray-400 dark:text-gray-500 font-normal uppercase">{key}</span>
                           </h3>

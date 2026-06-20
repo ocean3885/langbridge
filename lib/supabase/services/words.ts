@@ -16,6 +16,8 @@ export type SupabaseWord = {
   audio_url: string | null;
   created_at: string;
   updated_at: string;
+  is_verified?: boolean;
+  difficulty?: number;
   sentence_count?: number;
   distractor_count?: number;
   distractors?: any[];
@@ -61,9 +63,9 @@ export async function getWordById(id: number): Promise<SupabaseWord | null> {
     .select('*, word_sentence_map(id), words_distractor(id)')
     .eq('id', id)
     .maybeSingle();
-    
+
   if (error || !data) return null;
-  
+
   return {
     ...data,
     sentence_count: Array.isArray(data.word_sentence_map) ? data.word_sentence_map.length : 0,
@@ -79,9 +81,9 @@ export async function getWordWithSentences(id: number) {
     .select('*, word_sentence_map(*, sentences(*)), words_distractor(*)')
     .eq('id', id)
     .maybeSingle();
-    
+
   if (error || !data) return null;
-  
+
   return {
     ...data,
     sentences: (data.word_sentence_map || []).map((m: any) => ({
@@ -102,6 +104,8 @@ export async function insertWord(input: {
   declensions?: Record<string, string>;
   conjugations?: Record<string, any>;
   audioUrl?: string | null;
+  isVerified?: boolean;
+  difficulty?: number;
 }): Promise<number> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -115,7 +119,9 @@ export async function insertWord(input: {
       gender: input.gender ?? null,
       declensions: input.declensions ?? {},
       conjugations: input.conjugations ?? {},
-      audio_url: input.audioUrl ?? null
+      audio_url: input.audioUrl ?? null,
+      is_verified: input.isVerified ?? false,
+      difficulty: input.difficulty ?? 1
     })
     .select('id')
     .single();
@@ -134,6 +140,8 @@ export async function updateWord(id: number, input: {
   declensions?: Record<string, string>;
   conjugations?: Record<string, any>;
   audioUrl?: string | null;
+  isVerified?: boolean;
+  difficulty?: number;
 }): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase
@@ -148,6 +156,8 @@ export async function updateWord(id: number, input: {
       ...(input.declensions && { declensions: input.declensions }),
       ...(input.conjugations && { conjugations: input.conjugations }),
       ...(input.audioUrl !== undefined && { audio_url: input.audioUrl }),
+      ...(input.isVerified !== undefined && { is_verified: input.isVerified }),
+      ...(input.difficulty !== undefined && { difficulty: input.difficulty }),
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
@@ -157,9 +167,9 @@ export async function updateWord(id: number, input: {
 
 export async function deleteWord(id: number): Promise<void> {
   const supabase = createAdminClient();
-  
+
   const word = await getWordById(id);
-  
+
   const { error } = await supabase.from('words').delete().eq('id', id);
   if (error) throw new Error(`단어 삭제 실패: ${error.message}`);
   
@@ -201,7 +211,7 @@ export async function getWordByText(word: string, langCode: string): Promise<Sup
     .eq('word', word.toLowerCase().trim())
     .eq('lang_code', langCode)
     .maybeSingle();
-    
+
   if (error || !data) return null;
   return data as SupabaseWord;
 }
@@ -218,4 +228,45 @@ export async function updateDistractor(id: number, input: {
     .eq('id', id);
     
   if (error) throw new Error(`혼동 어휘 수정 실패: ${error.message}`);
+}
+
+export async function getWordsWithDistractors(ids: number[]): Promise<any[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('words')
+    .select('*, words_distractor(*)')
+    .in('id', ids);
+
+  if (error || !data) return [];
+  return data;
+}
+
+export async function replaceWordDistractors(wordId: number, distractors: { word: string; meaning_ko?: string; meaning_en?: string }[]): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { error: deleteError } = await supabase
+    .from('words_distractor')
+    .delete()
+    .eq('word_id', wordId);
+
+  if (deleteError) {
+    throw new Error(`기존 혼동 어휘 삭제 실패: ${deleteError.message}`);
+  }
+
+  if (distractors.length === 0) return;
+
+  const insertData = distractors.map(d => ({
+    word_id: wordId,
+    distractor: d.word.trim(),
+    meaning_ko: d.meaning_ko?.trim() || null,
+    meaning_en: d.meaning_en?.trim() || null,
+  }));
+
+  const { error: insertError } = await supabase
+    .from('words_distractor')
+    .insert(insertData);
+
+  if (insertError) {
+    throw new Error(`신규 혼동 어휘 추가 실패: ${insertError.message}`);
+  }
 }

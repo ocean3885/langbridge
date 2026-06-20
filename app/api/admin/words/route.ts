@@ -53,22 +53,46 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { id, word, lang_code, pos, meaning_ko, meaning_en, gender, declensions, conjugations, audio_url } = await request.json();
+    const body = await request.json();
+    const {
+      id,
+      word,
+      lang_code,
+      pos,
+      meaning_ko,
+      meaning_en,
+      gender,
+      declensions,
+      conjugations,
+      audio_url,
+      is_verified,
+      difficulty,
+    } = body;
 
-    if (!id || !word || !lang_code) {
-      return NextResponse.json({ error: 'ID, 단어, 언어 코드는 필수입니다.' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'ID는 필수입니다.' }, { status: 400 });
+    }
+
+    if (word !== undefined && !String(word).trim()) {
+      return NextResponse.json({ error: '단어는 비워둘 수 없습니다.' }, { status: 400 });
+    }
+
+    if (lang_code !== undefined && !String(lang_code).trim()) {
+      return NextResponse.json({ error: '언어 코드는 비워둘 수 없습니다.' }, { status: 400 });
     }
 
     await updateWord(Number(id), {
-      word,
-      langCode: lang_code,
-      pos: pos || [],
-      meaning_ko: meaning_ko || {},
-      meaning_en: meaning_en || {},
+      word: word !== undefined ? String(word).trim() : undefined,
+      langCode: lang_code !== undefined ? String(lang_code).trim() : undefined,
+      pos: pos !== undefined ? pos : undefined,
+      meaning_ko: meaning_ko !== undefined ? meaning_ko : undefined,
+      meaning_en: meaning_en !== undefined ? meaning_en : undefined,
       gender: gender !== undefined ? gender : undefined,
-      declensions: declensions || {},
-      conjugations: conjugations || {},
+      declensions: declensions !== undefined ? declensions : undefined,
+      conjugations: conjugations !== undefined ? conjugations : undefined,
       audioUrl: audio_url !== undefined ? audio_url : undefined,
+      isVerified: is_verified !== undefined ? is_verified : undefined,
+      difficulty: difficulty !== undefined ? difficulty : undefined,
     });
 
     const updated = await getWordById(Number(id));

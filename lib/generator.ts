@@ -293,7 +293,7 @@ async function generateGeminiJson(prompt: string, systemInstruction: string) {
   return parseJsonText(text, 'Gemini');
 }
 
-async function generateProviderJson(
+export async function generateProviderJson(
   providerValue: WordGenerationProvider,
   prompt: string,
   systemInstruction: string

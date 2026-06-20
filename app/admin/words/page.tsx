@@ -3,7 +3,8 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listLanguages } from '@/lib/supabase/services/languages';
 import { listWords } from '@/lib/supabase/services/words';
-import WordsManager, { Word, Language } from './WordsManager';
+import WordsManager from './WordsManager';
+import type { Language, Word } from './words.types';
 import AdminSidebar from '../AdminSidebar';
 
 export default async function WordsPage() {

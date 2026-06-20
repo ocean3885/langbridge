@@ -27,6 +27,31 @@ export async function GET(request: NextRequest) {
     const scope = searchParams.get('scope');
     const supabase = createAdminClient();
 
+    if (scope === 'counts') {
+      const [pendingResult, incompleteResult] = await Promise.all([
+        supabase
+          .from('distractor_generation_batches')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'review_pending'),
+        supabase
+          .from('distractor_generation_batches')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['generating', 'review_pending']),
+      ]);
+
+      if (pendingResult.error) {
+        throw new Error(`검수 대기 배치 개수 조회 실패: ${pendingResult.error.message}`);
+      }
+      if (incompleteResult.error) {
+        throw new Error(`미완료 생성 배치 개수 조회 실패: ${incompleteResult.error.message}`);
+      }
+
+      return NextResponse.json({
+        pendingCount: pendingResult.count ?? 0,
+        incompleteCount: incompleteResult.count ?? 0,
+      });
+    }
+
     if (scope === 'incomplete') {
       const { data, error } = await supabase
         .from('distractor_generation_batches')
