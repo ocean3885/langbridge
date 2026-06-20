@@ -39,7 +39,80 @@ interface AutoVerifyWizardProps {
   setCurrentWizardIndex: React.Dispatch<React.SetStateAction<number>>;
   handleWizardAction: (action: 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold') => Promise<void>;
   loading: boolean;
-  getMeaningDisplay: (meaning: any) => string;
+}
+
+function normalizeMeaningMap(meaning: unknown): Record<string, string[]> {
+  if (!meaning) return {};
+
+  if (typeof meaning === 'string') {
+    try {
+      return normalizeMeaningMap(JSON.parse(meaning));
+    } catch {
+      return { meaning: [meaning] };
+    }
+  }
+
+  if (typeof meaning !== 'object' || Array.isArray(meaning)) return {};
+
+  return Object.fromEntries(
+    Object.entries(meaning as Record<string, unknown>).map(([pos, value]) => {
+      const meanings = Array.isArray(value) ? value : [value];
+      return [
+        pos,
+        meanings
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .map((item) => item.trim()),
+      ];
+    })
+  );
+}
+
+function getMeaningSignature(meaning: unknown): string {
+  const normalized = normalizeMeaningMap(meaning);
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(normalized)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([pos, meanings]) => [pos, meanings])
+    )
+  );
+}
+
+function MeaningByPos({
+  meaning,
+  pos,
+  tone = 'default',
+}: {
+  meaning: unknown;
+  pos: string[];
+  tone?: 'default' | 'removed' | 'added';
+}) {
+  const meaningMap = normalizeMeaningMap(meaning);
+  const orderedPos = Array.from(new Set([...pos, ...Object.keys(meaningMap)]));
+  const toneClass = {
+    default: 'text-gray-900 dark:text-gray-100',
+    removed: 'text-red-500',
+    added: 'text-green-600 dark:text-green-400',
+  }[tone];
+
+  if (orderedPos.length === 0) {
+    return <span className={`text-sm font-medium ${toneClass}`}>-</span>;
+  }
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      {orderedPos.map((posValue) => (
+        <div key={posValue} className="flex items-start gap-2 text-sm">
+          <span className="min-w-14 rounded bg-gray-100 px-1.5 py-0.5 text-center text-xs font-bold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+            {posValue}
+          </span>
+          <span className={`font-medium ${toneClass}`}>
+            {meaningMap[posValue]?.join(', ') || '-'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function normalizeGrammarValue(value: unknown): unknown {
@@ -115,7 +188,6 @@ export default function AutoVerifyWizard({
   setCurrentWizardIndex,
   handleWizardAction,
   loading,
-  getMeaningDisplay,
 }: AutoVerifyWizardProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -229,13 +301,12 @@ export default function AutoVerifyWizard({
                 isCorrected &&
                 (original.difficulty || 1) !== (corrected.difficulty || original.difficulty || 1);
 
-              const origMeaningKo = getMeaningDisplay(original.meaning_ko);
-              const corrMeaningKo = isCorrected ? getMeaningDisplay(corrected.meaning_ko) : origMeaningKo;
-              const isMeaningKoChanged = isCorrected && origMeaningKo !== corrMeaningKo;
-
-              const origMeaningEn = getMeaningDisplay(original.meaning_en);
-              const corrMeaningEn = isCorrected ? getMeaningDisplay(corrected.meaning_en) : origMeaningEn;
-              const isMeaningEnChanged = isCorrected && origMeaningEn !== corrMeaningEn;
+              const isMeaningKoChanged =
+                isCorrected &&
+                getMeaningSignature(original.meaning_ko) !== getMeaningSignature(corrected.meaning_ko);
+              const isMeaningEnChanged =
+                isCorrected &&
+                getMeaningSignature(original.meaning_en) !== getMeaningSignature(corrected.meaning_en);
               const isDeclensionsChanged =
                 Boolean(isCorrected) && isGrammarChanged(original.declensions, corrected?.declensions);
               const isConjugationsChanged =
@@ -438,17 +509,18 @@ export default function AutoVerifyWizard({
                           <div className="flex-1">
                             <span className="text-xs text-gray-400 font-bold uppercase block">한국어 뜻</span>
                             {isMeaningKoChanged ? (
-                              <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <span className="text-sm line-through text-red-500 font-medium">{origMeaningKo}</span>
-                                <span className="text-gray-400 text-sm">→</span>
-                                <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                  {corrMeaningKo}
-                                </span>
+                              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div>
+                                  <span className="text-xs font-bold text-red-500">기존</span>
+                                  <MeaningByPos meaning={original.meaning_ko} pos={original.pos} tone="removed" />
+                                </div>
+                                <div>
+                                  <span className="text-xs font-bold text-green-600 dark:text-green-400">AI 교정안</span>
+                                  <MeaningByPos meaning={corrected.meaning_ko} pos={corrected.pos} tone="added" />
+                                </div>
                               </div>
                             ) : (
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1 block">
-                                {origMeaningKo}
-                              </span>
+                              <MeaningByPos meaning={original.meaning_ko} pos={original.pos} />
                             )}
                           </div>
                           <span
@@ -473,17 +545,18 @@ export default function AutoVerifyWizard({
                           <div className="flex-1">
                             <span className="text-xs text-gray-400 font-bold uppercase block">영어 뜻</span>
                             {isMeaningEnChanged ? (
-                              <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <span className="text-sm line-through text-red-500 font-medium">{origMeaningEn}</span>
-                                <span className="text-gray-400 text-sm">→</span>
-                                <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                  {corrMeaningEn}
-                                </span>
+                              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div>
+                                  <span className="text-xs font-bold text-red-500">기존</span>
+                                  <MeaningByPos meaning={original.meaning_en} pos={original.pos} tone="removed" />
+                                </div>
+                                <div>
+                                  <span className="text-xs font-bold text-green-600 dark:text-green-400">AI 교정안</span>
+                                  <MeaningByPos meaning={corrected.meaning_en} pos={corrected.pos} tone="added" />
+                                </div>
                               </div>
                             ) : (
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1 block">
-                                {origMeaningEn}
-                              </span>
+                              <MeaningByPos meaning={original.meaning_en} pos={original.pos} />
                             )}
                           </div>
                           <span
@@ -682,18 +755,14 @@ export default function AutoVerifyWizard({
                             <span className="text-xs text-gray-400 font-bold uppercase block mb-1">
                               뜻 (한국어)
                             </span>
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                              {getMeaningDisplay(original.meaning_ko)}
-                            </p>
+                            <MeaningByPos meaning={original.meaning_ko} pos={original.pos} />
                           </div>
 
                           <div>
                             <span className="text-xs text-gray-400 font-bold uppercase block mb-1">
                               뜻 (English)
                             </span>
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                              {getMeaningDisplay(original.meaning_en)}
-                            </p>
+                            <MeaningByPos meaning={original.meaning_en} pos={original.pos} />
                           </div>
                         </div>
 

@@ -287,7 +287,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           setCurrentWizardIndex={autoVerification.setCurrentIndex}
           handleWizardAction={autoVerification.applyAction}
           loading={autoVerification.isSaving}
-          getMeaningDisplay={getMeaningDisplay}
         />
       )}
     </div>
