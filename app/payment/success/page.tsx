@@ -121,7 +121,7 @@ function SuccessContent() {
           결제가 완료되었습니다!
         </h2>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          랭브릿지 프리미엄 구독이 성공적으로 시작되었습니다.
+          홀라링고 프리미엄 이용권이 활성화되었습니다.
         </p>
 
         {paymentData && (
@@ -145,7 +145,8 @@ function SuccessContent() {
             <div className="flex justify-between">
               <span className="font-semibold text-zinc-400">만료 예정일</span>
               <span className="font-bold text-zinc-900 dark:text-zinc-50">
-                {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()} (30일권)
+                {new Date(paymentData.currentPeriodEnd).toLocaleDateString()}{' '}
+                ({paymentData.billingPeriod === 'annual' ? '12개월권' : '30일권'})
               </span>
             </div>
           </div>

@@ -21,6 +21,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Forbidden: Order ID mismatch' }, { status: 403 });
     }
 
+    const isAnnual = orderId.includes('_annual_');
+    const isMonthly = orderId.includes('_monthly_');
+    const expectedAmount = isAnnual ? 49000 : 4900;
+
+    if ((!isAnnual && !isMonthly) || Number(amount) !== expectedAmount) {
+      return NextResponse.json({ message: 'Invalid payment plan or amount' }, { status: 400 });
+    }
+
     const secretKey = process.env.TOSS_TEST_SECRET_KEY;
     if (!secretKey) {
       console.error('TOSS_TEST_SECRET_KEY is not defined in environment variables');
@@ -53,9 +61,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Payment is successfully confirmed!
-    // Active subscription duration: 30 days.
+    // Active subscription duration: 30 days for monthly, 365 days for annual.
+    const durationDays = isAnnual ? 365 : 30;
     const currentPeriodStart = new Date().toISOString();
-    const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const currentPeriodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
     await createOrUpdateSubscription({
       userId: user.id,
@@ -67,7 +76,14 @@ export async function POST(request: NextRequest) {
       currentPeriodEnd,
     });
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...data,
+        billingPeriod: isAnnual ? 'annual' : 'monthly',
+        currentPeriodEnd,
+      },
+    });
   } catch (error: any) {
     console.error('Error confirming payment:', error);
     return NextResponse.json({ message: error.message || 'Internal server error' }, { status: 500 });

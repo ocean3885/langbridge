@@ -32,7 +32,7 @@ const translations = {
     login: '로그인',
     myAccount: '내 계정',
     bundles: 'Bundles',
-    pricing: '구독',
+    pricing: 'Premium',
     profile: '프로필',
     logout: '로그아웃',
   },
@@ -44,7 +44,7 @@ const translations = {
     login: 'Login',
     myAccount: 'My Account',
     bundles: 'Bundles',
-    pricing: 'Subscription',
+    pricing: 'Premium',
     profile: 'Profile',
     logout: 'Logout',
   }
@@ -109,6 +109,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
           {[
             { name: t.study, href: '/learn' },
             { name: t.bundles, href: '/bundles' },
+            { name: t.pricing, href: '/pricing' },
             ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
           ].map((item) => (
             <Link
@@ -244,6 +245,7 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
             {[
               { name: t.study, href: '/learn' },
               { name: t.bundles, href: '/bundles' },
+              { name: t.pricing, href: '/pricing' },
               ...(isAdmin ? [{ name: t.admin, href: '/admin' }] : [])
             ].map((item) => (
               <Link

@@ -32,7 +32,8 @@ const translations = {
     aboutHolaLingo: 'About HolaLingo',
     ourStory: 'Our Story',
     blog: 'Blog',
-    terms: 'Terms',
+    terms: '이용약관',
+    refund: '환불정책',
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
@@ -65,6 +66,7 @@ const translations = {
     ourStory: 'Our Story',
     blog: 'Blog',
     terms: 'Terms',
+    refund: 'Refund Policy',
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
@@ -224,7 +226,9 @@ export default function Footer({ language = 'ko' }: Props) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1 text-[#eae6df]/75">
-            <span className="hover:text-white hover:underline cursor-pointer">{t.terms}</span>
+            <Link href="/terms" className="hover:text-white hover:underline">{t.terms}</Link>
+            <span className="mx-2 text-[#eae6df]/30">&middot;</span>
+            <Link href="/refund-policy" className="hover:text-white hover:underline">{t.refund}</Link>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <span className="hover:text-white hover:underline cursor-pointer">{t.privacy}</span>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
