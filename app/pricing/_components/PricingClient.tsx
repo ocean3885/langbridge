@@ -205,11 +205,18 @@ interface PricingClientProps {
   user: AppUser | null;
   isActiveSubscription: boolean;
   clientKey: string;
+  initialBillingPeriod: 'monthly' | 'annual';
 }
 
-export function PricingClient({ language, user, isActiveSubscription, clientKey }: PricingClientProps) {
+export function PricingClient({
+  language,
+  user,
+  isActiveSubscription,
+  clientKey,
+  initialBillingPeriod,
+}: PricingClientProps) {
   const [loading, setLoading] = useState(false);
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>(initialBillingPeriod);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const router = useRouter();
   const t = copy[language];
@@ -230,7 +237,8 @@ export function PricingClient({ language, user, isActiveSubscription, clientKey 
 
   const handleSubscribe = async () => {
     if (!user) {
-      router.push('/auth/login?redirectTo=/pricing');
+      const redirectTo = `/pricing?billing=${billingPeriod}`;
+      router.push(`/auth/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
     if (isActiveSubscription) return;
