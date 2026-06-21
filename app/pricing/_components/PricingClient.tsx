@@ -202,6 +202,7 @@ function isPaymentCancellation(error: unknown) {
 
 interface PricingClientProps {
   language: 'ko' | 'en';
+  country: string;
   user: AppUser | null;
   isActiveSubscription: boolean;
   clientKey: string;
@@ -210,6 +211,7 @@ interface PricingClientProps {
 
 export function PricingClient({
   language,
+  country,
   user,
   isActiveSubscription,
   clientKey,
@@ -218,9 +220,13 @@ export function PricingClient({
   const [loading, setLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>(initialBillingPeriod);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const [currencyMode, setCurrencyMode] = useState<'KRW' | 'USD'>(
+    country === 'KR' || country === 'kr' ? 'KRW' : 'USD'
+  );
   const router = useRouter();
   const t = copy[language];
   const isKorean = language === 'ko';
+  const isKR = currencyMode === 'KRW';
   const displayWeight = isKorean ? 'font-bold' : 'font-black';
   const emphasisWeight = isKorean ? 'font-medium' : 'font-bold';
   const actionWeight = isKorean ? 'font-bold' : 'font-extrabold';
@@ -229,11 +235,35 @@ export function PricingClient({
     ? 'text-[2.15rem] leading-[1.3] tracking-[-0.025em] sm:text-5xl lg:text-[3.4rem]'
     : 'text-4xl leading-[1.16] tracking-[-0.04em] sm:text-5xl lg:text-[3.55rem]';
   const isAnnual = billingPeriod === 'annual';
-  const selectedPrice = isAnnual ? t.annualPrice : t.price;
+
+  // Override pricing based on country rather than language
+  const basePrice = isKR ? '₩4,900' : '$4';
+  const baseAnnualPrice = isKR ? '₩49,000' : '$40';
+  const baseAnnualOriginalPrice = isKR ? '₩58,800' : '$48';
+  const baseAnnualDiscount = isKorean ? '17% 할인' : '17% off';
+  const baseAnnualSavings = isKR 
+    ? (isKorean ? '₩9,800 절약' : 'Save ₩9,800') 
+    : (isKorean ? '$8 절약' : 'Save $8');
+  
+  const purchaseSummaryMonthlyText = isKR
+    ? (isKorean ? '30일 이용권 · ₩4,900 일시 결제' : '30-day pass · ₩4,900 one-time payment')
+    : (isKorean ? '30일 이용권 · $4 일시 결제' : '30-day pass · $4 one-time payment');
+  const purchaseSummaryAnnualText = isKR
+    ? (isKorean ? '12개월 이용권 · ₩49,000 일시 결제' : '12-month pass · ₩49,000 one-time payment')
+    : (isKorean ? '12개월 이용권 · $40 일시 결제' : '12-month pass · $40 one-time payment');
+
+  const ctaSubscribeText = isKR
+    ? (isKorean ? '30일 이용권 구매하기 · ₩4,900' : 'Buy 30-Day Pass · ₩4,900')
+    : (isKorean ? '30일 이용권 구매하기 · $4' : 'Buy 30-Day Pass · $4');
+  const ctaSubscribeAnnualText = isKR
+    ? (isKorean ? '12개월 이용권 구매하기 · ₩49,000' : 'Buy 12-Month Pass · ₩49,000')
+    : (isKorean ? '12개월 이용권 구매하기 · $40' : 'Buy 12-Month Pass · $40');
+
+  const selectedPrice = isAnnual ? baseAnnualPrice : basePrice;
   const selectedPeriod = isAnnual ? t.annualPeriod : t.period;
   const selectedPlanName = isAnnual ? t.annualPlanName : t.planName;
-  const selectedCta = isAnnual ? t.ctaSubscribeAnnual : t.ctaSubscribe;
-  const purchaseSummary = isAnnual ? t.purchaseSummaryAnnual : t.purchaseSummaryMonthly;
+  const selectedCta = isAnnual ? ctaSubscribeAnnualText : ctaSubscribeText;
+  const purchaseSummary = isAnnual ? purchaseSummaryAnnualText : purchaseSummaryMonthlyText;
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -243,6 +273,11 @@ export function PricingClient({
     }
     if (isActiveSubscription) return;
     if (!hasAcceptedTerms) return;
+
+    if (!isKR) {
+      alert(isKorean ? '해외 결제(Paddle)는 곧 지원될 예정입니다.' : 'International checkout (Paddle) will be supported soon.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -389,7 +424,7 @@ export function PricingClient({
               >
                 {t.annual}
                 <span className="absolute -right-1.5 -top-2 rounded-full bg-[#E27D60] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                  {t.annualDiscount}
+                  {baseAnnualDiscount}
                 </span>
               </button>
             </div>
@@ -401,11 +436,11 @@ export function PricingClient({
             </div>
             {isAnnual && (
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-medium text-zinc-400 line-through">{t.annualOriginalPrice}</span>
+                <span className="font-medium text-zinc-400 line-through">{baseAnnualOriginalPrice}</span>
                 <span className="rounded-full bg-orange-50 px-2.5 py-1 font-bold text-[#D6684C] dark:bg-orange-950/40 dark:text-orange-300">
-                  {t.annualDiscount}
+                  {baseAnnualDiscount}
                 </span>
-                <span className={`text-emerald-600 dark:text-emerald-400 ${isKorean ? 'font-medium' : 'font-semibold'}`}>{t.annualSavings}</span>
+                <span className={`text-emerald-600 dark:text-emerald-400 ${isKorean ? 'font-medium' : 'font-semibold'}`}>{baseAnnualSavings}</span>
               </div>
             )}
             <p className={`mt-3 text-[13px] text-zinc-500 ${bodyWeight}`}>{t.cancelShort}</p>
@@ -465,6 +500,14 @@ export function PricingClient({
               <LockKeyhole className="h-3 w-3" />
               {t.secure}
             </p>
+            <button
+              onClick={() => setCurrencyMode(isKR ? 'USD' : 'KRW')}
+              className={`mx-auto mt-5 block text-[13px] text-zinc-400 underline underline-offset-4 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 ${bodyWeight}`}
+            >
+              {isKR 
+                ? (isKorean ? '해외 카드로 달러($) 결제하기' : 'Pay in USD with international card') 
+                : (isKorean ? '한국 카드로 원화(₩) 결제하기' : 'Pay in KRW with Korean card')}
+            </button>
           </motion.div>
         </section>
 
