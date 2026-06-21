@@ -16,6 +16,7 @@
     "@radix-ui/react-slot": "^1.2.2",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@tosspayments/tosspayments-sdk": "^2.7.1",
     "@types/youtube-player": "^5.5.11",
     "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",

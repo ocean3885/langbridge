@@ -36,8 +36,11 @@ const translations = {
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
-    company: '회사명',
-    businessNumber: '사업자등록번호',
+    company: '랭브릿지(langbridge)',
+    businessNumber: '264-34-01855',
+    phone: '+82 10-4005-6256',
+    representative: '대표 박희복',
+    address: '부산광역시 사상구 삼덕로 39, 102호',
   },
   en: {
     tagline: 'Learn Spanish, the cozy way.',
@@ -65,8 +68,11 @@ const translations = {
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
-    company: 'Company',
-    businessNumber: 'Business Registration No.',
+    company: 'langbridge',
+    businessNumber: '264-34-01855',
+    phone: '+82 10-4005-6256',
+    representative: 'Park Heebok',
+    address: '102, 39 Samdeok-ro, Sasang-gu, Republic of Korea',
   }
 };
 
@@ -205,11 +211,17 @@ export default function Footer({ language = 'ko' }: Props) {
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-center text-xs text-[#eae6df]/75">
           <div className="flex flex-col items-center sm:items-start gap-1.5">
             <p>&copy; {year} HolaLingo. All rights reserved.</p>
-            <p className="flex flex-wrap justify-center sm:justify-start items-center gap-x-2 gap-y-1 text-[#eae6df]/60">
-              <span>{t.company} LangBridge</span>
-              <span className="hidden sm:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
-              <span>{t.businessNumber} 264-34-01855</span>
-            </p>
+            <div className="flex flex-col items-center sm:items-start md:flex-row md:flex-wrap md:items-center gap-x-2 gap-y-1 text-[#eae6df]/60">
+              <span>{t.company}</span>
+              <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
+              <span>{t.businessNumber}</span>
+              <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
+              <a href="tel:+821040056256" className="hover:text-white hover:underline transition-colors">{t.phone}</a>
+              <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
+              <span>{t.representative}</span>
+              <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
+              <span>{t.address}</span>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-1 text-[#eae6df]/75">
             <span className="hover:text-white hover:underline cursor-pointer">{t.terms}</span>

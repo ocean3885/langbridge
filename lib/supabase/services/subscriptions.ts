@@ -87,3 +87,74 @@ export async function getUserSubscriptionSummary(userId: string | null | undefin
     isActive: Boolean(activeSubscription),
   };
 }
+
+export async function createOrUpdateSubscription({
+  userId,
+  provider,
+  providerCustomerId,
+  providerSubscriptionId,
+  status,
+  currentPeriodStart,
+  currentPeriodEnd,
+}: {
+  userId: string;
+  provider: string;
+  providerCustomerId?: string | null;
+  providerSubscriptionId?: string | null;
+  status: string;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+}) {
+  const supabase = createAdminClient();
+
+  // Check if an existing subscription exists for this user
+  const { data: existing, error: fetchError } = await supabase
+    .from('user_subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1);
+
+  if (fetchError) {
+    console.error('Error fetching existing subscription:', fetchError);
+  }
+
+  if (existing && existing.length > 0) {
+    const { error } = await supabase
+      .from('user_subscriptions')
+      .update({
+        provider,
+        provider_customer_id: providerCustomerId || null,
+        provider_subscription_id: providerSubscriptionId || null,
+        status,
+        current_period_start: currentPeriodStart || null,
+        current_period_end: currentPeriodEnd || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating user subscription:', error);
+      throw error;
+    }
+  } else {
+    const { error } = await supabase
+      .from('user_subscriptions')
+      .insert({
+        user_id: userId,
+        provider,
+        provider_customer_id: providerCustomerId || null,
+        provider_subscription_id: providerSubscriptionId || null,
+        status,
+        current_period_start: currentPeriodStart || null,
+        current_period_end: currentPeriodEnd || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error('Error inserting user subscription:', error);
+      throw error;
+    }
+  }
+}
+
