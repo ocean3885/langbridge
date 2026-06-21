@@ -230,7 +230,7 @@ export default function Footer({ language = 'ko' }: Props) {
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <Link href="/refund-policy" className="hover:text-white hover:underline">{t.refund}</Link>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
-            <span className="hover:text-white hover:underline cursor-pointer">{t.privacy}</span>
+            <Link href="/privacy-policy" className="hover:text-white hover:underline">{t.privacy}</Link>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <span className="hover:text-gray-300 cursor-pointer">{t.cookie}</span>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
