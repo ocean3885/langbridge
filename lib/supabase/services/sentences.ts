@@ -22,38 +22,24 @@ export async function listSentences(): Promise<SupabaseSentence[]> {
   const supabase = createAdminClient();
   const { data: sentences, error: sentenceError } = await supabase
     .from('sentences')
-    .select('*')
+    .select(`
+      *,
+      word_count:word_sentence_map(count),
+      bundle_count:bundle_items(count)
+    `)
     .order('created_at', { ascending: false });
     
   if (sentenceError || !sentences) return [];
 
-  // Fetch counts from word_sentence_map separately for reliability
-  const { data: counts, error: countError } = await supabase
-    .from('word_sentence_map')
-    .select('sentence_id');
-    
-  const countMap = (counts || []).reduce((acc, row) => {
-    acc[row.sentence_id] = (acc[row.sentence_id] || 0) + 1;
-    return acc;
-  }, {} as Record<number, number>);
-
-  // Fetch bundle counts
-  const { data: bundleCounts, error: bundleCountError } = await supabase
-    .from('bundle_items')
-    .select('sentence_id');
-
-  const bundleCountMap = (bundleCounts || []).reduce((acc, row) => {
-    if (row.sentence_id) {
-      acc[row.sentence_id] = (acc[row.sentence_id] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<number, number>);
-    
-  return sentences.map(row => ({
-    ...row,
-    word_count: countMap[row.id] || 0,
-    bundle_count: bundleCountMap[row.id] || 0
-  })) as SupabaseSentence[];
+  return sentences.map((row: any) => {
+    const wCount = Array.isArray(row.word_count) && row.word_count[0] ? row.word_count[0].count : 0;
+    const bCount = Array.isArray(row.bundle_count) && row.bundle_count[0] ? row.bundle_count[0].count : 0;
+    return {
+      ...row,
+      word_count: wCount,
+      bundle_count: bCount
+    };
+  }) as SupabaseSentence[];
 }
 
 export async function countSentences(): Promise<number> {
@@ -253,9 +239,15 @@ export async function regenerateSentenceTTS(id: number, text: string, options?: 
 
 export async function importWordsFromJson(sentenceId: number, json: string, langCode: string = 'es') {
   const supabase = createAdminClient();
+  const normalizedJson = json
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .trim();
+
   let parsed;
   try {
-    parsed = JSON.parse(json);
+    parsed = JSON.parse(normalizedJson);
   } catch (e) {
     throw new Error('JSON 형식이 올바르지 않습니다.');
   }
@@ -291,7 +283,10 @@ export async function importWordsFromJson(sentenceId: number, json: string, lang
       // Insert new word
       let wordAudioUrl = null;
       try {
-        wordAudioUrl = await generateTTS(normalizedWord, 'words', langCode);
+        wordAudioUrl = await generateTTS(normalizedWord, 'words', langCode, 0.8, {
+          provider: 'google',
+          speed: 0.8
+        });
       } catch (e) {
         console.error('Error generating TTS for word:', normalizedWord, e);
       }

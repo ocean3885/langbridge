@@ -210,10 +210,11 @@ export async function getWordByText(word: string, langCode: string): Promise<Sup
     .select('*')
     .eq('word', word.toLowerCase().trim())
     .eq('lang_code', langCode)
-    .maybeSingle();
+    .order('id', { ascending: true })
+    .limit(1);
 
-  if (error || !data) return null;
-  return data as SupabaseWord;
+  if (error || !data?.[0]) return null;
+  return data[0] as SupabaseWord;
 }
 
 export async function updateDistractor(id: number, input: {

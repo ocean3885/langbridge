@@ -1,19 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Loader2, Check, ExternalLink } from 'lucide-react';
+import { Plus, Loader2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface WordExtractorProps {
   sentenceId: number;
-  sentenceText: string;
   langCode: string;
 }
 
-export default function WordExtractor({ sentenceId, sentenceText, langCode }: WordExtractorProps) {
+export default function WordExtractor({ sentenceId, langCode }: WordExtractorProps) {
   const [selectedWord, setSelectedWord] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{ wordId: number; extractedWord: string } | null>(null);
+  const [result, setResult] = useState<{
+    wordId: number;
+    extractedWord: string;
+    reusedExistingWord: boolean;
+    mappingCreated: boolean;
+  } | null>(null);
   const router = useRouter();
 
   const handleExtract = async () => {
@@ -30,7 +34,6 @@ export default function WordExtractor({ sentenceId, sentenceText, langCode }: Wo
           sentenceId,
           word: selectedWord.trim(),
           langCode,
-          sentenceText,
         }),
       });
 
@@ -43,6 +46,8 @@ export default function WordExtractor({ sentenceId, sentenceText, langCode }: Wo
       setResult({
         wordId: data.wordId,
         extractedWord: data.extractedWord,
+        reusedExistingWord: Boolean(data.reusedExistingWord),
+        mappingCreated: Boolean(data.mappingCreated),
       });
       
       // 입력창 초기화
@@ -111,9 +116,15 @@ export default function WordExtractor({ sentenceId, sentenceText, langCode }: Wo
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                '{result.extractedWord}' 단어가 성공적으로 등록되었습니다!
+                {!result.mappingCreated
+                  ? `'${result.extractedWord}' 단어는 이미 이 문장에 연결되어 있습니다.`
+                  : result.reusedExistingWord
+                    ? `'${result.extractedWord}' 기존 단어를 문장에 연결했습니다.`
+                    : `'${result.extractedWord}' 단어가 성공적으로 등록되었습니다!`}
               </p>
-              <p className="text-xs text-gray-500">문장과 자동으로 연결되었습니다.</p>
+              {result.mappingCreated && (
+                <p className="text-xs text-gray-500">문장과 자동으로 연결되었습니다.</p>
+              )}
             </div>
           </div>
         </div>

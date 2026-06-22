@@ -40,6 +40,7 @@ export default function SentencesManager({ initialSentences, languages }: Senten
   const [searchTerm, setSearchTerm] = useState('');
   const [filterNoBundle, setFilterNoBundle] = useState(false);
   const [filterMissingAudio, setFilterMissingAudio] = useState(false);
+  const [sortBy, setSortBy] = useState<'created_desc' | 'word_asc' | 'word_desc'>('created_desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
 
@@ -55,7 +56,17 @@ export default function SentencesManager({ initialSentences, languages }: Senten
     return matchesSearch && matchesBundleFilter && matchesMissingAudio;
   });
 
-  const paginatedSentences = filteredSentences.slice(
+  const sortedSentences = [...filteredSentences].sort((a, b) => {
+    if (sortBy === 'word_asc') {
+      return (a.word_count || 0) - (b.word_count || 0);
+    }
+    if (sortBy === 'word_desc') {
+      return (b.word_count || 0) - (a.word_count || 0);
+    }
+    return 0; // 최신 등록순 (기존 DB 순서 유지)
+  });
+
+  const paginatedSentences = sortedSentences.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -178,18 +189,20 @@ export default function SentencesManager({ initialSentences, languages }: Senten
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-800 space-y-3">
           <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="문장 또는 번역 검색..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <div className="flex flex-wrap items-center justify-between md:justify-start gap-4 bg-gray-50 md:bg-transparent p-2 md:p-0 rounded-lg">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="문장 또는 번역 검색..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+            <div className="flex flex-wrap items-center gap-4">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
                   type="checkbox" 
@@ -217,11 +230,29 @@ export default function SentencesManager({ initialSentences, languages }: Senten
                 <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">음성 데이터 없음</span>
               </label>
-              
-              <div className="md:hidden text-[10px] text-gray-400 font-medium">
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] text-gray-400 font-medium">
                 총 {filteredSentences.length}개
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">정렬:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as typeof sortBy);
+                    setCurrentPage(1);
+                  }}
+                  className="px-2.5 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="created_desc">최신 등록순</option>
+                  <option value="word_asc">단어 적은순</option>
+                  <option value="word_desc">단어 많은순</option>
+                </select>
+              </div>
             </div>
+          </div>
         </div>
         {filteredSentences.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 py-16 text-center text-gray-500">

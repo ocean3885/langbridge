@@ -79,8 +79,21 @@ export async function insertMapping(input: {
   wordId: number;
   sentenceId: number;
   usedAs?: string | null;
-}): Promise<number> {
+}): Promise<{ id: number; created: boolean }> {
   const supabase = createAdminClient();
+
+  const { data: existingMappings, error: lookupError } = await supabase
+    .from('word_sentence_map')
+    .select('id')
+    .eq('word_id', input.wordId)
+    .eq('sentence_id', input.sentenceId)
+    .limit(1);
+
+  if (lookupError) throw new Error(`매핑 조회 실패: ${lookupError.message}`);
+  if (existingMappings?.[0]) {
+    return { id: existingMappings[0].id, created: false };
+  }
+
   const { data, error } = await supabase
     .from('word_sentence_map')
     .insert({
@@ -90,9 +103,24 @@ export async function insertMapping(input: {
     })
     .select('id')
     .single();
-    
+
+  if (error?.code === '23505') {
+    const { data: concurrentMappings, error: concurrentLookupError } = await supabase
+      .from('word_sentence_map')
+      .select('id')
+      .eq('word_id', input.wordId)
+      .eq('sentence_id', input.sentenceId)
+      .limit(1);
+
+    if (concurrentLookupError || !concurrentMappings?.[0]) {
+      throw new Error(`매핑 생성 실패: ${error.message}`);
+    }
+
+    return { id: concurrentMappings[0].id, created: false };
+  }
+
   if (error) throw new Error(`매핑 생성 실패: ${error.message}`);
-  return data.id;
+  return { id: data.id, created: true };
 }
 
 export async function deleteMapping(id: number): Promise<void> {

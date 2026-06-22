@@ -311,6 +311,46 @@ export async function generateProviderJson(
   return generateDeepseekJson(prompt, systemInstruction);
 }
 
+export async function generateWordLemmaDeepseek(
+  surface: string,
+  sentence: string,
+  provider: WordGenerationProvider = 'deepseek'
+): Promise<string> {
+  const prompt = `
+당신은 스페인어 형태소 분석 전문가입니다.
+아래 문장에서 사용된 단어 형태의 문맥상 올바른 사전 기본형(lemma)만 판별하세요.
+
+문장: '${sentence}'
+문장에 실제 나온 형태(surface): '${surface}'
+
+### [출력 스키마]
+{
+  "lemma": "사전 기본형"
+}
+
+### [지침]
+1. 동사는 문맥에 맞는 부정사 기본형으로 작성하세요. 예: fui -> ir 또는 ser 중 문맥상 맞는 것.
+2. 명사와 형용사는 사전 표제어 형태를 작성하세요.
+3. lemma는 소문자로 작성하세요.
+4. 단어 뜻, 품사, 활용형 등 다른 정보는 생성하지 마세요.
+`;
+
+  const rawData = await generateProviderJson(
+    provider,
+    prompt,
+    "스페인어 형태소 분석 전문가로서 JSON 형식으로만 응답하세요."
+  );
+  const lemma = typeof rawData?.lemma === 'string'
+    ? rawData.lemma.toLocaleLowerCase('es').trim()
+    : '';
+
+  if (!lemma) {
+    throw new Error('AI가 유효한 단어 기본형을 반환하지 않았습니다.');
+  }
+
+  return lemma;
+}
+
 /**
  * OpenAI API를 사용하여 단어 정보를 생성합니다.
  * @param word 분석할 스페인어 단어

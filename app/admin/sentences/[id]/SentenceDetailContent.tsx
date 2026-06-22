@@ -322,7 +322,6 @@ export default function SentenceDetailContent({
 
           <WordExtractor 
             sentenceId={sentence.id} 
-            sentenceText={sentence.sentence} 
             langCode={sentence.lang_code || ACTIVE_LANGUAGE} 
           />
 
