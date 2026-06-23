@@ -5,11 +5,12 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
-import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
+import { listWordsForSentences, listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { getPublicUrl } from '@/lib/utils';
 import { getBundleDescription, getBundleTitle } from '../../bundle-utils';
 import ItemActions from './ItemActions';
+import WordUsageSheet from './WordUsageSheet';
 
 interface BundleItemsPageProps {
   params: Promise<{ id: string }>;
@@ -32,6 +33,13 @@ const copy = {
     saveFailed: '메모 저장에 실패했습니다.',
     noTranslation: '번역이 등록되지 않았습니다.',
     noSentence: '문장이 등록되지 않았습니다.',
+    sheetTitle: '단어 정보',
+    usedForm: '사용 형태',
+    meaning: '뜻',
+    examples: '사용된 문장',
+    noExamples: '아직 연결된 문장이 없습니다.',
+    close: '닫기',
+    pos: '품사',
   },
   en: {
     back: 'Back',
@@ -49,6 +57,13 @@ const copy = {
     saveFailed: 'Failed to save memo.',
     noTranslation: 'No translation provided.',
     noSentence: 'No sentence provided.',
+    sheetTitle: 'Word info',
+    usedForm: 'Used form',
+    meaning: 'Meaning',
+    examples: 'Example sentences',
+    noExamples: 'No linked sentences yet.',
+    close: 'Close',
+    pos: 'POS',
   },
 };
 
@@ -73,6 +88,7 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
     user && sentenceIds.length > 0 ? listUserSentenceInteractions(user.id, sentenceIds) : [],
     listWordsForSentences(sentenceIds),
   ]);
+  const wordUsageDetails = await listWordUsageDetails(mappedWords.map((word) => word.word_id));
   const interactionBySentenceId = new Map(interactions.map((interaction) => [interaction.sentence_id, interaction]));
   const wordsBySentenceId = mappedWords.reduce((groups, word) => {
     const words = groups.get(word.sentence_id) || [];
@@ -146,24 +162,21 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                       <h2 className="text-lg font-bold leading-8 text-zinc-950 dark:text-zinc-50 md:text-xl">{sentence}</h2>
                       <p className="mt-1 text-base font-medium leading-7 text-zinc-600 dark:text-zinc-300">{translation}</p>
                       {words.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2" aria-label={t.words}>
-                          {words.map((word) => {
-                            const meaning =
-                              (language === 'en' ? word.meaning_en : word.meaning_ko) ||
-                              word.meaning_ko ||
-                              word.meaning_en;
-
-                            return (
-                              <span
-                                key={`${word.sentence_id}-${word.word_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                              >
-                                {word.used_as || word.word}
-                                {meaning && <span className="font-medium text-zinc-500 dark:text-zinc-400">· {meaning}</span>}
-                              </span>
-                            );
-                          })}
-                        </div>
+                        <WordUsageSheet
+                          words={words}
+                          details={wordUsageDetails}
+                          language={language}
+                          copy={{
+                            words: t.words,
+                            sheetTitle: t.sheetTitle,
+                            usedForm: t.usedForm,
+                            meaning: t.meaning,
+                            examples: t.examples,
+                            noExamples: t.noExamples,
+                            close: t.close,
+                            pos: t.pos,
+                          }}
+                        />
                       )}
                       {memo && (
                         <p className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium leading-6 text-[#2f7d4a] dark:bg-emerald-950/50 dark:text-emerald-300">

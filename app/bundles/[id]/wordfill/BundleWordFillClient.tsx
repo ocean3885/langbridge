@@ -196,8 +196,8 @@ export default function BundleWordFillClient({
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
         <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
-        <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{t.done}</h1>
-        <p className="text-lg font-black text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
+        <h1 className="text-3xl font-bold text-zinc-950 dark:text-zinc-50">{t.done}</h1>
+        <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
         <div className="flex gap-2">
           <Link
             href={`/bundles/${bundleId}`}
@@ -207,7 +207,7 @@ export default function BundleWordFillClient({
           </Link>
           <button
             onClick={retry}
-            className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
+            className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
             {t.retry}
           </button>
@@ -242,7 +242,7 @@ export default function BundleWordFillClient({
         <p className="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">
           {index + 1} / {items.length}
         </p>
-        <p className="mt-4 text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
+        <p className="mt-4 text-sm font-semibold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
         <div className="mt-3 flex items-start gap-3">
           <h2 className="min-w-0 flex-1 text-2xl font-bold leading-relaxed text-zinc-950 dark:text-zinc-50">
             {sentenceDisplay}
@@ -259,7 +259,7 @@ export default function BundleWordFillClient({
             </button>
           )}
         </div>
-        <p className="mt-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+        <p className="mt-3 text-sm font-medium leading-6 text-zinc-500 dark:text-zinc-400 md:text-base">
           {current.translation}
         </p>
       </section>
@@ -280,7 +280,7 @@ export default function BundleWordFillClient({
             <button
               key={option.word}
               onClick={() => choose(option.word)}
-              className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${stateClass}`}
+              className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-base font-semibold transition ${stateClass}`}
             >
               <span>{selected ? `${option.word} (${option.meaning})` : option.word}</span>
               {selected && optionIsCorrect && <Check className="h-4 w-4" />}
@@ -292,7 +292,7 @@ export default function BundleWordFillClient({
 
       {selected && (
         <div
-          className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-bold ${
+          className={`flex items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-semibold ${
             isCorrect
               ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200'
               : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'
@@ -311,7 +311,7 @@ export default function BundleWordFillClient({
           ) : (
             <span className="flex flex-col gap-1">
               <span>{t.wrong}</span>
-              <span className="font-black text-emerald-600 dark:text-emerald-400">
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
                 {current.usedAs}
                 {shouldShowDictionaryForm && ` (${t.dictionaryFormLabel}: ${current.targetWord})`}
               </span>

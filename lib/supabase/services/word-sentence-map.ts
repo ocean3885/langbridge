@@ -18,6 +18,25 @@ export type SentenceMappedWord = {
   meaning_en: string | null;
 };
 
+export type WordUsageSentence = {
+  sentence_id: number;
+  used_as: string | null;
+  sentence: string;
+  translation: string | null;
+  translation_en: string | null;
+};
+
+export type WordUsageDetail = {
+  word_id: number;
+  word: string;
+  meaning_ko: string | null;
+  meaning_en: string | null;
+  pos: string[];
+  gender: string | null;
+  difficulty: number | null;
+  sentences: WordUsageSentence[];
+};
+
 export async function listWordsForSentences(sentenceIds: number[]): Promise<SentenceMappedWord[]> {
   if (sentenceIds.length === 0) return [];
 
@@ -51,6 +70,63 @@ export async function listWordsForSentences(sentenceIds: number[]): Promise<Sent
       meaning_en: formatWordMeaning(word.meaning_en),
     }];
   });
+}
+
+export async function listWordUsageDetails(wordIds: number[]): Promise<WordUsageDetail[]> {
+  const uniqueWordIds = Array.from(new Set(wordIds));
+  if (uniqueWordIds.length === 0) return [];
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('words')
+    .select(`
+      id,
+      word,
+      meaning_ko,
+      meaning_en,
+      pos,
+      gender,
+      difficulty,
+      word_sentence_map (
+        sentence_id,
+        used_as,
+        sentences (
+          id,
+          sentence,
+          translation,
+          translation_en
+        )
+      )
+    `)
+    .in('id', uniqueWordIds)
+    .order('word', { ascending: true });
+
+  if (error) {
+    console.error('Error listing word usage details:', error);
+    return [];
+  }
+
+  return (data || []).map((word) => ({
+    word_id: word.id,
+    word: word.word,
+    meaning_ko: formatWordMeaning(word.meaning_ko),
+    meaning_en: formatWordMeaning(word.meaning_en),
+    pos: Array.isArray(word.pos) ? word.pos : [],
+    gender: word.gender ?? null,
+    difficulty: typeof word.difficulty === 'number' ? word.difficulty : null,
+    sentences: (word.word_sentence_map || []).flatMap((mapping: any) => {
+      const sentence = Array.isArray(mapping.sentences) ? mapping.sentences[0] : mapping.sentences;
+      if (!sentence?.sentence) return [];
+
+      return [{
+        sentence_id: mapping.sentence_id,
+        used_as: mapping.used_as,
+        sentence: sentence.sentence,
+        translation: sentence.translation ?? null,
+        translation_en: sentence.translation_en ?? null,
+      }];
+    }),
+  }));
 }
 
 export async function listMappingsForSentence(sentenceId: number): Promise<SupabaseWordSentenceMap[]> {
