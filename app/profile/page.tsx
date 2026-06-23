@@ -1,7 +1,14 @@
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getUserSubscriptionSummary, type UserSubscriptionSummary } from '@/lib/supabase/services/subscriptions';
+import { syncPaddleSubscriptionById } from '@/lib/paddle/subscription-sync';
+import {
+  getPaddleBillingReference,
+  getUserSubscriptionSummary,
+  type UserSubscriptionSummary,
+} from '@/lib/supabase/services/subscriptions';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { ProfileBillingRefresh } from './ProfileBillingRefresh';
+import { ProfilePasswordForm } from './ProfilePasswordForm';
 
 const translations = {
   ko: {
@@ -37,7 +44,7 @@ const translations = {
     syncNotice: 'Paddle에서 변경한 내용은 웹훅 처리 후 반영됩니다. 상태가 바로 바뀌지 않으면 잠시 후 이 페이지를 새로고침해 주세요.',
     managedExternally: '이 구독은 Paddle 외부에서 관리됩니다.',
     subscribe: '구독하기',
-    footerNote: '향후 프로필 편집, 비밀번호 변경 등이 추가될 예정입니다.',
+    footerNote: '향후 프로필 편집 기능이 추가될 예정입니다.',
     loginRequired: '로그인이 필요합니다.',
     goToLogin: '로그인 페이지로 이동',
     unknown: '알 수 없음'
@@ -75,7 +82,7 @@ const translations = {
     syncNotice: 'Changes made in Paddle appear after webhook processing. Refresh this page shortly if the status has not updated yet.',
     managedExternally: 'This subscription is managed outside Paddle.',
     subscribe: 'Subscribe',
-    footerNote: 'Profile editing and password changes will be added in the future.',
+    footerNote: 'Profile editing will be added in the future.',
     loginRequired: 'Login required.',
     goToLogin: 'Go to Login Page',
     unknown: 'Unknown'
@@ -103,7 +110,21 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   }
 
   const t = translations[lang];
-  const subscription = await getUserSubscriptionSummary(user.id);
+  let subscription = await getUserSubscriptionSummary(user.id);
+  if (subscription.provider === 'paddle') {
+    const billingReference = await getPaddleBillingReference(user.id);
+    if (billingReference?.subscriptionId) {
+      try {
+        await syncPaddleSubscriptionById({
+          subscriptionId: billingReference.subscriptionId,
+          userId: user.id,
+        });
+        subscription = await getUserSubscriptionSummary(user.id);
+      } catch (error) {
+        console.error('Could not refresh Paddle subscription for profile:', error);
+      }
+    }
+  }
   const isPastDue = subscription.status === 'past_due';
   const isPaused = subscription.status === 'paused';
   const canChangePaymentMethod = subscription.canManageWithPaddle &&
@@ -126,6 +147,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <ProfileBillingRefresh />
       <h1 className="text-4xl font-bold mb-6">{t.title}</h1>
       
       <div className="grid gap-6">
@@ -210,6 +232,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Link
                     href="/api/paddle/portal?target=overview"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   >
                     {t.paymentHistory}
@@ -217,6 +241,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                   {canChangePaymentMethod && (
                     <Link
                       href="/api/paddle/portal?target=payment-method"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       {t.changePaymentMethod}
@@ -225,6 +251,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                   {canCancel && (
                     <Link
                       href="/api/paddle/portal?target=cancel"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex h-10 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-bold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70 sm:col-span-2"
                     >
                       {t.cancelSubscription}
@@ -250,6 +278,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             )}
           </CardContent>
         </Card>
+
+        <ProfilePasswordForm language={lang} />
       </div>
 
       <div className="mt-6">

@@ -53,6 +53,46 @@ function getPaddleApiConfig() {
   };
 }
 
+export async function syncPaddleSubscriptionById({
+  subscriptionId,
+  userId,
+}: {
+  subscriptionId: string;
+  userId: string;
+}): Promise<SyncResult> {
+  const config = getPaddleApiConfig();
+  if (!config) return { synced: false, reason: 'missing_api_key' };
+
+  const subscriptionResponse = await fetch(
+    `${config.apiBaseUrl}/subscriptions/${subscriptionId}`,
+    { headers: config.headers, cache: 'no-store' }
+  );
+  if (!subscriptionResponse.ok) {
+    const detail = await subscriptionResponse.text();
+    console.error('Paddle subscription sync failed:', subscriptionResponse.status, detail);
+    return { synced: false, reason: `subscription_${subscriptionResponse.status}` };
+  }
+
+  const subscriptionResult = await subscriptionResponse.json() as { data?: PaddleSubscription };
+  const subscription = subscriptionResult.data;
+  if (!subscription) return { synced: false, reason: 'missing_subscription' };
+
+  await createOrUpdateSubscription({
+    userId,
+    provider: 'paddle',
+    providerCustomerId: subscription.customer_id || null,
+    providerSubscriptionId: subscription.id,
+    providerPriceId: subscription.items?.[0]?.price?.id || null,
+    status: mapPaddleStatus(subscription.status),
+    currentPeriodStart: subscription.current_billing_period?.starts_at || null,
+    currentPeriodEnd: subscription.current_billing_period?.ends_at || null,
+    cancelAtPeriodEnd: subscription.scheduled_change?.action === 'cancel',
+    eventOccurredAt: subscription.updated_at || new Date().toISOString(),
+  });
+
+  return { synced: true, userId, subscriptionId: subscription.id };
+}
+
 export async function syncPaddleSubscriptionFromTransaction({
   transactionId,
   expectedUserId,
@@ -90,32 +130,11 @@ export async function syncPaddleSubscriptionFromTransaction({
     return { synced: false, reason: 'missing_subscription_id' };
   }
 
-  const subscriptionResponse = await fetch(
-    `${config.apiBaseUrl}/subscriptions/${transaction.subscription_id}`,
-    { headers: config.headers, cache: 'no-store' }
-  );
-  if (!subscriptionResponse.ok) {
-    const detail = await subscriptionResponse.text();
-    console.error('Paddle subscription sync failed:', subscriptionResponse.status, detail);
-    return { synced: false, reason: `subscription_${subscriptionResponse.status}` };
-  }
-
-  const subscriptionResult = await subscriptionResponse.json() as { data?: PaddleSubscription };
-  const subscription = subscriptionResult.data;
-  if (!subscription) return { synced: false, reason: 'missing_subscription' };
-
-  await createOrUpdateSubscription({
+  const subscriptionSync = await syncPaddleSubscriptionById({
+    subscriptionId: transaction.subscription_id,
     userId,
-    provider: 'paddle',
-    providerCustomerId: subscription.customer_id || transaction.customer_id || null,
-    providerSubscriptionId: subscription.id,
-    providerPriceId: subscription.items?.[0]?.price?.id || null,
-    status: mapPaddleStatus(subscription.status),
-    currentPeriodStart: subscription.current_billing_period?.starts_at || null,
-    currentPeriodEnd: subscription.current_billing_period?.ends_at || null,
-    cancelAtPeriodEnd: subscription.scheduled_change?.action === 'cancel',
-    eventOccurredAt: subscription.updated_at || new Date().toISOString(),
   });
+  if (!subscriptionSync.synced) return subscriptionSync;
 
   const checkoutAttemptId = transaction.custom_data?.checkout_attempt_id;
   if (typeof checkoutAttemptId === 'string' && checkoutAttemptId) {
@@ -125,6 +144,6 @@ export async function syncPaddleSubscriptionFromTransaction({
   return {
     synced: true,
     userId,
-    subscriptionId: subscription.id,
+    subscriptionId: transaction.subscription_id,
   };
 }

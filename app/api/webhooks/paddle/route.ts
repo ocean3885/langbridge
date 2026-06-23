@@ -1,8 +1,11 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { syncPaddleSubscriptionFromTransaction } from '@/lib/paddle/subscription-sync';
 import {
-  createOrUpdateSubscription,
+  syncPaddleSubscriptionById,
+  syncPaddleSubscriptionFromTransaction,
+} from '@/lib/paddle/subscription-sync';
+import {
+  getUserIdByPaddleSubscriptionId,
   registerPaddleWebhookEvent,
   unregisterPaddleWebhookEvent,
   updatePaddleCheckoutAttemptStatus,
@@ -61,19 +64,6 @@ function verifyPaddleSignature(rawBody: string, signatureHeader: string, secret:
   });
 }
 
-function mapPaddleStatus(status: string) {
-  switch (status) {
-    case 'active':
-    case 'trialing':
-    case 'past_due':
-    case 'paused':
-    case 'canceled':
-      return status;
-    default:
-      return 'expired';
-  }
-}
-
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get('paddle-signature') || '';
@@ -127,23 +117,22 @@ export async function POST(request: NextRequest) {
       }
     } else if (event.event_type.startsWith('subscription.')) {
       const subscription = event.data;
-      const userId = subscription.custom_data?.user_id;
-      if (typeof userId !== 'string' || !userId) {
+      const customDataUserId = subscription.custom_data?.user_id;
+      const userId = typeof customDataUserId === 'string' && customDataUserId
+        ? customDataUserId
+        : await getUserIdByPaddleSubscriptionId(subscription.id);
+
+      if (!userId) {
         throw new Error(`Paddle webhook ${event.event_id} is missing custom_data.user_id`);
       }
 
-      await createOrUpdateSubscription({
+      const syncResult = await syncPaddleSubscriptionById({
+        subscriptionId: subscription.id,
         userId,
-        provider: 'paddle',
-        providerCustomerId: subscription.customer_id || null,
-        providerSubscriptionId: subscription.id,
-        providerPriceId: subscription.items?.[0]?.price?.id || null,
-        status: mapPaddleStatus(subscription.status),
-        currentPeriodStart: subscription.current_billing_period?.starts_at || null,
-        currentPeriodEnd: subscription.current_billing_period?.ends_at || null,
-        cancelAtPeriodEnd: subscription.scheduled_change?.action === 'cancel',
-        eventOccurredAt: event.occurred_at || null,
       });
+      if (!syncResult.synced) {
+        throw new Error(`Subscription sync failed: ${syncResult.reason}`);
+      }
     }
 
     return NextResponse.json({ received: true });

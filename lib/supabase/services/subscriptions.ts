@@ -182,6 +182,23 @@ export async function getPaddleBillingReference(userId: string) {
   };
 }
 
+export async function getUserIdByPaddleSubscriptionId(subscriptionId: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('user_subscriptions')
+    .select('user_id')
+    .eq('provider', 'paddle')
+    .eq('provider_subscription_id', subscriptionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error finding user by Paddle subscription ID:', error);
+    throw error;
+  }
+
+  return data?.user_id as string | undefined;
+}
+
 export async function createPaddleCheckoutAttempt({
   userId,
   billingPeriod,
