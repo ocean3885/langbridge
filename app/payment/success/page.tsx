@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Loader2, AlertCircle, BookOpen } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle, BookOpen, Clock3 } from 'lucide-react';
 import Link from 'next/link';
 
 function SuccessContent() {
@@ -49,7 +49,7 @@ function SuccessContent() {
       async function waitForPaddleWebhook() {
         let checkoutWasFound = false;
 
-        for (let attempt = 0; attempt < 20; attempt += 1) {
+        for (let attempt = 0; attempt < 60; attempt += 1) {
           try {
             const response = await fetch(
               `/api/paddle/checkout/status?transactionId=${encodeURIComponent(transactionId!)}`,
@@ -83,7 +83,7 @@ function SuccessContent() {
             console.error('Paddle subscription status check failed:', error);
           }
 
-          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+          await new Promise((resolve) => window.setTimeout(resolve, 2000));
         }
 
         if (checkoutWasFound) {
@@ -183,7 +183,7 @@ function SuccessContent() {
   if (status === 'processing') {
     return (
       <div className="flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center text-center px-4">
-        <Loader2 className="h-12 w-12 animate-spin text-emerald-600 dark:text-emerald-400" />
+        <Clock3 className="h-12 w-12 text-amber-500 dark:text-amber-400" />
         <h2 className="mt-6 text-2xl font-black text-zinc-900 dark:text-zinc-50">
           {isKorean ? '결제 정보를 동기화하고 있습니다' : 'Syncing your payment'}
         </h2>

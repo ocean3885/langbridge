@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { syncPaddleSubscriptionFromTransaction } from '@/lib/paddle/subscription-sync';
 import {
   createOrUpdateSubscription,
   registerPaddleWebhookEvent,
@@ -23,6 +24,7 @@ type PaddleSubscription = {
     action?: string;
     effective_at?: string;
   } | null;
+  subscription_id?: string | null;
 };
 
 type PaddleWebhookEvent = {
@@ -116,7 +118,14 @@ export async function POST(request: NextRequest) {
       await updatePaddleCheckoutAttemptStatus(checkoutAttemptId, 'completed');
     }
 
-    if (event.event_type.startsWith('subscription.')) {
+    if (event.event_type === 'transaction.completed') {
+      const syncResult = await syncPaddleSubscriptionFromTransaction({
+        transactionId: event.data.id,
+      });
+      if (!syncResult.synced) {
+        throw new Error(`Transaction subscription sync failed: ${syncResult.reason}`);
+      }
+    } else if (event.event_type.startsWith('subscription.')) {
       const subscription = event.data;
       const userId = subscription.custom_data?.user_id;
       if (typeof userId !== 'string' || !userId) {

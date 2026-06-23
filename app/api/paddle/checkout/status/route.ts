@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
+import { syncPaddleSubscriptionFromTransaction } from '@/lib/paddle/subscription-sync';
 import {
   failPendingPaddleCheckoutAttempt,
   getPaddleCheckoutStatus,
@@ -22,7 +23,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Checkout not found' }, { status: 404 });
   }
 
-  const subscription = await getUserSubscriptionSummary(user.id);
+  let subscription = await getUserSubscriptionSummary(user.id);
+  if (!subscription.isActive) {
+    try {
+      const syncResult = await syncPaddleSubscriptionFromTransaction({
+        transactionId,
+        expectedUserId: user.id,
+      });
+      if (!syncResult.synced) {
+        console.warn('Paddle checkout was not synchronized:', syncResult.reason);
+      }
+      subscription = await getUserSubscriptionSummary(user.id);
+    } catch (error) {
+      console.error('Paddle checkout reconciliation failed:', error);
+    }
+  }
+
   return NextResponse.json({
     checkoutStatus: checkout.status,
     billingPeriod: checkout.billing_period,
