@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+import { initializePaddle, type Environments } from '@paddle/paddle-js';
 import { motion } from 'framer-motion';
 import {
   Ban,
@@ -44,26 +44,22 @@ const copy = {
       { title: '성장을 한눈에', description: '학습 기록과 성취를 확인하며 꾸준히 성장하세요.' },
       { title: '몰입을 방해하지 않게', description: '광고 없이 오롯이 학습에만 집중할 수 있어요.' },
     ],
-    planName: '프리미엄 30일 이용권',
-    price: '₩4,900',
-    period: '/ 30일',
-    monthly: '30일',
-    annual: '12개월',
-    annualPlanName: '프리미엄 12개월 이용권',
-    annualPrice: '₩49,000',
-    annualPeriod: '/ 12개월',
-    annualOriginalPrice: '₩58,800',
-    annualDiscount: '17% 할인',
-    annualSavings: '₩9,800 절약',
-    cancelShort: '일시 결제 · 자동 갱신 없음',
-    purchaseSummaryMonthly: '30일 이용권 · ₩4,900 일시 결제',
-    purchaseSummaryAnnual: '12개월 이용권 · ₩49,000 일시 결제',
-    immediateAccess: '결제 완료 후 즉시 이용할 수 있습니다.',
+    planName: '프리미엄 월간 멤버십',
+    period: '/ 월',
+    monthly: '월간',
+    annual: '연간',
+    annualPlanName: '프리미엄 연간 멤버십',
+    annualPeriod: '/ 년',
+    cancelShort: '자동 갱신 · 언제든 해지 가능',
+    purchaseSummaryMonthly: '월간 멤버십 · 매월 $4',
+    purchaseSummaryAnnual: '연간 멤버십 · 매년 $40',
+    immediateAccess: '결제 완료 후 즉시 이용할 수 있습니다. 해지 후에도 현재 결제 기간 종료일까지 이용할 수 있습니다.',
+    taxNotice: '지역에 따라 세금이 포함되거나 결제 단계에서 추가될 수 있습니다. 최종 금액은 Paddle 결제창에서 확인하세요.',
     agreementPrefix: '',
     termsLabel: '이용약관',
     agreementMiddle: ' 및 ',
     refundLabel: '환불정책',
-    agreementSuffix: '을 확인하고 동의합니다.',
+    agreementSuffix: '을 확인했으며, 선택한 주기의 자동 갱신 결제에 동의합니다.',
     agreementRequired: '결제 전 이용약관 및 환불정책에 동의해 주세요.',
     included: '포함된 혜택',
     features: [
@@ -73,11 +69,12 @@ const copy = {
       '학습 기록과 상세 성장 리포트',
       '광고 없는 몰입형 학습 경험',
     ],
-    ctaSubscribe: '30일 이용권 구매하기 · ₩4,900',
-    ctaSubscribeAnnual: '12개월 이용권 구매하기 · ₩49,000',
+    ctaSubscribe: '월간 멤버십 시작하기 · $4',
+    ctaSubscribeAnnual: '연간 멤버십 시작하기 · $40',
     ctaLogin: '로그인하고 시작하기',
     ctaActive: '프리미엄 이용 중',
-    secure: '안전한 일시 결제 · 자동 갱신 없음',
+    ctaUpdatePayment: '결제수단 업데이트',
+    secure: 'Paddle이 안전하게 결제를 처리합니다',
     comparisonTitle: '무료 vs 프리미엄',
     comparisonDescription: '프리미엄으로 얼마나 더 깊게 배울 수 있는지 비교해 보세요.',
     free: '무료',
@@ -93,12 +90,10 @@ const copy = {
     faqs: [
       ['결제 후 환불을 요청할 수 있나요?', '네. 이용 여부와 관계 법령에 따라 환불 가능 여부와 금액이 달라질 수 있습니다. 자세한 내용은 환불정책에서 확인해 주세요.'],
       ['결제하면 바로 이용할 수 있나요?', '결제가 완료되는 즉시 모든 프리미엄 번들과 학습 기능을 이용할 수 있습니다.'],
-      ['자동으로 다시 결제되나요?', '아니요. 30일 및 12개월 이용권은 모두 일시 결제 상품이며 자동으로 갱신되지 않습니다.'],
+      ['자동으로 다시 결제되나요?', '네. 선택한 월간 또는 연간 주기로 자동 갱신됩니다. 프로필에서 언제든 해지할 수 있으며, 해지 후에도 현재 결제 기간 종료일까지 이용할 수 있습니다.'],
       ['초보자에게도 프리미엄이 도움이 되나요?', '물론이에요. 왕초보부터 고급 학습자까지 자신의 수준에 맞는 번들과 연습을 선택할 수 있습니다.'],
     ],
     paymentError: '결제 요청 중 오류가 발생했습니다. 다시 시도해 주세요.',
-    monthlyOrderName: '홀라링고 프리미엄 30일 이용권',
-    annualOrderName: '홀라링고 프리미엄 12개월 이용권',
   },
   en: {
     eyebrow: 'Premium Access',
@@ -118,26 +113,22 @@ const copy = {
       { title: 'Track real progress', description: 'See your learning history and achievements grow.' },
       { title: 'Distraction-free learning', description: 'Stay in the flow with a clean, ad-free experience.' },
     ],
-    planName: 'Premium 30-Day Pass',
-    price: '$4',
-    period: '/ 30 days',
-    monthly: '30 days',
-    annual: '12 months',
-    annualPlanName: 'Premium 12-Month Pass',
-    annualPrice: '$40',
-    annualPeriod: '/ 12 months',
-    annualOriginalPrice: '$48',
-    annualDiscount: '17% off',
-    annualSavings: 'Save $8',
-    cancelShort: 'One-time payment · No automatic renewal',
-    purchaseSummaryMonthly: '30-day pass · $4 (charged as ₩4,900)',
-    purchaseSummaryAnnual: '12-month pass · $40 (charged as ₩49,000)',
-    immediateAccess: 'Access starts immediately after payment.',
+    planName: 'Premium Monthly Membership',
+    period: '/ month',
+    monthly: 'Monthly',
+    annual: 'Yearly',
+    annualPlanName: 'Premium Yearly Membership',
+    annualPeriod: '/ year',
+    cancelShort: 'Cancel anytime · Renews automatically',
+    purchaseSummaryMonthly: 'Monthly membership · $4/month',
+    purchaseSummaryAnnual: 'Yearly membership · $40/year',
+    immediateAccess: 'Access starts immediately after payment. If you cancel, access continues until the end of the current billing period.',
+    taxNotice: 'Taxes may be included or added at checkout depending on your location. The final amount is shown in Paddle Checkout.',
     agreementPrefix: 'I have read and agree to the ',
     termsLabel: 'Terms of Use',
     agreementMiddle: ' and ',
     refundLabel: 'Refund Policy',
-    agreementSuffix: '.',
+    agreementSuffix: ', and I authorize recurring charges for the selected billing period.',
     agreementRequired: 'Please agree to the Terms of Use and Refund Policy before payment.',
     included: "What's included",
     features: [
@@ -147,11 +138,12 @@ const copy = {
       'Learning history and detailed progress reports',
       'A completely ad-free learning experience',
     ],
-    ctaSubscribe: 'Buy 30-Day Pass · $4',
-    ctaSubscribeAnnual: 'Buy 12-Month Pass · $40',
+    ctaSubscribe: 'Start Monthly Membership · $4',
+    ctaSubscribeAnnual: 'Start Yearly Membership · $40',
     ctaLogin: 'Log in to Start',
     ctaActive: 'Premium Active',
-    secure: 'Secure one-time payment · No renewal',
+    ctaUpdatePayment: 'Update Payment Method',
+    secure: 'Secure checkout powered by Paddle',
     comparisonTitle: 'Free vs Premium',
     comparisonDescription: 'See how Premium helps you learn with more depth and confidence.',
     free: 'Free',
@@ -167,12 +159,10 @@ const copy = {
     faqs: [
       ['Can I request a refund?', 'Yes. Eligibility and the refund amount may vary based on usage and applicable law. See the Refund Policy for details.'],
       ['What do I get immediately?', 'Every premium bundle and learning feature is available as soon as your payment is confirmed.'],
-      ['Will I be charged again automatically?', 'No. Both passes are one-time purchases and do not renew automatically.'],
+      ['Will I be charged again automatically?', 'Yes. Your membership renews monthly or yearly until canceled. You can cancel from your profile at any time and keep access through the current billing period.'],
       ['Is Premium good for beginners?', 'Absolutely. Learners at every level can choose bundles and practices that match their ability.'],
     ],
     paymentError: 'Error requesting payment. Please try again.',
-    monthlyOrderName: 'HolaLingo Premium 30-Day Pass',
-    annualOrderName: 'HolaLingo Premium 12-Month Pass',
   },
 };
 
@@ -185,48 +175,36 @@ const benefitColors = [
 ];
 const faqIcons = [HelpCircle, Zap, ShieldCheck, UserRound];
 
-function isPaymentCancellation(error: unknown) {
-  if (!error || typeof error !== 'object') return false;
-
-  const paymentError = error as { code?: unknown; message?: unknown };
-  const code = typeof paymentError.code === 'string' ? paymentError.code : '';
-  const message = typeof paymentError.message === 'string'
-    ? paymentError.message.trim().replace(/[.!]$/, '').toLowerCase()
-    : '';
-
-  return (
-    ['USER_CANCEL', 'PAY_PROCESS_CANCELED', 'PAY_PROCESS_ABORTED'].includes(code) ||
-    ['취소되었습니다', '결제가 취소되었습니다', 'canceled', 'cancelled'].includes(message)
-  );
-}
-
 interface PricingClientProps {
   language: 'ko' | 'en';
-  country: string;
   user: AppUser | null;
   isActiveSubscription: boolean;
-  clientKey: string;
+  subscriptionStatus: string | null;
+  paddleEnvironment: Environments;
+  paddleClientToken: string;
+  monthlyPriceId: string;
+  yearlyPriceId: string;
   initialBillingPeriod: 'monthly' | 'annual';
 }
 
 export function PricingClient({
   language,
-  country,
   user,
   isActiveSubscription,
-  clientKey,
+  subscriptionStatus,
+  paddleEnvironment,
+  paddleClientToken,
+  monthlyPriceId,
+  yearlyPriceId,
   initialBillingPeriod,
 }: PricingClientProps) {
   const [loading, setLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>(initialBillingPeriod);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
-  const [currencyMode, setCurrencyMode] = useState<'KRW' | 'USD'>(
-    country === 'KR' || country === 'kr' ? 'KRW' : 'USD'
-  );
+  const completedTransactionRef = useRef<string | null>(null);
   const router = useRouter();
   const t = copy[language];
   const isKorean = language === 'ko';
-  const isKR = currencyMode === 'KRW';
   const displayWeight = isKorean ? 'font-bold' : 'font-black';
   const emphasisWeight = isKorean ? 'font-medium' : 'font-bold';
   const actionWeight = isKorean ? 'font-bold' : 'font-extrabold';
@@ -235,29 +213,19 @@ export function PricingClient({
     ? 'text-[2.15rem] leading-[1.3] tracking-[-0.025em] sm:text-5xl lg:text-[3.4rem]'
     : 'text-4xl leading-[1.16] tracking-[-0.04em] sm:text-5xl lg:text-[3.55rem]';
   const isAnnual = billingPeriod === 'annual';
+  const requiresPaymentMethodUpdate = subscriptionStatus === 'past_due';
 
-  // Override pricing based on country rather than language
-  const basePrice = isKR ? '₩4,900' : '$4';
-  const baseAnnualPrice = isKR ? '₩49,000' : '$40';
-  const baseAnnualOriginalPrice = isKR ? '₩58,800' : '$48';
+  const basePrice = '$4';
+  const baseAnnualPrice = '$40';
+  const baseAnnualOriginalPrice = '$48';
   const baseAnnualDiscount = isKorean ? '17% 할인' : '17% off';
-  const baseAnnualSavings = isKR 
-    ? (isKorean ? '₩9,800 절약' : 'Save ₩9,800') 
-    : (isKorean ? '$8 절약' : 'Save $8');
+  const baseAnnualSavings = isKorean ? '$8 절약' : 'Save $8';
   
-  const purchaseSummaryMonthlyText = isKR
-    ? (isKorean ? '30일 이용권 · ₩4,900 일시 결제' : '30-day pass · ₩4,900 one-time payment')
-    : (isKorean ? '30일 이용권 · $4 일시 결제' : '30-day pass · $4 one-time payment');
-  const purchaseSummaryAnnualText = isKR
-    ? (isKorean ? '12개월 이용권 · ₩49,000 일시 결제' : '12-month pass · ₩49,000 one-time payment')
-    : (isKorean ? '12개월 이용권 · $40 일시 결제' : '12-month pass · $40 one-time payment');
+  const purchaseSummaryMonthlyText = t.purchaseSummaryMonthly;
+  const purchaseSummaryAnnualText = t.purchaseSummaryAnnual;
 
-  const ctaSubscribeText = isKR
-    ? (isKorean ? '30일 이용권 구매하기 · ₩4,900' : 'Buy 30-Day Pass · ₩4,900')
-    : (isKorean ? '30일 이용권 구매하기 · $4' : 'Buy 30-Day Pass · $4');
-  const ctaSubscribeAnnualText = isKR
-    ? (isKorean ? '12개월 이용권 구매하기 · ₩49,000' : 'Buy 12-Month Pass · ₩49,000')
-    : (isKorean ? '12개월 이용권 구매하기 · $40' : 'Buy 12-Month Pass · $40');
+  const ctaSubscribeText = t.ctaSubscribe;
+  const ctaSubscribeAnnualText = t.ctaSubscribeAnnual;
 
   const selectedPrice = isAnnual ? baseAnnualPrice : basePrice;
   const selectedPeriod = isAnnual ? t.annualPeriod : t.period;
@@ -271,32 +239,81 @@ export function PricingClient({
       router.push(`/auth/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
+    if (requiresPaymentMethodUpdate) {
+      window.location.href = '/api/paddle/portal?target=payment-method';
+      return;
+    }
     if (isActiveSubscription) return;
     if (!hasAcceptedTerms) return;
 
-    if (!isKR) {
-      alert(isKorean ? '해외 결제(Paddle)는 곧 지원될 예정입니다.' : 'International checkout (Paddle) will be supported soon.');
+    const selectedPriceId = isAnnual ? yearlyPriceId : monthlyPriceId;
+    if (!paddleClientToken || !selectedPriceId) {
+      console.error('Paddle environment variables are not configured.');
+      alert(t.paymentError);
       return;
     }
 
     setLoading(true);
     try {
-      const tossPayments = await loadTossPayments(clientKey);
-      const payment = tossPayments.payment({ customerKey: user.id });
+      const paddle = await initializePaddle({
+        environment: paddleEnvironment,
+        token: paddleClientToken,
+        eventCallback: (event) => {
+          if (event.name === 'checkout.completed' && event.data?.transaction_id) {
+            completedTransactionRef.current = event.data.transaction_id;
+            window.location.href = `/payment/success?provider=paddle&transactionId=${encodeURIComponent(event.data.transaction_id)}`;
+          }
+          if (
+            event.name === 'checkout.closed' &&
+            event.data?.transaction_id &&
+            completedTransactionRef.current !== event.data.transaction_id
+          ) {
+            void fetch('/api/paddle/checkout/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                transactionId: event.data.transaction_id,
+                action: 'abandon',
+              }),
+              keepalive: true,
+            });
+          }
+        },
+      });
 
-      await payment.requestPayment({
-        method: 'CARD',
-        amount: { currency: 'KRW', value: isAnnual ? 49000 : 4900 },
-        orderId: `order_${user.id}_${billingPeriod}_${Date.now()}`,
-        orderName: isAnnual ? t.annualOrderName : t.monthlyOrderName,
-        successUrl: `${window.location.origin}/payment/success`,
-        failUrl: `${window.location.origin}/payment/fail`,
+      if (!paddle) throw new Error('Paddle failed to initialize.');
+
+      const transactionResponse = await fetch('/api/paddle/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingPeriod, termsAccepted: hasAcceptedTerms }),
+      });
+      const transaction = await transactionResponse.json() as {
+        transactionId?: string;
+        error?: string;
+        code?: string;
+      };
+
+      if (!transactionResponse.ok || !transaction.transactionId) {
+        if (transaction.code === 'PAYMENT_METHOD_UPDATE_REQUIRED') {
+          window.location.href = '/api/paddle/portal?target=payment-method';
+          return;
+        }
+        throw new Error(transaction.error || 'Paddle transaction creation failed.');
+      }
+
+      paddle.Checkout.open({
+        transactionId: transaction.transactionId,
+        customer: user.email ? { email: user.email } : undefined,
+        settings: {
+          displayMode: 'overlay',
+          locale: language,
+          successUrl: `${window.location.origin}/payment/success?provider=paddle&transactionId=${encodeURIComponent(transaction.transactionId)}`,
+        },
       });
     } catch (error) {
-      if (!isPaymentCancellation(error)) {
-        console.error('Failed to trigger Toss Payments Checkout:', error);
-        alert(t.paymentError);
-      }
+      console.error('Failed to open Paddle Checkout:', error);
+      alert(t.paymentError);
     } finally {
       setLoading(false);
     }
@@ -458,7 +475,10 @@ export function PricingClient({
             <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
               <p className={`text-sm text-zinc-800 dark:text-zinc-100 ${emphasisWeight}`}>{purchaseSummary}</p>
               <p className={`mt-1 text-[13px] leading-5 text-zinc-500 dark:text-zinc-400 ${bodyWeight}`}>
-                {t.immediateAccess} {t.cancelShort}
+                {t.immediateAccess}
+              </p>
+              <p className={`mt-2 text-[12px] leading-5 text-zinc-400 dark:text-zinc-500 ${bodyWeight}`}>
+                {t.taxNotice}
               </p>
               <label className="mt-4 flex cursor-pointer items-start gap-3">
                 <Checkbox
@@ -481,33 +501,33 @@ export function PricingClient({
             </div>
 
             <motion.button
-              whileHover={isActiveSubscription || (user && !hasAcceptedTerms) ? undefined : { y: -2 }}
-              whileTap={isActiveSubscription || (user && !hasAcceptedTerms) ? undefined : { scale: 0.985 }}
+              whileHover={isActiveSubscription || (user && !hasAcceptedTerms && !requiresPaymentMethodUpdate) ? undefined : { y: -2 }}
+              whileTap={isActiveSubscription || (user && !hasAcceptedTerms && !requiresPaymentMethodUpdate) ? undefined : { scale: 0.985 }}
               onClick={handleSubscribe}
-              disabled={loading || isActiveSubscription || Boolean(user && !hasAcceptedTerms)}
+              disabled={loading || (isActiveSubscription && !requiresPaymentMethodUpdate) || Boolean(user && !hasAcceptedTerms && !requiresPaymentMethodUpdate)}
               className={`mt-7 flex w-full items-center justify-center rounded-xl py-3.5 text-[15px] text-white shadow-sm transition ${actionWeight} ${
-                isActiveSubscription || (user && !hasAcceptedTerms)
+                (isActiveSubscription && !requiresPaymentMethodUpdate) || (user && !hasAcceptedTerms && !requiresPaymentMethodUpdate)
                   ? 'cursor-not-allowed bg-zinc-200 text-zinc-500 dark:bg-zinc-800'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-lg hover:shadow-emerald-700/20'
               }`}
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : isActiveSubscription ? t.ctaActive : user ? selectedCta : t.ctaLogin}
+              {loading
+                ? <Loader2 className="h-5 w-5 animate-spin" />
+                : requiresPaymentMethodUpdate
+                    ? t.ctaUpdatePayment
+                    : isActiveSubscription
+                      ? t.ctaActive
+                    : user
+                      ? selectedCta
+                      : t.ctaLogin}
             </motion.button>
-            {user && !isActiveSubscription && !hasAcceptedTerms && (
+            {user && !isActiveSubscription && !requiresPaymentMethodUpdate && !hasAcceptedTerms && (
               <p className={`mt-2 text-center text-xs text-[#C65D47] ${bodyWeight}`}>{t.agreementRequired}</p>
             )}
             <p className={`mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-400 ${bodyWeight}`}>
               <LockKeyhole className="h-3 w-3" />
               {t.secure}
             </p>
-            <button
-              onClick={() => setCurrencyMode(isKR ? 'USD' : 'KRW')}
-              className={`mx-auto mt-5 block text-[13px] text-zinc-400 underline underline-offset-4 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 ${bodyWeight}`}
-            >
-              {isKR 
-                ? (isKorean ? '해외 카드로 달러($) 결제하기' : 'Pay in USD with international card') 
-                : (isKorean ? '한국 카드로 원화(₩) 결제하기' : 'Pay in KRW with Korean card')}
-            </button>
           </motion.div>
         </section>
 

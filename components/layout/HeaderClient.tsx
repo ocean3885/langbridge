@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, CreditCard, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
+import { User as UserIcon, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -181,19 +181,6 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                 </DropdownMenuLabel>
 
                 <DropdownMenuSeparator className="mx-1 my-2 bg-zinc-200/80 dark:bg-zinc-800" />
-
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/pricing"
-                    prefetch={false}
-                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-[#FBE9E2] hover:text-[#C65D47] focus:bg-[#FBE9E2] focus:text-[#C65D47] dark:text-zinc-200 dark:hover:bg-orange-950/30 dark:hover:text-orange-200 dark:focus:bg-orange-950/30 dark:focus:text-orange-200"
-                  >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
-                      <CreditCard size={16} strokeWidth={2.5} />
-                    </span>
-                    <span>{t.pricing}</span>
-                  </Link>
-                </DropdownMenuItem>
 
                 <DropdownMenuItem asChild>
                   <Link

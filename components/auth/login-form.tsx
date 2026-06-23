@@ -57,7 +57,10 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/';
+  const requestedRedirect = searchParams.get('redirectTo') || '/';
+  const redirectTo = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +135,7 @@ export function LoginForm({
             <div className="mt-4 text-center text-sm">
               {t.noAccount}{" "}
               <Link
-                href="/auth/sign-up"
+                href={`/auth/sign-up?redirectTo=${encodeURIComponent(redirectTo)}`}
                 className="underline underline-offset-4"
               >
                 {t.signUp}

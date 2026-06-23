@@ -23,9 +23,17 @@ const copy = {
   },
 };
 
-export default async function Page() {
+interface SignUpSuccessPageProps {
+  searchParams: Promise<{ redirectTo?: string }>;
+}
+
+export default async function Page({ searchParams }: SignUpSuccessPageProps) {
   const language = await getDisplayLanguage();
   const t = copy[language];
+  const { redirectTo: requestedRedirect } = await searchParams;
+  const redirectTo = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/';
 
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
@@ -42,7 +50,10 @@ export default async function Page() {
               <p className="text-sm text-muted-foreground">
                 {t.body}
               </p>
-              <Link href="/auth/login" className="inline-flex text-sm font-semibold underline underline-offset-4">
+              <Link
+                href={`/auth/login?redirectTo=${encodeURIComponent(redirectTo)}`}
+                className="inline-flex text-sm font-semibold underline underline-offset-4"
+              >
                 {t.login}
               </Link>
             </CardContent>

@@ -8,6 +8,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body?.password === 'string' ? body.password : '';
+    const requestedRedirect = typeof body?.redirectTo === 'string' ? body.redirectTo : '/';
+    const redirectTo = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : '/';
 
     if (!email || !password) {
       return NextResponse.json({ error: '이메일과 비밀번호를 입력하세요.' }, { status: 400 });
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       options: {
-        emailRedirectTo: `${request.nextUrl.origin}/auth/confirm?next=/`,
+        emailRedirectTo: `${request.nextUrl.origin}/auth/confirm?next=${encodeURIComponent(redirectTo)}`,
       },
     });
 

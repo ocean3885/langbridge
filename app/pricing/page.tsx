@@ -1,7 +1,6 @@
 import { getDisplayLanguage, getAppUserFromServer } from '@/lib/auth/app-user';
-import { hasActiveSubscription } from '@/lib/supabase/services/subscriptions';
+import { getUserSubscriptionSummary } from '@/lib/supabase/services/subscriptions';
 import { PricingClient } from './_components/PricingClient';
-import { headers } from 'next/headers';
 
 interface PricingPageProps {
   searchParams: Promise<{ billing?: string }>;
@@ -11,22 +10,19 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
   const { billing } = await searchParams;
   const language = await getDisplayLanguage();
   const user = await getAppUserFromServer();
-  const headersList = await headers();
-  const country = headersList.get('x-vercel-ip-country') || 'KR'; // Default to KR for local dev
   
-  // Check subscription status if user is logged in
-  const isActiveSubscription = user ? await hasActiveSubscription(user.id) : false;
-
-  // Retrieve test client key from env (falls back to standard test key if not defined)
-  const clientKey = process.env.TOSS_TEST_CLIENT_KEY || 'test_ck_QbgMGZzorzwj9ZXKRdk78l5E1em4';
+  const subscription = user ? await getUserSubscriptionSummary(user.id) : null;
 
   return (
     <PricingClient
       language={language}
-      country={country}
       user={user}
-      isActiveSubscription={isActiveSubscription}
-      clientKey={clientKey}
+      isActiveSubscription={Boolean(subscription?.isActive)}
+      subscriptionStatus={subscription?.status || null}
+      paddleEnvironment={process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === 'sandbox' ? 'sandbox' : 'production'}
+      paddleClientToken={process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || ''}
+      monthlyPriceId={process.env.NEXT_PUBLIC_PADDLE_PRICE_MONTHLY || ''}
+      yearlyPriceId={process.env.NEXT_PUBLIC_PADDLE_PRICE_YEARLY || ''}
       initialBillingPeriod={billing === 'monthly' ? 'monthly' : 'annual'}
     />
   );

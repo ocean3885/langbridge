@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 type DisplayLanguage = 'ko' | 'en';
@@ -58,6 +59,11 @@ export function SignUpForm({
   const [repeatPassword, setRepeatPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const requestedRedirect = searchParams.get('redirectTo') || '/';
+  const redirectTo = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/';
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +80,7 @@ export function SignUpForm({
       const response = await fetch('/api/auth/sign-up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, redirectTo }),
       });
 
       const result = await response.json();
@@ -82,7 +88,7 @@ export function SignUpForm({
         throw new Error(result?.error || t.signUpFailed);
       }
 
-      window.location.href = '/auth/sign-up-success';
+      window.location.href = `/auth/sign-up-success?redirectTo=${encodeURIComponent(redirectTo)}`;
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : t.fallbackError);
     } finally {
@@ -142,7 +148,10 @@ export function SignUpForm({
             </div>
             <div className="mt-4 text-center text-sm">
               {t.hasAccount}{" "}
-              <Link href="/auth/login" className="underline underline-offset-4">
+              <Link
+                href={`/auth/login?redirectTo=${encodeURIComponent(redirectTo)}`}
+                className="underline underline-offset-4"
+              >
                 {t.login}
               </Link>
             </div>
