@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw, Copy, Check } from 'lucide-react';
+import { ArrowLeft, BookOpen, Info, Layers, MessageSquare, Pencil, Trash2, X, Save, Loader2, Zap, Volume2, RotateCw, Copy, Check, ChevronRight } from 'lucide-react';
 import AudioButton from '@/components/AudioButton';
 
 const POS_MAP: Record<string, string> = {
@@ -298,7 +298,15 @@ function hasDisplayableGrammarValue(value: any): boolean {
   return true;
 }
 
-export default function WordDetail({ word: initialWord, languages }: { word: any, languages: any[] }) {
+export default function WordDetail({
+  word: initialWord,
+  languages,
+  nextUnverifiedWordId,
+}: {
+  word: any;
+  languages: any[];
+  nextUnverifiedWordId: number | null;
+}) {
   const router = useRouter();
   const [word, setWord] = useState(initialWord);
   const [isEditing, setIsEditing] = useState(false);
@@ -449,7 +457,7 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
 
   const handleRegenerateInfo = async () => {
     if (infoLoading) return;
-    if (!confirm('현재 단어의 품사, 의미, 성수/동사 변화 정보를 AI로 다시 생성해 덮어쓰시겠습니까? 오디오는 변경되지 않습니다.')) {
+    if (!confirm('현재 단어의 품사, 의미, 난이도, 성수/동사 변화 정보를 AI로 다시 생성해 덮어쓰시겠습니까? 오디오는 변경되지 않습니다.')) {
       return;
     }
 
@@ -479,6 +487,35 @@ export default function WordDetail({ word: initialWord, languages }: { word: any
       alert(e.message || '단어 정보 재생성 중 오류가 발생했습니다.');
     } finally {
       setInfoLoading(false);
+    }
+  };
+
+  const handleMarkVerified = async () => {
+    if (loading || word.is_verified) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/words', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: word.id,
+          is_verified: true,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || '검수 완료 처리 실패');
+      }
+
+      setWord({ ...word, ...data });
+      setFormData((current) => ({ ...current, is_verified: true }));
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || '검수 완료 처리 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -670,6 +707,16 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
           </Link>
 
           <div className="flex items-center gap-2">
+            {!word.is_verified && (
+              <button
+                onClick={handleMarkVerified}
+                disabled={loading}
+                className="p-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl transition-all shadow-sm disabled:opacity-50"
+                title="검수 완료 처리"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+              </button>
+            )}
             <button
               onClick={handleRegenerateInfo}
               disabled={loading || infoLoading}
@@ -697,6 +744,15 @@ Return only a JSON array in this exact format. Do not use markdown code fences o
             >
               <Trash2 className="w-5 h-5" />
             </button>
+            {nextUnverifiedWordId && (
+              <Link
+                href={`/admin/words/${nextUnverifiedWordId}`}
+                className="p-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all shadow-sm"
+                title="다음 검수 단어로 이동"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Link>
+            )}
           </div>
         </div>
 

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getWordsWithDistractors, replaceWordDistractors, updateWord, getWordById } from '@/lib/supabase/services/words';
+import {
+  getWordsWithDistractors,
+  listWordDistractors,
+  updateReviewedWordDistractors,
+  updateWord,
+  getWordById,
+} from '@/lib/supabase/services/words';
 import { generateProviderJson, WordGenerationProvider } from '@/lib/generator';
 
 const MAX_VERIFY_BATCH_SIZE = 10;
-const TARGET_DISTRACTOR_COUNT = 6;
+const MIN_DISTRACTOR_COUNT = 6;
 const VERIFY_STATUSES = new Set(['valid', 'corrected', 'flagged']);
 const ALLOWED_POS = new Set(['noun', 'verb', 'adj', 'adv', 'prep', 'conj', 'pron', 'det', 'interj']);
 const POS_ALIASES: Record<string, string> = {
@@ -78,6 +84,45 @@ function normalizePos(value: unknown, path: string): string {
   return normalized;
 }
 
+function normalizeGender(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new Error('corrected_data.gender는 "m", "f", "mf" 또는 null이어야 합니다.');
+  }
+
+  const rawValue = value.toLowerCase().trim();
+  if (!rawValue || rawValue === 'null' || rawValue === 'none' || rawValue === 'n/a' || rawValue === 'na') {
+    return null;
+  }
+
+  const aliases: Record<string, string> = {
+    m: 'm',
+    male: 'm',
+    masculine: 'm',
+    masculino: 'm',
+    masc: 'm',
+    f: 'f',
+    female: 'f',
+    feminine: 'f',
+    femenino: 'f',
+    fem: 'f',
+    mf: 'mf',
+    'm/f': 'mf',
+    'm-f': 'mf',
+    'm, f': 'mf',
+    'm,f': 'mf',
+    'masculine/feminine': 'mf',
+    'masculine and feminine': 'mf',
+    'masculino/femenino': 'mf',
+  };
+  const normalized = aliases[rawValue];
+  if (!normalized || !ALLOWED_GENDERS.has(normalized)) {
+    throw new Error('corrected_data.gender는 "m", "f", "mf" 또는 null이어야 합니다.');
+  }
+
+  return normalized;
+}
+
 function validateMeaningMap(value: unknown, path: string, pos: string[]): Record<string, string[]> {
   if (!isRecord(value)) {
     throw new Error(`${path}는 품사별 뜻 배열 객체여야 합니다.`);
@@ -143,7 +188,11 @@ function validateOptionalRecord(value: unknown, path: string): JsonRecord {
   return value;
 }
 
-function validateCorrectedData(value: unknown, sourceWord?: string): VerifiedWordData {
+function validateCorrectedData(
+  value: unknown,
+  sourceWord?: string,
+  expectedDistractorCount?: number
+): VerifiedWordData {
   if (!isRecord(value)) {
     throw new Error('corrected_data는 객체여야 합니다.');
   }
@@ -159,16 +208,19 @@ function validateCorrectedData(value: unknown, sourceWord?: string): VerifiedWor
     throw new Error('corrected_data.pos에 중복 품사가 있습니다.');
   }
 
-  const gender = value.gender;
-  if (gender !== null && (typeof gender !== 'string' || !ALLOWED_GENDERS.has(gender))) {
-    throw new Error('corrected_data.gender는 "m", "f", "mf" 또는 null이어야 합니다.');
-  }
+  const gender = normalizeGender(value.gender);
 
   if (!Number.isInteger(value.difficulty) || Number(value.difficulty) < 1 || Number(value.difficulty) > 7) {
     throw new Error('corrected_data.difficulty는 1~7 사이의 정수여야 합니다.');
   }
-  if (!Array.isArray(value.distractors) || value.distractors.length !== TARGET_DISTRACTOR_COUNT) {
-    throw new Error(`corrected_data.distractors는 정확히 ${TARGET_DISTRACTOR_COUNT}개여야 합니다.`);
+  if (!Array.isArray(value.distractors) || value.distractors.length < MIN_DISTRACTOR_COUNT) {
+    throw new Error(`corrected_data.distractors는 최소 ${MIN_DISTRACTOR_COUNT}개 이상이어야 합니다.`);
+  }
+  if (
+    expectedDistractorCount !== undefined &&
+    value.distractors.length !== expectedDistractorCount
+  ) {
+    throw new Error(`corrected_data.distractors는 최종 오답 ${expectedDistractorCount}개 전체를 반환해야 합니다.`);
   }
 
   const forbiddenWords = new Set(
@@ -220,7 +272,12 @@ function validateCorrectedData(value: unknown, sourceWord?: string): VerifiedWor
   };
 }
 
-function validateAiResult(value: unknown, sourceWord: string): VerifiedAiResult {
+function validateAiResult(
+  value: unknown,
+  sourceWord: string,
+  expectedDistractorCount: number,
+  requiresCorrectedData: boolean
+): VerifiedAiResult {
   if (!isRecord(value) || typeof value.status !== 'string' || !VERIFY_STATUSES.has(value.status)) {
     throw new Error('status는 "valid", "corrected", "flagged" 중 하나여야 합니다.');
   }
@@ -229,13 +286,17 @@ function validateAiResult(value: unknown, sourceWord: string): VerifiedAiResult 
   const reason = requireNonEmptyString(value.reason, 'reason');
   const correctedData = value.corrected_data === null || value.corrected_data === undefined
     ? null
-    : validateCorrectedData(value.corrected_data, sourceWord);
+    : validateCorrectedData(value.corrected_data, sourceWord, expectedDistractorCount);
 
-  if (status === 'corrected' && correctedData === null) {
-    throw new Error('status가 "corrected"이면 corrected_data가 필요합니다.');
+  if ((status === 'corrected' || requiresCorrectedData) && correctedData === null) {
+    throw new Error('오답 생성 또는 교정이 필요한 경우 corrected_data가 필요합니다.');
   }
 
-  return { status, reason, corrected_data: correctedData };
+  return {
+    status: correctedData ? 'corrected' : status,
+    reason,
+    corrected_data: correctedData,
+  };
 }
 
 // POST: AI 단어 및 오답 스캔 검수 결과 생성
@@ -279,9 +340,12 @@ export async function POST(request: NextRequest) {
       words.map(async (word) => {
         try {
           const originalDistractors = Array.isArray(word.words_distractor) ? word.words_distractor : [];
+          const targetDistractorCount = Math.max(originalDistractors.length, MIN_DISTRACTOR_COUNT);
+          const missingDistractorCount = targetDistractorCount - originalDistractors.length;
           const prompt = `
 당신은 스페인어 사전 편집자 및 어학 퀴즈 검수 전문가입니다.
-제시된 단어 본체 정보와 연결된 6개의 혼동 어휘(오답) 데이터를 퀴즈 적합성 기준에 맞춰 검수 및 교정하십시오.
+제시된 단어 본체 정보와 연결된 모든 혼동 어휘(오답) 데이터를 퀴즈 적합성 기준에 맞춰 검수 및 교정하십시오.
+기존 오답이 ${MIN_DISTRACTOR_COUNT}개 미만이면 부족한 수만큼 새 오답을 생성하여 총 ${MIN_DISTRACTOR_COUNT}개 이상을 보장하십시오.
 
 [단어 및 오답 데이터]
 ${JSON.stringify({
@@ -313,10 +377,17 @@ ${JSON.stringify({
    - 동사가 아니거나 활용 정보가 없으면 conjugations는 빈 객체 {}로 반환하십시오.
    - 단어의 인지도 및 사용 빈도를 고려하여 CEFR 레벨 난이도(difficulty)의 타당성을 평가하십시오. (1: Beginner/입문, 2: A1, 3: A2, 4: B1, 5: B2, 6: C1, 7: C2). 현재 지정된 난이도가 너무 낮거나 높은 경우, 적절한 정수 값(1~7 사이)으로 제안하십시오.
 2. 오답(distractors) 검수 (퀴즈 유효성):
-   - 중요: 오답들의 뜻이 원본 단어와 유사하거나 유의어인 경우, 퀴즈 출제 시 복수 정답 시비가 생길 수 있으므로 다른 어휘로 완전히 교체해야 합니다. (의미적 독립성 검증)
+   - 입력된 기존 오답 ${originalDistractors.length}개 전체를 빠짐없이 검수하십시오.
+   - 반환하는 distractors 배열은 반드시 ${targetDistractorCount}개여야 합니다.
+   - ${missingDistractorCount > 0
+     ? `기존 오답이 ${MIN_DISTRACTOR_COUNT}개 미만이므로 새 오답을 ${missingDistractorCount}개 생성하고, 새 항목의 id는 빈 문자열 ""로 반환하십시오.`
+     : `기존 오답이 이미 ${MIN_DISTRACTOR_COUNT}개 이상이므로 새 오답을 추가하지 말고 기존 ${originalDistractors.length}개 전체만 검수하십시오.`}
+   - 매력적인 오답은 원본 단어와 같은 의미 영역, 같은 카테고리, 연상 관계, 반의어 관계, 상황상 함께 쓰이는 단어일 수 있습니다. 이런 "관련 있지만 뜻은 다른" 오답은 유지하거나 선호하십시오.
+   - 교체해야 하는 경우는 오답이 원본 단어의 정답으로도 인정될 수 있을 정도의 동의어/준동의어이거나, meaning_ko/meaning_en이 원본 뜻과 실질적으로 겹쳐 복수 정답 시비가 생기는 경우로 제한하십시오.
+   - 단순히 의미가 가깝다, 같은 주제다, 함께 떠오른다는 이유만으로 오답을 교체하지 마십시오.
    - 오답 단어가 실제 스페인어 단어인지, 원형 또는 적절한 활용형인지 확인하십시오.
    - 오답이 비어 있거나 중복되거나 원본 단어와 똑같지 않게 하십시오.
-   - 오류가 발견된 오답은 다른 적절한 스페인어 오답 단어와 뜻으로 수정/대체하되, 반드시 정확히 6개를 채워서 반환하십시오.
+   - 오류가 발견된 오답은 다른 적절한 스페인어 오답 단어와 뜻으로 수정/대체하되, 최종 오답 개수는 ${targetDistractorCount}개로 맞추십시오.
 3. 최종 판정 (status):
    - 오류가 전혀 없고 완벽하면 status를 "valid"로 하십시오.
    - 하나라도 수정 사항(난이도 포함 단어 정보, 뜻, 오답 리스트 등)이 있으면 status를 "corrected"로 하십시오.
@@ -347,7 +418,12 @@ ${JSON.stringify({
             prompt,
             "스페인어 교육 및 사전 편집자로서 JSON 형식으로만 응답하세요."
           );
-          const aiResult = validateAiResult(rawAiResult, word.word);
+          const aiResult = validateAiResult(
+            rawAiResult,
+            word.word,
+            targetDistractorCount,
+            missingDistractorCount > 0
+          );
 
           return {
             id: word.id,
@@ -433,9 +509,12 @@ export async function PUT(request: NextRequest) {
     if (action === 'approve' || action === 'confirm') {
       let validatedWordData: VerifiedWordData | null = null;
       if (wordData !== undefined || distractors !== undefined) {
+        const existingDistractors = await listWordDistractors(targetId);
+        const targetDistractorCount = Math.max(existingDistractors.length, MIN_DISTRACTOR_COUNT);
         validatedWordData = validateCorrectedData(
           { ...wordData, distractors },
-          typeof wordData?.word === 'string' ? wordData.word : undefined
+          typeof wordData?.word === 'string' ? wordData.word : undefined,
+          targetDistractorCount
         );
       }
 
@@ -458,7 +537,7 @@ export async function PUT(request: NextRequest) {
 
       // 2. 오답(distractors) 리스트 업데이트 (교정안이 존재하거나 새로 덮어쓸 경우)
       if (validatedWordData) {
-        await replaceWordDistractors(targetId, validatedWordData.distractors);
+        await updateReviewedWordDistractors(targetId, validatedWordData.distractors);
       }
     } else if (action === 'reject') {
       // 반려완료: 기존 데이터 유지하고 검수 상태만 완료(true) 처리

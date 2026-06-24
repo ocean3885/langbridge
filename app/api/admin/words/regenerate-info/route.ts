@@ -38,6 +38,11 @@ export async function POST(request: NextRequest) {
       meaning_ko: wordInfo.meaning_ko as any || {},
       meaning_en: wordInfo.meaning_en as any || {},
       gender: wordInfo.gender ?? null,
+      difficulty: Number.isInteger(wordInfo.difficulty) &&
+        Number(wordInfo.difficulty) >= 1 &&
+        Number(wordInfo.difficulty) <= 7
+        ? Number(wordInfo.difficulty)
+        : existingWord.difficulty || 1,
       declensions: wordInfo.declensions as any || {},
       conjugations: wordInfo.conjugations as any || {},
     };
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
       meaning_ko: updates.meaning_ko,
       meaning_en: updates.meaning_en,
       gender: updates.gender,
+      difficulty: updates.difficulty,
       declensions: updates.declensions,
       conjugations: updates.conjugations,
     });

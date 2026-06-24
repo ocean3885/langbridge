@@ -94,6 +94,40 @@ export async function getWordWithSentences(id: number) {
   };
 }
 
+export async function getNextUnverifiedWordId(currentId: number): Promise<number | null> {
+  const supabase = createAdminClient();
+  const selectNextId = 'id';
+
+  const { data: nextData, error: nextError } = await supabase
+    .from('words')
+    .select(selectNextId)
+    .neq('is_verified', true)
+    .gt('id', currentId)
+    .order('id', { ascending: true })
+    .limit(1);
+
+  if (nextError) {
+    throw new Error(`다음 검수 단어 조회 실패: ${nextError.message}`);
+  }
+  if (nextData?.[0]?.id) {
+    return nextData[0].id;
+  }
+
+  const { data: firstData, error: firstError } = await supabase
+    .from('words')
+    .select(selectNextId)
+    .neq('is_verified', true)
+    .neq('id', currentId)
+    .order('id', { ascending: true })
+    .limit(1);
+
+  if (firstError) {
+    throw new Error(`다음 검수 단어 조회 실패: ${firstError.message}`);
+  }
+
+  return firstData?.[0]?.id ?? null;
+}
+
 export async function insertWord(input: {
   word: string;
   langCode: string;
@@ -239,7 +273,72 @@ export async function getWordsWithDistractors(ids: number[]): Promise<any[]> {
     .in('id', ids);
 
   if (error || !data) return [];
-  return data;
+  return data.map((word: any) => ({
+    ...word,
+    words_distractor: Array.isArray(word.words_distractor)
+      ? [...word.words_distractor].sort((left: any, right: any) => Number(left.id) - Number(right.id))
+      : [],
+  }));
+}
+
+export async function listWordDistractors(wordId: number): Promise<{
+  id: number;
+  distractor: string;
+  meaning_ko: string | null;
+  meaning_en: string | null;
+}[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('words_distractor')
+    .select('id, distractor, meaning_ko, meaning_en')
+    .eq('word_id', wordId)
+    .order('id', { ascending: true });
+
+  if (error) {
+    throw new Error(`혼동 어휘 조회 실패: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+export async function updateReviewedWordDistractors(
+  wordId: number,
+  distractors: { id?: string | number; word: string; meaning_ko?: string; meaning_en?: string }[]
+): Promise<void> {
+  const supabase = createAdminClient();
+  const existingDistractors = await listWordDistractors(wordId);
+  const existingById = new Map(existingDistractors.map((distractor) => [Number(distractor.id), distractor]));
+
+  await Promise.all(distractors.map(async (distractor, index) => {
+    const row = {
+      word_id: wordId,
+      distractor: distractor.word.trim(),
+      meaning_ko: distractor.meaning_ko?.trim() || null,
+      meaning_en: distractor.meaning_en?.trim() || null,
+    };
+    const id = distractor.id === '' || distractor.id === undefined ? null : Number(distractor.id);
+    const existing = id && Number.isInteger(id) ? existingById.get(id) : existingDistractors[index];
+
+    if (existing) {
+      const { error } = await supabase
+        .from('words_distractor')
+        .update(row)
+        .eq('id', existing.id);
+
+      if (error) {
+        throw new Error(`검수 혼동 어휘 수정 실패: ${error.message}`);
+      }
+      return;
+    }
+
+    const { error } = await supabase
+      .from('words_distractor')
+      .insert(row);
+
+    if (error) {
+      throw new Error(`검수 혼동 어휘 추가 실패: ${error.message}`);
+    }
+  }));
 }
 
 export async function replaceWordDistractors(wordId: number, distractors: { word: string; meaning_ko?: string; meaning_en?: string }[]): Promise<void> {

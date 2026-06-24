@@ -21,6 +21,7 @@ export interface WordInfo {
   meaning_ko: Record<string, string[] | string>;
   meaning_en: Record<string, string[] | string>;
   gender: 'm' | 'f' | 'mf' | null;
+  difficulty?: number;
   conjugations?: {
     pres?: Record<string, string>;
     pret?: Record<string, string>;
@@ -379,6 +380,7 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
   "meaning_ko": { "품사": "한국어 뜻" },
   "meaning_en": { "품사": "영어 뜻" },
   "gender": "m/f/mf/null",
+  "difficulty": 1,
   "conjugations": {
     "pres": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
     "pret": { "s1": "...", "s2": "...", "s3": "...", "p1": "...", "p2": "...", "p3": "..." },
@@ -401,6 +403,7 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
 8. 동사인 경우 conjugations에 6개 시제 변화를 포함합니다.
 9. 명사/형용사인 경우 declensions에 성수 변화를 포함합니다.
 10. 명사가 고정된 성별을 가지는 경우(예: 여성 전용 명사), 해당하지 않는 성별의 declensions 값(ms, mp 등)은 빈 문자열("")로 비워두세요.
+11. difficulty는 단어의 인지도 및 사용 빈도를 고려한 CEFR 기반 정수로 작성하세요. (1: Beginner/입문, 2: A1, 3: A2, 4: B1, 5: B2, 6: C1, 7: C2)
 `;
 
   try {

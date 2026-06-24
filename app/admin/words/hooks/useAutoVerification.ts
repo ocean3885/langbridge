@@ -6,6 +6,7 @@ import type { AutoVerifyResult } from '../AutoVerifyWizard';
 import type { Word } from '../words.types';
 
 type WizardAction = 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold';
+type SelectedCorrection = AutoVerifyResult['corrected_data'];
 
 interface UseAutoVerificationOptions {
   words: Word[];
@@ -69,14 +70,14 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
     }
   };
 
-  const applyAction = async (action: WizardAction) => {
+  const applyAction = async (action: WizardAction, selectedCorrection?: SelectedCorrection) => {
     const currentItem = results[currentIndex];
     if (!currentItem) return;
 
     setIsSaving(true);
     try {
-      const corrected = currentItem.corrected_data;
-      const shouldApplyCorrection = (action === 'approve' || action === 'confirm') && corrected;
+      const corrected = selectedCorrection || currentItem.corrected_data;
+      const shouldApplyCorrection = action === 'approve' && corrected;
       const payload: Record<string, unknown> = {
         wordId: currentItem.id,
         action,
@@ -94,6 +95,7 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
           difficulty: corrected.difficulty,
         };
         payload.distractors = corrected.distractors.map((distractor) => ({
+          id: distractor.id,
           word: distractor.word,
           meaning_ko: distractor.meaning_ko,
           meaning_en: distractor.meaning_en,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Sparkles, AlertTriangle, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DistractorData {
@@ -37,9 +37,24 @@ interface AutoVerifyWizardProps {
   results: AutoVerifyResult[];
   currentWizardIndex: number;
   setCurrentWizardIndex: React.Dispatch<React.SetStateAction<number>>;
-  handleWizardAction: (action: 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold') => Promise<void>;
+  handleWizardAction: (
+    action: 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold',
+    selectedCorrection?: WordData
+  ) => Promise<void>;
   loading: boolean;
 }
+
+type ChangeSelection = {
+  word: boolean;
+  pos: boolean;
+  gender: boolean;
+  difficulty: boolean;
+  meaning_ko: boolean;
+  meaning_en: boolean;
+  declensions: boolean;
+  conjugations: boolean;
+  distractors: Record<number, boolean>;
+};
 
 function normalizeMeaningMap(meaning: unknown): Record<string, string[]> {
   if (!meaning) return {};
@@ -76,6 +91,75 @@ function getMeaningSignature(meaning: unknown): string {
         .map(([pos, meanings]) => [pos, meanings])
     )
   );
+}
+
+function areWordDataFieldsChanged(original: WordData, corrected: WordData) {
+  return {
+    word: original.word !== corrected.word,
+    pos: original.pos.join(', ') !== corrected.pos.join(', '),
+    gender: original.gender !== corrected.gender,
+    difficulty: (original.difficulty || 1) !== (corrected.difficulty || original.difficulty || 1),
+    meaning_ko: getMeaningSignature(original.meaning_ko) !== getMeaningSignature(corrected.meaning_ko),
+    meaning_en: getMeaningSignature(original.meaning_en) !== getMeaningSignature(corrected.meaning_en),
+    declensions: isGrammarChanged(original.declensions, corrected.declensions),
+    conjugations: isGrammarChanged(original.conjugations, corrected.conjugations),
+  };
+}
+
+function isDistractorChanged(original: DistractorData | undefined, corrected: DistractorData) {
+  if (!original) return true;
+  return (
+    corrected.word !== original.word ||
+    corrected.meaning_ko !== original.meaning_ko ||
+    corrected.meaning_en !== original.meaning_en
+  );
+}
+
+function buildDefaultSelection(result: AutoVerifyResult): ChangeSelection {
+  const original = result.original_data;
+  const corrected = result.corrected_data;
+  if (!corrected) {
+    return {
+      word: false,
+      pos: false,
+      gender: false,
+      difficulty: false,
+      meaning_ko: false,
+      meaning_en: false,
+      declensions: false,
+      conjugations: false,
+      distractors: {},
+    };
+  }
+
+  const changes = areWordDataFieldsChanged(original, corrected);
+  return {
+    ...changes,
+    distractors: Object.fromEntries(
+      corrected.distractors.map((distractor, index) => [
+        index,
+        isDistractorChanged(original.distractors[index], distractor),
+      ])
+    ),
+  };
+}
+
+function mergeSelectedCorrection(original: WordData, corrected: WordData, selection: ChangeSelection): WordData {
+  return {
+    word: selection.word ? corrected.word : original.word,
+    pos: selection.pos ? corrected.pos : original.pos,
+    meaning_ko: selection.meaning_ko ? corrected.meaning_ko : original.meaning_ko,
+    meaning_en: selection.meaning_en ? corrected.meaning_en : original.meaning_en,
+    gender: selection.gender ? corrected.gender : original.gender,
+    declensions: selection.declensions ? corrected.declensions : original.declensions,
+    conjugations: selection.conjugations ? corrected.conjugations : original.conjugations,
+    difficulty: selection.difficulty ? corrected.difficulty : original.difficulty,
+    distractors: corrected.distractors.map((distractor, index) => {
+      const originalDistractor = original.distractors[index];
+      if (!originalDistractor) return distractor;
+      return selection.distractors[index] ? distractor : originalDistractor;
+    }),
+  };
 }
 
 function MeaningByPos({
@@ -131,7 +215,7 @@ function isGrammarChanged(original: unknown, corrected: unknown): boolean {
   return JSON.stringify(normalizeGrammarValue(original)) !== JSON.stringify(normalizeGrammarValue(corrected));
 }
 
-function formatGrammarValue(value: unknown): string {
+function formatGrammarDisplay(value: unknown): string {
   const normalized = normalizeGrammarValue(value);
   if (
     normalized &&
@@ -141,41 +225,168 @@ function formatGrammarValue(value: unknown): string {
   ) {
     return '없음';
   }
-  return JSON.stringify(normalized, null, 2);
+  if (typeof normalized === 'string') return normalized;
+  if (typeof normalized === 'number' || typeof normalized === 'boolean') return String(normalized);
+  return JSON.stringify(normalized);
+}
+
+type GrammarDiffRow = {
+  path: string;
+  original: string;
+  corrected: string;
+  type: 'added' | 'removed' | 'changed';
+};
+
+function flattenGrammarValue(value: unknown, path: string[] = []): Map<string, string> {
+  const normalized = normalizeGrammarValue(value);
+  const label = path.length > 0 ? path.join(' > ') : '전체';
+
+  if (
+    normalized === null ||
+    normalized === undefined ||
+    typeof normalized !== 'object' ||
+    (Array.isArray(normalized) && normalized.length === 0)
+  ) {
+    return new Map([[label, formatGrammarDisplay(normalized)]]);
+  }
+
+  if (!Array.isArray(normalized) && Object.keys(normalized).length === 0) {
+    return new Map([[label, '없음']]);
+  }
+
+  const entries = Array.isArray(normalized)
+    ? normalized.map((item, index) => [String(index), item] as const)
+    : Object.entries(normalized as Record<string, unknown>);
+
+  return entries.reduce((acc, [key, item]) => {
+    flattenGrammarValue(item, [...path, key]).forEach((itemValue, itemPath) => {
+      acc.set(itemPath, itemValue);
+    });
+    return acc;
+  }, new Map<string, string>());
+}
+
+function getGrammarDiffRows(original: unknown, corrected: unknown): GrammarDiffRow[] {
+  const originalMap = flattenGrammarValue(original);
+  const correctedMap = flattenGrammarValue(corrected);
+  const paths = Array.from(new Set([...originalMap.keys(), ...correctedMap.keys()]))
+    .sort((left, right) => left.localeCompare(right));
+
+  return paths.flatMap((path) => {
+    const originalValue = originalMap.get(path);
+    const correctedValue = correctedMap.get(path);
+
+    if (originalValue === correctedValue) return [];
+
+    return [{
+      path,
+      original: originalValue ?? '없음',
+      corrected: correctedValue ?? '없음',
+      type: originalValue === undefined ? 'added' : correctedValue === undefined ? 'removed' : 'changed',
+    }];
+  });
 }
 
 function GrammarChangeComparison({
   label,
   original,
   corrected,
+  checked,
+  onCheckedChange,
 }: {
   label: string;
   original: unknown;
   corrected: unknown;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
 }) {
+  const diffRows = getGrammarDiffRows(original, corrected);
+
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50/20 p-4 dark:border-amber-900/30 dark:bg-amber-950/5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{label}</span>
-        <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-          교정됨
-        </span>
+        <div className="flex items-center gap-2">
+          {onCheckedChange && (
+            <label className="inline-flex items-center gap-1.5 rounded bg-white px-2 py-1 text-xs font-bold text-gray-700 shadow-sm dark:bg-gray-900 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={checked ?? true}
+                onChange={(event) => onCheckedChange(event.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              반영
+            </label>
+          )}
+          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+            {diffRows.length}개 변경
+          </span>
+        </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="min-w-0">
-          <span className="mb-1.5 block text-xs font-bold uppercase text-red-500">기존</span>
-          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-red-100 bg-white p-3 text-sm leading-relaxed text-red-700 dark:border-red-950/50 dark:bg-gray-900 dark:text-red-300">
-            {formatGrammarValue(original)}
-          </pre>
-        </div>
-        <div className="min-w-0">
-          <span className="mb-1.5 block text-xs font-bold uppercase text-green-600 dark:text-green-400">AI 교정안</span>
-          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-green-100 bg-white p-3 text-sm leading-relaxed text-green-700 dark:border-green-950/50 dark:bg-gray-900 dark:text-green-300">
-            {formatGrammarValue(corrected)}
-          </pre>
-        </div>
+      <div className="space-y-2">
+        {diffRows.map((row) => (
+          <div
+            key={row.path}
+            className="rounded-lg border border-gray-200 bg-white p-3 text-sm dark:border-gray-800 dark:bg-gray-900"
+          >
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                {row.path}
+              </span>
+              <span
+                className={`rounded px-2 py-0.5 text-xs font-bold ${
+                  row.type === 'added'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                    : row.type === 'removed'
+                      ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                }`}
+              >
+                {row.type === 'added' ? '추가' : row.type === 'removed' ? '삭제' : '변경'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_1fr] md:items-center">
+              <div className="min-w-0 rounded border border-red-100 bg-red-50/50 px-3 py-2 text-red-700 dark:border-red-950/50 dark:bg-red-950/10 dark:text-red-300">
+                <span className="mb-1 block text-xs font-bold text-red-500">기존</span>
+                <span className="break-words font-medium">{row.original}</span>
+              </div>
+              <span className="hidden text-gray-400 md:block">→</span>
+              <div className="min-w-0 rounded border border-green-100 bg-green-50/50 px-3 py-2 text-green-700 dark:border-green-950/50 dark:bg-green-950/10 dark:text-green-300">
+                <span className="mb-1 block text-xs font-bold text-green-600 dark:text-green-400">AI 교정안</span>
+                <span className="break-words font-medium">{row.corrected}</span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
+  );
+}
+
+function ApplyChangeToggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-bold ${
+      checked
+        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+    } ${disabled ? 'opacity-70' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-3.5 w-3.5"
+      />
+      반영
+    </label>
   );
 }
 
@@ -190,8 +401,67 @@ export default function AutoVerifyWizard({
   loading,
 }: AutoVerifyWizardProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [selectionsByResultId, setSelectionsByResultId] = useState<Record<number, ChangeSelection>>({});
 
   const currentItem = results[currentWizardIndex];
+
+  useEffect(() => {
+    if (!currentItem || !currentItem.corrected_data) return;
+    setSelectionsByResultId((current) => {
+      if (current[currentItem.id]) return current;
+      return {
+        ...current,
+        [currentItem.id]: buildDefaultSelection(currentItem),
+      };
+    });
+  }, [currentItem]);
+
+  const currentSelection = currentItem
+    ? selectionsByResultId[currentItem.id] || buildDefaultSelection(currentItem)
+    : null;
+
+  const setCurrentSelectionValue = (
+    key: keyof Omit<ChangeSelection, 'distractors'>,
+    value: boolean
+  ) => {
+    if (!currentItem) return;
+    setSelectionsByResultId((current) => ({
+      ...current,
+      [currentItem.id]: {
+        ...(current[currentItem.id] || buildDefaultSelection(currentItem)),
+        [key]: value,
+      },
+    }));
+  };
+
+  const setCurrentDistractorSelection = (index: number, value: boolean) => {
+    if (!currentItem) return;
+    setSelectionsByResultId((current) => {
+      const selection = current[currentItem.id] || buildDefaultSelection(currentItem);
+      return {
+        ...current,
+        [currentItem.id]: {
+          ...selection,
+          distractors: {
+            ...selection.distractors,
+            [index]: value,
+          },
+        },
+      };
+    });
+  };
+
+  const approveWithSelectedChanges = () => {
+    if (!currentItem?.corrected_data || !currentSelection) {
+      void handleWizardAction('approve');
+      return;
+    }
+
+    void handleWizardAction(
+      'approve',
+      mergeSelectedCorrection(currentItem.original_data, currentItem.corrected_data, currentSelection)
+    );
+  };
 
   // 단축키 이벤트 리스너 바인딩
   useEffect(() => {
@@ -218,7 +488,7 @@ export default function AutoVerifyWizard({
       if (e.key === 'Enter') {
         e.preventDefault();
         if (isCorrected) {
-          void handleWizardAction('approve');
+          approveWithSelectedChanges();
         } else {
           void handleWizardAction('confirm');
         }
@@ -236,7 +506,7 @@ export default function AutoVerifyWizard({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, isScanning, results, currentWizardIndex, handleWizardAction]);
+  }, [isOpen, isScanning, results, currentWizardIndex, handleWizardAction, selectionsByResultId]);
 
   if (!isOpen) return null;
 
@@ -279,7 +549,7 @@ export default function AutoVerifyWizard({
                 AI가 단어 및 오답 데이터를 정밀 검수하는 중입니다...
               </h4>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md text-center leading-relaxed">
-                Gemini/Deepseek 모델이 스펠링, 뜻, 성·수 변화 및 오답의 유의어 관계(의미적 독립성)를 검증하고 있습니다. 잠시만 기다려주세요.
+                Gemini/Deepseek 모델이 스펠링, 뜻, 성·수 변화 및 오답의 복수 정답 가능성을 검증하고 있습니다. 잠시만 기다려주세요.
               </p>
             </div>
           ) : results.length === 0 ? (
@@ -323,6 +593,9 @@ export default function AutoVerifyWizard({
                       </div>
                       <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
                         {currentItem.reason || '단어 정보 또는 오답 리스트에 개선안이 있습니다.'}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        체크된 변경만 승인완료 시 DB에 반영됩니다. 체크를 해제하면 기존 값이 유지됩니다.
                       </p>
                     </div>
                   ) : currentItem.status === 'flagged' ? (
@@ -373,15 +646,23 @@ export default function AutoVerifyWizard({
                               </span>
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ${
-                              isWordChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isWordChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isWordChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.word}
+                                onChange={(checked) => setCurrentSelectionValue('word', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isWordChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isWordChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* 품사 */}
@@ -410,15 +691,23 @@ export default function AutoVerifyWizard({
                               </span>
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ${
-                              isPosChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isPosChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isPosChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.pos}
+                                onChange={(checked) => setCurrentSelectionValue('pos', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isPosChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isPosChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* 성별 */}
@@ -447,15 +736,23 @@ export default function AutoVerifyWizard({
                               </span>
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ${
-                              isGenderChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isGenderChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isGenderChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.gender}
+                                onChange={(checked) => setCurrentSelectionValue('gender', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isGenderChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isGenderChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* 난이도 */}
@@ -484,15 +781,23 @@ export default function AutoVerifyWizard({
                               </span>
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ${
-                              isDifficultyChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isDifficultyChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isDifficultyChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.difficulty}
+                                onChange={(checked) => setCurrentSelectionValue('difficulty', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isDifficultyChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isDifficultyChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -523,15 +828,23 @@ export default function AutoVerifyWizard({
                               <MeaningByPos meaning={original.meaning_ko} pos={original.pos} />
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ml-2 ${
-                              isMeaningKoChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isMeaningKoChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="ml-2 flex items-center gap-2">
+                            {isMeaningKoChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.meaning_ko}
+                                onChange={(checked) => setCurrentSelectionValue('meaning_ko', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isMeaningKoChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isMeaningKoChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* 영어 뜻 */}
@@ -559,15 +872,23 @@ export default function AutoVerifyWizard({
                               <MeaningByPos meaning={original.meaning_en} pos={original.pos} />
                             )}
                           </div>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded ml-2 ${
-                              isMeaningEnChanged
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
-                          >
-                            {isMeaningEnChanged ? '교정됨' : '유지'}
-                          </span>
+                          <div className="ml-2 flex items-center gap-2">
+                            {isMeaningEnChanged && currentSelection && (
+                              <ApplyChangeToggle
+                                checked={currentSelection.meaning_en}
+                                onChange={(checked) => setCurrentSelectionValue('meaning_en', checked)}
+                              />
+                            )}
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                isMeaningEnChanged
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                            >
+                              {isMeaningEnChanged ? '교정됨' : '유지'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -576,7 +897,7 @@ export default function AutoVerifyWizard({
                           <div>
                             <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">문법 변화 정보</h4>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                              AI가 변경한 변화형만 표시됩니다. 승인하면 교정안으로 저장됩니다.
+                              AI가 변경한 변화형만 표시됩니다. 체크된 변화 정보만 승인 시 저장됩니다.
                             </p>
                           </div>
                           {isDeclensionsChanged && (
@@ -584,6 +905,8 @@ export default function AutoVerifyWizard({
                               label="성·수 변화 (Declensions)"
                               original={original.declensions}
                               corrected={corrected.declensions}
+                              checked={currentSelection?.declensions}
+                              onCheckedChange={(checked) => setCurrentSelectionValue('declensions', checked)}
                             />
                           )}
                           {isConjugationsChanged && (
@@ -591,6 +914,8 @@ export default function AutoVerifyWizard({
                               label="동사 활용 (Conjugations)"
                               original={original.conjugations}
                               corrected={corrected.conjugations}
+                              checked={currentSelection?.conjugations}
+                              onCheckedChange={(checked) => setCurrentSelectionValue('conjugations', checked)}
                             />
                           )}
                         </div>
@@ -598,9 +923,11 @@ export default function AutoVerifyWizard({
 
                       {/* 오답 리스트 비교 */}
                       <div className="space-y-3">
-                        <span className="text-xs text-gray-400 font-bold uppercase block">
-                          오답 혼동 어휘 (6개) 검수 비교
-                        </span>
+                        <div>
+                          <span className="text-xs text-gray-400 font-bold uppercase block">
+                            오답 혼동 어휘 ({corrected.distractors.length}개) 검수 비교
+                          </span>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {corrected.distractors.map((corrDist: any, idx: number) => {
                             const origDist = original.distractors[idx] || { word: '', meaning_ko: '', meaning_en: '' };
@@ -622,15 +949,24 @@ export default function AutoVerifyWizard({
                                   <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                                     오답 #{idx + 1}
                                   </span>
-                                  <span
-                                    className={`text-xs font-bold px-1.5 py-0.2 rounded ${
-                                      hasAnyChanged
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
-                                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                                    }`}
-                                  >
-                                    {hasAnyChanged ? '교체됨' : '유지'}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {hasAnyChanged && currentSelection && (
+                                      <ApplyChangeToggle
+                                        checked={!original.distractors[idx] || currentSelection.distractors[idx]}
+                                        disabled={!original.distractors[idx]}
+                                        onChange={(checked) => setCurrentDistractorSelection(idx, checked)}
+                                      />
+                                    )}
+                                    <span
+                                      className={`text-xs font-bold px-1.5 py-0.2 rounded ${
+                                        hasAnyChanged
+                                          ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                                      }`}
+                                    >
+                                      {hasAnyChanged ? (original.distractors[idx] ? '교체됨' : '신규') : '유지'}
+                                    </span>
+                                  </div>
                                 </div>
 
                                 <div className="mt-2 space-y-1.5">
@@ -769,7 +1105,7 @@ export default function AutoVerifyWizard({
                         {/* 오답 리스트 */}
                         <div className="space-y-4">
                           <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 pb-1 border-b dark:border-gray-800">
-                            오답 혼동 어휘 (6개)
+                            오답 혼동 어휘 ({original.distractors.length}개)
                           </h4>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -840,7 +1176,7 @@ export default function AutoVerifyWizard({
                           반려완료
                         </button>
                         <button
-                          onClick={() => handleWizardAction('approve')}
+                          onClick={approveWithSelectedChanges}
                           disabled={loading}
                           className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-bold shadow-sm transition"
                         >
