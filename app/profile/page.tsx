@@ -1,5 +1,6 @@
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { syncPaddleSubscriptionById } from '@/lib/paddle/subscription-sync';
+import { isMonthlyPaddlePriceId, isYearlyPaddlePriceId } from '@/lib/paddle/prices';
 import {
   getPaddleBillingReference,
   getUserSubscriptionSummary,
@@ -132,9 +133,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const canCancel = subscription.canManageWithPaddle &&
     ['active', 'trialing'].includes(subscription.status || '') &&
     !subscription.cancelAtPeriodEnd;
-  const planName = subscription.providerPriceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_MONTHLY
+  const planName = isMonthlyPaddlePriceId(subscription.providerPriceId)
     ? t.monthlyPlan
-    : subscription.providerPriceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_YEARLY
+    : isYearlyPaddlePriceId(subscription.providerPriceId)
       ? t.yearlyPlan
       : subscription.isActive || isPaused
         ? t.premiumPlan

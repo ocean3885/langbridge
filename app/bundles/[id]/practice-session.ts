@@ -1,13 +1,14 @@
 import type { UserBundleItemInteraction } from '@/lib/supabase/services/bundle-progress';
 
 export type PracticeSessionMode = 'resume' | 'all' | 'incorrect' | 'correct' | 'incomplete';
-export type PracticeMode = 'quiz' | 'scramble' | 'wordfill';
+export type PracticeMode = 'quiz' | 'scramble' | 'wordfill' | 'spelling';
 
 export const practiceSessionModes: PracticeSessionMode[] = ['resume', 'all', 'incorrect', 'correct', 'incomplete'];
 export const PRACTICE_MODE_STARS = {
   quiz: 1,
   scramble: 1,
   wordfill: 1,
+  spelling: 1,
 } satisfies Record<PracticeMode, number>;
 
 export function isPracticeSessionMode(value: unknown): value is PracticeSessionMode {
@@ -16,6 +17,7 @@ export function isPracticeSessionMode(value: unknown): value is PracticeSessionM
 
 export interface PracticeItem {
   id: string;
+  progressId?: string;
 }
 
 type PracticeStatus = 'correct' | 'incorrect' | 'incomplete';
@@ -58,21 +60,21 @@ export function filterPracticeItems<T extends PracticeItem>(
 
   if (mode === 'incorrect') {
     return items.filter((item) => {
-      const interaction = interactionByItemId.get(item.id);
+      const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
       return getPracticeStatus(interaction, practiceMode) === 'incorrect';
     });
   }
 
   if (mode === 'correct') {
     return items.filter((item) => {
-      const interaction = interactionByItemId.get(item.id);
+      const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
       return getPracticeStatus(interaction, practiceMode) === 'correct';
     });
   }
 
   if (mode === 'incomplete') {
     return items.filter((item) => {
-      const interaction = interactionByItemId.get(item.id);
+      const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
       return getPracticeStatus(interaction, practiceMode) === 'incomplete';
     });
   }
@@ -86,7 +88,7 @@ export function getPracticeSessionCounts<T extends PracticeItem>(
   practiceMode: PracticeMode,
   currentPracticeItemId?: string | null,
 ) {
-  const canResume = Boolean(currentPracticeItemId && items.some((item) => item.id === currentPracticeItemId));
+  const canResume = Boolean(currentPracticeItemId && items.some((item) => getPracticeItemProgressId(item) === currentPracticeItemId));
 
   return {
     resume: canResume ? items.length : 0,
@@ -105,7 +107,7 @@ export function getPracticeModeStarProgress<T extends PracticeItem>(
   const interactionByItemId = new Map(interactions.map((interaction) => [interaction.bundle_item_id, interaction]));
   const starsPerItem = PRACTICE_MODE_STARS[practiceMode];
   const earnedItems = items.filter((item) => {
-    const interaction = interactionByItemId.get(item.id);
+    const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
     return getPracticeStatus(interaction, practiceMode) === 'correct';
   }).length;
 
@@ -113,6 +115,10 @@ export function getPracticeModeStarProgress<T extends PracticeItem>(
     earned: earnedItems * starsPerItem,
     max: items.length * starsPerItem,
   };
+}
+
+function getPracticeItemProgressId(item: PracticeItem) {
+  return item.progressId || item.id;
 }
 
 function getPracticeModeMetadata(value: unknown, practiceMode: PracticeMode) {

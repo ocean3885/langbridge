@@ -54,11 +54,13 @@ const translations = {
     noItems: '등록된 학습 항목이 없습니다.',
     noImage: '이미지가 없습니다',
     practice: '연습 모드',
-    practiceInfo: 'Quiz와 Scramble 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
+    practiceInfo: 'Quiz, Scramble, Word Fill, Spelling 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
     viewItems: '전체 항목 보기',
     flashcards: '플래시카드',
     quickQuiz: '퀵 퀴즈',
     scramble: '스크램블',
+    wordFill: 'Word Fill',
+    spelling: 'Spelling',
     keyWords: '핵심 단어',
     noKeywords: '연결된 핵심 단어가 없습니다.',
     previous: '이전',
@@ -77,11 +79,13 @@ const translations = {
     noItems: 'No learning items registered.',
     noImage: 'No image available',
     practice: 'Practice',
-    practiceInfo: 'Earn stars by answering Quiz and Scramble challenges correctly.',
+    practiceInfo: 'Earn stars by answering Quiz, Scramble, Word Fill, and Spelling challenges correctly.',
     viewItems: 'View All Items',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
+    wordFill: 'Word Fill',
+    spelling: 'Spelling',
     keyWords: 'Key Words',
     noKeywords: 'No related key words.',
     previous: 'Previous',
@@ -417,10 +421,12 @@ export default function BundlePlayerClient({
             <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
             <p>{t.practiceInfo}</p>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
             <PracticeLink href={`/bundles/${bundle.id}/flashcards`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.flashcards} tone="sky" />
             <PracticeLink href={`/bundles/${bundle.id}/quiz`} icon={<HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.quickQuiz} tone="violet" />
             <PracticeLink href={`/bundles/${bundle.id}/scramble`} icon={<Shuffle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.scramble} tone="orange" />
+            <PracticeLink href={`/bundles/${bundle.id}/wordfill`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.wordFill} tone="sky" />
+            <PracticeLink href={`/bundles/${bundle.id}/spelling`} icon={<LetterText className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.spelling} tone="violet" />
           </div>
           <Link
             href={`/bundles/${bundle.id}/items`}

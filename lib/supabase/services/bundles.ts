@@ -1003,6 +1003,8 @@ export async function listBundleItemsWithDistractors(bundleId: string) {
             id,
             word,
             lang_code,
+            pos,
+            audio_url,
             meaning_ko,
             meaning_en,
             words_distractor (

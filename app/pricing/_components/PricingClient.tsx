@@ -23,6 +23,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { AppUser } from '@/lib/auth/app-user';
+import type { PricingDisplayPrice } from '@/lib/paddle/prices';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const copy = {
@@ -51,8 +52,6 @@ const copy = {
     annualPlanName: '프리미엄 연간 멤버십',
     annualPeriod: '/ 년',
     cancelShort: '자동 갱신 · 언제든 해지 가능',
-    purchaseSummaryMonthly: '월간 멤버십 · 매월 $4',
-    purchaseSummaryAnnual: '연간 멤버십 · 매년 $40',
     immediateAccess: '결제 완료 후 즉시 이용할 수 있습니다. 해지 후에도 현재 결제 기간 종료일까지 이용할 수 있습니다.',
     taxNotice: '지역에 따라 세금이 포함되거나 결제 단계에서 추가될 수 있습니다. 최종 금액은 Paddle 결제창에서 확인하세요.',
     agreementPrefix: '',
@@ -69,8 +68,8 @@ const copy = {
       '학습 기록과 상세 성장 리포트',
       '광고 없는 몰입형 학습 경험',
     ],
-    ctaSubscribe: '월간 멤버십 시작하기 · $4',
-    ctaSubscribeAnnual: '연간 멤버십 시작하기 · $40',
+    ctaSubscribe: '월간 멤버십 시작하기',
+    ctaSubscribeAnnual: '연간 멤버십 시작하기',
     ctaLogin: '로그인하고 시작하기',
     ctaActive: '프리미엄 이용 중',
     ctaUpdatePayment: '결제수단 업데이트',
@@ -120,8 +119,6 @@ const copy = {
     annualPlanName: 'Premium Yearly Membership',
     annualPeriod: '/ year',
     cancelShort: 'Cancel anytime · Renews automatically',
-    purchaseSummaryMonthly: 'Monthly membership · $4/month',
-    purchaseSummaryAnnual: 'Yearly membership · $40/year',
     immediateAccess: 'Access starts immediately after payment. If you cancel, access continues until the end of the current billing period.',
     taxNotice: 'Taxes may be included or added at checkout depending on your location. The final amount is shown in Paddle Checkout.',
     agreementPrefix: 'I have read and agree to the ',
@@ -138,8 +135,8 @@ const copy = {
       'Learning history and detailed progress reports',
       'A completely ad-free learning experience',
     ],
-    ctaSubscribe: 'Start Monthly Membership · $4',
-    ctaSubscribeAnnual: 'Start Yearly Membership · $40',
+    ctaSubscribe: 'Start Monthly Membership',
+    ctaSubscribeAnnual: 'Start Yearly Membership',
     ctaLogin: 'Log in to Start',
     ctaActive: 'Premium Active',
     ctaUpdatePayment: 'Update Payment Method',
@@ -175,6 +172,25 @@ const benefitColors = [
 ];
 const faqIcons = [HelpCircle, Zap, ShieldCheck, UserRound];
 
+function getCurrencyFractionDigits(currencyCode: string) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+  }).resolvedOptions().maximumFractionDigits ?? 2;
+}
+
+function formatMinorAmount(minorAmount: number, currencyCode: string) {
+  const fractionDigits = getCurrencyFractionDigits(currencyCode);
+  const majorAmount = minorAmount / 10 ** fractionDigits;
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: Number.isInteger(majorAmount) ? 0 : fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(majorAmount);
+}
+
 interface PricingClientProps {
   language: 'ko' | 'en';
   user: AppUser | null;
@@ -184,6 +200,8 @@ interface PricingClientProps {
   paddleClientToken: string;
   monthlyPriceId: string;
   yearlyPriceId: string;
+  monthlyPrice: PricingDisplayPrice;
+  yearlyPrice: PricingDisplayPrice;
   initialBillingPeriod: 'monthly' | 'annual';
 }
 
@@ -196,6 +214,8 @@ export function PricingClient({
   paddleClientToken,
   monthlyPriceId,
   yearlyPriceId,
+  monthlyPrice,
+  yearlyPrice,
   initialBillingPeriod,
 }: PricingClientProps) {
   const [loading, setLoading] = useState(false);
@@ -215,19 +235,39 @@ export function PricingClient({
   const isAnnual = billingPeriod === 'annual';
   const requiresPaymentMethodUpdate = subscriptionStatus === 'past_due';
 
-  const basePrice = '$4';
-  const baseAnnualPrice = '$40';
-  const baseAnnualOriginalPrice = '$48';
-  const baseAnnualDiscount = isKorean ? '17% 할인' : '17% off';
-  const baseAnnualSavings = isKorean ? '$8 절약' : 'Save $8';
+  const sameCurrency = monthlyPrice.currencyCode === yearlyPrice.currencyCode;
+  const monthlyMinorAmount = Number.parseInt(monthlyPrice.minorAmount, 10);
+  const yearlyMinorAmount = Number.parseInt(yearlyPrice.minorAmount, 10);
+  const annualOriginalMinorAmount = sameCurrency && Number.isFinite(monthlyMinorAmount)
+    ? monthlyMinorAmount * 12
+    : null;
+  const annualSavingsMinorAmount = annualOriginalMinorAmount !== null && Number.isFinite(yearlyMinorAmount)
+    ? annualOriginalMinorAmount - yearlyMinorAmount
+    : null;
+  const annualDiscountPercent = annualOriginalMinorAmount && annualSavingsMinorAmount && annualSavingsMinorAmount > 0
+    ? Math.round((annualSavingsMinorAmount / annualOriginalMinorAmount) * 100)
+    : null;
+  const baseAnnualOriginalPrice = annualOriginalMinorAmount !== null
+    ? formatMinorAmount(annualOriginalMinorAmount, monthlyPrice.currencyCode)
+    : null;
+  const baseAnnualDiscount = annualDiscountPercent
+    ? (isKorean ? `${annualDiscountPercent}% 할인` : `${annualDiscountPercent}% off`)
+    : null;
+  const baseAnnualSavings = annualSavingsMinorAmount && annualSavingsMinorAmount > 0
+    ? formatMinorAmount(annualSavingsMinorAmount, monthlyPrice.currencyCode)
+    : null;
   
-  const purchaseSummaryMonthlyText = t.purchaseSummaryMonthly;
-  const purchaseSummaryAnnualText = t.purchaseSummaryAnnual;
+  const purchaseSummaryMonthlyText = isKorean
+    ? `월간 멤버십 · 매월 ${monthlyPrice.amount}`
+    : `Monthly membership · ${monthlyPrice.amount}/month`;
+  const purchaseSummaryAnnualText = isKorean
+    ? `연간 멤버십 · 매년 ${yearlyPrice.amount}`
+    : `Yearly membership · ${yearlyPrice.amount}/year`;
 
-  const ctaSubscribeText = t.ctaSubscribe;
-  const ctaSubscribeAnnualText = t.ctaSubscribeAnnual;
+  const ctaSubscribeText = `${t.ctaSubscribe} · ${monthlyPrice.amount}`;
+  const ctaSubscribeAnnualText = `${t.ctaSubscribeAnnual} · ${yearlyPrice.amount}`;
 
-  const selectedPrice = isAnnual ? baseAnnualPrice : basePrice;
+  const selectedPrice = isAnnual ? yearlyPrice.amount : monthlyPrice.amount;
   const selectedPeriod = isAnnual ? t.annualPeriod : t.period;
   const selectedPlanName = isAnnual ? t.annualPlanName : t.planName;
   const selectedCta = isAnnual ? ctaSubscribeAnnualText : ctaSubscribeText;
@@ -440,9 +480,11 @@ export function PricingClient({
                 }`}
               >
                 {t.annual}
-                <span className="absolute -right-1.5 -top-2 rounded-full bg-[#E27D60] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                  {baseAnnualDiscount}
-                </span>
+                {baseAnnualDiscount && (
+                  <span className="absolute -right-1.5 -top-2 rounded-full bg-[#E27D60] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    {baseAnnualDiscount}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -451,13 +493,15 @@ export function PricingClient({
               <span className={`text-4xl tracking-tight sm:text-5xl ${displayWeight}`}>{selectedPrice}</span>
               <span className={`pb-1 text-sm text-zinc-400 ${isKorean ? 'font-medium' : 'font-semibold'}`}>{selectedPeriod}</span>
             </div>
-            {isAnnual && (
+            {isAnnual && baseAnnualOriginalPrice && baseAnnualDiscount && baseAnnualSavings && (
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span className="font-medium text-zinc-400 line-through">{baseAnnualOriginalPrice}</span>
                 <span className="rounded-full bg-orange-50 px-2.5 py-1 font-bold text-[#D6684C] dark:bg-orange-950/40 dark:text-orange-300">
                   {baseAnnualDiscount}
                 </span>
-                <span className={`text-emerald-600 dark:text-emerald-400 ${isKorean ? 'font-medium' : 'font-semibold'}`}>{baseAnnualSavings}</span>
+                <span className={`text-emerald-600 dark:text-emerald-400 ${isKorean ? 'font-medium' : 'font-semibold'}`}>
+                  {isKorean ? `${baseAnnualSavings} 절약` : `Save ${baseAnnualSavings}`}
+                </span>
               </div>
             )}
             <p className={`mt-3 text-[13px] text-zinc-500 ${bodyWeight}`}>{t.cancelShort}</p>

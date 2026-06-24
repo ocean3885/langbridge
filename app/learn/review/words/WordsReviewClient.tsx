@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, Volume2, X, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
+import { PracticeCountSelector } from '@/components/practice/PracticeCountSelector';
+import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
+import {
+  buildPrefilledSpellingAnswer,
+  getSpellingHint,
+  SpellingScrambleQuestion,
+  splitWordHybrid,
+  type SpellingChunk,
+} from '@/components/practice/SpellingScrambleQuestion';
 import type { ReviewWordItem } from '@/lib/supabase/services/bundle-progress';
 import { getPublicUrl } from '@/lib/utils';
 
@@ -11,12 +21,6 @@ interface WordsReviewClientProps {
   initialItems: ReviewWordItem[];
   availableReviewCount: number;
   language: 'ko' | 'en';
-}
-
-interface PoolChunk {
-  id: number;
-  chunk: string;
-  selected: boolean;
 }
 
 const copy = {
@@ -28,6 +32,7 @@ const copy = {
     backToLearn: '대시보드로 돌아가기',
     setupTitle: '복습 설정',
     setupCount: '복습할 단어 수 선택',
+    allCount: (count: number) => `전체 ${count}`,
     setupMode: '복습 방식 선택',
     modeQuiz: '뜻 맞추기 (객관식)',
     modeSpelling: '스펠링 완성 (조합)',
@@ -69,6 +74,7 @@ const copy = {
     backToLearn: 'Back to Dashboard',
     setupTitle: 'Review Settings',
     setupCount: 'Select word count',
+    allCount: (count: number) => `All ${count}`,
     setupMode: 'Select review mode',
     modeQuiz: 'Multiple Choice',
     modeSpelling: 'Spelling Scramble',
@@ -118,8 +124,8 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   
   // Game Practice States
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [poolChunks, setPoolChunks] = useState<PoolChunk[]>([]);
-  const [selectedChunks, setSelectedChunks] = useState<PoolChunk[]>([]);
+  const [poolChunks, setPoolChunks] = useState<SpellingChunk[]>([]);
+  const [selectedChunks, setSelectedChunks] = useState<SpellingChunk[]>([]);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
   
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -164,10 +170,8 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
     setSelectedChunks([]);
 
     if (currentItemMode === 'spelling') {
-      const realChunks = splitWordHybrid(currentItem.word);
-      const distractorChunks = generateSpellingDistractors(realChunks, currentItem.lang_code);
-      const combined = [...realChunks, ...distractorChunks];
-      const shuffled = shuffle(combined).map((chunk, index) => ({
+      const realChunks = splitWordHybrid(currentItem.word, { prefillFirstLetter: true });
+      const shuffled = shuffle(realChunks).map((chunk, index) => ({
         id: index,
         chunk,
         selected: false,
@@ -196,7 +200,7 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   // Evaluate spelling scramble
   const checkSpelling = () => {
     if (isAnswered) return;
-    const constructed = selectedChunks.map(s => s.chunk).join('');
+    const constructed = buildPrefilledSpellingAnswer(currentItem.word, selectedChunks.map(s => s.chunk));
     const answerIsCorrect = constructed.toLowerCase().trim() === currentItem.word.toLowerCase().trim();
 
     setIsCorrect(answerIsCorrect);
@@ -336,25 +340,13 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
 
           {/* Word count */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t.setupCount}</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[5, 10, 20].map((count) => {
-                const active = selectedCount === count;
-                return (
-                  <button
-                    key={count}
-                    onClick={() => setSelectedCount(count)}
-                    className={`rounded-xl border py-3 text-sm font-bold transition ${
-                      active
-                        ? 'border-[#3f8d54] bg-[#f4fbf6] text-[#2f7d4a] dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300'
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    {count}
-                  </button>
-                );
-              })}
-            </div>
+            <PracticeCountSelector
+              label={t.setupCount}
+              totalCount={initialItems.length}
+              selectedCount={selectedCount}
+              onSelect={(count) => setSelectedCount(count === 'all' ? initialItems.length : count)}
+              allLabel={t.allCount}
+            />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
           </div>
 
@@ -403,6 +395,8 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   const meaningWithPos = `${correctMeaning} ${posLabel}`.trim();
   const wrongAnswer = currentItemMode === 'quiz' ? meaningWithPos : currentItem.word;
   const spellingHint = getSpellingHint(currentItem.word);
+  const answeredCount = currentIndex + (isAnswered ? 1 : 0);
+  const incorrectCount = Math.max(0, answeredCount - score);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -414,7 +408,7 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
           <ArrowLeft className="h-5 w-5" />
         </button>
         <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{currentIndex + 1} / {activeItems.length}</span>
-        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">Score: {score}</span>
+        <PracticeScorePills correct={score} incorrect={incorrectCount} />
       </header>
 
       {/* Progress Bar */}
@@ -425,121 +419,59 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
       {/* Card Section */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         {currentItemMode === 'quiz' && (
-          /* Multiple Choice */
-          <div>
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#2f7d4a] dark:text-emerald-400">{t.modeQuiz}</span>
-              {audioSrc && (
-                <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
-                  <Volume2 className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-            <div className="mt-6 flex flex-wrap items-baseline gap-2">
-              <h2 className="text-3xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.word}</h2>
-              <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
-            </div>
-
-            <div className="mt-8 space-y-3">
-              {multipleChoiceOptions.map((option) => {
-                const isSelected = selectedOption === option;
-                const optionIsCorrect = option === correctMeaning;
-                const stateClass = isAnswered
-                  ? optionIsCorrect
-                    ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300'
-                    : isSelected
-                      ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/30 dark:text-red-300'
-                      : 'border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-500'
-                  : 'border-zinc-200 bg-white text-zinc-900 hover:border-[#9ccfac] hover:bg-[#f4fbf6] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20';
-
-                return (
-                  <button
-                    key={option}
-                    disabled={isAnswered}
-                    onClick={() => selectOption(option)}
-                    className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-base font-bold transition ${stateClass}`}
-                  >
-                    <span>{option}</span>
-                    {isAnswered && optionIsCorrect && <Check className="h-4 w-4" />}
-                    {isAnswered && isSelected && !optionIsCorrect && <X className="h-4 w-4" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <MultipleChoiceQuestion
+            eyebrow={t.modeQuiz}
+            question={
+              <div className="flex flex-wrap items-baseline gap-2">
+                <h2 className="text-3xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.word}</h2>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
+              </div>
+            }
+            options={multipleChoiceOptions}
+            selectedOption={selectedOption}
+            correctOption={correctMeaning}
+            isAnswered={isAnswered}
+            onSelect={selectOption}
+            audioAction={audioSrc ? (
+              <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
+                <Volume2 className="h-5 w-5" />
+              </button>
+            ) : null}
+            variant="embedded"
+          />
         )}
 
         {currentItemMode === 'spelling' && (
-          /* Spelling Scramble */
-          <div>
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#2f7d4a] dark:text-emerald-400">{t.modeSpelling}</span>
-              {isAnswered && audioSrc && (
+          <>
+            <SpellingScrambleQuestion
+              eyebrow={t.modeSpelling}
+              prompt={t.spellingPrompt}
+              answerPattern={currentItem.word}
+              question={
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h2 className="text-3xl font-bold leading-relaxed dark:text-zinc-50">{correctMeaning}</h2>
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
+                </div>
+              }
+              hint={t.spellingHint(spellingHint.firstLetter, spellingHint.letterCount)}
+              selectedChunks={selectedChunks}
+              poolChunks={poolChunks}
+              isAnswered={isAnswered}
+              onSelectChunk={(item) => {
+                setSelectedChunks((prev) => [...prev, item]);
+                setPoolChunks((prev) => prev.map((chunk) => (chunk.id === item.id ? { ...chunk, selected: true } : chunk)));
+              }}
+              onRemoveChunk={(item, index) => {
+                setSelectedChunks((prev) => prev.filter((_, chunkIndex) => chunkIndex !== index));
+                setPoolChunks((prev) => prev.map((chunk) => (chunk.id === item.id ? { ...chunk, selected: false } : chunk)));
+              }}
+              audioAction={isAnswered && audioSrc ? (
                 <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
                   <Volume2 className="h-5 w-5" />
                 </button>
-              )}
-            </div>
-            
-            <p className="mt-6 text-xs font-bold text-zinc-400 dark:text-zinc-500">{t.spellingPrompt}</p>
-            <div className="mt-2 flex flex-wrap items-baseline gap-2">
-              <h2 className="text-3xl font-bold leading-relaxed dark:text-zinc-50">{correctMeaning}</h2>
-              <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
-            </div>
-            <p className="mt-2 inline-flex rounded-full bg-[#f4fbf6] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-950/30 dark:text-emerald-300">
-              {t.spellingHint(spellingHint.firstLetter, spellingHint.letterCount)}
-            </p>
-
-            {/* Answer assembly zone */}
-            <div className="mt-8 min-h-16 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
-              {selectedChunks.map((item, idx) => (
-                <button
-                  key={`${item.chunk}-${item.id}`}
-                  disabled={isAnswered}
-                  onClick={() => {
-                    setSelectedChunks((prev) => prev.filter((_, i) => i !== idx));
-                    setPoolChunks((prev) =>
-                      prev.map((p) => (p.id === item.id ? { ...p, selected: false } : p))
-                    );
-                  }}
-                  className={`rounded-lg border px-3 py-2 text-sm font-bold shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 ${
-                    item.chunk === ' '
-                      ? 'bg-zinc-200/60 dark:bg-zinc-800/60 border-zinc-300 min-w-10 text-center font-mono'
-                      : 'bg-white dark:bg-zinc-900 border-zinc-200'
-                  }`}
-                >
-                  {item.chunk === ' ' ? '␣' : item.chunk}
-                </button>
-              ))}
-            </div>
-
-            {/* Word Pool */}
-            {!isAnswered && (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {poolChunks
-                  .filter((p) => !p.selected)
-                  .map((item) => (
-                    <button
-                      key={`${item.chunk}-${item.id}`}
-                      onClick={() => {
-                        setSelectedChunks((prev) => [...prev, item]);
-                        setPoolChunks((prev) =>
-                          prev.map((p) => (p.id === item.id ? { ...p, selected: true } : p))
-                        );
-                      }}
-                      className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
-                        item.chunk === ' '
-                          ? 'bg-zinc-200 hover:bg-zinc-300 text-zinc-700 min-w-14 text-center font-mono dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200'
-                          : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200'
-                      }`}
-                    >
-                      {item.chunk === ' ' ? '␣ Space' : item.chunk}
-                    </button>
-                  ))}
-              </div>
-            )}
-
-            {/* Action check button */}
+              ) : null}
+              variant="embedded"
+            />
             {!isAnswered && (
               <div className="mt-8 flex justify-end">
                 <button
@@ -551,7 +483,7 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
                 </button>
               </div>
             )}
-          </div>
+          </>
         )}
 
         {currentItemMode === 'flashcard' && (
@@ -667,14 +599,6 @@ function shuffle<T>(array: T[]): T[] {
   return arr;
 }
 
-function getSpellingHint(word: string) {
-  const trimmed = word.trim();
-  return {
-    firstLetter: trimmed.charAt(0),
-    letterCount: trimmed.replace(/\s+/g, '').length,
-  };
-}
-
 function getReviewHeadingClass(language: 'ko' | 'en') {
   return language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold';
 }
@@ -725,82 +649,6 @@ function buildWordMeaningDistractors(currentItem: ReviewWordItem, allItems: Revi
   }
 
   return shuffle([currentTrans, ...Array.from(distractorMeanings)]);
-}
-
-// Hybrid spelling splitting function
-function splitWordHybrid(word: string): string[] {
-  const trimmed = word.trim();
-  const subWords = trimmed.split(/\s+/);
-  
-  const allChunks: string[] = [];
-  
-  for (let i = 0; i < subWords.length; i++) {
-    const subWord = subWords[i];
-    let subWordChunks: string[] = [];
-    
-    if (subWord.length <= 5) {
-      subWordChunks = subWord.split('');
-    } else {
-      subWordChunks = subWord.match(/.{1,2}/g) || [];
-    }
-    
-    allChunks.push(...subWordChunks);
-    
-    if (i < subWords.length - 1) {
-      allChunks.push(' ');
-    }
-  }
-  
-  return allChunks;
-}
-
-// Distractor spelling chunks generator
-function generateSpellingDistractors(realChunks: string[], langCode: string): string[] {
-  const distractors = new Set<string>();
-  const vowels = ['a', 'e', 'i', 'o', 'u'];
-  
-  for (const chunk of realChunks) {
-    if (chunk === ' ') continue;
-    
-    if (chunk.length >= 2) {
-      for (const vowel of vowels) {
-        const swapped = chunk.replace(/[aeiou]/gi, vowel);
-        if (swapped !== chunk && !realChunks.includes(swapped)) {
-          distractors.add(swapped);
-        }
-      }
-      
-      if (langCode === 'es' || langCode === 'sp') {
-        let conf = '';
-        if (chunk.includes('c')) conf = chunk.replace('c', 's');
-        else if (chunk.includes('s')) conf = chunk.replace('s', 'c');
-        else if (chunk.includes('b')) conf = chunk.replace('b', 'v');
-        else if (chunk.includes('v')) conf = chunk.replace('v', 'b');
-        else if (chunk.includes('g')) conf = chunk.replace('g', 'j');
-        
-        if (conf && conf !== chunk && !realChunks.includes(conf)) {
-          distractors.add(conf);
-        }
-      }
-    } else if (chunk.length === 1) {
-      for (const vowel of vowels) {
-        if (vowel !== chunk && !realChunks.includes(vowel)) {
-          distractors.add(vowel);
-        }
-      }
-    }
-    if (distractors.size >= 3) break;
-  }
-  
-  const fallbacks = ['te', 'me', 'es', 'un', 'la', 'lo', 'se', 'a', 'e', 'o'];
-  for (const fb of fallbacks) {
-    if (distractors.size >= 3) break;
-    if (!realChunks.includes(fb)) {
-      distractors.add(fb);
-    }
-  }
-  
-  return Array.from(distractors).slice(0, 3);
 }
 
 // Record practice progress via client fetch to word-progress API

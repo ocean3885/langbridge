@@ -62,7 +62,7 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: '연습 모드 설명 보기',
-    practiceModesInfo: 'Quiz, Scramble, Word Fill 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
+    practiceModesInfo: 'Quiz, Scramble, Word Fill, Spelling 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
@@ -101,7 +101,7 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: 'View practice mode details',
-    practiceModesInfo: 'Earn stars by answering Quiz, Scramble, and Word Fill challenges correctly.',
+    practiceModesInfo: 'Earn stars by answering Quiz, Scramble, Word Fill, and Spelling challenges correctly.',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
     scramble: 'Scramble',
@@ -314,6 +314,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <ModeLink href={modeHref(`/bundles/${bundle.id}/quiz`)} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
             <ModeLink href={modeHref(`/bundles/${bundle.id}/scramble`)} icon={<Shuffle className="h-5 w-5" />} label={t.scramble} color="orange" />
             <ModeLink href={modeHref(`/bundles/${bundle.id}/wordfill`)} icon={<BookOpen className="h-5 w-5" />} label={t.wordFill} color="blue" />
+            <ModeLink href={modeHref(`/bundles/${bundle.id}/spelling`)} icon={<BookOpen className="h-5 w-5" />} label="Spelling" color="blue" />
           </div>
         </section>
       </main>
@@ -353,6 +354,7 @@ const PRACTICE_MODE_STARS = {
   quiz: 1,
   scramble: 1,
   wordfill: 1,
+  spelling: 1,
 } satisfies Record<string, number>;
 
 function calculatePracticeStars(itemInteractions: BundleProgressSummary['itemInteractions'], totalItems: number) {

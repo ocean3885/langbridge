@@ -11,12 +11,12 @@ import BundleWordFillClient from './BundleWordFillClient';
 
 interface BundleWordFillPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; count?: string }>;
 }
 
 export default async function BundleWordFillPage({ params, searchParams }: BundleWordFillPageProps) {
   const { id } = await params;
-  const { mode } = await searchParams;
+  const { mode, count } = await searchParams;
   const [bundle, items, language, user] = await Promise.all([
     getBundle(id),
     listBundleItemsWithDistractors(id),
@@ -93,7 +93,8 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
     );
   }
 
-  const sessionItems = filterPracticeItems(wordFillItems, progress.itemInteractions, effectiveMode, 'wordfill');
+  const filteredItems = filterPracticeItems(wordFillItems, progress.itemInteractions, effectiveMode, 'wordfill');
+  const sessionItems = limitPracticeItems(filteredItems, count);
   const initialItemId =
     effectiveMode === 'resume' &&
     progress.currentPracticeItemIds.wordfill &&
@@ -112,6 +113,11 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
       isLoggedIn={Boolean(user)}
     />
   );
+}
+
+function limitPracticeItems<T>(items: T[], count?: string) {
+  const parsedCount = count ? Number.parseInt(count, 10) : NaN;
+  return Number.isFinite(parsedCount) && parsedCount > 0 ? items.slice(0, parsedCount) : items;
 }
 
 function getWordFillMapCandidates(sentence: string, maps: any[]) {

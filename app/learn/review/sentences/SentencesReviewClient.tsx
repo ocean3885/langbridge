@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, Volume2, X, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
+import { PracticeCountSelector } from '@/components/practice/PracticeCountSelector';
+import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
+import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/bundle-progress';
 import { getPublicUrl } from '@/lib/utils';
 
@@ -22,6 +26,7 @@ const copy = {
     backToLearn: '대시보드로 돌아가기',
     setupTitle: '복습 설정',
     setupCount: '복습할 문장 수 선택',
+    allCount: (count: number) => `전체 ${count}`,
     setupMode: '복습 방식 선택',
     modeQuiz: '객관식 선택',
     modeScramble: '스크램블 (단어 배열)',
@@ -46,6 +51,7 @@ const copy = {
     backToLearn: 'Back to Dashboard',
     setupTitle: 'Review Settings',
     setupCount: 'Select sentence count',
+    allCount: (count: number) => `All ${count}`,
     setupMode: 'Select review mode',
     modeQuiz: 'Multiple Choice',
     modeScramble: 'Scramble',
@@ -267,26 +273,13 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
           
           {/* Sentence count */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t.setupCount}</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[5, 10, 20].map((count) => {
-                const isAvailable = initialItems.length >= count;
-                const active = selectedCount === count;
-                return (
-                  <button
-                    key={count}
-                    onClick={() => setSelectedCount(count)}
-                    className={`rounded-xl border py-3 text-sm font-bold transition ${
-                      active
-                        ? 'border-[#3f8d54] bg-[#f4fbf6] text-[#2f7d4a] dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300'
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    {count}
-                  </button>
-                );
-              })}
-            </div>
+            <PracticeCountSelector
+              label={t.setupCount}
+              totalCount={initialItems.length}
+              selectedCount={selectedCount}
+              onSelect={(count) => setSelectedCount(count === 'all' ? initialItems.length : count)}
+              allLabel={t.allCount}
+            />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
           </div>
 
@@ -330,6 +323,8 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
 
   // Active Practice state
   const correctTranslation = (isEnglish ? currentItem?.translation_en : currentItem?.translation) || currentItem?.translation || '';
+  const answeredCount = currentIndex + (isAnswered ? 1 : 0);
+  const incorrectCount = Math.max(0, answeredCount - score);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -341,7 +336,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
           <ArrowLeft className="h-5 w-5" />
         </button>
         <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{currentIndex + 1} / {activeItems.length}</span>
-        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">Score: {score}</span>
+        <PracticeScorePills correct={score} incorrect={incorrectCount} />
       </header>
 
       {/* Progress Bar */}
@@ -352,97 +347,52 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
       {/* Quiz Card */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         {currentItemMode === 'quiz' ? (
-          /* Multiple Choice */
-          <div>
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#2f7d4a] dark:text-emerald-400">{t.modeQuiz}</span>
-              {audioSrc && (
-                <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
-                  <Volume2 className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-            <h2 className="mt-6 text-2xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.sentence}</h2>
-
-            <div className="mt-8 space-y-3">
-              {multipleChoiceOptions.map((option) => {
-                const isSelected = selectedOption === option;
-                const optionIsCorrect = option === correctTranslation;
-                const stateClass = isAnswered
-                  ? optionIsCorrect
-                    ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-300'
-                    : isSelected
-                      ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/30 dark:text-red-300'
-                      : 'border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-500'
-                  : 'border-zinc-200 bg-white text-zinc-900 hover:border-[#9ccfac] hover:bg-[#f4fbf6] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20';
-
-                return (
-                  <button
-                    key={option}
-                    disabled={isAnswered}
-                    onClick={() => selectOption(option)}
-                    className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-base font-bold transition ${stateClass}`}
-                  >
-                    <span>{option}</span>
-                    {isAnswered && optionIsCorrect && <Check className="h-4 w-4" />}
-                    {isAnswered && isSelected && !optionIsCorrect && <X className="h-4 w-4" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <MultipleChoiceQuestion
+            eyebrow={t.modeQuiz}
+            question={<h2 className="text-2xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.sentence}</h2>}
+            options={multipleChoiceOptions}
+            selectedOption={selectedOption}
+            correctOption={correctTranslation}
+            isAnswered={isAnswered}
+            onSelect={selectOption}
+            audioAction={audioSrc ? (
+              <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
+                <Volume2 className="h-5 w-5" />
+              </button>
+            ) : null}
+            variant="embedded"
+          />
         ) : (
-          /* Scramble */
-          <div>
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#2f7d4a] dark:text-emerald-400">{t.modeScramble}</span>
-              {isAnswered && audioSrc && (
+          <>
+            <ScrambleQuestion
+              eyebrow={t.modeScramble}
+              promptLabel={isEnglish ? 'Translate this sentence:' : '이 문장을 완성해 보세요:'}
+              prompt={<h2 className="text-2xl font-bold leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>}
+              answerSlots={selectedWords.map((word, idx) => ({
+                key: `${word}-${idx}`,
+                text: word,
+                type: 'selected' as const,
+                onRemove: () => {
+                  setSelectedWords((prev) => prev.filter((_, i) => i !== idx));
+                  setScramblePool((prev) => [...prev, word]);
+                },
+              }))}
+              availableTokens={scramblePool.map((word, idx) => ({ id: idx, text: word }))}
+              onSelectToken={(token: ScrambleToken) => {
+                setSelectedWords((prev) => [...prev, token.text]);
+                setScramblePool((prev) => prev.filter((_, i) => i !== Number(token.id)));
+              }}
+              isAnswered={isAnswered}
+              result={isAnswered ? (isCorrect ? 'correct' : 'wrong') : null}
+              emptyAnswerText={isEnglish ? 'Build your answer here.' : '여기에 문장을 완성하세요.'}
+              chooseText={isEnglish ? 'Choose words below' : '아래에서 단어를 선택하세요'}
+              audioAction={isAnswered && audioSrc ? (
                 <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
                   <Volume2 className="h-5 w-5" />
                 </button>
-              )}
-            </div>
-            
-            {/* Show translation as prompt */}
-            <p className="mt-6 text-xs font-bold text-zinc-400 dark:text-zinc-500">{isEnglish ? 'Translate this sentence:' : '이 문장을 완성해 보세요:'}</p>
-            <h2 className="mt-2 text-2xl font-bold leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>
-
-            {/* Answer construction zone */}
-            <div className="mt-8 min-h-16 flex flex-wrap gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
-              {selectedWords.map((word, idx) => (
-                <button
-                  key={`${word}-${idx}`}
-                  disabled={isAnswered}
-                  onClick={() => {
-                    setSelectedWords((prev) => prev.filter((_, i) => i !== idx));
-                    setScramblePool((prev) => [...prev, word]);
-                  }}
-                  className="rounded-lg bg-white border border-zinc-200 px-3 py-2 text-sm font-bold shadow-sm transition hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-200"
-                >
-                  {word}
-                </button>
-              ))}
-            </div>
-
-            {/* Word Pool */}
-            {!isAnswered && (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {scramblePool.map((word, idx) => (
-                  <button
-                    key={`${word}-${idx}`}
-                    onClick={() => {
-                      setSelectedWords((prev) => [...prev, word]);
-                      setScramblePool((prev) => prev.filter((_, i) => i !== idx));
-                    }}
-                    className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-3 py-2 text-sm font-bold transition dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200"
-                  >
-                    {word}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Scramble Actions */}
+              ) : null}
+              variant="embedded"
+            />
             {!isAnswered && (
               <div className="mt-8 flex justify-end">
                 <button
@@ -454,7 +404,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
                 </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 

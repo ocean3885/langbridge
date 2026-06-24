@@ -11,12 +11,12 @@ import BundleQuizClient from './BundleQuizClient';
 
 interface BundleQuizPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; count?: string }>;
 }
 
 export default async function BundleQuizPage({ params, searchParams }: BundleQuizPageProps) {
   const { id } = await params;
-  const { mode } = await searchParams;
+  const { mode, count } = await searchParams;
   const [bundle, items, language, user] = await Promise.all([
     getBundle(id),
     listBundleItems(id),
@@ -61,7 +61,8 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
     );
   }
 
-  const sessionItems = filterPracticeItems(quizItems, progress.itemInteractions, effectiveMode, 'quiz');
+  const filteredItems = filterPracticeItems(quizItems, progress.itemInteractions, effectiveMode, 'quiz');
+  const sessionItems = limitPracticeItems(filteredItems, count);
   const initialItemId =
     effectiveMode === 'resume' && progress.currentPracticeItemIds.quiz && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.quiz)
       ? progress.currentPracticeItemIds.quiz
@@ -78,4 +79,9 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
       isLoggedIn={Boolean(user)}
     />
   );
+}
+
+function limitPracticeItems<T>(items: T[], count?: string) {
+  const parsedCount = count ? Number.parseInt(count, 10) : NaN;
+  return Number.isFinite(parsedCount) && parsedCount > 0 ? items.slice(0, parsedCount) : items;
 }

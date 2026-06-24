@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, SkipForward, Trophy, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 
 interface ScrambleItem {
   id: string;
@@ -261,34 +261,47 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
         <div className="h-full rounded-full bg-[#3f8d54] transition-all dark:bg-emerald-500" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <section className="rounded-2xl border border-zinc-100 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-        <p className="text-xs font-black uppercase text-zinc-400 dark:text-zinc-500">{currentIndex + 1} / {items.length}</p>
-        <p className="mt-4 text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
-        <h2 className="mt-3 text-xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{currentItem.translation}</h2>
-      </section>
-
-      <div className={`min-h-24 rounded-2xl border-2 border-dashed p-4 transition ${result === 'correct' ? 'border-emerald-400 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950/60' : result === 'wrong' ? 'border-red-300 bg-red-50 dark:border-red-500 dark:bg-red-950/60' : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'}`}>
-        <div className="flex flex-wrap gap-2">
-          {answerSlots ? (
-            answerSlots.map((slot) => {
-              if (slot.type === 'hint') {
-                return <Token key={`hint-${slot.slotIndex}`} label={slot.word.text} muted />;
-              }
-              if (slot.type === 'user' && slot.word) {
-                return <TokenButton key={`user-${slot.word.id}`} label={slot.word.text} onClick={() => deselectWord(slot.word!)} selected />;
-              }
-              return <span key={`empty-${slot.slotIndex}`} className="h-9 min-w-12 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700" />;
-            })
-          ) : (
-            <AnimatePresence>
-              {selectedWords.map((word) => (
-                <TokenButton key={word.id} label={word.text} onClick={() => deselectWord(word)} selected />
-              ))}
-            </AnimatePresence>
-          )}
-          {!answerSlots && selectedWords.length === 0 && <p className="w-full py-5 text-center text-sm font-semibold text-zinc-400 dark:text-zinc-500">{t.choose}</p>}
-        </div>
-      </div>
+      <ScrambleQuestion
+        eyebrow={`${currentIndex + 1} / ${items.length}`}
+        promptLabel={t.prompt}
+        prompt={<h2 className="text-xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{currentItem.translation}</h2>}
+        answerSlots={
+          answerSlots
+            ? answerSlots.map((slot) => {
+                if (slot.type === 'hint') {
+                  return {
+                    key: `hint-${slot.slotIndex}`,
+                    text: slot.word.text,
+                    type: 'hint' as const,
+                  };
+                }
+                if (slot.type === 'user' && slot.word) {
+                  return {
+                    key: `user-${slot.word.id}`,
+                    text: slot.word.text,
+                    type: 'selected' as const,
+                    onRemove: () => deselectWord(slot.word!),
+                  };
+                }
+                return {
+                  key: `empty-${slot.slotIndex}`,
+                  type: 'empty' as const,
+                };
+              })
+            : selectedWords.map((word) => ({
+                key: `user-${word.id}`,
+                text: word.text,
+                type: 'selected' as const,
+                onRemove: () => deselectWord(word),
+              }))
+        }
+        availableTokens={availableWords.map((word) => ({ id: word.id, text: word.text }))}
+        onSelectToken={(token: ScrambleToken) => selectWord({ id: Number(token.id), text: token.text })}
+        isAnswered={Boolean(result)}
+        result={result}
+        emptyAnswerText={t.choose}
+        chooseText={t.choose}
+      />
 
       {result && (
         <div className={`flex flex-wrap items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
@@ -315,14 +328,6 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
           )}
         </div>
       )}
-
-      <div className="flex min-h-20 flex-wrap justify-center gap-2 rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900">
-        <AnimatePresence>
-          {availableWords.map((word) => (
-            <TokenButton key={word.id} label={word.text} onClick={() => selectWord(word)} />
-          ))}
-        </AnimatePresence>
-      </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="flex justify-start gap-1">
@@ -360,29 +365,6 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
         </button>
       </div>
     </div>
-  );
-}
-
-function TokenButton({ label, onClick, selected = false }: { label: string; onClick: () => void; selected?: boolean }) {
-  return (
-    <motion.button
-      initial={{ scale: 0.85 }}
-      animate={{ scale: 1 }}
-      exit={{ scale: 0.85, opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-sm font-black shadow-sm transition ${selected ? 'bg-[#3f8d54] text-white dark:bg-emerald-600' : 'border border-zinc-200 bg-white text-zinc-900 hover:border-[#9ccfac] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-emerald-700'}`}
-    >
-      {label}
-    </motion.button>
-  );
-}
-
-function Token({ label, muted = false }: { label: string; muted?: boolean }) {
-  return (
-    <span className={`rounded-lg border border-dashed px-3 py-2 text-sm font-black ${muted ? 'border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500' : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'}`}>
-      {label}
-    </span>
   );
 }
 

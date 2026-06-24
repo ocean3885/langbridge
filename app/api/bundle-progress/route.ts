@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     if (
       !bundle_id ||
       !bundle_item_id ||
-      !['quiz', 'scramble', 'wordfill'].includes(practice_mode) ||
+      !['quiz', 'scramble', 'wordfill', 'spelling'].includes(practice_mode) ||
       typeof is_correct !== 'boolean'
     ) {
       return NextResponse.json({ error: '유효한 Practice 결과가 필요합니다.' }, { status: 400 });
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       user.id,
       String(bundle_id),
       String(bundle_item_id),
-      practice_mode as 'quiz' | 'scramble' | 'wordfill',
+      practice_mode as 'quiz' | 'scramble' | 'wordfill' | 'spelling',
       is_correct,
       word_id ? Number(word_id) : null,
     );

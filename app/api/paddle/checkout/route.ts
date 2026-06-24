@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import {
+  getActivePaddlePrice,
+  getCountryCodeFromHeaders,
+  getPaddlePriceIdsForCountry,
+} from '@/lib/paddle/prices';
+import {
   createPaddleCheckoutAttempt,
   getPaddleBillingReference,
   hasCheckoutBlockingSubscription,
@@ -44,12 +49,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Terms acceptance is required' }, { status: 400 });
   }
 
-  const apiKey = process.env.PADDLE_API_KEY;
-  const priceId = billingPeriod === 'annual'
-    ? process.env.NEXT_PUBLIC_PADDLE_PRICE_YEARLY
-    : process.env.NEXT_PUBLIC_PADDLE_PRICE_MONTHLY;
+  const { monthlyPriceId, yearlyPriceId } = getPaddlePriceIdsForCountry(
+    getCountryCodeFromHeaders(request.headers)
+  );
+  const priceId = billingPeriod === 'annual' ? yearlyPriceId : monthlyPriceId;
 
-  if (!apiKey || !priceId) {
+  if (!process.env.PADDLE_API_KEY || !priceId) {
     console.error('Paddle server environment variables are not configured.');
     return NextResponse.json({ error: 'Payment service is not configured' }, { status: 500 });
   }
@@ -79,37 +84,19 @@ export async function POST(request: NextRequest) {
   const apiBaseUrl = isSandbox ? 'https://sandbox-api.paddle.com' : 'https://api.paddle.com';
   const billingReference = await getPaddleBillingReference(user.id);
   const paddleHeaders = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${process.env.PADDLE_API_KEY}`,
     'Content-Type': 'application/json',
     'Paddle-Version': '1',
   };
 
   try {
-    const priceResponse = await fetch(`${apiBaseUrl}/prices/${priceId}`, {
-      headers: paddleHeaders,
-      cache: 'no-store',
-    });
-    const priceResult = await priceResponse.json().catch(() => null) as {
-      data?: {
-        unit_price?: { amount?: string; currency_code?: string };
-        billing_cycle?: { interval?: string; frequency?: number } | null;
-        status?: string;
-      };
-    } | null;
-    const expectedAmount = billingPeriod === 'annual' ? '4000' : '400';
+    const price = await getActivePaddlePrice(priceId);
     const expectedInterval = billingPeriod === 'annual' ? 'year' : 'month';
-    if (
-      !priceResponse.ok ||
-      priceResult?.data?.unit_price?.currency_code !== 'USD' ||
-      priceResult?.data?.unit_price?.amount !== expectedAmount ||
-      priceResult?.data?.billing_cycle?.interval !== expectedInterval ||
-      priceResult?.data?.billing_cycle?.frequency !== 1 ||
-      priceResult?.data?.status !== 'active'
-    ) {
-      console.error('Paddle price configuration mismatch:', priceResult);
+    if (price.interval !== expectedInterval || price.frequency !== 1) {
+      console.error('Paddle price billing cycle mismatch:', price);
       await updatePaddleCheckoutAttemptStatus(attempt.id, 'failed');
       return NextResponse.json(
-        { error: 'Paddle price configuration does not match the displayed price' },
+        { error: 'Paddle price configuration does not match the selected billing period' },
         { status: 500 }
       );
     }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
 
 interface QuizItem {
   id: string;
@@ -177,37 +178,16 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
         <div className="h-full rounded-full bg-[#3f8d54] transition-all dark:bg-emerald-500" style={{ width: `${progress}%` }} />
       </div>
 
-      <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
-        <p className="text-xs font-black uppercase text-zinc-400 dark:text-zinc-500">{index + 1} / {items.length}</p>
-        <p className="mt-4 text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">{t.prompt}</p>
-        <h2 className="mt-3 text-2xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{current.sentence}</h2>
-      </section>
-
-      <div className="space-y-2">
-        {options.map((option) => {
-          const isSelected = selected === option;
-          const optionIsCorrect = option === current.translation;
-          const stateClass = selected
-            ? optionIsCorrect
-              ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-200'
-              : isSelected
-                ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/60 dark:text-red-200'
-                : 'border-zinc-100 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500'
-            : 'border-zinc-100 bg-white text-zinc-900 hover:border-[#9ccfac] hover:bg-[#f4fbf6] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30';
-
-          return (
-            <button
-              key={option}
-              onClick={() => choose(option)}
-              className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${stateClass}`}
-            >
-              <span>{option}</span>
-              {selected && optionIsCorrect && <Check className="h-4 w-4" />}
-              {selected && isSelected && !optionIsCorrect && <X className="h-4 w-4" />}
-            </button>
-          );
-        })}
-      </div>
+      <MultipleChoiceQuestion
+        eyebrow={`${index + 1} / ${items.length}`}
+        prompt={t.prompt}
+        question={<h2 className="text-2xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{current.sentence}</h2>}
+        options={options}
+        selectedOption={selected}
+        correctOption={current.translation}
+        isAnswered={Boolean(selected)}
+        onSelect={choose}
+      />
 
       {selected && (
         <div className={`flex flex-wrap items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${isCorrect ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>

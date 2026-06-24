@@ -159,6 +159,7 @@ const LEARNING_PROGRESS_STARS = {
   quiz: 1,
   scramble: 1,
   wordfill: 1,
+  spelling: 1,
 } satisfies Record<string, number>;
 
 const REVIEW_RECOMMENDATION_LIMIT = 20;
@@ -1294,7 +1295,7 @@ export async function recordBundleItemPractice(
   userId: string,
   bundleId: string,
   bundleItemId: string,
-  mode: 'quiz' | 'scramble' | 'wordfill',
+  mode: 'quiz' | 'scramble' | 'wordfill' | 'spelling',
   isCorrect: boolean,
   wordId?: number | null,
 ) {
@@ -1640,7 +1641,7 @@ function countRowsByBundleId(rows: Array<{ bundle_id?: string | null }>) {
 
 function updatePracticeModeMetadata(
   value: unknown,
-  mode: 'quiz' | 'scramble' | 'wordfill',
+  mode: 'quiz' | 'scramble' | 'wordfill' | 'spelling',
   isCorrect: boolean,
   practicedAt: string,
 ) {
