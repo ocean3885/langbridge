@@ -3,6 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems, listBundleItemsWithDistractors } from '@/lib/supabase/services/bundles';
+import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { getBundleTitle } from '../../bundle-utils';
@@ -67,6 +68,7 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
 
   const filteredItems = filterPracticeItems(spellingItems, progress.itemInteractions, effectiveMode, 'spelling');
   const sessionItems = limitPracticeItems(filteredItems, count);
+  const wordUsageDetails = await listWordUsageDetails(sessionItems.map((item) => item.wordId));
   const initialItemId =
     effectiveMode === 'resume' &&
     progress.currentPracticeItemIds.spelling &&
@@ -79,6 +81,7 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
       bundleId={bundle.id}
       title={title}
       items={sessionItems}
+      wordUsageDetails={wordUsageDetails}
       language={language}
       initialItemId={initialItemId}
       isLoggedIn={Boolean(user)}

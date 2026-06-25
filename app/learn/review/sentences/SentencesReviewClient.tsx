@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
-import { PracticeCountSelector } from '@/components/practice/PracticeCountSelector';
+import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
 import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
 import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/bundle-progress';
@@ -77,7 +77,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
 
   // State
   const [step, setStep] = useState<'setup' | 'practice' | 'finished'>('setup');
-  const [selectedCount, setSelectedCount] = useState<number>(10);
+  const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => initialItems.length >= 10 ? 10 : 'all');
   const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'mixed'>('mixed');
   const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -90,6 +90,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
   const [multipleChoiceOptions, setMultipleChoiceOptions] = useState<string[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const showAllCountOption = availableReviewCount <= initialItems.length;
 
   const currentItem = activeItems[currentIndex];
   const progress = activeItems.length > 0 ? Math.round(((currentIndex) / activeItems.length) * 100) : 0;
@@ -140,7 +141,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
   // Handle start session
   const startSession = () => {
     const shuffled = shuffle(initialItems);
-    const count = Math.min(selectedCount, shuffled.length);
+    const count = selectedCount === 'all' ? shuffled.length : Math.min(selectedCount, shuffled.length);
     setActiveItems(shuffled.slice(0, count));
     setCurrentIndex(0);
     setScore(0);
@@ -277,7 +278,9 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
               label={t.setupCount}
               totalCount={initialItems.length}
               selectedCount={selectedCount}
-              onSelect={(count) => setSelectedCount(count === 'all' ? initialItems.length : count)}
+              onSelect={setSelectedCount}
+              options={[5, 10, 20, 40]}
+              showAll={showAllCountOption}
               allLabel={t.allCount}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>

@@ -3,7 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary, recordBundleStudyAccess } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
-import { listWordsForSentences } from '@/lib/supabase/services/word-sentence-map';
+import { listWordsForSentences, listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import BundlePlayerClient from '../BundlePlayerClient';
 
 interface BundleLearnPageProps {
@@ -34,6 +34,7 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
     getBundleProgressSummary(user?.id, bundle.id, items.length),
     listWordsForSentences(sentenceIds),
   ]);
+  const wordUsageDetails = await listWordUsageDetails(mappedWords.map((word) => word.word_id));
   const wordsBySentenceId = mappedWords.reduce((groups, word) => {
     const words = groups.get(word.sentence_id) || [];
     words.push(word);
@@ -60,6 +61,7 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
       <BundlePlayerClient
         bundle={bundle}
         items={playerItems}
+        wordUsageDetails={wordUsageDetails}
         language={lang}
         user={user}
         initialItemId={initialItemId}

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getReviewNeededSummary, getReviewWords } from '@/lib/supabase/services/bundle-progress';
+import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import WordsReviewClient from './WordsReviewClient';
 
 export const dynamic = 'force-dynamic';
@@ -11,15 +12,17 @@ export default async function WordsReviewPage() {
     redirect('/auth/sign-in?redirectTo=/learn/review/words');
   }
 
-  const [language, reviewItems, reviewNeededSummary] = await Promise.all([
+  const [language, reviewNeededSummary] = await Promise.all([
     getDisplayLanguage(),
-    getReviewWords(user.id, 40), // Fetch up to 40 candidates for user selection (5, 10, 20)
     getReviewNeededSummary(user.id),
   ]);
+  const reviewItems = await getReviewWords(user.id, Math.min(reviewNeededSummary.availableWords, 40));
+  const wordUsageDetails = await listWordUsageDetails(reviewItems.map((item) => item.id));
 
   return (
     <WordsReviewClient
       initialItems={reviewItems}
+      wordUsageDetails={wordUsageDetails}
       availableReviewCount={reviewNeededSummary.availableWords}
       language={language}
     />

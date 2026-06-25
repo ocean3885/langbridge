@@ -1,17 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, RotateCcw, Volume2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, ChevronRight, RotateCcw, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
-import {
-  buildPrefilledSpellingAnswer,
-  getSpellingHint,
-  SpellingScrambleQuestion,
-  splitWordHybrid,
-  type SpellingChunk,
-} from '@/components/practice/SpellingScrambleQuestion';
+import { SpellingScrambleQuestion } from '@/components/practice/SpellingScrambleQuestion';
+import { useSpellingScramble } from '@/components/practice/useSpellingScramble';
+import { WordInfoSheet } from '@/components/words/WordInfoSheet';
+import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
 
 interface BundleSpellingItem {
   id: string;
@@ -27,6 +24,7 @@ interface BundleSpellingClientProps {
   bundleId: string;
   title: string;
   items: BundleSpellingItem[];
+  wordUsageDetails: WordUsageDetail[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
@@ -47,6 +45,14 @@ const copy = {
     done: '스펠링 퀴즈 완료',
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
+    wordInfo: '단어 정보',
+    wordInfoShort: '정보',
+    usedForm: '사용 형태',
+    meaning: '뜻',
+    examples: '사용된 문장',
+    noExamples: '아직 연결된 문장이 없습니다.',
+    close: '닫기',
+    pos: '품사',
     hint: (firstLetter: string, count: number) => `힌트: ${firstLetter} · ${count}글자`,
     listen: '단어 듣기',
   },
@@ -64,40 +70,44 @@ const copy = {
     done: 'Spelling complete',
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
+    wordInfo: 'Word info',
+    wordInfoShort: 'Info',
+    usedForm: 'Used form',
+    meaning: 'Meaning',
+    examples: 'Example sentences',
+    noExamples: 'No linked sentences yet.',
+    close: 'Close',
+    pos: 'POS',
     hint: (firstLetter: string, count: number) => `Hint: ${firstLetter} · ${count} letters`,
     listen: 'Listen',
   },
 };
 
-export default function BundleSpellingClient({ bundleId, title, items, language, initialItemId = null, isLoggedIn }: BundleSpellingClientProps) {
+export default function BundleSpellingClient({ bundleId, title, items, wordUsageDetails, language, initialItemId = null, isLoggedIn }: BundleSpellingClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.bundleItemId === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
-  const [poolChunks, setPoolChunks] = useState<SpellingChunk[]>([]);
-  const [selectedChunks, setSelectedChunks] = useState<SpellingChunk[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isRetryAttempt, setIsRetryAttempt] = useState(false);
+  const [isWordInfoOpen, setIsWordInfoOpen] = useState(false);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const current = items[index];
+  const spelling = useSpellingScramble(current?.word || '');
+  const currentWordDetail = current ? wordUsageDetails.find((detail) => detail.word_id === current.wordId) : null;
   const progress = items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0;
-  const spellingHint = useMemo(() => getSpellingHint(current?.word || ''), [current]);
   const answeredCount = index + (isAnswered ? 1 : 0);
   const incorrectCount = Math.max(0, answeredCount - score);
 
   useEffect(() => {
     if (!current) return;
-    const realChunks = splitWordHybrid(current.word, { prefillFirstLetter: true });
-    setPoolChunks(shuffle(realChunks).map((chunk, chunkIndex) => ({
-      id: chunkIndex,
-      chunk,
-      selected: false,
-    })));
-    setSelectedChunks([]);
     setIsAnswered(false);
     setIsCorrect(null);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
   }, [current]);
 
   useEffect(() => {
@@ -116,19 +126,26 @@ export default function BundleSpellingClient({ bundleId, title, items, language,
 
   const checkAnswer = () => {
     if (!current || isAnswered) return;
-    const constructed = buildPrefilledSpellingAnswer(current.word, selectedChunks.map((chunk) => chunk.chunk));
-    const answerIsCorrect = constructed.toLowerCase().trim() === current.word.toLowerCase().trim();
+    const answerIsCorrect = spelling.checkAnswer();
 
     setIsCorrect(answerIsCorrect);
     setIsAnswered(true);
-    if (answerIsCorrect) {
+    if (answerIsCorrect && !isRetryAttempt) {
       setScore((value) => value + 1);
-      setTimeout(playAudio, 200);
     }
+    setTimeout(playAudio, 200);
 
-    if (isLoggedIn) {
+    if (isLoggedIn && !isRetryAttempt) {
       recordPracticeResult(bundleId, current.bundleItemId, current.wordId, answerIsCorrect);
     }
+  };
+
+  const retryCurrent = () => {
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setIsRetryAttempt(true);
+    setIsWordInfoOpen(false);
+    spelling.reset();
   };
 
   const goNext = () => {
@@ -143,6 +160,9 @@ export default function BundleSpellingClient({ bundleId, title, items, language,
     setIndex(0);
     setScore(0);
     setFinished(false);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
+    spelling.reset();
   };
 
   if (!current) {
@@ -191,18 +211,12 @@ export default function BundleSpellingClient({ bundleId, title, items, language,
         prompt={t.prompt}
         answerPattern={current.word}
         question={<h2 className="text-3xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{current.meaning}</h2>}
-        hint={t.hint(spellingHint.firstLetter, spellingHint.letterCount)}
-        selectedChunks={selectedChunks}
-        poolChunks={poolChunks}
+        hint={t.hint(spelling.hint.firstLetter, spelling.hint.letterCount)}
+        selectedChunks={spelling.selectedChunks}
+        poolChunks={spelling.poolChunks}
         isAnswered={isAnswered}
-        onSelectChunk={(chunk) => {
-          setSelectedChunks((prev) => [...prev, chunk]);
-          setPoolChunks((prev) => prev.map((item) => (item.id === chunk.id ? { ...item, selected: true } : item)));
-        }}
-        onRemoveChunk={(chunk, chunkIndex) => {
-          setSelectedChunks((prev) => prev.filter((_, indexValue) => indexValue !== chunkIndex));
-          setPoolChunks((prev) => prev.map((item) => (item.id === chunk.id ? { ...item, selected: false } : item)));
-        }}
+        onSelectChunk={spelling.selectChunk}
+        onRemoveChunk={spelling.removeChunk}
         audioAction={isAnswered && current.audioUrl ? (
           <button type="button" onClick={playAudio} aria-label={t.listen} title={t.listen} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
             <Volume2 className="h-5 w-5" />
@@ -225,14 +239,58 @@ export default function BundleSpellingClient({ bundleId, title, items, language,
         </div>
       )}
 
-      <button
-        onClick={isAnswered ? goNext : checkAnswer}
-        disabled={!isAnswered && selectedChunks.length === 0}
-        className="ml-auto inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-5 py-3 text-sm font-black text-white transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-      >
-        {isAnswered ? (index + 1 >= items.length ? t.finish : t.next) : t.check}
-        <ChevronRight className="h-4 w-4" />
-      </button>
+      <div className="ml-auto flex flex-wrap justify-end gap-2">
+        {isAnswered && currentWordDetail && (
+          <button
+            type="button"
+            onClick={() => setIsWordInfoOpen(true)}
+            aria-label={t.wordInfo}
+            title={t.wordInfo}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-5 py-3 text-sm font-black text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="sm:hidden">{t.wordInfoShort}</span>
+            <span className="hidden sm:inline">{t.wordInfo}</span>
+          </button>
+        )}
+        {isAnswered && isCorrect === false && (
+          <button
+            type="button"
+            onClick={retryCurrent}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-5 py-3 text-sm font-black text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <RotateCcw className="h-4 w-4" />
+            {t.retry}
+          </button>
+        )}
+        <button
+          onClick={isAnswered ? goNext : checkAnswer}
+          disabled={!isAnswered && !spelling.hasSelection}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-5 py-3 text-sm font-black text-white transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+        >
+          {isAnswered ? (index + 1 >= items.length ? t.finish : t.next) : t.check}
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isAnswered && isWordInfoOpen && currentWordDetail && (
+        <WordInfoSheet
+          selectedWord={currentWordDetail}
+          selectedMapping={null}
+          language={language}
+          copy={{
+            words: t.wordInfo,
+            sheetTitle: t.wordInfo,
+            usedForm: t.usedForm,
+            meaning: t.meaning,
+            examples: t.examples,
+            noExamples: t.noExamples,
+            close: t.close,
+            pos: t.pos,
+          }}
+          onClose={() => setIsWordInfoOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -250,14 +308,6 @@ function Empty({ bundleId, title, text, back }: { bundleId: string; title: strin
   );
 }
 
-function shuffle<T>(values: T[]) {
-  const copy = [...values];
-  for (let index = copy.length - 1; index > 0; index--) {
-    const target = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[target]] = [copy[target], copy[index]];
-  }
-  return copy;
-}
 
 function recordPracticeResult(bundleId: string, bundleItemId: string, wordId: number, isCorrect: boolean) {
   void fetch('/api/bundle-progress', {

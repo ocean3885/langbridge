@@ -2,23 +2,21 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
-import { PracticeCountSelector } from '@/components/practice/PracticeCountSelector';
+import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
 import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
-import {
-  buildPrefilledSpellingAnswer,
-  getSpellingHint,
-  SpellingScrambleQuestion,
-  splitWordHybrid,
-  type SpellingChunk,
-} from '@/components/practice/SpellingScrambleQuestion';
+import { SpellingScrambleQuestion } from '@/components/practice/SpellingScrambleQuestion';
+import { useSpellingScramble } from '@/components/practice/useSpellingScramble';
+import { WordInfoSheet } from '@/components/words/WordInfoSheet';
 import type { ReviewWordItem } from '@/lib/supabase/services/bundle-progress';
+import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
 
 interface WordsReviewClientProps {
   initialItems: ReviewWordItem[];
+  wordUsageDetails: WordUsageDetail[];
   availableReviewCount: number;
   language: 'ko' | 'en';
 }
@@ -47,6 +45,15 @@ const copy = {
     correctAnswer: '정답:',
     doneTitle: '복습을 완료했습니다!',
     doneScore: (score: number, total: number) => `총 ${total}문제 중 ${score}문제를 맞혔습니다!`,
+    retryBtn: '다시 풀기',
+    wordInfo: '단어 정보',
+    wordInfoShort: '정보',
+    usedForm: '사용 형태',
+    meaning: '뜻',
+    examples: '사용된 문장',
+    noExamples: '아직 연결된 문장이 없습니다.',
+    close: '닫기',
+    pos: '품사',
     restartBtn: '다시 복습하기',
     itemsLeft: (count: number) => `전체 복습 후보 단어: ${count}개`,
     knowBtn: '알고 있어요',
@@ -89,6 +96,15 @@ const copy = {
     correctAnswer: 'Correct answer:',
     doneTitle: 'Review Complete!',
     doneScore: (score: number, total: number) => `You answered ${score} of ${total} correctly!`,
+    retryBtn: 'Retry',
+    wordInfo: 'Word info',
+    wordInfoShort: 'Info',
+    usedForm: 'Used form',
+    meaning: 'Meaning',
+    examples: 'Example sentences',
+    noExamples: 'No linked sentences yet.',
+    close: 'Close',
+    pos: 'POS',
     restartBtn: 'Review Again',
     itemsLeft: (count: number) => `${count} word review candidates`,
     knowBtn: 'I know it',
@@ -110,32 +126,35 @@ const copy = {
   },
 };
 
-export default function WordsReviewClient({ initialItems, availableReviewCount, language }: WordsReviewClientProps) {
+export default function WordsReviewClient({ initialItems, wordUsageDetails, availableReviewCount, language }: WordsReviewClientProps) {
   const t = copy[language];
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 
   // State
   const [step, setStep] = useState<'setup' | 'practice' | 'finished'>('setup');
-  const [selectedCount, setSelectedCount] = useState<number>(10);
+  const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => initialItems.length >= 10 ? 10 : 'all');
   const [selectedMode, setSelectedMode] = useState<'quiz' | 'spelling' | 'flashcard' | 'mixed'>('mixed');
   const [activeItems, setActiveItems] = useState<ReviewWordItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   
   // Game Practice States
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [poolChunks, setPoolChunks] = useState<SpellingChunk[]>([]);
-  const [selectedChunks, setSelectedChunks] = useState<SpellingChunk[]>([]);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
   
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
+  const [isRetryAttempt, setIsRetryAttempt] = useState<boolean>(false);
+  const [isWordInfoOpen, setIsWordInfoOpen] = useState<boolean>(false);
   const [score, setScore] = useState<number>(0);
   
   const [multipleChoiceOptions, setMultipleChoiceOptions] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const showAllCountOption = availableReviewCount <= initialItems.length;
 
   const currentItem = activeItems[currentIndex];
+  const spelling = useSpellingScramble(currentItem?.word || '');
+  const currentWordDetail = currentItem ? wordUsageDetails.find((detail) => detail.word_id === currentItem.id) : null;
   const progress = activeItems.length > 0 ? Math.round((currentIndex / activeItems.length) * 100) : 0;
 
   // Sound play helper
@@ -165,19 +184,12 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
 
     setIsCorrect(null);
     setIsAnswered(false);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
     setIsFlipped(false);
     setSelectedOption(null);
-    setSelectedChunks([]);
 
-    if (currentItemMode === 'spelling') {
-      const realChunks = splitWordHybrid(currentItem.word, { prefillFirstLetter: true });
-      const shuffled = shuffle(realChunks).map((chunk, index) => ({
-        id: index,
-        chunk,
-        selected: false,
-      }));
-      setPoolChunks(shuffled);
-    } else if (currentItemMode === 'quiz') {
+    if (currentItemMode === 'quiz') {
       const distractors = buildWordMeaningDistractors(currentItem, initialItems, isEnglish);
       setMultipleChoiceOptions(distractors);
     }
@@ -186,30 +198,33 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   // Handle start session
   const startSession = () => {
     const shuffled = shuffle(initialItems);
-    const count = Math.min(selectedCount, shuffled.length);
+    const count = selectedCount === 'all' ? shuffled.length : Math.min(selectedCount, shuffled.length);
     setActiveItems(shuffled.slice(0, count));
     setCurrentIndex(0);
     setScore(0);
     setIsCorrect(null);
     setIsAnswered(false);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
     setSelectedOption(null);
-    setSelectedChunks([]);
+    spelling.reset();
     setStep('practice');
   };
 
   // Evaluate spelling scramble
   const checkSpelling = () => {
     if (isAnswered) return;
-    const constructed = buildPrefilledSpellingAnswer(currentItem.word, selectedChunks.map(s => s.chunk));
-    const answerIsCorrect = constructed.toLowerCase().trim() === currentItem.word.toLowerCase().trim();
+    const answerIsCorrect = spelling.checkAnswer();
 
     setIsCorrect(answerIsCorrect);
     setIsAnswered(true);
-    if (answerIsCorrect) {
+    if (answerIsCorrect && !isRetryAttempt) {
       setScore((s) => s + 1);
     }
 
-    recordWordResult(currentItem.id, answerIsCorrect, 'spelling');
+    if (!isRetryAttempt) {
+      recordWordResult(currentItem.id, answerIsCorrect, 'spelling');
+    }
 
     setTimeout(() => {
       playAudio();
@@ -261,8 +276,9 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
     }
     setIsCorrect(null);
     setIsAnswered(false);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
     setSelectedOption(null);
-    setSelectedChunks([]);
     setIsFlipped(false);
     setCurrentIndex((prev) => prev + 1);
   };
@@ -270,11 +286,21 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   const restart = () => {
     setIsCorrect(null);
     setIsAnswered(false);
+    setIsRetryAttempt(false);
+    setIsWordInfoOpen(false);
     setSelectedOption(null);
-    setSelectedChunks([]);
     setIsFlipped(false);
     setCurrentIndex(0);
+    spelling.reset();
     setStep('setup');
+  };
+
+  const retryCurrentSpelling = () => {
+    setIsAnswered(false);
+    setIsCorrect(null);
+    setIsRetryAttempt(true);
+    setIsWordInfoOpen(false);
+    spelling.reset();
   };
 
   // Format Parts of Speech display
@@ -344,7 +370,9 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
               label={t.setupCount}
               totalCount={initialItems.length}
               selectedCount={selectedCount}
-              onSelect={(count) => setSelectedCount(count === 'all' ? initialItems.length : count)}
+              onSelect={setSelectedCount}
+              options={[5, 10, 20, 40]}
+              showAll={showAllCountOption}
               allLabel={t.allCount}
             />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
@@ -394,7 +422,6 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
   const posLabel = formatPos(currentItem.pos);
   const meaningWithPos = `${correctMeaning} ${posLabel}`.trim();
   const wrongAnswer = currentItemMode === 'quiz' ? meaningWithPos : currentItem.word;
-  const spellingHint = getSpellingHint(currentItem.word);
   const answeredCount = currentIndex + (isAnswered ? 1 : 0);
   const incorrectCount = Math.max(0, answeredCount - score);
 
@@ -453,18 +480,12 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
                   <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatPos(currentItem.pos)}</span>
                 </div>
               }
-              hint={t.spellingHint(spellingHint.firstLetter, spellingHint.letterCount)}
-              selectedChunks={selectedChunks}
-              poolChunks={poolChunks}
+              hint={t.spellingHint(spelling.hint.firstLetter, spelling.hint.letterCount)}
+              selectedChunks={spelling.selectedChunks}
+              poolChunks={spelling.poolChunks}
               isAnswered={isAnswered}
-              onSelectChunk={(item) => {
-                setSelectedChunks((prev) => [...prev, item]);
-                setPoolChunks((prev) => prev.map((chunk) => (chunk.id === item.id ? { ...chunk, selected: true } : chunk)));
-              }}
-              onRemoveChunk={(item, index) => {
-                setSelectedChunks((prev) => prev.filter((_, chunkIndex) => chunkIndex !== index));
-                setPoolChunks((prev) => prev.map((chunk) => (chunk.id === item.id ? { ...chunk, selected: false } : chunk)));
-              }}
+              onSelectChunk={spelling.selectChunk}
+              onRemoveChunk={spelling.removeChunk}
               audioAction={isAnswered && audioSrc ? (
                 <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
                   <Volume2 className="h-5 w-5" />
@@ -475,7 +496,7 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
             {!isAnswered && (
               <div className="mt-8 flex justify-end">
                 <button
-                  disabled={selectedChunks.length === 0}
+                  disabled={!spelling.hasSelection}
                   onClick={checkSpelling}
                   className="rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 >
@@ -574,7 +595,30 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            {currentItemMode === 'spelling' && currentWordDetail && (
+              <button
+                type="button"
+                onClick={() => setIsWordInfoOpen(true)}
+                aria-label={t.wordInfo}
+                title={t.wordInfo}
+                className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="sm:hidden">{t.wordInfoShort}</span>
+                <span className="hidden sm:inline">{t.wordInfo}</span>
+              </button>
+            )}
+            {currentItemMode === 'spelling' && isCorrect === false && (
+              <button
+                type="button"
+                onClick={retryCurrentSpelling}
+                className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t.retryBtn}
+              </button>
+            )}
             <button
               onClick={goNext}
               className="inline-flex items-center gap-2 rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
@@ -584,6 +628,25 @@ export default function WordsReviewClient({ initialItems, availableReviewCount, 
             </button>
           </div>
         </div>
+      )}
+
+      {isAnswered && currentItemMode === 'spelling' && isWordInfoOpen && currentWordDetail && (
+        <WordInfoSheet
+          selectedWord={currentWordDetail}
+          selectedMapping={null}
+          language={language}
+          copy={{
+            words: t.wordInfo,
+            sheetTitle: t.wordInfo,
+            usedForm: t.usedForm,
+            meaning: t.meaning,
+            examples: t.examples,
+            noExamples: t.noExamples,
+            close: t.close,
+            pos: t.pos,
+          }}
+          onClose={() => setIsWordInfoOpen(false)}
+        />
       )}
     </div>
   );

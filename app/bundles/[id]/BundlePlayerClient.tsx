@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { getPublicUrl } from '@/lib/utils';
 import { formatWordMeaning } from '@/lib/word-meaning';
+import { WordUsageBadges } from '@/components/words/WordUsageBadges';
+import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +38,7 @@ import { estimateBundleMinutes } from '../bundle-utils';
 interface BundlePlayerClientProps {
   bundle: any;
   items: any[];
+  wordUsageDetails?: WordUsageDetail[];
   language?: 'ko' | 'en';
   user?: any;
   initialItemId?: string | null;
@@ -63,6 +66,12 @@ const translations = {
     spelling: 'Spelling',
     keyWords: '핵심 단어',
     noKeywords: '연결된 핵심 단어가 없습니다.',
+    sheetTitle: '단어 정보',
+    usedForm: '사용 형태',
+    meaning: '뜻',
+    examples: '사용된 문장',
+    close: '닫기',
+    pos: '품사',
     previous: '이전',
     next: '다음',
     first: '첫 문장',
@@ -88,6 +97,12 @@ const translations = {
     spelling: 'Spelling',
     keyWords: 'Key Words',
     noKeywords: 'No related key words.',
+    sheetTitle: 'Word info',
+    usedForm: 'Used form',
+    meaning: 'Meaning',
+    examples: 'Example sentences',
+    close: 'Close',
+    pos: 'POS',
     previous: 'Previous',
     next: 'Next',
     first: 'First sentence',
@@ -104,6 +119,7 @@ const translations = {
 export default function BundlePlayerClient({
   bundle,
   items,
+  wordUsageDetails = [],
   language = 'ko',
   user,
   initialItemId = null,
@@ -127,6 +143,7 @@ export default function BundlePlayerClient({
   const audioSrc = getPublicUrl(currentItem?.audio_url || currentItem?.sentences?.audio_url || currentItem?.words?.audio_url);
   const imageSrc = currentItem?.image_url || bundle.image_url || bundle.thumbnail_url || '/images/bundle-fallback.webp';
   const keywords = useMemo(() => getKeywords(currentItem, language), [currentItem, language]);
+  const mappedWords = Array.isArray(currentItem?.mapped_words) ? currentItem.mapped_words : [];
   const isConversationBundle = bundle.bundle_type?.code === 'conversation';
   const hasSpeakerInfo = isConversationBundle && Boolean(
     currentItem?.speaker_name || currentItem?.speaker_role || currentItem?.speaker_key
@@ -396,7 +413,24 @@ export default function BundlePlayerClient({
               </span>
             </div>
             <div className="flex flex-wrap gap-2 border-t border-zinc-100 px-4 pb-4 pt-3 dark:border-zinc-800">
-              {keywords.length > 0 ? (
+              {mappedWords.length > 0 ? (
+                <WordUsageBadges
+                  words={mappedWords}
+                  details={wordUsageDetails}
+                  language={language}
+                  className="w-full"
+                  copy={{
+                    words: t.keyWords,
+                    sheetTitle: t.sheetTitle,
+                    usedForm: t.usedForm,
+                    meaning: t.meaning,
+                    examples: t.examples,
+                    noExamples: t.noKeywords,
+                    close: t.close,
+                    pos: t.pos,
+                  }}
+                />
+              ) : keywords.length > 0 ? (
                 keywords.map((keyword) => (
                   <span key={`${keyword.word}-${keyword.meaning}`} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-bold text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
                     {keyword.word}

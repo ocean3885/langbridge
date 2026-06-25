@@ -11,11 +11,11 @@ export default async function SentencesReviewPage() {
     redirect('/auth/sign-in?redirectTo=/learn/review/sentences');
   }
 
-  const [language, reviewItems, reviewNeededSummary] = await Promise.all([
+  const [language, reviewNeededSummary] = await Promise.all([
     getDisplayLanguage(),
-    getReviewSentences(user.id, 40), // Fetch up to 40 candidates for user selection (5, 10, 20)
     getReviewNeededSummary(user.id),
   ]);
+  const reviewItems = await getReviewSentences(user.id, Math.min(reviewNeededSummary.availableSentences, 40));
 
   return (
     <SentencesReviewClient

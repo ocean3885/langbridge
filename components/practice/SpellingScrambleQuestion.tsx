@@ -124,43 +124,53 @@ function SpellingSlots({
   const characters = Array.from(answerPattern.trim());
   const prefilledIndex = getFirstNonSpaceIndex(characters);
   let selectedIndex = 0;
+  const slots: ReactNode[] = [];
+
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
+
+    if (character === ' ') {
+      slots.push(<span key={`space-${index}`} className="mx-1 h-10 w-3" />);
+      continue;
+    }
+
+    if (index === prefilledIndex) {
+      slots.push(
+        <span key={`prefilled-${index}`} className="flex h-11 min-w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-base font-black text-emerald-700 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+          {character}
+        </span>
+      );
+      continue;
+    }
+
+    const chunk = selectedChunks[selectedIndex];
+    const chunkIndex = selectedIndex;
+    selectedIndex++;
+
+    if (!chunk) {
+      slots.push(<span key={`empty-${index}`} className="h-11 min-w-10 rounded-lg border border-dashed border-zinc-300 bg-white/60 dark:border-zinc-700 dark:bg-zinc-900/60" />);
+      continue;
+    }
+
+    slots.push(
+      <button
+        key={`${chunk.chunk}-${chunk.id}-${index}`}
+        type="button"
+        disabled={isAnswered}
+        onClick={() => onRemoveChunk(chunk, chunkIndex)}
+        className="flex h-11 min-w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-base font-black text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-default dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        {chunk.chunk}
+      </button>
+    );
+
+    index += Math.max(0, Array.from(chunk.chunk).length - 1);
+  }
 
   return (
     <div className="mt-8 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
       <div className="flex min-h-16 flex-wrap items-center gap-2">
-        {characters.map((character, index) => {
-          if (character === ' ') {
-            return <span key={`space-${index}`} className="mx-1 h-10 w-3" />;
-          }
-
-          if (index === prefilledIndex) {
-            return (
-              <span key={`prefilled-${index}`} className="flex h-11 min-w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-base font-black text-emerald-700 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
-                {character}
-              </span>
-            );
-          }
-
-          const chunk = selectedChunks[selectedIndex];
-          const chunkIndex = selectedIndex;
-          selectedIndex++;
-
-          if (!chunk) {
-            return <span key={`empty-${index}`} className="h-11 min-w-10 rounded-lg border border-dashed border-zinc-300 bg-white/60 dark:border-zinc-700 dark:bg-zinc-900/60" />;
-          }
-
-          return (
-            <button
-              key={`${chunk.chunk}-${chunk.id}-${index}`}
-              type="button"
-              disabled={isAnswered}
-              onClick={() => onRemoveChunk(chunk, chunkIndex)}
-              className="flex h-11 min-w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-base font-black text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-default dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              {chunk.chunk}
-            </button>
-          );
-        })}
+        {slots}
       </div>
     </div>
   );
@@ -178,27 +188,121 @@ export function getSpellingHint(word: string) {
 }
 
 export function splitWordHybrid(word: string, options: { prefillFirstLetter?: boolean } = {}): string[] {
-  const characters = Array.from(word.trim());
-  const prefilledIndex = options.prefillFirstLetter ? getFirstNonSpaceIndex(characters) : -1;
+  const chunks = word
+    .trim()
+    .split(/\s+/)
+    .flatMap((token) => splitTokenForSpelling(token));
 
-  return characters.filter((character, index) => index !== prefilledIndex && character !== ' ');
+  if (!options.prefillFirstLetter) return chunks;
+
+  let removedPrefilledLetter = false;
+  return chunks.flatMap((chunk) => {
+    if (removedPrefilledLetter) return [chunk];
+
+    const characters = Array.from(chunk);
+    const firstLetterIndex = getFirstNonSpaceIndex(characters);
+    if (firstLetterIndex < 0) return [chunk];
+
+    removedPrefilledLetter = true;
+    const remaining = characters.filter((_, index) => index !== firstLetterIndex).join('');
+    return remaining ? [remaining] : [];
+  });
 }
 
 export function buildPrefilledSpellingAnswer(word: string, chunks: string[]) {
   const characters = Array.from(word.trim());
   const prefilledIndex = getFirstNonSpaceIndex(characters);
   let chunkIndex = 0;
+  const answer: string[] = [];
 
-  return characters.map((character, index) => {
-    if (index === prefilledIndex) return character;
-    if (character === ' ') return character;
-    return chunks[chunkIndex++] || '';
-  }).join('');
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index];
+
+    if (index === prefilledIndex || character === ' ') {
+      answer.push(character);
+      continue;
+    }
+
+    const chunk = chunks[chunkIndex++] || '';
+    answer.push(chunk);
+    index += Math.max(0, Array.from(chunk).length - 1);
+  }
+
+  return answer.join('');
 }
 
 function getFirstNonSpaceIndex(characters: string[]) {
   const index = characters.findIndex((character) => character.trim().length > 0);
   return index >= 0 ? index : 0;
+}
+
+function splitTokenForSpelling(token: string) {
+  const characters = Array.from(token.trim());
+  if (characters.length <= 5) return characters;
+
+  const syllables = splitSpanishLikeSyllables(characters);
+  if (syllables.length <= 1) return splitIntoBalancedChunks(characters, characters.length >= 9 ? 3 : 2);
+
+  return syllables.flatMap((syllable) => (
+    Array.from(syllable).length <= 4 ? [syllable] : splitIntoBalancedChunks(Array.from(syllable), 3)
+  ));
+}
+
+function splitSpanishLikeSyllables(characters: string[]) {
+  const nuclei = characters
+    .map((character, index) => isVowel(character) ? index : -1)
+    .filter((index) => index >= 0);
+
+  if (nuclei.length <= 1) return [];
+
+  const boundaries = [0];
+  for (let index = 0; index < nuclei.length - 1; index += 1) {
+    const previousNucleus = nuclei[index];
+    const nextNucleus = nuclei[index + 1];
+    const consonantStart = previousNucleus + 1;
+    const consonantCount = nextNucleus - consonantStart;
+
+    if (consonantCount <= 0) {
+      boundaries.push(nextNucleus);
+      continue;
+    }
+
+    if (consonantCount === 1) {
+      boundaries.push(consonantStart);
+      continue;
+    }
+
+    const cluster = characters.slice(consonantStart, nextNucleus).join('').toLowerCase();
+    const trailingCluster = cluster.slice(-2);
+
+    if (consonantCount === 2) {
+      boundaries.push(canStartSpanishSyllable(cluster) ? consonantStart : consonantStart + 1);
+    } else {
+      boundaries.push(canStartSpanishSyllable(trailingCluster) ? nextNucleus - 2 : nextNucleus - 1);
+    }
+  }
+
+  boundaries.push(characters.length);
+
+  return boundaries.slice(0, -1).map((start, index) => (
+    characters.slice(start, boundaries[index + 1]).join('')
+  )).filter(Boolean);
+}
+
+function splitIntoBalancedChunks(characters: string[], targetSize: number) {
+  const chunks: string[] = [];
+  for (let index = 0; index < characters.length; index += targetSize) {
+    chunks.push(characters.slice(index, index + targetSize).join(''));
+  }
+  return chunks;
+}
+
+function isVowel(character: string) {
+  return /[aeiouáéíóúü]/i.test(character);
+}
+
+function canStartSpanishSyllable(cluster: string) {
+  return ['bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'pl', 'pr', 'tr'].includes(cluster);
 }
 
 export function generateSpellingDistractors(realChunks: string[], langCode: string): string[] {

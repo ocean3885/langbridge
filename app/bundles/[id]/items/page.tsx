@@ -8,9 +8,9 @@ import { listUserSentenceInteractions } from '@/lib/supabase/services/user-inter
 import { listWordsForSentences, listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { getPublicUrl } from '@/lib/utils';
+import { WordUsageBadges } from '@/components/words/WordUsageBadges';
 import { getBundleDescription, getBundleTitle } from '../../bundle-utils';
 import ItemActions from './ItemActions';
-import WordUsageSheet from './WordUsageSheet';
 
 interface BundleItemsPageProps {
   params: Promise<{ id: string }>;
@@ -162,7 +162,7 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                       <h2 className="text-lg font-bold leading-8 text-zinc-950 dark:text-zinc-50 md:text-xl">{sentence}</h2>
                       <p className="mt-1 text-base font-medium leading-7 text-zinc-600 dark:text-zinc-300">{translation}</p>
                       {words.length > 0 && (
-                        <WordUsageSheet
+                        <WordUsageBadges
                           words={words}
                           details={wordUsageDetails}
                           language={language}

@@ -8,6 +8,7 @@ interface PracticeCountSelectorProps {
   selectedCount: PracticeCountValue;
   onSelect: (count: PracticeCountValue) => void;
   options?: number[];
+  showAll?: boolean;
   allLabel: (count: number) => string;
 }
 
@@ -17,9 +18,10 @@ export function PracticeCountSelector({
   selectedCount,
   onSelect,
   options = [5, 10, 20],
+  showAll = true,
   allLabel,
 }: PracticeCountSelectorProps) {
-  const visibleOptions = options.filter((option) => option <= totalCount);
+  const visibleOptions = options.filter((option) => showAll ? option < totalCount : option <= totalCount);
 
   return (
     <div className="space-y-2">
@@ -39,7 +41,7 @@ export function PracticeCountSelector({
             {option}
           </button>
         ))}
-        {totalCount > 0 && (
+        {showAll && totalCount > 0 && (
           <button
             type="button"
             onClick={() => onSelect('all')}

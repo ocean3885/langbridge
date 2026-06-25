@@ -163,9 +163,6 @@ const LEARNING_PROGRESS_STARS = {
 } satisfies Record<string, number>;
 
 const REVIEW_RECOMMENDATION_LIMIT = 20;
-const REVIEW_FALLBACK_ITEM_LIMIT = 80;
-const REVIEW_FALLBACK_BUNDLE_LIMIT = 8;
-const REVIEW_FALLBACK_ITEMS_PER_BUNDLE = 4;
 
 export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
   const supabase = createAdminClient();
@@ -272,6 +269,7 @@ export interface ReviewSentenceItem {
 
 export async function getReviewSentences(userId: string, limit: number = 20): Promise<ReviewSentenceItem[]> {
   const supabase = createAdminClient();
+  if (limit <= 0) return [];
   const normalizedLimit = Math.max(1, limit);
 
   const { data: interactions, error: interactionError } = await supabase
@@ -299,7 +297,7 @@ export async function getReviewSentences(userId: string, limit: number = 20): Pr
 
   if (interactionError) {
     console.error('Error fetching review sentences interactions:', interactionError);
-    return getFallbackReviewSentences(supabase, userId, new Set(), new Set(), normalizedLimit);
+    return [];
   }
 
   const primaryInteractions = interactions || [];
@@ -346,199 +344,7 @@ export async function getReviewSentences(userId: string, limit: number = 20): Pr
     }
   }
 
-  if (primaryItems.length >= normalizedLimit) {
-    return primaryItems.slice(0, normalizedLimit);
-  }
-
-  const seenSentenceIds = new Set(primaryItems.map((item) => item.id));
-  const seenBundleItemIds = new Set(primaryItems.map((item) => item.bundle_item_id));
-  const fallbackItems = await getFallbackReviewSentences(
-    supabase,
-    userId,
-    seenSentenceIds,
-    seenBundleItemIds,
-    normalizedLimit - primaryItems.length,
-  );
-
-  return [...primaryItems, ...fallbackItems].slice(0, normalizedLimit);
-}
-
-async function getFallbackReviewSentences(
-  supabase: ReturnType<typeof createAdminClient>,
-  userId: string,
-  seenSentenceIds: Set<number>,
-  seenBundleItemIds: Set<string>,
-  limit: number,
-): Promise<ReviewSentenceItem[]> {
-  if (limit <= 0) return [];
-
-  const bundleItemIds = await getFallbackReviewBundleItemIds(supabase, userId, seenBundleItemIds, REVIEW_FALLBACK_ITEM_LIMIT);
-  return getReviewSentenceItemsFromBundleItemIds(supabase, bundleItemIds, seenSentenceIds, limit);
-}
-
-async function getFallbackReviewBundleItemIds(
-  supabase: ReturnType<typeof createAdminClient>,
-  userId: string,
-  seenBundleItemIds: Set<string>,
-  limit: number,
-) {
-  const fallbackIds: string[] = [];
-  const addBundleItemId = (value: string | null | undefined) => {
-    if (!value || seenBundleItemIds.has(value) || fallbackIds.includes(value)) return;
-    fallbackIds.push(value);
-  };
-
-  const { data: practicedRows, error: practicedError } = await supabase
-    .from('user_bundle_item_interactions')
-    .select('bundle_item_id, last_practiced_at, created_at')
-    .eq('user_id', userId)
-    .order('last_practiced_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .limit(Math.max(limit, REVIEW_FALLBACK_ITEM_LIMIT));
-
-  if (practicedError) {
-    console.error('Error fetching fallback practiced bundle items:', practicedError);
-  }
-
-  for (const row of practicedRows || []) {
-    addBundleItemId(row.bundle_item_id);
-    if (fallbackIds.length >= limit) return fallbackIds;
-  }
-
-  const remaining = limit - fallbackIds.length;
-  if (remaining <= 0) return fallbackIds;
-
-  const recentActivityIds = await getRecentBundleActivityItemIds(
-    supabase,
-    userId,
-    new Set([...seenBundleItemIds, ...fallbackIds]),
-    remaining,
-  );
-
-  for (const id of recentActivityIds) {
-    addBundleItemId(id);
-    if (fallbackIds.length >= limit) break;
-  }
-
-  return fallbackIds;
-}
-
-async function getRecentBundleActivityItemIds(
-  supabase: ReturnType<typeof createAdminClient>,
-  userId: string,
-  seenBundleItemIds: Set<string>,
-  limit: number,
-) {
-  const { data: interactions, error: interactionError } = await supabase
-    .from('user_bundle_interactions')
-    .select('bundle_id, current_bundle_item_id, last_studied_at')
-    .eq('user_id', userId)
-    .eq('is_started', true)
-    .not('last_studied_at', 'is', null)
-    .order('last_studied_at', { ascending: false })
-    .limit(REVIEW_FALLBACK_BUNDLE_LIMIT);
-
-  if (interactionError) {
-    console.error('Error fetching fallback bundle interactions:', interactionError);
-    return [];
-  }
-
-  const bundleIds = Array.from(new Set((interactions || []).map((interaction) => interaction.bundle_id).filter(Boolean)));
-  if (bundleIds.length === 0) return [];
-
-  const { data: bundleItems, error: itemError } = await supabase
-    .from('bundle_items')
-    .select('id, bundle_id, order_index, sentence_id')
-    .in('bundle_id', bundleIds)
-    .order('order_index', { ascending: true });
-
-  if (itemError) {
-    console.error('Error fetching fallback bundle activity items:', itemError);
-    return [];
-  }
-
-  const itemsByBundleId = (bundleItems || []).reduce<Map<string, any[]>>((itemsByBundle, item) => {
-    const currentItems = itemsByBundle.get(item.bundle_id) || [];
-    currentItems.push(item);
-    itemsByBundle.set(item.bundle_id, currentItems);
-    return itemsByBundle;
-  }, new Map());
-
-  const fallbackIds: string[] = [];
-  for (const interaction of interactions || []) {
-    const items = itemsByBundleId.get(interaction.bundle_id) || [];
-    const currentIndex = interaction.current_bundle_item_id
-      ? items.findIndex((item) => item.id === interaction.current_bundle_item_id)
-      : -1;
-    const startIndex = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : 0;
-    const candidates = items.slice(startIndex, startIndex + REVIEW_FALLBACK_ITEMS_PER_BUNDLE);
-
-    for (const item of candidates) {
-      if (!item.sentence_id || seenBundleItemIds.has(item.id) || fallbackIds.includes(item.id)) continue;
-      fallbackIds.push(item.id);
-      if (fallbackIds.length >= limit) return fallbackIds;
-    }
-  }
-
-  return fallbackIds;
-}
-
-async function getReviewSentenceItemsFromBundleItemIds(
-  supabase: ReturnType<typeof createAdminClient>,
-  bundleItemIds: string[],
-  seenSentenceIds: Set<number>,
-  limit: number,
-): Promise<ReviewSentenceItem[]> {
-  if (bundleItemIds.length === 0 || limit <= 0) return [];
-
-  const { data: bundleItems, error } = await supabase
-    .from('bundle_items')
-    .select(`
-      id,
-      bundle_id,
-      sentence_id,
-      sentences (
-        id,
-        sentence,
-        translation,
-        translation_en,
-        audio_url
-      )
-    `)
-    .in('id', bundleItemIds);
-
-  if (error) {
-    console.error('Error fetching fallback review sentence items:', error);
-    return [];
-  }
-
-  const itemById = new Map((bundleItems || []).map((item) => [String(item.id), item]));
-  const fallbackItems: ReviewSentenceItem[] = [];
-
-  for (const bundleItemId of bundleItemIds) {
-    const item = itemById.get(bundleItemId);
-    const sentence = normalizeSingleRelation(item?.sentences);
-    const sentenceId = Number(sentence?.id || item?.sentence_id || 0);
-    if (!item || !sentence || !sentenceId || seenSentenceIds.has(sentenceId)) continue;
-
-    seenSentenceIds.add(sentenceId);
-    fallbackItems.push({
-      id: sentenceId,
-      sentence: sentence.sentence,
-      translation: sentence.translation,
-      translation_en: sentence.translation_en || null,
-      audio_url: sentence.audio_url || null,
-      bundle_id: item.bundle_id,
-      bundle_item_id: item.id,
-      proficiency_level: 1,
-      incorrect_count: 0,
-      streak_count: 0,
-    });
-
-    if (fallbackItems.length >= limit) break;
-  }
-
-  return fallbackItems;
+  return primaryItems.slice(0, normalizedLimit);
 }
 
 async function calculateLearningProgressSummaryFromInteractions(
@@ -1709,135 +1515,9 @@ export interface ReviewWordItem {
   distractors?: Array<{ distractor: string; meaning_ko: string | null; meaning_en: string | null }>;
 }
 
-async function getFallbackReviewWords(
-  supabase: ReturnType<typeof createAdminClient>,
-  userId: string,
-  seenWordIds: Set<number>,
-  limit: number,
-  formatWordMeaning: (value: string | null | undefined) => string | null,
-): Promise<ReviewWordItem[]> {
-  if (limit <= 0) return [];
-
-  const sentenceIds = await getFallbackReviewSentenceIds(supabase, userId, new Set(), REVIEW_FALLBACK_ITEM_LIMIT);
-  return getReviewWordItemsFromSentenceIds(supabase, sentenceIds, seenWordIds, limit, formatWordMeaning);
-}
-
-async function getFallbackReviewSentenceIds(
-  supabase: ReturnType<typeof createAdminClient>,
-  userId: string,
-  seenSentenceIds: Set<number>,
-  limit: number,
-) {
-  const bundleItemIds = await getFallbackReviewBundleItemIds(supabase, userId, new Set(), REVIEW_FALLBACK_ITEM_LIMIT);
-  if (bundleItemIds.length === 0 || limit <= 0) return [];
-
-  const { data: bundleItems, error } = await supabase
-    .from('bundle_items')
-    .select('id, sentence_id')
-    .in('id', bundleItemIds);
-
-  if (error) {
-    console.error('Error fetching fallback review word sentence IDs:', error);
-    return [];
-  }
-
-  const itemById = new Map((bundleItems || []).map((item) => [String(item.id), item]));
-  const sentenceIds: number[] = [];
-
-  for (const bundleItemId of bundleItemIds) {
-    const sentenceId = Number(itemById.get(bundleItemId)?.sentence_id || 0);
-    if (!sentenceId || seenSentenceIds.has(sentenceId)) continue;
-
-    seenSentenceIds.add(sentenceId);
-    sentenceIds.push(sentenceId);
-    if (sentenceIds.length >= limit) break;
-  }
-
-  return sentenceIds;
-}
-
-async function getReviewWordItemsFromSentenceIds(
-  supabase: ReturnType<typeof createAdminClient>,
-  sentenceIds: number[],
-  seenWordIds: Set<number>,
-  limit: number,
-  formatWordMeaning: (value: string | null | undefined) => string | null,
-): Promise<ReviewWordItem[]> {
-  if (sentenceIds.length === 0 || limit <= 0) return [];
-
-  const { data: mappings, error } = await supabase
-    .from('word_sentence_map')
-    .select(`
-      sentence_id,
-      word_id,
-      words (
-        id,
-        word,
-        lang_code,
-        meaning_ko,
-        meaning_en,
-        pos,
-        audio_url,
-        words_distractor (
-          distractor,
-          meaning_ko,
-          meaning_en
-        )
-      )
-    `)
-    .in('sentence_id', sentenceIds);
-
-  if (error) {
-    console.error('Error fetching fallback review words:', error);
-    return [];
-  }
-
-  const mappingsBySentenceId = (mappings || []).reduce<Map<number, any[]>>((mappingBySentence, mapping) => {
-    const sentenceId = Number(mapping.sentence_id);
-    const currentMappings = mappingBySentence.get(sentenceId) || [];
-    currentMappings.push(mapping);
-    mappingBySentence.set(sentenceId, currentMappings);
-    return mappingBySentence;
-  }, new Map());
-
-  const fallbackItems: ReviewWordItem[] = [];
-  for (const sentenceId of sentenceIds) {
-    const sentenceMappings = mappingsBySentenceId.get(sentenceId) || [];
-
-    for (const mapping of sentenceMappings) {
-      const word = normalizeSingleRelation(mapping.words);
-      const wordId = Number(word?.id || mapping.word_id || 0);
-      if (!word || !wordId || seenWordIds.has(wordId)) continue;
-
-      const rawDistractors = Array.isArray(word.words_distractor) ? word.words_distractor : [];
-      seenWordIds.add(wordId);
-      fallbackItems.push({
-        id: wordId,
-        word: word.word,
-        lang_code: word.lang_code,
-        meaning_ko: formatWordMeaning(word.meaning_ko),
-        meaning_en: formatWordMeaning(word.meaning_en),
-        pos: Array.isArray(word.pos) ? word.pos : [],
-        audio_url: word.audio_url || null,
-        proficiency_level: 1,
-        incorrect_count: 0,
-        streak_count: 0,
-        distractors: rawDistractors.map((d: any) => ({
-          distractor: d.distractor,
-          meaning_ko: d.meaning_ko,
-          meaning_en: d.meaning_en,
-        })),
-      });
-
-      if (fallbackItems.length >= limit) return fallbackItems;
-    }
-  }
-
-  return fallbackItems;
-}
-
 export async function getReviewWords(userId: string, limit: number = 20): Promise<ReviewWordItem[]> {
   const supabase = createAdminClient();
+  if (limit <= 0) return [];
   const normalizedLimit = Math.max(1, limit);
 
   const { data: interactions, error: interactionError } = await supabase
@@ -1872,8 +1552,7 @@ export async function getReviewWords(userId: string, limit: number = 20): Promis
 
   if (interactionError) {
     console.error('Error fetching review words interactions:', interactionError);
-    const { formatWordMeaning } = await import('@/lib/word-meaning');
-    return getFallbackReviewWords(supabase, userId, new Set(), normalizedLimit, formatWordMeaning);
+    return [];
   }
 
   const { formatWordMeaning } = await import('@/lib/word-meaning');
@@ -1903,20 +1582,7 @@ export async function getReviewWords(userId: string, limit: number = 20): Promis
     }];
   });
 
-  if (primaryItems.length >= normalizedLimit) {
-    return primaryItems.slice(0, normalizedLimit);
-  }
-
-  const seenWordIds = new Set(primaryItems.map((item) => item.id));
-  const fallbackItems = await getFallbackReviewWords(
-    supabase,
-    userId,
-    seenWordIds,
-    normalizedLimit - primaryItems.length,
-    formatWordMeaning,
-  );
-
-  return [...primaryItems, ...fallbackItems].slice(0, normalizedLimit);
+  return primaryItems.slice(0, normalizedLimit);
 }
 
 export async function recordWordReviewResult(
