@@ -32,16 +32,16 @@ const translations = {
     aboutHolaLingo: 'About HolaLingo',
     ourStory: 'Our Story',
     blog: 'Blog',
-    terms: '이용약관',
-    refund: '환불정책',
+    terms: 'Terms',
+    refund: 'Refund Policy',
     privacy: 'Privacy',
     cookie: 'Cookie',
     help: 'Help',
-    company: '랭브릿지(langbridge)',
+    company: 'langbridge',
     businessNumber: '264-34-01855',
-    phone: '+82 10-4005-6256',
-    representative: '대표 박희복',
-    address: '부산광역시 사상구 삼덕로 39, 102호',
+    email: 'pheebok6256@gmail.com',
+    representative: 'Park Heebok',
+    address: '39 Samdeok-ro, Sasang-gu, Republic of Korea',
   },
   en: {
     tagline: 'Learn Spanish, the cozy way.',
@@ -72,9 +72,9 @@ const translations = {
     help: 'Help',
     company: 'langbridge',
     businessNumber: '264-34-01855',
-    phone: '+82 10-4005-6256',
+    email: 'pheebok6256@gmail.com',
     representative: 'Park Heebok',
-    address: '102, 39 Samdeok-ro, Sasang-gu, Republic of Korea',
+    address: '39 Samdeok-ro, Sasang-gu, Republic of Korea',
   }
 };
 
@@ -142,7 +142,7 @@ export default function Footer({ language = 'ko' }: Props) {
                 <Youtube size={18} />
               </a>
               <a
-                href="mailto:ocean3885@gmail.com"
+                href="mailto:pheebok6256@gmail.com"
                 className="w-9 h-9 rounded-full bg-[#2a3f31] hover:bg-[#34513e] flex items-center justify-center text-[#eae6df] hover:text-white transition-colors border border-white/5"
                 aria-label="Email"
               >
@@ -189,7 +189,7 @@ export default function Footer({ language = 'ko' }: Props) {
                 <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.helpCenter}</Link></li>
                 <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.roadmap}</Link></li>
                 <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.feedback}</Link></li>
-                <li><a href="mailto:ocean3885@gmail.com" className="hover:text-white hover:underline transition-colors">{t.contact}</a></li>
+                <li><a href="mailto:pheebok6256@gmail.com" className="hover:text-white hover:underline transition-colors">{t.contact}</a></li>
               </ul>
             </div>
 
@@ -201,7 +201,7 @@ export default function Footer({ language = 'ko' }: Props) {
               <ul className="space-y-2 text-sm text-[#eae6df]/85">
                 <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.aboutHolaLingo}</Link></li>
                 <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.ourStory}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.blog}</Link></li>
+                <li><Link href="/blog" className="hover:text-white hover:underline transition-colors">{t.blog}</Link></li>
               </ul>
             </div>
 
@@ -218,7 +218,7 @@ export default function Footer({ language = 'ko' }: Props) {
               <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
               <span>{t.businessNumber}</span>
               <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
-              <a href="tel:+821040056256" className="hover:text-white hover:underline transition-colors">{t.phone}</a>
+              <a href="mailto:pheebok6256@gmail.com" className="hover:text-white hover:underline transition-colors">{t.email}</a>
               <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>
               <span>{t.representative}</span>
               <span className="hidden md:inline text-[#eae6df]/25" aria-hidden="true">&middot;</span>

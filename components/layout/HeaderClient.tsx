@@ -32,7 +32,7 @@ const translations = {
     login: '로그인',
     myAccount: '내 계정',
     bundles: 'Bundles',
-    pricing: 'Premium',
+    pricing: 'Pricing',
     profile: '프로필',
     logout: '로그아웃',
   },
@@ -44,7 +44,7 @@ const translations = {
     login: 'Login',
     myAccount: 'My Account',
     bundles: 'Bundles',
-    pricing: 'Premium',
+    pricing: 'Pricing',
     profile: 'Profile',
     logout: 'Logout',
   }

@@ -7,8 +7,10 @@ import Footer from '@/components/layout/Footer';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css'; 
 import type { Metadata } from 'next';
+import { siteUrl } from '@/lib/site-url';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'HolaLingo - Fun Spanish Learning Platform',
   description: 'Your own Spanish master platform where you learn through real-time conversations with AI tutors, HolaLingo',
 };
