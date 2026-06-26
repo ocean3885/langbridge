@@ -53,7 +53,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 공개 경로 목록 (로그인 없이 접근 가능)
-  const publicPaths = ['/', '/learn', '/bundles', '/pricing', '/auth', '/login'];
+  const publicPaths = ['/', '/learn', '/bundles', '/pricing', '/blog', '/auth', '/login'];
   const isPublicPath = publicPaths.some(path => 
     request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + '/')
   );

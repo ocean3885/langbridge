@@ -151,7 +151,7 @@ const anonymousCopy = {
           Spanish lesson today.
         </>
       ),
-      description: 'Short lessons, smart review, and real progress. We&apos;ll be with you every step of the way.',
+      description: "Short lessons, smart review, and real progress. We'll be with you every step of the way.",
       button: 'Start Learning',
       secondary: 'Log in',
       note: 'Create your account and keep your progress synced.',
@@ -382,13 +382,13 @@ function StartCtaSection({ language }: { language: DisplayLanguage }) {
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e4f1df] text-[#4d8a55] dark:bg-emerald-950/50 dark:text-emerald-200">
                   <BenefitIcon className="h-4 w-4" />
                 </span>
-                <span className="truncate">{benefit}</span>
+                <span className="min-w-0 leading-5">{benefit}</span>
               </span>
             );
           })}
         </div>
 
-        <div className="mt-7 flex flex-wrap items-center gap-5">
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-5 sm:justify-start">
           <Link
             href="/bundles"
             className="inline-flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#2f7d45] px-7 text-base font-semibold text-white shadow-sm transition hover:bg-[#286c3c] focus:outline-none focus:ring-2 focus:ring-[#2f7d45] focus:ring-offset-2 dark:focus:ring-offset-zinc-900"

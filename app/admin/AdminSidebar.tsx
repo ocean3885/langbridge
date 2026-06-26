@@ -11,6 +11,7 @@ import {
   MessageSquare,
   BookMarked,
   Images,
+  Newspaper,
   Menu,
   X,
   ArrowLeft
@@ -31,6 +32,7 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
     { id: 'words', label: '단어 관리', icon: BookOpen, href: '/admin/words' },
     { id: 'sentences', label: '문장 관리', icon: MessageSquare, href: '/admin/sentences' },
     { id: 'bundles', label: '번들 관리', icon: BookMarked, href: '/admin/bundles' },
+    { id: 'blog', label: '블로그 관리', icon: Newspaper, href: '/admin/blog' },
     { id: 'assets', label: '에셋 관리', icon: Images, href: '/admin/assets' },
   ];
 

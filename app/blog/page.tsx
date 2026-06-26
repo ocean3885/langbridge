@@ -1,11 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
-import { getBlogPosts, getBlogPromptContext } from '@/lib/supabase/services/blog';
-import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { BlogPostCreateButton } from './_components/BlogPostCreateButton';
+import { getBlogPosts } from '@/lib/supabase/services/blog';
+import { getDisplayLanguage } from '@/lib/auth/app-user';
 import { BlogArticleExplorer } from './_components/BlogArticleExplorer';
 
 export const metadata: Metadata = {
@@ -36,7 +33,6 @@ const blogPageCopy = {
     ctaTitle: '배운 내용을 바로 연습해볼까요?',
     ctaDescription:
       'HolaLingo에서 스페인어 단어, 문장, 듣기, 플래시카드, 짧은 퀴즈를 한곳에서 연습해보세요.',
-    ctaPrimary: '무료로 시작하기',
     ctaSecondary: '번들 둘러보기',
   },
   en: {
@@ -48,65 +44,48 @@ const blogPageCopy = {
     ctaTitle: 'Ready to practice what you learned?',
     ctaDescription:
       'Use HolaLingo to practice Spanish words, sentences, listening, flashcards, and quick quizzes in one place.',
-    ctaPrimary: 'Try HolaLingo Free',
     ctaSecondary: 'Explore Bundles',
   },
 };
 
 export default async function BlogPage() {
-  const [posts, user, language] = await Promise.all([
+  const [posts, language] = await Promise.all([
     getBlogPosts(),
-    getAppUserFromServer(),
     getDisplayLanguage(),
   ]);
   const copy = blogPageCopy[language];
-  const canCreatePost = user
-    ? await isSuperAdmin({ userId: user.id, email: user.email })
-    : false;
-  const promptContext = canCreatePost ? await getBlogPromptContext() : { categories: [], posts: [] };
 
   return (
     <div className="relative overflow-hidden px-2 pb-12 text-[#1f1b18] dark:text-zinc-100">
       <div className="relative mx-auto max-w-6xl">
         <section className="grid min-h-[330px] gap-10 py-8 md:py-12 lg:grid-cols-[1fr_0.92fr] lg:items-center">
           <div>
-            <h1 className="font-serif text-4xl font-semibold leading-tight tracking-normal text-[#1f1b18] sm:text-5xl lg:text-6xl dark:text-zinc-50">
+            <h1 className="font-serif text-3xl font-semibold leading-tight tracking-normal text-[#1f1b18] sm:text-5xl lg:text-6xl dark:text-zinc-50">
               HolaLingo Blog
-              <span className="ml-3 inline-flex text-4xl text-[#559c63] sm:text-5xl lg:text-6xl">🌿</span>
+              <span className="ml-3 inline-flex text-3xl text-[#559c63] sm:text-5xl lg:text-6xl">🌿</span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-zinc-650 dark:text-zinc-405 sm:text-lg">
               {copy.description}
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <Link
                 href="/learn"
                 className="inline-flex h-12 w-fit max-w-full items-center justify-center whitespace-nowrap rounded-full bg-[#559c63] px-7 text-sm font-bold text-white shadow-sm transition hover:bg-[#468653] active:scale-95"
               >
                 {copy.startLearning}
               </Link>
-              {canCreatePost ? <BlogPostCreateButton promptContext={promptContext} /> : null}
             </div>
           </div>
 
-          <div className="relative min-h-[260px]">
-            <div className="absolute inset-x-2 top-4 h-[235px] rounded-2xl border border-[#f5ead2] bg-[#fffcf5] shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50" />
-            <div className="absolute left-[7%] top-[54%] hidden text-3xl text-[#559c63] sm:block">✦</div>
-            <div className="absolute right-[10%] top-[12%] h-28 w-20 rotate-12 border-r-4 border-[#559c63]">
-              <span className="absolute right-0 top-3 h-8 w-4 rounded-full bg-[#559c63]" />
-              <span className="absolute right-4 top-8 h-8 w-4 -rotate-45 rounded-full bg-[#559c63]" />
-              <span className="absolute right-0 top-14 h-8 w-4 rounded-full bg-[#559c63]" />
-              <span className="absolute right-5 top-20 h-8 w-4 -rotate-45 rounded-full bg-[#559c63]" />
-            </div>
-            <div className="absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2">
-              <Image
-                src="/assets/characters/studyfull.webp"
-                alt="HolaLingo character studying Spanish"
-                fill
-                priority
-                className="object-contain drop-shadow-sm"
-                sizes="208px"
+          <div className="relative">
+            <picture>
+              <source media="(min-width: 1024px)" srcSet="/images/blog_vertical.webp" />
+              <img
+                src="/images/blog_horizontal.webp"
+                alt="HolaLingo Spanish learning blog illustration"
+                className="h-auto w-full rounded-2xl border border-[#f5ead2] bg-[#fffcf5] object-cover shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
               />
-            </div>
+            </picture>
           </div>
         </section>
 
@@ -143,14 +122,8 @@ export default async function BlogPage() {
           </div>
           <div className="flex flex-col gap-4 sm:items-center">
             <Link
-              href="/learn"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-[#559c63] px-8 text-sm font-bold text-white shadow-sm transition hover:bg-[#468653] active:scale-95"
-            >
-              {copy.ctaPrimary}
-            </Link>
-            <Link
               href="/bundles"
-              className="inline-flex items-center justify-center gap-2 text-sm font-bold text-[#559c63] transition hover:text-[#468653]"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#559c63] px-8 text-sm font-bold text-white shadow-sm transition hover:bg-[#468653] active:scale-95"
             >
               {copy.ctaSecondary}
               <ArrowRight size={16} />

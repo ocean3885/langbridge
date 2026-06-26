@@ -11,6 +11,14 @@ type BlogPostCreateResult = {
   error?: string;
 };
 
+type BlogPromptDraftResult = {
+  success: boolean;
+  prompt?: string;
+  error?: string;
+};
+
+const BLOG_PROMPT_DRAFT_TYPE = 'blog_post_prompt';
+
 type BlogPostJson = {
   slug?: unknown;
   title?: unknown;
@@ -197,6 +205,115 @@ async function requireSuperAdmin() {
   }
 
   return user;
+}
+
+function getPromptFromDraftData(data: unknown) {
+  if (!isRecord(data)) return null;
+  return getString(data.prompt);
+}
+
+export async function getBlogPostPromptDraftAction(): Promise<BlogPromptDraftResult> {
+  try {
+    const user = await requireSuperAdmin();
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('admin_drafts')
+      .select('data')
+      .eq('user_id', user.id)
+      .eq('type', BLOG_PROMPT_DRAFT_TYPE)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { success: false, error: `프롬프트 불러오기 실패: ${error.message}` };
+    }
+
+    return { success: true, prompt: getPromptFromDraftData(data?.data) ?? undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '프롬프트를 불러오지 못했습니다.',
+    };
+  }
+}
+
+export async function saveBlogPostPromptDraftAction(prompt: string): Promise<BlogPromptDraftResult> {
+  try {
+    const user = await requireSuperAdmin();
+    const normalizedPrompt = getString(prompt);
+
+    if (!normalizedPrompt) {
+      return { success: false, error: '저장할 프롬프트를 입력해 주세요.' };
+    }
+
+    const supabase = createAdminClient();
+    const payload = {
+      prompt: normalizedPrompt,
+      version: 1,
+      updatedAt: new Date().toISOString(),
+    };
+    const { data: existingDraft, error: fetchError } = await supabase
+      .from('admin_drafts')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', BLOG_PROMPT_DRAFT_TYPE)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { success: false, error: `프롬프트 확인 실패: ${fetchError.message}` };
+    }
+
+    const query = existingDraft?.id
+      ? supabase
+          .from('admin_drafts')
+          .update({ data: payload, updated_at: new Date().toISOString() })
+          .eq('id', existingDraft.id)
+          .eq('user_id', user.id)
+      : supabase.from('admin_drafts').insert({
+          user_id: user.id,
+          type: BLOG_PROMPT_DRAFT_TYPE,
+          data: payload,
+        });
+
+    const { error } = await query;
+
+    if (error) {
+      return { success: false, error: `프롬프트 저장 실패: ${error.message}` };
+    }
+
+    return { success: true, prompt: normalizedPrompt };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '프롬프트를 저장하지 못했습니다.',
+    };
+  }
+}
+
+export async function resetBlogPostPromptDraftAction(): Promise<BlogPromptDraftResult> {
+  try {
+    const user = await requireSuperAdmin();
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from('admin_drafts')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('type', BLOG_PROMPT_DRAFT_TYPE);
+
+    if (error) {
+      return { success: false, error: `프롬프트 초기화 실패: ${error.message}` };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '프롬프트를 초기화하지 못했습니다.',
+    };
+  }
 }
 
 export async function createBlogPostFromJsonAction(jsonText: string): Promise<BlogPostCreateResult> {
