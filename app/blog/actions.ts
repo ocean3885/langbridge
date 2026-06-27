@@ -11,6 +11,8 @@ type BlogPostCreateResult = {
   error?: string;
 };
 
+type BlogPostMutationResult = BlogPostCreateResult;
+
 type BlogPromptDraftResult = {
   success: boolean;
   prompt?: string;
@@ -207,6 +209,106 @@ async function requireSuperAdmin() {
   return user;
 }
 
+async function upsertCategory(
+  supabase: ReturnType<typeof createAdminClient>,
+  category: CategoryInput | null
+) {
+  if (!category) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('blog_categories')
+    .upsert(
+      {
+        slug: category.slug,
+        name: category.name,
+        description: category.description,
+      },
+      { onConflict: 'slug' }
+    )
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw new Error(`카테고리 저장 실패: ${error?.message ?? 'unknown error'}`);
+  }
+
+  return data.id as string;
+}
+
+async function replacePostTags(
+  supabase: ReturnType<typeof createAdminClient>,
+  postId: string,
+  tags: TagInput[]
+) {
+  const { error: deleteError } = await supabase.from('blog_post_tags').delete().eq('post_id', postId);
+
+  if (deleteError) {
+    throw new Error(`기존 태그 삭제 실패: ${deleteError.message}`);
+  }
+
+  if (tags.length === 0) {
+    return;
+  }
+
+  const { data: savedTags, error: tagsError } = await supabase
+    .from('blog_tags')
+    .upsert(tags, { onConflict: 'slug' })
+    .select('id, slug');
+
+  if (tagsError || !savedTags) {
+    throw new Error(`태그 저장 실패: ${tagsError?.message ?? 'unknown error'}`);
+  }
+
+  const { error: relationError } = await supabase.from('blog_post_tags').insert(
+    savedTags.map((tag) => ({
+      post_id: postId,
+      tag_id: tag.id,
+    }))
+  );
+
+  if (relationError) {
+    throw new Error(`태그 연결 실패: ${relationError.message}`);
+  }
+}
+
+function normalizeBlogPostInput(input: BlogPostJson) {
+  const title = getString(input.title);
+  const description = getString(input.description);
+  const slug = getString(input.slug) ?? (title ? slugify(title) : null);
+
+  if (!title) throw new Error('title이 필요합니다.');
+  if (!description) throw new Error('description이 필요합니다.');
+  if (!slug) throw new Error('slug가 필요합니다. 영문 slug를 넣어주세요.');
+
+  const content = normalizeContent(input.content);
+  const category = normalizeCategory(input.category);
+  const tags = normalizeTags(input.tags);
+  const status = normalizeStatus(input.status);
+  const publishedAt =
+    status === 'published'
+      ? getNullableString(input.publishedAt) ?? getNullableString(input.published_at) ?? new Date().toISOString()
+      : null;
+
+  return {
+    slug,
+    title,
+    description,
+    content,
+    category,
+    tags,
+    status,
+    publishedAt,
+    imageUrl: getNullableString(input.imageUrl) ?? getNullableString(input.image_url),
+    readingMinutes: normalizeReadingMinutes(input.readingMinutes ?? input.reading_minutes),
+    seoTitle: getNullableString(input.seoTitle) ?? getNullableString(input.seo_title),
+    seoDescription: getNullableString(input.seoDescription) ?? getNullableString(input.seo_description),
+    ogImageUrl: getNullableString(input.ogImageUrl) ?? getNullableString(input.og_image_url),
+    canonicalUrl: getNullableString(input.canonicalUrl) ?? getNullableString(input.canonical_url),
+  };
+}
+
 function getPromptFromDraftData(data: unknown) {
   if (!isRecord(data)) return null;
   return getString(data.prompt);
@@ -319,64 +421,27 @@ export async function resetBlogPostPromptDraftAction(): Promise<BlogPromptDraftR
 export async function createBlogPostFromJsonAction(jsonText: string): Promise<BlogPostCreateResult> {
   try {
     const user = await requireSuperAdmin();
-    const input = parseJsonText(jsonText);
-    const title = getString(input.title);
-    const description = getString(input.description);
-    const slug = getString(input.slug) ?? (title ? slugify(title) : null);
-
-    if (!title) return { success: false, error: 'title이 필요합니다.' };
-    if (!description) return { success: false, error: 'description이 필요합니다.' };
-    if (!slug) return { success: false, error: 'slug가 필요합니다. 영문 slug를 넣어주세요.' };
-
-    const content = normalizeContent(input.content);
-    const category = normalizeCategory(input.category);
-    const tags = normalizeTags(input.tags);
-    const status = normalizeStatus(input.status);
-    const publishedAt =
-      status === 'published'
-        ? getNullableString(input.publishedAt) ?? getNullableString(input.published_at) ?? new Date().toISOString()
-        : null;
+    const normalized = normalizeBlogPostInput(parseJsonText(jsonText));
 
     const supabase = createAdminClient();
-    let categoryId: string | null = null;
-
-    if (category) {
-      const { data, error } = await supabase
-        .from('blog_categories')
-        .upsert(
-          {
-            slug: category.slug,
-            name: category.name,
-            description: category.description,
-          },
-          { onConflict: 'slug' }
-        )
-        .select('id')
-        .single();
-
-      if (error || !data) {
-        return { success: false, error: `카테고리 저장 실패: ${error?.message ?? 'unknown error'}` };
-      }
-
-      categoryId = data.id;
-    }
+    const categoryId = await upsertCategory(supabase, normalized.category);
 
     const { data: post, error: postError } = await supabase
       .from('blog_posts')
       .insert({
-        slug,
-        title,
-        description,
-        content,
-        status,
-        published_at: publishedAt,
+        slug: normalized.slug,
+        title: normalized.title,
+        description: normalized.description,
+        content: normalized.content,
+        status: normalized.status,
+        published_at: normalized.publishedAt,
         category_id: categoryId,
-        image_url: getNullableString(input.imageUrl) ?? getNullableString(input.image_url),
-        reading_minutes: normalizeReadingMinutes(input.readingMinutes ?? input.reading_minutes),
-        seo_title: getNullableString(input.seoTitle) ?? getNullableString(input.seo_title),
-        seo_description: getNullableString(input.seoDescription) ?? getNullableString(input.seo_description),
-        og_image_url: getNullableString(input.ogImageUrl) ?? getNullableString(input.og_image_url),
-        canonical_url: getNullableString(input.canonicalUrl) ?? getNullableString(input.canonical_url),
+        image_url: normalized.imageUrl,
+        reading_minutes: normalized.readingMinutes,
+        seo_title: normalized.seoTitle,
+        seo_description: normalized.seoDescription,
+        og_image_url: normalized.ogImageUrl,
+        canonical_url: normalized.canonicalUrl,
         author_id: user.id,
       })
       .select('id, slug')
@@ -386,30 +451,11 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
       return { success: false, error: `블로그 글 저장 실패: ${postError?.message ?? 'unknown error'}` };
     }
 
-    if (tags.length > 0) {
-      const { data: savedTags, error: tagsError } = await supabase
-        .from('blog_tags')
-        .upsert(tags, { onConflict: 'slug' })
-        .select('id, slug');
-
-      if (tagsError || !savedTags) {
-        return { success: false, error: `태그 저장 실패: ${tagsError?.message ?? 'unknown error'}` };
-      }
-
-      const { error: relationError } = await supabase.from('blog_post_tags').insert(
-        savedTags.map((tag) => ({
-          post_id: post.id,
-          tag_id: tag.id,
-        }))
-      );
-
-      if (relationError) {
-        return { success: false, error: `태그 연결 실패: ${relationError.message}` };
-      }
-    }
+    await replacePostTags(supabase, post.id, normalized.tags);
 
     revalidatePath('/blog');
     revalidatePath(`/blog/${post.slug}`);
+    revalidatePath('/admin/blog');
     revalidatePath('/sitemap.xml');
 
     return { success: true, slug: post.slug };
@@ -417,6 +463,103 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
     return {
       success: false,
       error: error instanceof Error ? error.message : '블로그 글 생성 중 오류가 발생했습니다.',
+    };
+  }
+}
+
+export async function updateBlogPostFromJsonAction(
+  originalSlug: string,
+  jsonText: string
+): Promise<BlogPostMutationResult> {
+  try {
+    await requireSuperAdmin();
+    const normalized = normalizeBlogPostInput(parseJsonText(jsonText));
+    const supabase = createAdminClient();
+
+    const { data: existingPost, error: fetchError } = await supabase
+      .from('blog_posts')
+      .select('id, slug')
+      .eq('slug', originalSlug)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { success: false, error: `블로그 글 조회 실패: ${fetchError.message}` };
+    }
+
+    if (!existingPost) {
+      return { success: false, error: '수정할 블로그 글을 찾지 못했습니다.' };
+    }
+
+    const categoryId = await upsertCategory(supabase, normalized.category);
+    const { data: updatedPost, error: updateError } = await supabase
+      .from('blog_posts')
+      .update({
+        slug: normalized.slug,
+        title: normalized.title,
+        description: normalized.description,
+        content: normalized.content,
+        status: normalized.status,
+        published_at: normalized.publishedAt,
+        category_id: categoryId,
+        image_url: normalized.imageUrl,
+        reading_minutes: normalized.readingMinutes,
+        seo_title: normalized.seoTitle,
+        seo_description: normalized.seoDescription,
+        og_image_url: normalized.ogImageUrl,
+        canonical_url: normalized.canonicalUrl,
+      })
+      .eq('id', existingPost.id)
+      .select('id, slug')
+      .single();
+
+    if (updateError || !updatedPost) {
+      return { success: false, error: `블로그 글 수정 실패: ${updateError?.message ?? 'unknown error'}` };
+    }
+
+    await replacePostTags(supabase, updatedPost.id, normalized.tags);
+
+    revalidatePath('/blog');
+    revalidatePath(`/blog/${originalSlug}`);
+    revalidatePath(`/blog/${updatedPost.slug}`);
+    revalidatePath('/admin/blog');
+    revalidatePath(`/admin/blog/${updatedPost.slug}/edit`);
+    revalidatePath('/sitemap.xml');
+
+    return { success: true, slug: updatedPost.slug };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '블로그 글 수정 중 오류가 발생했습니다.',
+    };
+  }
+}
+
+export async function deleteBlogPostAction(slug: string): Promise<BlogPostMutationResult> {
+  try {
+    await requireSuperAdmin();
+    const normalizedSlug = getString(slug);
+
+    if (!normalizedSlug) {
+      return { success: false, error: '삭제할 블로그 slug가 필요합니다.' };
+    }
+
+    const supabase = createAdminClient();
+    const { error } = await supabase.from('blog_posts').delete().eq('slug', normalizedSlug);
+
+    if (error) {
+      return { success: false, error: `블로그 글 삭제 실패: ${error.message}` };
+    }
+
+    revalidatePath('/blog');
+    revalidatePath(`/blog/${normalizedSlug}`);
+    revalidatePath('/admin/blog');
+    revalidatePath('/sitemap.xml');
+
+    return { success: true, slug: normalizedSlug };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '블로그 글 삭제 중 오류가 발생했습니다.',
     };
   }
 }

@@ -68,7 +68,10 @@ export default function AdminSidebar({ userEmail, language = 'en' }: AdminSideba
         <nav className="p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === '/admin'
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
             
             return (
               <Link

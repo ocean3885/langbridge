@@ -2,18 +2,22 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clipboard, Copy, Loader2, RotateCcw, Save } from 'lucide-react';
+import { CheckCircle2, Clipboard, Copy, Loader2, RotateCcw, Save, X } from 'lucide-react';
 import {
   createBlogPostFromJsonAction,
   getBlogPostPromptDraftAction,
   resetBlogPostPromptDraftAction,
   saveBlogPostPromptDraftAction,
+  updateBlogPostFromJsonAction,
 } from '@/app/blog/actions';
 import type { BlogPromptContext } from '@/lib/supabase/services/blog';
 
 interface BlogPostWorkbenchProps {
   promptContext: BlogPromptContext;
   language: 'ko' | 'en';
+  mode?: 'create' | 'edit';
+  originalSlug?: string;
+  initialJsonText?: string;
 }
 
 const createButtonCopy = {
@@ -42,6 +46,13 @@ const createButtonCopy = {
     emptyJsonError: '생성할 JSON을 붙여넣어 주세요.',
     createError: '블로그 글 생성에 실패했습니다.',
     createSuccess: '블로그 글이 생성되었습니다.',
+    editTitle: '블로그 글 수정',
+    editDescription: '기존 블로그 JSON을 수정해 글 내용을 업데이트합니다.',
+    updateError: '블로그 글 수정에 실패했습니다.',
+    updateSuccess: '블로그 글이 수정되었습니다.',
+    updating: '수정 중',
+    updateConfirm: '수정',
+    cancel: '취소',
   },
   en: {
     title: 'Create Blog Post',
@@ -68,6 +79,13 @@ const createButtonCopy = {
     emptyJsonError: 'Paste the JSON for the post you want to create.',
     createError: 'Failed to create the blog post.',
     createSuccess: 'Blog post created.',
+    editTitle: 'Edit Blog Post',
+    editDescription: 'Update this post by editing its JSON.',
+    updateError: 'Failed to update the blog post.',
+    updateSuccess: 'Blog post updated.',
+    updating: 'Updating',
+    updateConfirm: 'Update',
+    cancel: 'Cancel',
   },
 };
 
@@ -199,10 +217,17 @@ ${formatExistingPosts(promptContext.posts)}
 }`;
 }
 
-export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbenchProps) {
+export function BlogPostWorkbench({
+  promptContext,
+  language,
+  mode = 'create',
+  originalSlug,
+  initialJsonText = '',
+}: BlogPostWorkbenchProps) {
   const router = useRouter();
   const t = createButtonCopy[language];
-  const [jsonText, setJsonText] = useState('');
+  const isEditMode = mode === 'edit';
+  const [jsonText, setJsonText] = useState(initialJsonText);
   const [promptText, setPromptText] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +241,10 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
   const blogPostPrompt = useMemo(() => buildBlogPostPrompt(promptContext), [promptContext]);
 
   useEffect(() => {
+    if (isEditMode) {
+      return;
+    }
+
     let ignore = false;
     setPromptText(blogPostPrompt);
     setPromptError(null);
@@ -243,7 +272,7 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
     return () => {
       ignore = true;
     };
-  }, [blogPostPrompt, t.promptLoadError]);
+  }, [blogPostPrompt, isEditMode, t.promptLoadError]);
 
   const handleCopyPrompt = async () => {
     try {
@@ -309,20 +338,28 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
     }
 
     startTransition(async () => {
-      const result = await createBlogPostFromJsonAction(jsonText);
+      const result =
+        isEditMode && originalSlug
+          ? await updateBlogPostFromJsonAction(originalSlug, jsonText)
+          : await createBlogPostFromJsonAction(jsonText);
 
       if (!result.success) {
-        setError(result.error ?? t.createError);
+        setError(result.error ?? (isEditMode ? t.updateError : t.createError));
         return;
       }
 
-      setJsonText('');
-      setMessage(t.createSuccess);
+      if (!isEditMode) {
+        setJsonText('');
+      }
+
+      setMessage(isEditMode ? t.updateSuccess : t.createSuccess);
       router.refresh();
 
       setTimeout(() => {
         setMessage(null);
-        if (result.slug) {
+        if (isEditMode) {
+          router.push('/admin/blog');
+        } else if (result.slug) {
           router.push(`/blog/${result.slug}`);
         }
       }, 600);
@@ -333,13 +370,14 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
     <main className="min-h-screen bg-[#F9F7F2] px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 md:ml-64 md:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header>
-          <h1 className="text-3xl font-black tracking-normal">{t.title}</h1>
+          <h1 className="text-3xl font-black tracking-normal">{isEditMode ? t.editTitle : t.title}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-            {t.description}
+            {isEditMode ? t.editDescription : t.description}
           </p>
         </header>
 
         <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          {!isEditMode ? (
               <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -409,6 +447,7 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
                   </div>
                 ) : null}
               </section>
+          ) : null}
 
               <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                 <div>
@@ -445,6 +484,17 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
               </section>
 
             <div className="flex flex-col gap-2 border-t border-zinc-200 pt-5 dark:border-zinc-800 sm:flex-row sm:justify-end">
+              {isEditMode ? (
+                <button
+                  type="button"
+                  onClick={() => router.push('/admin/blog')}
+                  disabled={isPending}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <X size={16} />
+                  {t.cancel}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleCreate}
@@ -452,7 +502,7 @@ export function BlogPostWorkbench({ promptContext, language }: BlogPostWorkbench
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#559c63] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#468653] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isPending ? <Loader2 className="animate-spin" size={16} /> : <Clipboard size={16} />}
-                {isPending ? t.creating : t.confirm}
+                {isPending ? (isEditMode ? t.updating : t.creating) : (isEditMode ? t.updateConfirm : t.confirm)}
               </button>
             </div>
         </div>

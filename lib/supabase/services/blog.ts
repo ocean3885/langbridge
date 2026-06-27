@@ -48,6 +48,23 @@ export type BlogPromptContext = {
   }[];
 };
 
+export type AdminBlogPostListItem = {
+  slug: string;
+  title: string;
+  status: string;
+  category: string;
+  categorySlug: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  createdAt: string | null;
+  readingMinutes: number | null;
+};
+
+export type AdminBlogPostEditorData = {
+  slug: string;
+  jsonText: string;
+};
+
 type BlogPostRow = {
   slug: string;
   title: string;
@@ -93,6 +110,65 @@ type BlogCategoryRow = {
 type BlogTagRow = {
   name: string | null;
   slug: string | null;
+};
+
+type AdminBlogPostListRow = {
+  slug: string;
+  title: string;
+  status: string;
+  published_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  reading_minutes: number | null;
+  blog_categories:
+    | {
+        name: string | null;
+        slug: string | null;
+      }
+    | {
+        name: string | null;
+        slug: string | null;
+      }[]
+    | null;
+};
+
+type AdminBlogPostEditorRow = {
+  slug: string;
+  title: string;
+  description: string;
+  content: unknown;
+  status: string;
+  published_at: string | null;
+  image_url: string | null;
+  reading_minutes: number | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_image_url: string | null;
+  canonical_url: string | null;
+  blog_categories:
+    | {
+        slug: string | null;
+        name: string | null;
+        description: string | null;
+      }
+    | {
+        slug: string | null;
+        name: string | null;
+        description: string | null;
+      }[]
+    | null;
+  blog_post_tags: {
+    blog_tags:
+      | {
+          slug: string | null;
+          name: string | null;
+        }
+      | {
+          slug: string | null;
+          name: string | null;
+        }[]
+      | null;
+  }[];
 };
 
 function firstRelation<T>(value: T | T[] | null): T | null {
@@ -183,6 +259,61 @@ function mapBlogPost(row: BlogPostRow): BlogPost {
   };
 }
 
+function mapAdminBlogPostListItem(row: AdminBlogPostListRow): AdminBlogPostListItem {
+  const category = firstRelation(row.blog_categories);
+
+  return {
+    slug: row.slug,
+    title: row.title,
+    status: row.status,
+    category: category?.name ?? '미분류',
+    categorySlug: category?.slug ?? null,
+    publishedAt: row.published_at,
+    updatedAt: row.updated_at,
+    createdAt: row.created_at,
+    readingMinutes: row.reading_minutes,
+  };
+}
+
+function mapAdminBlogPostEditorData(row: AdminBlogPostEditorRow): AdminBlogPostEditorData {
+  const category = firstRelation(row.blog_categories);
+  const tags = row.blog_post_tags
+    .map((tagRow) => firstRelation(tagRow.blog_tags))
+    .filter((tag): tag is { slug: string | null; name: string | null } => Boolean(tag?.slug && tag?.name))
+    .map((tag) => ({
+      slug: tag.slug,
+      name: tag.name,
+    }));
+
+  const payload = {
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    category: category?.slug && category?.name
+      ? {
+          slug: category.slug,
+          name: category.name,
+          description: category.description,
+        }
+      : null,
+    tags,
+    imageUrl: row.image_url ?? '',
+    readingMinutes: row.reading_minutes ?? 3,
+    status: row.status,
+    publishedAt: row.published_at,
+    seoTitle: row.seo_title ?? '',
+    seoDescription: row.seo_description ?? '',
+    ogImageUrl: row.og_image_url ?? '',
+    canonicalUrl: row.canonical_url ?? `/blog/${row.slug}`,
+    content: normalizeContent(row.content),
+  };
+
+  return {
+    slug: row.slug,
+    jsonText: JSON.stringify(payload, null, 2),
+  };
+}
+
 export async function getBlogPosts(): Promise<BlogPost[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -242,6 +373,61 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
   }
 
   return data ? mapBlogPost(data as unknown as BlogPostRow) : null;
+}
+
+export async function getAdminBlogPosts(): Promise<AdminBlogPostListItem[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select(`
+      slug,
+      title,
+      status,
+      published_at,
+      updated_at,
+      created_at,
+      reading_minutes,
+      blog_categories(name, slug)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to list admin blog posts:', error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as AdminBlogPostListRow[]).map(mapAdminBlogPostListItem);
+}
+
+export async function getAdminBlogPostEditorData(slug: string): Promise<AdminBlogPostEditorData | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select(`
+      slug,
+      title,
+      description,
+      content,
+      status,
+      published_at,
+      image_url,
+      reading_minutes,
+      seo_title,
+      seo_description,
+      og_image_url,
+      canonical_url,
+      blog_categories(slug, name, description),
+      blog_post_tags(blog_tags(slug, name))
+    `)
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`Failed to get admin blog post "${slug}":`, error.message);
+    return null;
+  }
+
+  return data ? mapAdminBlogPostEditorData(data as unknown as AdminBlogPostEditorRow) : null;
 }
 
 export async function getBlogPromptContext(): Promise<BlogPromptContext> {
