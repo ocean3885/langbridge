@@ -730,11 +730,11 @@ async function getCandidatePromptForGeneration(
 
 function formatContextItems(items: { title: string; slug: string | null; description: string }[]) {
   if (items.length === 0) {
-    return '없음';
+    return 'none';
   }
 
   return items
-    .map((item) => `- title: ${item.title}\n  slug: ${item.slug ?? '없음'}\n  description: ${item.description}`)
+    .map((item) => `- title: ${item.title}\n  slug: ${item.slug ?? 'none'}\n  description: ${item.description}`)
     .join('\n');
 }
 
@@ -753,38 +753,38 @@ function buildPlanGenerationPrompt(input: {
 }) {
   return `${input.basePrompt}
 
-생성 개수: ${input.candidateCount}개
+Number of proposals to generate: ${input.candidateCount}
 
-카테고리:
+Category:
 - name: ${input.categoryName}
 - slug: ${input.categorySlug}
-- description: ${input.categoryDescription ?? '없음'}
+- description: ${input.categoryDescription ?? 'none'}
 
-같은 카테고리의 기존 발행/초안 글:
+Existing published/draft posts in the same category:
 ${formatContextItems(input.existingPosts)}
 
-같은 카테고리의 활성 기획안:
+Active content plans in the same category:
 ${formatContextItems(input.activePlans)}
 
-운영자 요청:
-- 포함하면 좋은 키워드: ${input.seedKeywords.length > 0 ? input.seedKeywords.join(', ') : '없음'}
-- 제외할 주제/키워드: ${input.excludedTopics || '없음'}
-- 대상 독자: ${input.audience || '한국어를 사용하는 스페인어 초급 학습자'}
-- 콘텐츠 방향: ${input.direction || 'SEO 검색 유입과 앱 학습 전환을 함께 고려'}
+Operator requests:
+- Keywords to include if useful: ${input.seedKeywords.length > 0 ? input.seedKeywords.join(', ') : 'none'}
+- Topics/keywords to avoid: ${input.excludedTopics || 'none'}
+- Target audience: ${input.audience || 'English-speaking beginner Spanish learners'}
+- Content direction: ${input.direction || 'Focus on general Spanish learning topics with clear SEO search intent and practical learner usefulness. Do not make the topic about HolaLingo, the app, product features, pricing, reviews, or comparisons unless explicitly requested.'}
 
-출력은 JSON 객체만 사용:
+Output only a JSON object:
 {
   "plans": [
     {
-      "title": "기획 제목",
-      "description": "기획 설명",
+      "title": "Planning title in English",
+      "description": "Planning description in English",
       "slug": "kebab-case-slug",
-      "targetKeywords": ["키워드1", "키워드2", "키워드3"],
-      "searchIntent": "검색 의도",
-      "contentAngle": "콘텐츠 관점",
-      "audience": "대상 독자",
+      "targetKeywords": ["keyword one", "keyword two", "keyword three"],
+      "searchIntent": "Search intent in English",
+      "contentAngle": "Content angle in English",
+      "audience": "Target audience in English",
       "priority": 7,
-      "notes": "중복 회피 메모"
+      "notes": "Brief note explaining why this does not overlap with existing posts or active plans"
     }
   ]
 }`;
@@ -833,7 +833,7 @@ export async function generateBlogPlanCandidatesAction(input: {
     const raw = await generateProviderJson(
       normalizeWordGenerationProvider(input.provider),
       prompt,
-      '너는 한국어 사용자를 위한 스페인어 학습 SEO 블로그 콘텐츠 전략가다. 반드시 유효한 JSON 객체만 출력한다.'
+      'You are an SEO blog content strategist for general Spanish learning content. Generate planning proposals in English unless the user explicitly requests another language. Do not make the topic about HolaLingo, its app, product features, pricing, reviews, or comparisons unless explicitly requested. Output only a valid JSON object.'
     );
     const candidates = normalizeCandidates(raw);
 
