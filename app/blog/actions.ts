@@ -13,6 +13,12 @@ type BlogPostCreateResult = {
 
 type BlogPostMutationResult = BlogPostCreateResult;
 
+type BlogCategoryMutationResult = {
+  success: boolean;
+  id?: string;
+  error?: string;
+};
+
 type BlogPromptDraftResult = {
   success: boolean;
   prompt?: string;
@@ -560,6 +566,97 @@ export async function deleteBlogPostAction(slug: string): Promise<BlogPostMutati
     return {
       success: false,
       error: error instanceof Error ? error.message : '블로그 글 삭제 중 오류가 발생했습니다.',
+    };
+  }
+}
+
+export async function createBlogCategoryAction(input: {
+  name?: string;
+  slug?: string;
+  description?: string;
+}): Promise<BlogCategoryMutationResult> {
+  try {
+    await requireSuperAdmin();
+
+    const name = getString(input.name);
+    const slug = getString(input.slug) ?? (name ? slugify(name) : null);
+
+    if (!name) {
+      return { success: false, error: '카테고리 이름을 입력해 주세요.' };
+    }
+
+    if (!slug) {
+      return { success: false, error: '영문 slug를 입력해 주세요.' };
+    }
+
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('blog_categories')
+      .insert({
+        name,
+        slug,
+        description: getNullableString(input.description),
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      return { success: false, error: `카테고리 생성 실패: ${error?.message ?? 'unknown error'}` };
+    }
+
+    revalidatePath('/blog');
+    revalidatePath('/admin/blog');
+    revalidatePath('/admin/blog/new');
+    revalidatePath('/admin/blog/plans');
+
+    return { success: true, id: data.id as string };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '카테고리 생성 중 오류가 발생했습니다.',
+    };
+  }
+}
+
+export async function deleteBlogCategoryAction(id: string): Promise<BlogCategoryMutationResult> {
+  try {
+    await requireSuperAdmin();
+    const categoryId = getString(id);
+
+    if (!categoryId) {
+      return { success: false, error: '삭제할 카테고리가 필요합니다.' };
+    }
+
+    const supabase = createAdminClient();
+    const { count, error: countError } = await supabase
+      .from('blog_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId);
+
+    if (countError) {
+      return { success: false, error: `카테고리 사용 여부 확인 실패: ${countError.message}` };
+    }
+
+    if ((count ?? 0) > 0) {
+      return { success: false, error: '이미 이 카테고리에 소속된 글이 있어 삭제할 수 없습니다.' };
+    }
+
+    const { error } = await supabase.from('blog_categories').delete().eq('id', categoryId);
+
+    if (error) {
+      return { success: false, error: `카테고리 삭제 실패: ${error.message}` };
+    }
+
+    revalidatePath('/blog');
+    revalidatePath('/admin/blog');
+    revalidatePath('/admin/blog/new');
+    revalidatePath('/admin/blog/plans');
+
+    return { success: true, id: categoryId };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '카테고리 삭제 중 오류가 발생했습니다.',
     };
   }
 }

@@ -20,6 +20,7 @@ export function getCanonicalPOS(pos: string): string {
   if (['conj', 'conjunction'].includes(normalized)) return 'conjunction';
   if (['art', 'article', 'det', 'determiner'].includes(normalized)) return 'article';
   if (['num', 'numeral'].includes(normalized)) return 'numeral';
+  if (['interj', 'interjection'].includes(normalized)) return 'interjection';
   if (['part', 'particle'].includes(normalized)) return 'particle';
   if (['aux', 'auxiliary'].includes(normalized)) return 'auxiliary';
   return normalized;
@@ -45,4 +46,3 @@ export function getMeaningDisplay(meaning: unknown): string {
 
   return '-';
 }
-

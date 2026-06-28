@@ -37,9 +37,7 @@ export const POS_OPTIONS = [
   { value: 'conjunction', label: '접속사 (Conjunction)' },
   { value: 'article', label: '관사 (Article)' },
   { value: 'numeral', label: '수사 (Numeral)' },
-  { value: 'particle', label: '조사 (Particle)' },
-  { value: 'auxiliary', label: '조동사 (Auxiliary)' },
-  { value: 'propn', label: '고유명사 (Proper Noun)' },
+  { value: 'interjection', label: '감탄사 (Interjection)' },
 ];
 
 export const GENDER_OPTIONS = [
@@ -61,4 +59,3 @@ export const DIFFICULTY_OPTIONS = [
 
 export const TARGET_DISTRACTOR_COUNT = 6;
 export const WORDS_PER_PAGE = 100;
-

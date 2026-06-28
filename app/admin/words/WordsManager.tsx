@@ -6,6 +6,7 @@ import AutoVerifyWizard from './AutoVerifyWizard';
 import WordCard from './WordCard';
 import WordsFilters from './WordsFilters';
 import { useAutoVerification } from './hooks/useAutoVerification';
+import type { AutoVerifyModelProvider } from './hooks/useAutoVerification';
 import { useDistractorBatch } from './hooks/useDistractorBatch';
 import type { Language, SentenceSortOrder, VerificationFilter, Word } from './words.types';
 import { TARGET_DISTRACTOR_COUNT, WORDS_PER_PAGE } from './words.constants';
@@ -28,8 +29,12 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<SentenceSortOrder>('none');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAutoVerifyModelModalOpen, setIsAutoVerifyModelModalOpen] = useState(false);
+  const [autoVerifyModelProvider, setAutoVerifyModelProvider] = useState<AutoVerifyModelProvider>('chatgpt');
 
   const autoVerification = useAutoVerification({ words, setWords });
+  const pendingAutoVerifyWords = words.filter((word) => !word.is_verified);
+  const autoVerifyRequestSize = Math.min(autoVerification.batchSize, pendingAutoVerifyWords.length);
 
   const filteredWords = words.filter((word) => {
     const matchesSearch =
@@ -157,7 +162,7 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
           onLoadPendingBatch={() => void distractorBatch.loadPendingBatch()}
           autoVerifyBatchSize={autoVerification.batchSize}
           onAutoVerifyBatchSizeChange={autoVerification.setBatchSize}
-          onStartAutoVerify={() => void autoVerification.start()}
+          onStartAutoVerify={() => setIsAutoVerifyModelModalOpen(true)}
           autoVerifyDisabled={autoVerification.isSaving || autoVerification.isScanning}
           totalWordCount={words.length}
           onResetFilters={() => {
@@ -258,6 +263,67 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         </div>
       )}
 
+      {isAutoVerifyModelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-gray-100 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">자동 검수 모델 선택</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                검수 대기 단어 {autoVerifyRequestSize}개를 선택한 모델로 스캔합니다.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {AUTO_VERIFY_MODEL_OPTIONS.map((option) => (
+                <label
+                  key={option.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                    autoVerifyModelProvider === option.id
+                      ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="auto-verify-model-provider"
+                    value={option.id}
+                    checked={autoVerifyModelProvider === option.id}
+                    onChange={() => setAutoVerifyModelProvider(option.id)}
+                    className="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-gray-900 dark:text-gray-100">{option.name}</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAutoVerifyModelModalOpen(false)}
+                disabled={autoVerification.isScanning}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAutoVerifyModelModalOpen(false);
+                  void autoVerification.start(autoVerifyModelProvider);
+                }}
+                disabled={autoVerifyRequestSize === 0 || autoVerification.isScanning}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                검수 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {distractorBatch.report && (
         <BulkReportModal
           bulkReport={distractorBatch.report}
@@ -292,3 +358,13 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
     </div>
   );
 }
+
+const AUTO_VERIFY_MODEL_OPTIONS: {
+  id: AutoVerifyModelProvider;
+  name: string;
+  description: string;
+}[] = [
+  { id: 'chatgpt', name: 'ChatGPT', description: 'OpenAI API 모델로 정밀 검수' },
+  { id: 'gemini', name: 'Gemini', description: 'Google 모델로 빠른 검수' },
+  { id: 'deepseek', name: 'DeepSeek', description: '기본 생성 모델로 검수' },
+];

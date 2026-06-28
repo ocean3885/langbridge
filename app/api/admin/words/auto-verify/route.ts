@@ -8,12 +8,12 @@ import {
   updateWord,
   getWordById,
 } from '@/lib/supabase/services/words';
-import { generateProviderJson, WordGenerationProvider } from '@/lib/generator';
+import { generateProviderJson, normalizeWordGenerationProvider } from '@/lib/generator';
 
 const MAX_VERIFY_BATCH_SIZE = 10;
 const MIN_DISTRACTOR_COUNT = 6;
 const VERIFY_STATUSES = new Set(['valid', 'corrected', 'flagged']);
-const ALLOWED_POS = new Set(['noun', 'verb', 'adj', 'adv', 'prep', 'conj', 'pron', 'det', 'interj']);
+const ALLOWED_POS = new Set(['noun', 'verb', 'adj', 'adv', 'prep', 'conj', 'pron', 'det', 'num', 'interj']);
 const POS_ALIASES: Record<string, string> = {
   noun: 'noun',
   n: 'noun',
@@ -32,6 +32,9 @@ const POS_ALIASES: Record<string, string> = {
   determiner: 'det',
   article: 'det',
   det: 'det',
+  number: 'num',
+  numeral: 'num',
+  num: 'num',
   interjection: 'interj',
   interj: 'interj',
 };
@@ -223,6 +226,8 @@ function validateCorrectedData(
     throw new Error(`corrected_data.distractors는 최종 오답 ${expectedDistractorCount}개 전체를 반환해야 합니다.`);
   }
 
+  const meaning_ko = validateMeaningMap(value.meaning_ko, 'corrected_data.meaning_ko', pos);
+  const meaning_en = validateMeaningMap(value.meaning_en, 'corrected_data.meaning_en', pos);
   const forbiddenWords = new Set(
     [sourceWord, word]
       .filter((item): item is string => typeof item === 'string')
@@ -242,6 +247,8 @@ function validateCorrectedData(
     }
 
     const distractorWord = requireNonEmptyString(item.word, `corrected_data.distractors[${index}].word`);
+    const meaningKo = requireNonEmptyString(item.meaning_ko, `corrected_data.distractors[${index}].meaning_ko`);
+    const meaningEn = requireNonEmptyString(item.meaning_en, `corrected_data.distractors[${index}].meaning_en`);
     const normalizedWord = distractorWord.toLocaleLowerCase();
     if (forbiddenWords.has(normalizedWord)) {
       throw new Error(`corrected_data.distractors[${index}]가 원본 또는 교정 단어와 같습니다.`);
@@ -254,16 +261,16 @@ function validateCorrectedData(
     return {
       ...(item.id !== undefined ? { id: item.id } : {}),
       word: distractorWord,
-      meaning_ko: requireNonEmptyString(item.meaning_ko, `corrected_data.distractors[${index}].meaning_ko`),
-      meaning_en: requireNonEmptyString(item.meaning_en, `corrected_data.distractors[${index}].meaning_en`),
+      meaning_ko: meaningKo,
+      meaning_en: meaningEn,
     };
   });
 
   return {
     word,
     pos,
-    meaning_ko: validateMeaningMap(value.meaning_ko, 'corrected_data.meaning_ko', pos),
-    meaning_en: validateMeaningMap(value.meaning_en, 'corrected_data.meaning_en', pos),
+    meaning_ko,
+    meaning_en,
     gender,
     difficulty: Number(value.difficulty),
     conjugations: validateOptionalRecord(value.conjugations, 'corrected_data.conjugations'),
@@ -312,7 +319,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const { wordIds } = await request.json();
+    const { wordIds, modelProvider } = await request.json();
     if (!Array.isArray(wordIds) || wordIds.length === 0) {
       return NextResponse.json({ error: '검수할 단어 ID 배열이 유효하지 않습니다.' }, { status: 400 });
     }
@@ -332,8 +339,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '검수 대상 단어를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 2. 사용할 AI Provider 선정 (Gemini를 기본으로 활용하되, 다른 키도 대비)
-    const provider: WordGenerationProvider = process.env.GEMINI_API_KEY ? 'gemini' : 'deepseek';
+    // 2. 사용할 AI Provider 선정
+    const fallbackProvider = process.env.GEMINI_API_KEY ? 'gemini' : 'deepseek';
+    const provider = normalizeWordGenerationProvider(modelProvider ?? fallbackProvider);
 
     // 3. 각 단어별 병렬 LLM 검수 호출
     const results = await Promise.all(
@@ -370,7 +378,7 @@ ${JSON.stringify({
 [검수 및 교정 지침]
 1. 단어 본체 검수:
    - 철자(spelling) 오류가 있는지 확인하고, 필요시 수정하십시오.
-   - 품사(pos)는 반드시 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj" 중 하나를 사용하고, 뜻(meaning_ko, meaning_en)의 품사 키도 동일한 축약형으로 맞추십시오.
+   - 품사(pos)는 반드시 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "num", "interj" 중 하나를 사용하고, 뜻(meaning_ko, meaning_en)의 품사 키도 동일한 축약형으로 맞추십시오. 수사는 "num"을 사용하십시오.
    - 뜻에서 원어(스페인어)는 제거하고 순수한 번역어(KO/EN)만 남기십시오.
    - 명사/형용사의 성별(gender) 및 성수 변화(declensions), 동사의 시제 변화(conjugations) 오류를 수정하십시오.
    - 해당하지 않는 declensions 변화형은 빈 문자열이나 null로 채우지 말고 해당 키를 생략하십시오.
@@ -383,9 +391,10 @@ ${JSON.stringify({
      ? `기존 오답이 ${MIN_DISTRACTOR_COUNT}개 미만이므로 새 오답을 ${missingDistractorCount}개 생성하고, 새 항목의 id는 빈 문자열 ""로 반환하십시오.`
      : `기존 오답이 이미 ${MIN_DISTRACTOR_COUNT}개 이상이므로 새 오답을 추가하지 말고 기존 ${originalDistractors.length}개 전체만 검수하십시오.`}
    - 매력적인 오답은 원본 단어와 같은 의미 영역, 같은 카테고리, 연상 관계, 반의어 관계, 상황상 함께 쓰이는 단어일 수 있습니다. 이런 "관련 있지만 뜻은 다른" 오답은 유지하거나 선호하십시오.
-   - 교체해야 하는 경우는 오답이 원본 단어의 정답으로도 인정될 수 있을 정도의 동의어/준동의어이거나, meaning_ko/meaning_en이 원본 뜻과 실질적으로 겹쳐 복수 정답 시비가 생기는 경우로 제한하십시오.
+   - 오답이 원본 단어의 문법 변화형이라면 실제 단어처럼 보여도 절대 유지하지 말고 반드시 교체하십시오. 명사/형용사의 성·수 변화형(예: 원본 otro의 otra/otros/otras)과 동사의 인칭·시제·법에 따른 conjugation 형태(예: 원본 tener의 tengo/tiene/tuvo, 원본 hablar의 hablo/hablamos/habló)는 사용할 수 없습니다. 이런 항목이 하나라도 있으면 status를 "valid"로 두지 말고 "corrected"로 반환하십시오.
+   - 오답의 meaning_ko/meaning_en이 원본 뜻과 하나라도 겹치면 교체하십시오. 예: oportunidad(기회/경우/opportunity/occasion)의 오답으로 ocasión은 사용할 수 없습니다.
    - 단순히 의미가 가깝다, 같은 주제다, 함께 떠오른다는 이유만으로 오답을 교체하지 마십시오.
-   - 오답 단어가 실제 스페인어 단어인지, 원형 또는 적절한 활용형인지 확인하십시오.
+   - 오답 단어는 실제 스페인어 단어여야 하며, 가능한 한 사전 기본형으로 제시하십시오.
    - 오답이 비어 있거나 중복되거나 원본 단어와 똑같지 않게 하십시오.
    - 오류가 발견된 오답은 다른 적절한 스페인어 오답 단어와 뜻으로 수정/대체하되, 최종 오답 개수는 ${targetDistractorCount}개로 맞추십시오.
 3. 최종 판정 (status):
@@ -475,7 +484,7 @@ ${JSON.stringify({
       })
     );
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ modelProvider: provider, results });
 
   } catch (error: any) {
     console.error('AI 검수 API 오류:', error);

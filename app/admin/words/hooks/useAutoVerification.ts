@@ -6,6 +6,7 @@ import type { AutoVerifyResult } from '../AutoVerifyWizard';
 import type { Word } from '../words.types';
 
 type WizardAction = 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold';
+export type AutoVerifyModelProvider = 'deepseek' | 'chatgpt' | 'gemini';
 type SelectedCorrection = AutoVerifyResult['corrected_data'];
 
 interface UseAutoVerificationOptions {
@@ -32,7 +33,7 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
     setResults([]);
   };
 
-  const start = async () => {
+  const start = async (modelProvider: AutoVerifyModelProvider) => {
     const wordsToVerify = words.filter((word) => !word.is_verified);
     if (wordsToVerify.length === 0) {
       alert('검수 대기 상태(is_verified가 false)인 단어가 없습니다.');
@@ -40,9 +41,6 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
     }
 
     const requestSize = Math.min(batchSize, wordsToVerify.length);
-    if (!confirm(`검수 대기 단어 중 ${requestSize}개에 대해 AI 자동 검수 스캔을 시작하시겠습니까?`)) {
-      return;
-    }
 
     setIsOpen(true);
     setIsScanning(true);
@@ -55,6 +53,7 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wordIds: wordsToVerify.slice(0, requestSize).map((word) => word.id),
+          modelProvider,
         }),
       });
       const data = await response.json();

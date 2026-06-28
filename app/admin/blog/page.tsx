@@ -3,10 +3,11 @@ import Link from 'next/link';
 import { CalendarDays, Clock, FileText, ListChecks, Plus } from 'lucide-react';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
-import { getAdminBlogPosts } from '@/lib/supabase/services/blog';
+import { getAdminBlogCategories, getAdminBlogPosts } from '@/lib/supabase/services/blog';
 import type { AdminBlogPostListItem } from '@/lib/supabase/services/blog';
 import AdminSidebar from '../AdminSidebar';
 import { BlogPostListActions } from './BlogPostListActions';
+import { BlogCategoryManager } from './BlogCategoryManager';
 
 const pageCopy = {
   ko: {
@@ -129,7 +130,10 @@ export default async function AdminBlogPage() {
     redirect('/');
   }
 
-  const posts = await getAdminBlogPosts();
+  const [posts, categories] = await Promise.all([
+    getAdminBlogPosts(),
+    getAdminBlogCategories(),
+  ]);
   const t = pageCopy[language];
 
   return (
@@ -145,6 +149,7 @@ export default async function AdminBlogPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <BlogCategoryManager categories={categories} language={language} />
               <Link
                 href="/admin/blog/plans"
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"

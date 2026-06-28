@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses';
-const OPENAI_MODEL = process.env.CHATGPT_MODEL || 'gpt-4.1-mini';
+const OPENAI_MODEL = process.env.CHATGPT_MODEL || 'gpt-5.4-mini';
 const DEEPSEEK_CHAT_API_URL = 'https://api.deepseek.com/chat/completions';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 
 export type WordGenerationProvider = 'deepseek' | 'chatgpt' | 'gemini';
 
@@ -73,6 +73,9 @@ function normalizePosValues(values: unknown[]) {
     verbo: 'verb',
     adverb: 'adv',
     adverbio: 'adv',
+    number: 'num',
+    numeral: 'num',
+    num: 'num',
   };
 
   return values
@@ -276,6 +279,39 @@ async function generateDeepseekJson(prompt: string, systemInstruction: string) {
   return parseJsonText(extractChatCompletionText(responseJson, 'DeepSeek'), 'DeepSeek');
 }
 
+async function generateDeepseekText(prompt: string, systemInstruction: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('DEEPSEEK_API_KEY is not set in environment variables.');
+  }
+
+  const response = await fetch(DEEPSEEK_CHAT_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: prompt },
+      ],
+      stream: false,
+    }),
+  });
+
+  const responseJson = await response.json();
+
+  if (!response.ok) {
+    const message = responseJson?.error?.message || response.statusText;
+    throw new Error(`DeepSeek API error: ${response.status} ${message}`);
+  }
+
+  return extractChatCompletionText(responseJson, 'DeepSeek').trim();
+}
+
 async function generateGeminiJson(prompt: string, systemInstruction: string) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
@@ -294,6 +330,53 @@ async function generateGeminiJson(prompt: string, systemInstruction: string) {
   return parseJsonText(text, 'Gemini');
 }
 
+async function generateGeminiText(prompt: string, systemInstruction: string) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables.');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction,
+  });
+  const result = await model.generateContent(prompt);
+
+  return result.response.text().trim();
+}
+
+async function generateChatGptText(prompt: string, systemInstruction: string) {
+  const apiKey = process.env.CHATGPT_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('CHATGPT_API_KEY is not set in environment variables.');
+  }
+
+  const response = await fetch(OPENAI_RESPONSES_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions: systemInstruction,
+      input: prompt,
+    }),
+  });
+
+  const responseJson = await response.json();
+
+  if (!response.ok) {
+    const message = responseJson?.error?.message || response.statusText;
+    throw new Error(`OpenAI API error: ${response.status} ${message}`);
+  }
+
+  return extractOpenAIResponseText(responseJson).trim();
+}
+
 export async function generateProviderJson(
   providerValue: WordGenerationProvider,
   prompt: string,
@@ -310,6 +393,24 @@ export async function generateProviderJson(
   }
 
   return generateDeepseekJson(prompt, systemInstruction);
+}
+
+export async function generateProviderText(
+  providerValue: WordGenerationProvider,
+  prompt: string,
+  systemInstruction: string
+) {
+  const provider = normalizeWordGenerationProvider(providerValue);
+
+  if (provider === 'chatgpt') {
+    return generateChatGptText(prompt, systemInstruction);
+  }
+
+  if (provider === 'gemini') {
+    return generateGeminiText(prompt, systemInstruction);
+  }
+
+  return generateDeepseekText(prompt, systemInstruction);
 }
 
 export async function generateWordLemmaDeepseek(
@@ -395,7 +496,7 @@ ${expectedPos.length > 0 ? `문장 내 품사 후보(expectedPos): ${JSON.string
 ### [지침]
 1. 뜻은 한국어/영어를 함께 작성하되, 해당 필드에 원본 단어(스페인어)를 포함하지 마세요.
 2. meaning_en에는 순수한 영어 번역만, meaning_ko에는 순수한 한국어 번역만 작성하세요.
-3. pos 값은 반드시 다음 중 하나 이상만 사용하세요: "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj".
+3. pos 값은 반드시 다음 중 하나 이상만 사용하세요: "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "num", "interj". 수사는 "num"을 사용하세요.
 4. 하나의 lemma가 여러 품사로 자연스럽게 쓰이면 pos 배열에 주요 품사를 함께 포함하세요.
 5. expectedPos는 문장 속 쓰임에 대한 참고 정보입니다. 해당 품사가 자연스러운 경우 pos 배열 앞쪽에 배치하세요.
 6. meaning_ko와 meaning_en은 pos 배열의 각 품사를 키로 모두 작성하세요.
@@ -502,7 +603,7 @@ ${JSON.stringify(normalizedRequests, null, 2)}
 ### [지침]
 1. 입력의 모든 lemma에 대해 결과를 하나씩 반환하고 lemma 값은 입력값을 그대로 사용하세요.
 2. meaning_en에는 영어 번역만, meaning_ko에는 한국어 번역만 작성하세요.
-3. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj" 중 하나 이상만 사용하세요.
+3. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "num", "interj" 중 하나 이상만 사용하세요. 수사는 "num"을 사용하세요.
 4. expectedPos는 문장 속 쓰임에 대한 참고 정보이며 자연스러운 경우 pos 배열 앞쪽에 배치하세요.
 5. 동사인 경우에만 conjugations를 채우고, 명사/형용사인 경우에만 declensions를 채우세요.
 6. 해당하지 않는 conjugations와 declensions는 빈 객체로 반환하세요.
@@ -580,7 +681,7 @@ ${JSON.stringify(items, null, 2)}
 3. 명사/형용사는 남성 단수 기본형을 우선 작성하세요. 예: trabajos -> trabajo, pasados -> pasado.
 4. 의미가 유기적으로 연결되어 하나의 고유한 의미를 형성하는 다중 단어 표현(예: 'correo electrónico' - 이메일, 'fin de semana' - 주말)은 분리하지 말고 하나의 단어(lemma)로 추출하고, 단순한 나열이나 개별 단어의 결합인 경우에만 분리하세요.
 5. 관사, 전치사, 접속사, 대명사, 소유형, 사람이름처럼 단독 학습 가치가 낮은 단어는 excludedWords에 넣으세요.
-6. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "interj" 중에서 고르세요. 성별은 pos에 넣지 마세요.
+6. pos 값은 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "num", "interj" 중에서 고르세요. 성별은 pos에 넣지 말고, 수사는 "num"을 사용하세요.
 7. 중복 lemma는 같은 문장 안에서 한 번만 포함하되 surface는 대표 사용형을 유지하세요.
 8. 인사말이나 설명 없이 JSON만 반환하세요.
 `;
@@ -715,7 +816,8 @@ export async function generateDistractorsDeepseek({
 ### [품질 지침]
 - **동일 품사 우선**: 원본 단어와 반드시 동일한 품사(pos)의 단어를 선택하여, 품사 차이로 정답을 쉽게 추측할 수 없게 하세요.
 - **번역 포맷 통일**: 오답의 한국어/영어 뜻은 원본 단어의 뜻 표기법 스타일(예: 동사면 "~하기", "~하다", 명사면 간결한 체언 중심)과 완벽히 일치시키고, 품사 표시나 불필요한 설명(예: 괄호 설명)을 제거하여 깔끔하게 작성하세요.
-- **원본 단어 배제 및 중복/유사어 제외**: 원본 단어 "${word}" 자체를 오답 단어(word)로 절대 포함하지 마세요. 또한 원본 단어의 유의어(정답 처리될 수 있는 단어), 성/수 변화형, 단순 철자 변형(타이포)은 엄격히 제외하세요.
+- **원본 단어 배제 및 중복/유사어 제외**: 원본 단어 "${word}" 자체와 문법 변화형은 제외하세요. 명사/형용사의 성·수 변화형(예: otro의 otra/otros/otras)과 동사의 인칭·시제·법에 따른 conjugation 형태(예: tener의 tengo/tiene/tuvo, hablar의 hablo/hablamos/habló)는 실제 단어처럼 보여도 같은 원본의 변화형이므로 절대 오답으로 사용하지 마세요.
+- **복수 정답 방지**: 오답의 meaning_ko/meaning_en이 원본 뜻과 하나라도 겹치거나 정답 처리될 수 있으면 제외하세요. 예: oportunidad(기회/경우/opportunity/occasion)의 오답으로 ocasión은 사용할 수 없습니다.
 - **실제 어휘**: 실제로 널리 사용되는 자연스럽고 정확한 어휘만 사용하세요.
 
 ### [출력 예시 (Few-shot)]

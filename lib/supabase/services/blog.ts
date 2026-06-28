@@ -60,6 +60,15 @@ export type AdminBlogPostListItem = {
   readingMinutes: number | null;
 };
 
+export type AdminBlogCategory = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  postCount: number;
+};
+
 export type AdminBlogPostEditorData = {
   slug: string;
   jsonText: string;
@@ -130,6 +139,18 @@ type AdminBlogPostListRow = {
         slug: string | null;
       }[]
     | null;
+};
+
+type AdminBlogCategoryRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+};
+
+type BlogPostCategoryCountRow = {
+  category_id: string | null;
 };
 
 type AdminBlogPostEditorRow = {
@@ -397,6 +418,45 @@ export async function getAdminBlogPosts(): Promise<AdminBlogPostListItem[]> {
   }
 
   return ((data ?? []) as unknown as AdminBlogPostListRow[]).map(mapAdminBlogPostListItem);
+}
+
+export async function getAdminBlogCategories(): Promise<AdminBlogCategory[]> {
+  const supabase = createAdminClient();
+  const [{ data: categories, error: categoriesError }, { data: posts, error: postsError }] = await Promise.all([
+    supabase
+      .from('blog_categories')
+      .select('id, slug, name, description, sort_order')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    supabase
+      .from('blog_posts')
+      .select('category_id')
+      .not('category_id', 'is', null),
+  ]);
+
+  if (categoriesError) {
+    console.error('Failed to list admin blog categories:', categoriesError.message);
+    return [];
+  }
+
+  if (postsError) {
+    console.error('Failed to count admin blog category posts:', postsError.message);
+  }
+
+  const postCounts = new Map<string, number>();
+  ((posts ?? []) as BlogPostCategoryCountRow[]).forEach((post) => {
+    if (!post.category_id) return;
+    postCounts.set(post.category_id, (postCounts.get(post.category_id) ?? 0) + 1);
+  });
+
+  return ((categories ?? []) as AdminBlogCategoryRow[]).map((category) => ({
+    id: category.id,
+    slug: category.slug,
+    name: category.name,
+    description: category.description,
+    sortOrder: category.sort_order ?? 0,
+    postCount: postCounts.get(category.id) ?? 0,
+  }));
 }
 
 export async function getAdminBlogPostEditorData(slug: string): Promise<AdminBlogPostEditorData | null> {
