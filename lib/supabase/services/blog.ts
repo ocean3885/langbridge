@@ -15,6 +15,11 @@ export type BlogContent = {
   };
 };
 
+export type BlogMarkdownContent = {
+  format: 'markdown';
+  body: string;
+};
+
 export type BlogPost = {
   slug: string;
   title: string;
@@ -29,6 +34,7 @@ export type BlogPost = {
   intro: string;
   sections: BlogContent['sections'];
   cta: BlogContent['cta'];
+  markdown: BlogMarkdownContent | null;
   seoTitle?: string;
   seoDescription?: string;
   ogImage?: string;
@@ -219,6 +225,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function normalizeMarkdownContent(content: unknown): BlogMarkdownContent | null {
+  if (!isRecord(content) || content.format !== 'markdown' || typeof content.body !== 'string') {
+    return null;
+  }
+
+  const body = content.body.trim();
+  return body ? { format: 'markdown', body } : null;
+}
+
 function normalizeContent(content: unknown): BlogContent {
   if (!isRecord(content)) {
     return { intro: '', sections: [], cta: defaultCta };
@@ -254,6 +269,7 @@ function normalizeContent(content: unknown): BlogContent {
 
 function mapBlogPost(row: BlogPostRow): BlogPost {
   const content = normalizeContent(row.content);
+  const markdown = normalizeMarkdownContent(row.content);
   const category = getCategory(row);
   const tagNames = row.blog_post_tags
     .map((tagRow) => getTag(tagRow.blog_tags)?.name)
@@ -268,15 +284,16 @@ function mapBlogPost(row: BlogPostRow): BlogPost {
     publishedAt: row.published_at ?? row.updated_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? undefined,
     readingMinutes: row.reading_minutes ?? 3,
-    image: row.image_url ?? '/images/heroimg_land.jpg',
+    image: row.image_url || '/images/heroimg_land.jpg',
     keywords: tagNames,
     intro: content.intro,
     sections: content.sections,
     cta: content.cta,
+    markdown,
     seoTitle: row.seo_title ?? undefined,
     seoDescription: row.seo_description ?? undefined,
-    ogImage: row.og_image_url ?? undefined,
-    canonicalUrl: row.canonical_url ?? undefined,
+    ogImage: row.og_image_url || undefined,
+    canonicalUrl: row.canonical_url || undefined,
   };
 }
 
@@ -326,7 +343,7 @@ function mapAdminBlogPostEditorData(row: AdminBlogPostEditorRow): AdminBlogPostE
     seoDescription: row.seo_description ?? '',
     ogImageUrl: row.og_image_url ?? '',
     canonicalUrl: row.canonical_url ?? `/blog/${row.slug}`,
-    content: normalizeContent(row.content),
+    content: isRecord(row.content) ? row.content : normalizeContent(row.content),
   };
 
   return {

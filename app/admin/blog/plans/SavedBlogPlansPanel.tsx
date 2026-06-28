@@ -34,9 +34,11 @@ interface SavedBlogPlansPanelProps {
   onSavePostPrompt: () => void;
   onDeletePostPrompt: (id: string) => void;
   generatingPlanId: string | null;
+  generatingJsonPlanId: string | null;
   publishingPlanId: string | null;
   deletingPlanId: string | null;
   onGeneratePost: (planId: string) => void;
+  onGeneratePostJson: (planId: string) => void;
   onPublishPost: (planId: string) => void;
   onDeletePlan: (planId: string) => void;
 }
@@ -69,9 +71,11 @@ export function SavedBlogPlansPanel({
   onSavePostPrompt,
   onDeletePostPrompt,
   generatingPlanId,
+  generatingJsonPlanId,
   publishingPlanId,
   deletingPlanId,
   onGeneratePost,
+  onGeneratePostJson,
   onPublishPost,
   onDeletePlan,
 }: SavedBlogPlansPanelProps) {
@@ -172,9 +176,11 @@ export function SavedBlogPlansPanel({
               plan={plan}
               t={t}
               generatingPlanId={generatingPlanId}
+              generatingJsonPlanId={generatingJsonPlanId}
               publishingPlanId={publishingPlanId}
               deletingPlanId={deletingPlanId}
               onGeneratePost={onGeneratePost}
+              onGeneratePostJson={onGeneratePostJson}
               onPublishPost={onPublishPost}
               onDeletePlan={onDeletePlan}
             />

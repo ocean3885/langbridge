@@ -32,6 +32,8 @@ type BlogPostJson = {
   title?: unknown;
   description?: unknown;
   category?: unknown;
+  categoryId?: unknown;
+  category_id?: unknown;
   tags?: unknown;
   imageUrl?: unknown;
   image_url?: unknown;
@@ -148,6 +150,19 @@ function normalizeContent(value: unknown) {
     throw new Error('content 객체가 필요합니다.');
   }
 
+  if (value.format === 'markdown') {
+    const body = getString(value.body);
+
+    if (!body) {
+      throw new Error('content.body가 필요합니다.');
+    }
+
+    return {
+      format: 'markdown',
+      body,
+    };
+  }
+
   const intro = getString(value.intro);
   const sections = Array.isArray(value.sections) ? value.sections : [];
   const normalizedSections = sections
@@ -199,6 +214,13 @@ function normalizeReadingMinutes(value: unknown) {
 
 function normalizeStatus(value: unknown) {
   return value === 'draft' || value === 'archived' ? value : 'published';
+}
+
+function normalizeUuid(value: unknown) {
+  const text = getString(value);
+  return text && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
+    ? text
+    : null;
 }
 
 async function requireSuperAdmin() {
@@ -290,6 +312,7 @@ function normalizeBlogPostInput(input: BlogPostJson) {
 
   const content = normalizeContent(input.content);
   const category = normalizeCategory(input.category);
+  const categoryId = normalizeUuid(input.categoryId ?? input.category_id);
   const tags = normalizeTags(input.tags);
   const status = normalizeStatus(input.status);
   const publishedAt =
@@ -303,6 +326,7 @@ function normalizeBlogPostInput(input: BlogPostJson) {
     description,
     content,
     category,
+    categoryId,
     tags,
     status,
     publishedAt,
@@ -430,7 +454,7 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
     const normalized = normalizeBlogPostInput(parseJsonText(jsonText));
 
     const supabase = createAdminClient();
-    const categoryId = await upsertCategory(supabase, normalized.category);
+    const categoryId = normalized.categoryId ?? (await upsertCategory(supabase, normalized.category));
 
     const { data: post, error: postError } = await supabase
       .from('blog_posts')
@@ -496,7 +520,7 @@ export async function updateBlogPostFromJsonAction(
       return { success: false, error: '수정할 블로그 글을 찾지 못했습니다.' };
     }
 
-    const categoryId = await upsertCategory(supabase, normalized.category);
+    const categoryId = normalized.categoryId ?? (await upsertCategory(supabase, normalized.category));
     const { data: updatedPost, error: updateError } = await supabase
       .from('blog_posts')
       .update({

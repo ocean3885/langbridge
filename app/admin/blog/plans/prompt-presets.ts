@@ -38,36 +38,31 @@ Planning direction:
 - In notes, briefly explain why this proposal does not overlap with existing posts or active plans.
 - Output only a JSON object.`;
 
-export const DEFAULT_BLOG_PLAN_DRAFT_PROMPT = `Plan 데이터를 바탕으로 한국어 사용자를 위한 스페인어 학습 블로그 원고를 작성하세요.
+export const DEFAULT_BLOG_PLAN_DRAFT_PROMPT = `Write a complete Spanish learning blog article for English-speaking learners based on the given Plan data.
 
-작성 방향:
-- 검색 유입을 고려하되, 실제 학습자가 바로 써먹을 수 있는 설명과 예문을 우선합니다.
-- 얕은 개요가 아니라 학습 순서, 자주 틀리는 점, 실제 스페인어 예문을 포함합니다.
-- 한국어 설명은 친절하고 자연스럽게 쓰고, 스페인어 표현에는 가능하면 바로 뒤에 한국어 뜻을 붙입니다.
-- 기존 글이나 기획과 같은 검색 의도를 반복하지 말고 plan의 angle과 notes를 살려 차별화합니다.
-- 최종 원고는 제목, 도입, 본문 섹션, 마무리 CTA를 포함한 완성된 글 형태로 작성합니다.
-- JSON을 출력하지 말고 원고 본문만 출력합니다.`;
+Writing direction:
+- Prioritize practical learning value over shallow SEO content.
+- Explain Spanish expressions and grammar clearly in natural English.
+- Include a natural learning order, common mistakes, and practical Spanish examples with English meanings.
+- Use the plan's angle and notes to make the article distinct from existing articles or planned topics.
+- Write a complete publishable Markdown article with headings, examples, lists, tables, and a closing CTA when useful.
+- Do not output JSON. Output only the final article body in Markdown.`;
 
-export const DEFAULT_BLOG_PLAN_JSON_PROMPT = `아래 원고를 HolaLingo 블로그 JSON 스키마로 변환하세요.
+export const DEFAULT_BLOG_PLAN_JSON_PROMPT = `Convert the article below into the HolaLingo blog JSON schema.
 
-변환 규칙:
-- 원고의 의미를 유지하되, blog_posts 저장용 JSON 객체만 출력합니다.
-- slug는 plan slug를 우선 사용하고, 영문 소문자 kebab-case를 유지합니다.
-- category는 plan의 category.slug, category.name, category.description을 그대로 사용합니다.
-- title은 한국어 기준 공백 포함 22~45자 권장입니다.
-- description은 블로그 카드와 상세 상단에 보이는 독자 친화 요약으로 작성합니다.
-- seoTitle은 검색 결과에 자연스럽게 보이도록 25~55자 권장입니다.
-- seoDescription은 검색 결과 노출을 고려한 메타 설명으로 작성합니다.
-- tags는 4~8개이며 slug는 영문 소문자 kebab-case로 작성합니다.
-- imageUrl과 ogImageUrl은 빈 문자열로 둡니다.
-- status는 "published"로 둡니다.
-- canonicalUrl은 반드시 "/blog/{slug}" 형식입니다.
-- content.intro는 2~3문장입니다.
-- content.sections는 4~5개 권장입니다.
-- 각 section.heading은 구체적인 실행 팁이 드러나게 작성합니다.
-- 각 section.body는 정확히 2개 문단 문자열 배열입니다.
-- cta.href는 "/learn", "/bundles", "/learn/review/words" 중 하나를 사용합니다.
-- JSON 객체 외의 설명, markdown 코드블록, 주석, trailing comma는 출력하지 않습니다.`;
+Conversion rules:
+- Preserve the article meaning and output only one JSON object for blog_posts storage.
+- Use the plan slug first, keeping it lowercase kebab-case.
+- Write title, description, seo_title, seo_description, tag names, and content.body in English.
+- seo_title should read naturally in search results, ideally 25-55 characters.
+- seo_description should be a clear search-friendly meta description.
+- tags must include 4-8 items, and tag slugs must be lowercase kebab-case.
+- Set image_url and og_image_url to empty strings.
+- Set status to "published".
+- canonical_url must use "/blog/{slug}".
+- content must be { "format": "markdown", "body": "..." }.
+- content.body must contain the full Markdown article body.
+- Do not output explanations, markdown code fences, comments, or trailing commas.`;
 
 export const DEFAULT_BLOG_PLAN_CANDIDATE_PROMPTS: BlogPlanCandidatePrompt[] = [
   {

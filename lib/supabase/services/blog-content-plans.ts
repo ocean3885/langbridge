@@ -31,6 +31,10 @@ export type BlogContentPlanListItem = {
   status: BlogContentPlanStatus;
   priority: number;
   hasGeneratedPayload: boolean;
+  hasGeneratedDraft: boolean;
+  hasGeneratedJson: boolean;
+  generatedDraftText: string | null;
+  generatedJsonText: string | null;
   linkedPost: {
     slug: string;
     title: string;
@@ -108,9 +112,16 @@ function firstRelation<T>(value: T | T[] | null): T | null {
   return value;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function mapPlan(row: BlogContentPlanRow): BlogContentPlanListItem {
   const category = firstRelation(row.blog_categories);
   const linkedPost = firstRelation(row.blog_posts);
+  const generatedPayload = isRecord(row.generated_payload) ? row.generated_payload : null;
+  const draftText = typeof generatedPayload?.draftText === 'string' ? generatedPayload.draftText : null;
+  const blogJson = isRecord(generatedPayload?.blogJson) ? generatedPayload.blogJson : null;
 
   return {
     id: row.id,
@@ -130,6 +141,10 @@ function mapPlan(row: BlogContentPlanRow): BlogContentPlanListItem {
     status: row.status,
     priority: row.priority ?? 0,
     hasGeneratedPayload: Boolean(row.generated_payload),
+    hasGeneratedDraft: Boolean(draftText),
+    hasGeneratedJson: Boolean(blogJson),
+    generatedDraftText: draftText,
+    generatedJsonText: blogJson ? JSON.stringify(blogJson, null, 2) : null,
     linkedPost: linkedPost?.slug && linkedPost?.title
       ? {
           slug: linkedPost.slug,

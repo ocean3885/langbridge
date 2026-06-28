@@ -60,6 +60,8 @@ type BlogPostFromPlanGenerationResult = {
   error?: string;
 };
 
+type BlogPostJsonFromPlanGenerationResult = BlogPostFromPlanGenerationResult;
+
 type BlogPostFromPlanPublishResult = {
   success: boolean;
   slug?: string;
@@ -84,8 +86,6 @@ type BlogPostJson = {
   readingMinutes?: unknown;
   reading_minutes?: unknown;
   status?: unknown;
-  publishedAt?: unknown;
-  published_at?: unknown;
   seoTitle?: unknown;
   seo_title?: unknown;
   seoDescription?: unknown;
@@ -113,6 +113,7 @@ type BlogContentPlanDetailRow = {
   title: string;
   description: string;
   slug: string | null;
+  category_id: string | null;
   target_keywords: string[] | null;
   search_intent: string | null;
   content_angle: string | null;
@@ -259,6 +260,19 @@ function normalizeContent(value: unknown) {
     throw new Error('content 객체가 필요합니다.');
   }
 
+  if (value.format === 'markdown') {
+    const body = getString(value.body);
+
+    if (!body) {
+      throw new Error('content.body가 필요합니다.');
+    }
+
+    return {
+      format: 'markdown',
+      body,
+    };
+  }
+
   const intro = getString(value.intro);
   const sections = Array.isArray(value.sections) ? value.sections : [];
   const normalizedSections = sections
@@ -325,10 +339,6 @@ function normalizeBlogPostInput(input: BlogPostJson) {
   const category = normalizeCategory(input.category);
   const tags = normalizeTags(input.tags);
   const status = normalizeStatus(input.status);
-  const publishedAt =
-    status === 'published'
-      ? getNullableString(input.publishedAt) ?? getNullableString(input.published_at) ?? new Date().toISOString()
-      : null;
 
   return {
     slug,
@@ -338,7 +348,6 @@ function normalizeBlogPostInput(input: BlogPostJson) {
     category,
     tags,
     status,
-    publishedAt,
     imageUrl: getNullableString(input.imageUrl) ?? getNullableString(input.image_url),
     readingMinutes: normalizeReadingMinutes(input.readingMinutes ?? input.reading_minutes),
     seoTitle: getNullableString(input.seoTitle) ?? getNullableString(input.seo_title),
@@ -355,11 +364,15 @@ function getBlogJsonFromGeneratedPayload(value: unknown): BlogPostJson {
 
   const blogJson = value.blogJson;
 
-  if (!isRecord(blogJson)) {
-    throw new Error('생성된 blog JSON이 없습니다. 다시 Generate를 실행해 주세요.');
+  if (isRecord(blogJson)) {
+    return blogJson;
   }
 
-  return blogJson;
+  if (isRecord(value.content)) {
+    return value;
+  }
+
+  throw new Error('생성된 blog JSON이 없습니다. 다시 Generate를 실행해 주세요.');
 }
 
 async function upsertCategory(
@@ -615,19 +628,19 @@ function buildPlanDraftPrompt(plan: BlogContentPlanDetailRow, basePrompt: string
 
   return `${basePrompt}
 
-Plan 데이터:
+Plan data:
 - title: ${plan.title}
 - description: ${plan.description}
 - slug: ${plan.slug ?? ''}
 - category.slug: ${category?.slug ?? ''}
 - category.name: ${category?.name ?? ''}
 - category.description: ${category?.description ?? ''}
-- targetKeywords: ${(plan.target_keywords ?? []).join(', ') || '없음'}
-- searchIntent: ${plan.search_intent ?? '없음'}
-- contentAngle: ${plan.content_angle ?? '없음'}
-- audience: ${plan.audience ?? '한국어를 사용하는 스페인어 학습자'}
+- targetKeywords: ${(plan.target_keywords ?? []).join(', ') || 'none'}
+- searchIntent: ${plan.search_intent ?? 'none'}
+- contentAngle: ${plan.content_angle ?? 'none'}
+- audience: ${plan.audience ?? 'English-speaking Spanish learners'}
 - priority: ${plan.priority ?? 0}
-- notes: ${plan.notes ?? '없음'}`;
+- notes: ${plan.notes ?? 'none'}`;
 }
 
 function buildPlanJsonPrompt(plan: BlogContentPlanDetailRow, draftText: string, basePrompt: string) {
@@ -635,7 +648,7 @@ function buildPlanJsonPrompt(plan: BlogContentPlanDetailRow, draftText: string, 
 
   return `${basePrompt}
 
-Plan 메타:
+Plan metadata:
 {
   "slug": "${plan.slug ?? ''}",
   "title": "${plan.title}",
@@ -651,43 +664,27 @@ Plan 메타:
   "audience": ${JSON.stringify(plan.audience ?? '')}
 }
 
-원고:
+Article draft:
 ${draftText}
 
-출력 스키마:
+Output schema:
 {
   "slug": "spanish-example-post",
-  "title": "스페인어 초보가 매일 익힐 기본 표현",
-  "description": "스페인어 초보자가 매일 반복하기 좋은 기본 표현과 복습 순서를 실전 예시와 함께 정리했습니다.",
-  "category": {
-    "slug": "spanish-study",
-    "name": "스페인어 공부법",
-    "description": "스페인어 학습 루틴과 독학 전략을 다루는 글"
-  },
+  "title": "Spanish Basics Beginners Can Use Every Day",
+  "description": "Learn practical Spanish basics with clear examples, common mistakes, and a simple practice routine.",
   "tags": [
-    { "slug": "spanish-beginner", "name": "스페인어 초보" }
+    { "slug": "spanish-beginner", "name": "Spanish beginner" }
   ],
-  "imageUrl": "",
-  "readingMinutes": 5,
+  "image_url": "",
+  "reading_minutes": 5,
   "status": "published",
-  "seoTitle": "스페인어 초보 기본 표현과 매일 복습 루틴",
-  "seoDescription": "스페인어 초보자가 바로 말할 수 있는 기본 표현과 오래 기억하는 복습 방법을 단계별로 안내합니다.",
-  "ogImageUrl": "",
-  "canonicalUrl": "/blog/spanish-example-post",
+  "seo_title": "Spanish Basics for Beginners",
+  "seo_description": "Learn beginner-friendly Spanish basics with examples, common mistakes, and quick practice.",
+  "og_image_url": "",
+  "canonical_url": "/blog/spanish-example-post",
   "content": {
-    "intro": "도입 문단",
-    "sections": [
-      {
-        "heading": "섹션 제목",
-        "body": ["문단 1", "문단 2"]
-      }
-    ],
-    "cta": {
-      "title": "오늘 배울 스페인어 표현을 바로 시작해 보세요",
-      "body": "짧은 문장과 단어 묶음으로 부담 없이 스페인어 루틴을 만들 수 있습니다.",
-      "href": "/learn",
-      "label": "학습 시작하기"
-    }
+    "format": "markdown",
+    "body": "## Spanish phrases you can use today\n\nParagraph content..."
   }
 }`;
 }
@@ -1212,26 +1209,20 @@ export async function generateBlogPostFromPlanAction(input: {
     const draftText = await generateProviderText(
       provider,
       buildPlanDraftPrompt(normalizedPlan, prompt.draftPrompt),
-      '너는 한국어 사용자를 위한 스페인어 학습 블로그 전문 에디터다. JSON을 출력하지 말고 완성도 높은 한국어 원고만 작성한다.'
+      'You are an expert Spanish learning blog editor for English-speaking learners. Do not output JSON. Write only a complete, publishable Markdown article in natural English.'
     );
 
     if (!draftText) {
       throw new Error('원고 생성 결과가 비어 있습니다.');
     }
 
-    const blogJson = await generateProviderJson(
-      provider,
-      buildPlanJsonPrompt(normalizedPlan, draftText, prompt.jsonPrompt),
-      '너는 블로그 원고를 엄격한 JSON 스키마로 변환하는 편집자다. 반드시 유효한 JSON 객체만 출력한다.'
-    );
     const generatedAt = new Date().toISOString();
     const { error: updateError } = await supabase
       .from('blog_content_plans')
       .update({
-        status: 'ready',
+        status: 'pending',
         generated_payload: {
           draftText,
-          blogJson,
           provider,
           promptId: prompt.id,
           promptTypes: {
@@ -1267,6 +1258,119 @@ export async function generateBlogPostFromPlanAction(input: {
   }
 }
 
+export async function generateBlogPostJsonFromPlanAction(input: {
+  planId: string;
+  provider: WordGenerationProvider;
+  promptId: string;
+}): Promise<BlogPostJsonFromPlanGenerationResult> {
+  let rollbackStatus = 'pending';
+
+  try {
+    const user = await requireSuperAdmin();
+    const planId = getString(input.planId);
+
+    if (!planId) {
+      return { success: false, error: 'JSON으로 변환할 기획을 선택해 주세요.' };
+    }
+
+    const supabase = createAdminClient();
+    const { data: plan, error: planError } = await supabase
+      .from('blog_content_plans')
+      .select(`
+        id,
+        title,
+        description,
+        slug,
+        target_keywords,
+        search_intent,
+        content_angle,
+        audience,
+        priority,
+        notes,
+        status,
+        generated_payload,
+        blog_categories(slug, name, description)
+      `)
+      .eq('id', planId)
+      .maybeSingle();
+
+    if (planError) {
+      return { success: false, error: `기획 조회 실패: ${planError.message}` };
+    }
+
+    if (!plan) {
+      return { success: false, error: '기획을 찾지 못했습니다.' };
+    }
+
+    const normalizedPlan = plan as unknown as BlogContentPlanDetailRow & { generated_payload: unknown };
+    rollbackStatus = normalizedPlan.status === 'generating' ? 'pending' : normalizedPlan.status;
+
+    if (normalizedPlan.status === 'published') {
+      return { success: false, error: '이미 발행된 기획은 JSON으로 변환할 수 없습니다.' };
+    }
+
+    if (!isRecord(normalizedPlan.generated_payload) || !getString(normalizedPlan.generated_payload.draftText)) {
+      return { success: false, error: '먼저 Gen으로 글 원고를 생성해 주세요.' };
+    }
+
+    const provider = normalizeWordGenerationProvider(input.provider);
+    const prompt = await getPostPromptForGeneration(supabase, user.id, getString(input.promptId));
+
+    const { error: generatingError } = await supabase
+      .from('blog_content_plans')
+      .update({ status: 'generating' })
+      .eq('id', planId);
+
+    if (generatingError) {
+      return { success: false, error: `변환 상태 저장 실패: ${generatingError.message}` };
+    }
+
+    const draftText = getString(normalizedPlan.generated_payload.draftText);
+    const blogJson = await generateProviderJson(
+      provider,
+      buildPlanJsonPrompt(normalizedPlan, draftText, prompt.jsonPrompt),
+      '너는 블로그 원고를 엄격한 JSON 스키마로 변환하는 편집자다. 반드시 유효한 JSON 객체만 출력한다.'
+    );
+    const generatedAt = new Date().toISOString();
+
+    const { error: updateError } = await supabase
+      .from('blog_content_plans')
+      .update({
+        status: 'ready',
+        generated_payload: {
+          ...normalizedPlan.generated_payload,
+          blogJson,
+          provider,
+          promptId: prompt.id,
+          jsonGeneratedAt: generatedAt,
+        },
+        generated_at: generatedAt,
+      })
+      .eq('id', planId);
+
+    if (updateError) {
+      return { success: false, error: `JSON 변환 결과 저장 실패: ${updateError.message}` };
+    }
+
+    revalidatePath('/admin/blog/plans');
+
+    return { success: true };
+  } catch (error) {
+    const supabase = createAdminClient();
+    const planId = getString(input.planId);
+
+    if (planId) {
+      await supabase.from('blog_content_plans').update({ status: rollbackStatus }).eq('id', planId);
+      revalidatePath('/admin/blog/plans');
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '블로그 글 JSON 변환 중 오류가 발생했습니다.',
+    };
+  }
+}
+
 export async function publishBlogPostFromPlanAction(planIdInput: string): Promise<BlogPostFromPlanPublishResult> {
   try {
     const user = await requireSuperAdmin();
@@ -1279,7 +1383,7 @@ export async function publishBlogPostFromPlanAction(planIdInput: string): Promis
     const supabase = createAdminClient();
     const { data: plan, error: planError } = await supabase
       .from('blog_content_plans')
-      .select('id, status, generated_payload, linked_post_id')
+      .select('id, status, category_id, generated_payload, linked_post_id')
       .eq('id', planId)
       .maybeSingle();
 
@@ -1314,8 +1418,8 @@ export async function publishBlogPostFromPlanAction(planIdInput: string): Promis
       return { success: false, error: `이미 같은 slug의 글이 있습니다: ${normalized.slug}` };
     }
 
-    const categoryId = await upsertCategory(supabase, normalized.category);
-    const publishedAt = normalized.publishedAt ?? new Date().toISOString();
+    const categoryId = plan.category_id ?? (await upsertCategory(supabase, normalized.category));
+    const publishedAt = new Date().toISOString();
     const { data: post, error: postError } = await supabase
       .from('blog_posts')
       .insert({

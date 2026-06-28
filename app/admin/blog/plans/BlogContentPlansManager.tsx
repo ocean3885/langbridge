@@ -14,6 +14,7 @@ import {
   deleteBlogPlanCandidatePromptAction,
   deleteBlogPlanPostPromptAction,
   generateBlogPostFromPlanAction,
+  generateBlogPostJsonFromPlanAction,
   generateBlogPlanCandidatesAction,
   getBlogPlanPromptLibraryAction,
   publishBlogPostFromPlanAction,
@@ -81,6 +82,7 @@ export function BlogContentPlansManager({
   const [isSaving, startSaving] = useTransition();
   const [isPromptPending, startPromptTransition] = useTransition();
   const [generatingPlanId, setGeneratingPlanId] = useState<string | null>(null);
+  const [generatingJsonPlanId, setGeneratingJsonPlanId] = useState<string | null>(null);
   const [publishingPlanId, setPublishingPlanId] = useState<string | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [savedPlanFilter, setSavedPlanFilter] = useState<SavedPlanFilter>('active');
@@ -397,6 +399,32 @@ export function BlogContentPlansManager({
     });
   };
 
+  const handleGeneratePostJson = (planId: string) => {
+    setError(null);
+    setMessage(null);
+    setGeneratingJsonPlanId(planId);
+
+    startSaving(async () => {
+      try {
+        const result = await generateBlogPostJsonFromPlanAction({
+          planId,
+          provider: postProvider,
+          promptId: postPromptId,
+        });
+
+        if (!result.success) {
+          setError(result.error ?? t.postJsonGenerateError);
+          return;
+        }
+
+        setMessage(t.postJsonGenerated);
+        router.refresh();
+      } finally {
+        setGeneratingJsonPlanId(null);
+      }
+    });
+  };
+
   const handlePublishPost = (planId: string) => {
     setError(null);
     setMessage(null);
@@ -565,9 +593,11 @@ export function BlogContentPlansManager({
           onSavePostPrompt={handleSavePostPrompt}
           onDeletePostPrompt={handleDeletePostPrompt}
           generatingPlanId={generatingPlanId}
+          generatingJsonPlanId={generatingJsonPlanId}
           publishingPlanId={publishingPlanId}
           deletingPlanId={deletingPlanId}
           onGeneratePost={handleGeneratePost}
+          onGeneratePostJson={handleGeneratePostJson}
           onPublishPost={handlePublishPost}
           onDeletePlan={handleDeletePlan}
         />
