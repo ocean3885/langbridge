@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { formatWordMeaning } from '@/lib/word-meaning';
+import { formatWordMeaning, formatWordMeaningByPos } from '@/lib/word-meaning';
 
 export type SupabaseWordSentenceMap = {
   id: number;
@@ -16,6 +16,7 @@ export type SentenceMappedWord = {
   word: string;
   meaning_ko: string | null;
   meaning_en: string | null;
+  pos: string[];
 };
 
 export type WordUsageSentence = {
@@ -47,7 +48,7 @@ export async function listWordsForSentences(sentenceIds: number[]): Promise<Sent
       sentence_id,
       word_id,
       used_as,
-      words:words(word, meaning_ko, meaning_en)
+      words:words(word, meaning_ko, meaning_en, pos)
     `)
     .in('sentence_id', sentenceIds)
     .order('id', { ascending: true });
@@ -60,14 +61,16 @@ export async function listWordsForSentences(sentenceIds: number[]): Promise<Sent
   return (data || []).flatMap((mapping) => {
     const word = Array.isArray(mapping.words) ? mapping.words[0] : mapping.words;
     if (!word?.word) return [];
+    const pos = Array.isArray(word.pos) ? word.pos : [];
 
     return [{
       sentence_id: mapping.sentence_id,
       word_id: mapping.word_id,
       used_as: mapping.used_as,
       word: word.word,
-      meaning_ko: formatWordMeaning(word.meaning_ko),
-      meaning_en: formatWordMeaning(word.meaning_en),
+      meaning_ko: formatWordMeaningByPos(word.meaning_ko, pos),
+      meaning_en: formatWordMeaningByPos(word.meaning_en, pos),
+      pos,
     }];
   });
 }

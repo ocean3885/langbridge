@@ -33,6 +33,7 @@ export function WordInfoSheet({
   onClose,
 }: WordInfoSheetProps) {
   const visibleSentences = selectedWord.sentences.slice(0, 10);
+  const meaning = selectedMapping ? getMeaning(selectedMapping, language) : getMeaning(selectedWord, language);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -60,12 +61,12 @@ export function WordInfoSheet({
       <aside className="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col rounded-t-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:h-full md:max-h-none md:w-[420px] md:rounded-l-2xl md:rounded-tr-none">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-5 py-5 dark:border-zinc-800">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#2f7d4a] dark:text-emerald-400">{copy.sheetTitle}</p>
-            <h2 id="word-usage-sheet-title" className="mt-1 truncate text-2xl font-bold text-zinc-950 dark:text-zinc-50">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#2f7d4a] dark:text-emerald-400 md:text-sm">{copy.sheetTitle}</p>
+            <h2 id="word-usage-sheet-title" className="mt-1 truncate text-2xl font-bold text-zinc-950 dark:text-zinc-50 md:text-3xl">
               {selectedWord.word}
             </h2>
             {selectedMapping?.used_as && selectedMapping.used_as !== selectedWord.word && (
-              <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400 md:text-base">
                 {copy.usedForm}: {selectedMapping.used_as}
               </p>
             )}
@@ -83,15 +84,15 @@ export function WordInfoSheet({
 
         <div className="overflow-y-auto px-5 py-5">
           <div className="grid gap-3">
-            <InfoRow label={copy.meaning} value={getMeaning(selectedWord, language)} />
+            <InfoRow label={copy.meaning} value={meaning} />
             {selectedWord.pos.length > 0 && <InfoRow label={copy.pos} value={selectedWord.pos.join(', ')} />}
           </div>
 
           <div className="mt-6">
             <div className="mb-3 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-[#2f7d4a] dark:text-emerald-400" />
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{copy.examples}</h3>
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              <BookOpen className="h-4 w-4 text-[#2f7d4a] dark:text-emerald-400 md:h-5 md:w-5" />
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 md:text-base">{copy.examples}</h3>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 md:text-sm">
                 {visibleSentences.length}
               </span>
             </div>
@@ -103,12 +104,12 @@ export function WordInfoSheet({
                     <div className="flex items-start gap-2">
                       <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-6 text-zinc-950 dark:text-zinc-50">{sentence.sentence}</p>
+                        <p className="text-sm font-semibold leading-6 text-zinc-950 dark:text-zinc-50 md:text-base md:leading-7">{sentence.sentence}</p>
                         {getSentenceTranslation(sentence, language) && (
-                          <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{getSentenceTranslation(sentence, language)}</p>
+                          <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400 md:text-base md:leading-7">{getSentenceTranslation(sentence, language)}</p>
                         )}
                         {sentence.used_as && sentence.used_as !== selectedWord.word && (
-                          <p className="mt-2 inline-flex rounded-full bg-white px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+                          <p className="mt-2 inline-flex rounded-full bg-white px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300 md:text-sm">
                             {copy.usedForm}: {sentence.used_as}
                           </p>
                         )}
@@ -118,7 +119,7 @@ export function WordInfoSheet({
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-zinc-200 p-4 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              <p className="rounded-xl border border-dashed border-zinc-200 p-4 text-sm font-medium text-zinc-500 dark:border-zinc-700 dark:text-zinc-400 md:text-base">
                 {copy.noExamples}
               </p>
             )}
@@ -134,8 +135,8 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
   return (
     <div className="rounded-xl bg-zinc-50 px-3 py-2.5 dark:bg-zinc-900">
-      <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
+      <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 md:text-sm">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100 md:text-base md:leading-7">{value}</p>
     </div>
   );
 }

@@ -774,7 +774,7 @@ export async function getRecentLearningActivities(
   }).slice(0, limit);
 }
 
-export async function getActiveLearningBundles(userId: string): Promise<ActiveLearningBundle[]> {
+export async function getActiveLearningBundles(userId: string, limit = 20): Promise<ActiveLearningBundle[]> {
   const supabase = createAdminClient();
 
   const { data: interactions, error: interactionError } = await supabase
@@ -783,7 +783,8 @@ export async function getActiveLearningBundles(userId: string): Promise<ActiveLe
     .eq('user_id', userId)
     .eq('is_started', true)
     .eq('is_completed', false)
-    .order('last_studied_at', { ascending: false, nullsFirst: false });
+    .order('last_studied_at', { ascending: false, nullsFirst: false })
+    .limit(limit);
 
   if (interactionError) {
     console.error('Error fetching active learning bundles:', interactionError);

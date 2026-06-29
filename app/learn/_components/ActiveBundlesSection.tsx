@@ -42,6 +42,7 @@ const copy = {
 };
 
 const PREVIEW_COUNT = 4;
+const EXPANDED_COUNT = 10;
 
 export function ActiveBundlesSection({
   bundles,
@@ -59,7 +60,7 @@ export function ActiveBundlesSection({
     [bundles, featuredBundleId],
   );
   const visibleBundles = useMemo(
-    () => (showAll ? displayBundles : displayBundles.slice(0, PREVIEW_COUNT)),
+    () => displayBundles.slice(0, showAll ? EXPANDED_COUNT : PREVIEW_COUNT),
     [displayBundles, showAll],
   );
   const hasMore = displayBundles.length > PREVIEW_COUNT;
