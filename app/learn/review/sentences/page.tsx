@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/bundle-progress';
+import { getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/learning-review';
 import SentencesReviewClient from './SentencesReviewClient';
 
 export const dynamic = 'force-dynamic';

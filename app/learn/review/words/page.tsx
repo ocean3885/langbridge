@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getReviewNeededSummary, getReviewWords } from '@/lib/supabase/services/bundle-progress';
+import { getReviewNeededSummary, getReviewWords } from '@/lib/supabase/services/learning-review';
 import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import WordsReviewClient from './WordsReviewClient';
 

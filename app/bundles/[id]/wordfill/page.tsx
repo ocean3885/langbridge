@@ -3,6 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItemsWithDistractors } from '@/lib/supabase/services/bundles';
+import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { getBundleTitle } from '../../bundle-utils';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import PracticeSessionSelector from '../_components/PracticeSessionSelector';
@@ -95,6 +96,7 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
 
   const filteredItems = filterPracticeItems(wordFillItems, progress.itemInteractions, effectiveMode, 'wordfill');
   const sessionItems = limitPracticeItems(filteredItems, count);
+  const wordUsageDetails = await listWordUsageDetails(sessionItems.map((item) => item.wordId));
   const initialItemId =
     effectiveMode === 'resume' &&
     progress.currentPracticeItemIds.wordfill &&
@@ -108,6 +110,7 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
       title={title}
       items={sessionItems}
       optionItems={wordFillItems}
+      wordUsageDetails={wordUsageDetails}
       language={language}
       initialItemId={initialItemId}
       isLoggedIn={Boolean(user)}

@@ -1,8 +1,9 @@
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getActiveLearningBundles, getLearningProgressSummary, getRecentStudiedBundle, getReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
+import { getActiveLearningBundles, getLearningProgressSummary, getRecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
 import { getRecommendedUnstudiedBundles } from '@/lib/supabase/services/bundles';
 import { getLearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import { getTodayLearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
+import { getReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { AnonymousLearnPage } from './_components/AnonymousLearnPage';
 import { LoggedInLearnPage } from './_components/LoggedInLearnPage';
 

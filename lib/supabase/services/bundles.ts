@@ -56,7 +56,14 @@ export async function listBundleItems(bundleId: string) {
     .select(`
       *,
       words(*),
-      sentences(*)
+      sentences(
+        *,
+        word_sentence_map(
+          id,
+          used_as,
+          words(*)
+        )
+      )
     `)
     .eq('bundle_id', bundleId)
     .order('order_index', { ascending: true });
@@ -494,10 +501,28 @@ export async function createBundleWithItems(
       usedSentenceIds.add(sentenceId);
       let audioUrl = sentenceRecord.audio_url;
       const isConversationItem = Boolean(item.speakerKey);
+      let itemAudioUrl = item.audioUrl || null;
 
       // 오디오가 없는 경우 TTS 생성
       if (!audioUrl && !isConversationItem) {
         audioUrl = await generateTTS(item.sentence, `sentences/bundles/${bundle.id}`, 'es', 0.8, sentenceTtsOptions);
+      }
+
+      if (isConversationItem && !itemAudioUrl) {
+        itemAudioUrl = await generateTTS(
+          item.sentence,
+          `sentences/bundles/${bundle.id}/conversation`,
+          'es',
+          0.8,
+          {
+            ...sentenceTtsOptions,
+            ...(item.ttsOptions || {})
+          }
+        );
+      }
+
+      if (!audioUrl && itemAudioUrl) {
+        audioUrl = itemAudioUrl;
       }
 
       const sentenceUpdates: {
@@ -527,20 +552,6 @@ export async function createBundleWithItems(
           ...sentenceRecord,
           ...sentenceUpdates,
         });
-      }
-
-      let itemAudioUrl = item.audioUrl || null;
-      if (isConversationItem && !itemAudioUrl) {
-        itemAudioUrl = await generateTTS(
-          item.sentence,
-          `sentences/bundles/${bundle.id}/conversation`,
-          'es',
-          0.8,
-          {
-            ...sentenceTtsOptions,
-            ...(item.ttsOptions || {})
-          }
-        );
       }
 
       // b. 단어 정보 처리 (있는 경우)

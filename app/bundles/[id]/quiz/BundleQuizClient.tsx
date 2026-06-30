@@ -111,6 +111,15 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
     });
   }, [current]);
 
+  useEffect(() => {
+    if (!current?.audioUrl) return;
+    const timer = window.setTimeout(() => {
+      playCurrentAudio();
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [current, playCurrentAudio]);
+
   const choose = (option: string) => {
     if (selected) return;
     setSelected(option);
@@ -181,7 +190,22 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
       <MultipleChoiceQuestion
         eyebrow={`${index + 1} / ${items.length}`}
         prompt={t.prompt}
-        question={<h2 className="text-2xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{current.sentence}</h2>}
+        question={
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 text-2xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{current.sentence}</h2>
+            {current.audioUrl && (
+              <button
+                type="button"
+                onClick={playCurrentAudio}
+                aria-label={t.listen}
+                title={t.listen}
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef7ec] text-[#3f8d54] shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/60 ${isAudioPlaying ? 'bg-emerald-100 dark:bg-emerald-900/60' : ''}`}
+              >
+                <Volume2 className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        }
         options={options}
         selectedOption={selected}
         correctOption={current.translation}
@@ -200,17 +224,6 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
               <span>{t.wrong}</span>
               <span>{current.translation}</span>
             </span>
-          )}
-          {isCorrect && current.audioUrl && (
-            <button
-              type="button"
-              onClick={playCurrentAudio}
-              aria-label={t.listen}
-              title={t.listen}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 dark:bg-zinc-900 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 ${isAudioPlaying ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}
-            >
-              <Volume2 className="h-5 w-5" />
-            </button>
           )}
         </div>
       )}

@@ -10,9 +10,10 @@ import {
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
-import type { ActiveLearningBundle, LearningProgressSummary, RecentStudiedBundle, ReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
+import type { ActiveLearningBundle, LearningProgressSummary, RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
+import type { ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { bundleItemCount, getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
 import { ActiveBundlesSection } from './ActiveBundlesSection';
 import { GoalCard } from './ProgressCards';

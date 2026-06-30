@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { listCategories } from '@/lib/supabase/services/bundles';
+import { listBundleGenerationDraftCounts } from '@/lib/supabase/services/bundle-generation-drafts';
 import AdminSidebar from '../../AdminSidebar';
 import BundleItemsMaker from './BundleItemsMaker';
 
@@ -18,12 +19,15 @@ export default async function MakeBundleItemsPage() {
     redirect('/');
   }
 
-  const categories = await listCategories();
+  const [categories, draftCounts] = await Promise.all([
+    listCategories(),
+    listBundleGenerationDraftCounts(),
+  ]);
 
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} language={lang} />
-      <BundleItemsMaker userId={user.id} categories={categories} />
+      <BundleItemsMaker userId={user.id} categories={categories} draftCounts={draftCounts} />
     </>
   );
 }

@@ -315,13 +315,13 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
               <span>{currentItem.sentence}</span>
             </span>
           )}
-          {result === 'correct' && currentItem.audioUrl && (
+          {currentItem.audioUrl && (
             <button
               type="button"
               onClick={playCurrentAudio}
               aria-label={t.listen}
               title={t.listen}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 dark:bg-zinc-900 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 ${isAudioPlaying ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition ${result === 'correct' ? 'text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 dark:bg-zinc-900 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50' : 'text-red-700 ring-1 ring-red-100 hover:bg-red-100 dark:bg-zinc-900 dark:text-red-200 dark:ring-red-800 dark:hover:bg-red-900/50'} ${isAudioPlaying ? result === 'correct' ? 'bg-emerald-100 dark:bg-emerald-900/50' : 'bg-red-100 dark:bg-red-900/50' : ''}`}
             >
               <Volume2 className="h-5 w-5" />
             </button>

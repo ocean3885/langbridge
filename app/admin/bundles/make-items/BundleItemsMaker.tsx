@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import {
   BundleGenerationDraft,
+  BundleGenerationDraftCount,
   BundleGenerationDraftStatus,
   RegisteredBundleSource,
   createBundleGenerationDrafts,
@@ -126,12 +127,17 @@ Do not wrap the result in a "bundles" array and do not include markdown code fen
 export default function BundleItemsMaker({
   userId,
   categories,
+  draftCounts,
 }: {
   userId: string;
   categories: Category[];
+  draftCounts: BundleGenerationDraftCount[];
 }) {
   const router = useRouter();
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id || '');
+  const [draftCountByCategory, setDraftCountByCategory] = useState<Record<string, number>>(() =>
+    Object.fromEntries(draftCounts.map(item => [item.category_id, item.count]))
+  );
   const [registeredBundles, setRegisteredBundles] = useState<RegisteredBundleSource[]>([]);
   const [drafts, setDrafts] = useState<BundleGenerationDraft[]>([]);
   const [jsonInput, setJsonInput] = useState('');
@@ -159,6 +165,10 @@ export default function BundleItemsMaker({
       ]);
       setRegisteredBundles(registered);
       setDrafts(pending);
+      setDraftCountByCategory(current => ({
+        ...current,
+        [categoryId]: pending.length,
+      }));
       const category = categories.find(item => item.id === categoryId);
       const nextPrompt = storedPrompt?.prompt || buildPrompt(category);
       setPromptInput(nextPrompt);
@@ -285,7 +295,7 @@ export default function BundleItemsMaker({
           >
             {categories.map(category => (
               <option key={category.id} value={category.id}>
-                {category.name_en || category.name}
+                {category.name_en || category.name} ({draftCountByCategory[category.id] || 0})
               </option>
             ))}
           </select>

@@ -54,6 +54,11 @@ export type BundleGenerationPrompt = {
   updated_at: string;
 };
 
+export type BundleGenerationDraftCount = {
+  category_id: string;
+  count: number;
+};
+
 async function assertAdmin(expectedUserId?: string) {
   const user = await getAppUserFromServer();
   if (!user || (expectedUserId && user.id !== expectedUserId)) {
@@ -219,6 +224,28 @@ export async function listBundleGenerationDrafts(categoryId: string): Promise<Bu
     const payload = normalizePayload(draft.payload);
     return payload ? [{ ...draft, payload } as BundleGenerationDraft] : [];
   });
+}
+
+export async function listBundleGenerationDraftCounts(): Promise<BundleGenerationDraftCount[]> {
+  await assertAdmin();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_generation_drafts')
+    .select('category_id')
+    .in('status', ['pending', 'ready']);
+
+  if (error) throw new Error(`등록 대기 번들 카운트 조회 실패: ${error.message}`);
+
+  const counts = new Map<string, number>();
+  for (const draft of data || []) {
+    if (!draft.category_id) continue;
+    counts.set(draft.category_id, (counts.get(draft.category_id) || 0) + 1);
+  }
+
+  return Array.from(counts.entries()).map(([category_id, count]) => ({
+    category_id,
+    count,
+  }));
 }
 
 export async function createBundleGenerationDrafts(

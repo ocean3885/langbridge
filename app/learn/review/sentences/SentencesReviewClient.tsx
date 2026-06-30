@@ -8,7 +8,7 @@ import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQues
 import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
 import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
 import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
-import type { ReviewSentenceItem } from '@/lib/supabase/services/bundle-progress';
+import type { ReviewSentenceItem } from '@/lib/supabase/services/learning-review';
 import { getPublicUrl } from '@/lib/utils';
 
 interface SentencesReviewClientProps {

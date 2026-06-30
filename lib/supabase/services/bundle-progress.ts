@@ -5,6 +5,14 @@ import {
   recordLearningDailyActivity,
   type LearningActivityType,
 } from '@/lib/supabase/services/learning-daily-activity';
+import {
+  getReviewNeededSummary as getReviewNeededSummaryFromReviewService,
+  getReviewSentences as getReviewSentencesFromReviewService,
+  getReviewWords as getReviewWordsFromReviewService,
+  type ReviewNeededSummary as LearningReviewNeededSummary,
+  type ReviewSentenceItem as LearningReviewSentenceItem,
+  type ReviewWordItem as LearningReviewWordItem,
+} from './learning-review';
 
 export interface UserBundleInteraction {
   id: string;
@@ -129,15 +137,11 @@ export interface LearningProgressSummary {
   activeBundles: number;
 }
 
-export interface ReviewNeededSummary {
-  sentences: number;
-  words: number;
-  total: number;
-  limit: number;
-  availableSentences: number;
-  availableWords: number;
-  availableTotal: number;
-}
+export interface ReviewNeededSummary extends LearningReviewNeededSummary {}
+
+export interface ReviewSentenceItem extends LearningReviewSentenceItem {}
+
+export interface ReviewWordItem extends LearningReviewWordItem {}
 
 interface LearningStatsValues {
   completed_sentences: number;
@@ -162,7 +166,17 @@ const LEARNING_PROGRESS_STARS = {
   spelling: 1,
 } satisfies Record<string, number>;
 
-const REVIEW_RECOMMENDATION_LIMIT = 20;
+export async function getReviewNeededSummary(userId: string): Promise<ReviewNeededSummary> {
+  return getReviewNeededSummaryFromReviewService(userId);
+}
+
+export async function getReviewSentences(userId: string, limit: number = 20): Promise<ReviewSentenceItem[]> {
+  return getReviewSentencesFromReviewService(userId, limit);
+}
+
+export async function getReviewWords(userId: string, limit: number = 20): Promise<ReviewWordItem[]> {
+  return getReviewWordsFromReviewService(userId, limit);
+}
 
 export async function getLearningProgressSummary(userId: string): Promise<LearningProgressSummary> {
   const supabase = createAdminClient();
@@ -203,148 +217,6 @@ export async function getLearningProgressSummary(userId: string): Promise<Learni
     ...summary,
     wordsInMemory: wordsInMemory || 0,
   };
-}
-
-export async function getReviewNeededSummary(userId: string): Promise<ReviewNeededSummary> {
-  const supabase = createAdminClient();
-
-  const [
-    { count: availableSentences, error: sentenceCountError },
-    { count: availableWords, error: wordCountError },
-    sentenceItems,
-    wordItems,
-  ] = await Promise.all([
-    supabase
-      .from('user_sentence_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gt('proficiency_level', 0)
-      .lt('proficiency_level', 5),
-    supabase
-      .from('user_word_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gt('proficiency_level', 0)
-      .lt('proficiency_level', 5),
-    getReviewSentences(userId, REVIEW_RECOMMENDATION_LIMIT),
-    getReviewWords(userId, REVIEW_RECOMMENDATION_LIMIT),
-  ]);
-
-  if (sentenceCountError) {
-    console.error('Error counting available sentences needing review:', sentenceCountError);
-  }
-
-  if (wordCountError) {
-    console.error('Error counting available words needing review:', wordCountError);
-  }
-
-  const sentences = sentenceItems.length;
-  const words = wordItems.length;
-  const reviewableSentences = Math.max(availableSentences || 0, sentences);
-  const reviewableWords = Math.max(availableWords || 0, words);
-
-  return {
-    sentences,
-    words,
-    total: sentences + words,
-    limit: REVIEW_RECOMMENDATION_LIMIT,
-    availableSentences: reviewableSentences,
-    availableWords: reviewableWords,
-    availableTotal: reviewableSentences + reviewableWords,
-  };
-}
-
-export interface ReviewSentenceItem {
-  id: number;
-  sentence: string;
-  translation: string;
-  translation_en: string | null;
-  audio_url: string | null;
-  bundle_id: string;
-  bundle_item_id: string;
-  proficiency_level: number;
-  incorrect_count: number;
-  streak_count: number;
-}
-
-export async function getReviewSentences(userId: string, limit: number = 20): Promise<ReviewSentenceItem[]> {
-  const supabase = createAdminClient();
-  if (limit <= 0) return [];
-  const normalizedLimit = Math.max(1, limit);
-
-  const { data: interactions, error: interactionError } = await supabase
-    .from('user_sentence_interactions')
-    .select(`
-      sentence_id,
-      proficiency_level,
-      incorrect_count,
-      streak_count,
-      sentences (
-        id,
-        sentence,
-        translation,
-        translation_en,
-        audio_url
-      )
-    `)
-    .eq('user_id', userId)
-    .gt('proficiency_level', 0)
-    .lt('proficiency_level', 5)
-    .order('proficiency_level', { ascending: true })
-    .order('incorrect_count', { ascending: false })
-    .order('last_reviewed_at', { ascending: true, nullsFirst: true })
-    .limit(normalizedLimit);
-
-  if (interactionError) {
-    console.error('Error fetching review sentences interactions:', interactionError);
-    return [];
-  }
-
-  const primaryInteractions = interactions || [];
-  const sentenceIds = primaryInteractions.map((row) => row.sentence_id);
-  let primaryItems: ReviewSentenceItem[] = [];
-
-  if (sentenceIds.length > 0) {
-    const { data: bundleItems, error: itemsError } = await supabase
-      .from('bundle_items')
-      .select('id, bundle_id, sentence_id')
-      .in('sentence_id', sentenceIds);
-
-    if (itemsError) {
-      console.error('Error fetching bundle items for review sentences:', itemsError);
-    } else {
-      const itemMap = new Map<number, { id: string; bundle_id: string }>();
-      for (const item of bundleItems || []) {
-        itemMap.set(Number(item.sentence_id), {
-          id: item.id,
-          bundle_id: item.bundle_id,
-        });
-      }
-
-      primaryItems = primaryInteractions.flatMap((row) => {
-        const s = normalizeSingleRelation(row.sentences);
-        if (!s) return [];
-
-        const itemInfo = itemMap.get(Number(row.sentence_id));
-        if (!itemInfo) return [];
-
-        return [{
-          id: Number(s.id),
-          sentence: s.sentence,
-          translation: s.translation,
-          translation_en: s.translation_en || null,
-          audio_url: s.audio_url || null,
-          bundle_id: itemInfo.bundle_id,
-          bundle_item_id: itemInfo.id,
-          proficiency_level: row.proficiency_level,
-          incorrect_count: row.incorrect_count,
-          streak_count: row.streak_count,
-        }];
-      });
-    }
-  }
-
-  return primaryItems.slice(0, normalizedLimit);
 }
 
 async function calculateLearningProgressSummaryFromInteractions(
@@ -1176,7 +1048,7 @@ export async function recordBundleItemPractice(
   }
 
   // user_sentence_interactions 테이블 업데이트 추가 (문장 학습 숙련도/스트릭 반영)
-  if (bundleItem.sentence_id) {
+  if (bundleItem.sentence_id && mode !== 'spelling') {
     const { data: existingSentenceInteraction, error: sentenceFetchError } = await supabase
       .from('user_sentence_interactions')
       .select('*')
@@ -1500,90 +1372,6 @@ function hasEarnedPracticeStar(metadata: Record<string, unknown> | null, mode: s
 
   const correctCount = Number(modeMetadata.correct_count || 0);
   return correctCount > 0 || Boolean(modeMetadata.first_correct_at);
-}
-
-export interface ReviewWordItem {
-  id: number;
-  word: string;
-  lang_code: string;
-  meaning_ko: string | null;
-  meaning_en: string | null;
-  pos: string[];
-  audio_url: string | null;
-  proficiency_level: number;
-  incorrect_count: number;
-  streak_count: number;
-  distractors?: Array<{ distractor: string; meaning_ko: string | null; meaning_en: string | null }>;
-}
-
-export async function getReviewWords(userId: string, limit: number = 20): Promise<ReviewWordItem[]> {
-  const supabase = createAdminClient();
-  if (limit <= 0) return [];
-  const normalizedLimit = Math.max(1, limit);
-
-  const { data: interactions, error: interactionError } = await supabase
-    .from('user_word_interactions')
-    .select(`
-      word_id,
-      proficiency_level,
-      incorrect_count,
-      streak_count,
-      words (
-        id,
-        word,
-        lang_code,
-        meaning_ko,
-        meaning_en,
-        pos,
-        audio_url,
-        words_distractor (
-          distractor,
-          meaning_ko,
-          meaning_en
-        )
-      )
-    `)
-    .eq('user_id', userId)
-    .gt('proficiency_level', 0)
-    .lt('proficiency_level', 5)
-    .order('proficiency_level', { ascending: true })
-    .order('incorrect_count', { ascending: false })
-    .order('last_reviewed_at', { ascending: true, nullsFirst: true })
-    .limit(normalizedLimit);
-
-  if (interactionError) {
-    console.error('Error fetching review words interactions:', interactionError);
-    return [];
-  }
-
-  const { formatWordMeaning } = await import('@/lib/word-meaning');
-
-  const primaryItems = (interactions || []).flatMap((row) => {
-    const w = normalizeSingleRelation(row.words);
-    if (!w) return [];
-
-    const rawDistractors = Array.isArray(w.words_distractor) ? w.words_distractor : [];
-
-    return [{
-      id: Number(w.id),
-      word: w.word,
-      lang_code: w.lang_code,
-      meaning_ko: formatWordMeaning(w.meaning_ko),
-      meaning_en: formatWordMeaning(w.meaning_en),
-      pos: w.pos || [],
-      audio_url: w.audio_url || null,
-      proficiency_level: row.proficiency_level,
-      incorrect_count: row.incorrect_count,
-      streak_count: row.streak_count,
-      distractors: rawDistractors.map((d: any) => ({
-        distractor: d.distractor,
-        meaning_ko: d.meaning_ko,
-        meaning_en: d.meaning_en,
-      })),
-    }];
-  });
-
-  return primaryItems.slice(0, normalizedLimit);
 }
 
 export async function recordWordReviewResult(

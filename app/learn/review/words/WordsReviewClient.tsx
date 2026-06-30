@@ -10,7 +10,7 @@ import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
 import { SpellingScrambleQuestion } from '@/components/practice/SpellingScrambleQuestion';
 import { useSpellingScramble } from '@/components/practice/useSpellingScramble';
 import { WordInfoSheet } from '@/components/words/WordInfoSheet';
-import type { ReviewWordItem } from '@/lib/supabase/services/bundle-progress';
+import type { ReviewWordItem } from '@/lib/supabase/services/learning-review';
 import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
 

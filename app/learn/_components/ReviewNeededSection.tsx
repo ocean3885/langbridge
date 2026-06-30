@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, BookOpenCheck, Layers, Search } from 'lucide-react';
-import type { ReviewNeededSummary } from '@/lib/supabase/services/bundle-progress';
+import type { ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 
 type DisplayLanguage = 'ko' | 'en';
 

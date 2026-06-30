@@ -123,6 +123,9 @@ export default function BundleDetail({
   const [itemMappings, setItemMappings] = useState<{ [key: string]: string | null }>(
     items.reduce((acc, item) => ({ ...acc, [item.id]: item.image_url || null }), {})
   );
+  const sortedWords = [...words].sort((a, b) =>
+    String(a.word || '').localeCompare(String(b.word || ''), 'es', { sensitivity: 'base' })
+  );
 
   const handleItemTtsProviderChange = (provider: TTSProvider) => {
     const model = TTS_PROVIDERS[provider].models[0].id;
@@ -441,6 +444,24 @@ export default function BundleDetail({
     }
     return '-';
   }
+
+  function getSentenceWords(item: any) {
+    const mappings = item.sentences?.word_sentence_map || [];
+    const uniqueWords = new Map<number, any>();
+
+    for (const mapping of mappings) {
+      const word = Array.isArray(mapping.words) ? mapping.words[0] : mapping.words;
+      if (word?.id && !uniqueWords.has(word.id)) {
+        uniqueWords.set(word.id, {
+          ...word,
+          used_as: mapping.used_as || null,
+        });
+      }
+    }
+
+    return Array.from(uniqueWords.values());
+  }
+
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return;
     if (!confirm(`선택한 ${selectedItems.length}개의 아이템을 삭제하시겠습니까?`)) return;
@@ -941,7 +962,10 @@ export default function BundleDetail({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {(isSortMode ? sortableItems : currentItems).map((item, idx) => (
+              {(isSortMode ? sortableItems : currentItems).map((item, idx) => {
+                const sentenceWords = getSentenceWords(item);
+
+                return (
                 <div 
                   key={item.id} 
                   draggable={isSortMode}
@@ -1102,6 +1126,27 @@ export default function BundleDetail({
                               {item.sentences.translation_en}
                             </p>
                           )}
+                          {sentenceWords.length > 0 && (
+                            <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3">
+                              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase text-gray-400 dark:text-gray-500">
+                                <Book className="w-3 h-3" />
+                                연결 단어 {sentenceWords.length}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {sentenceWords.map((word: any) => (
+                                  <Link
+                                    href={`/admin/words/${word.id}`}
+                                    key={word.id}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex max-w-full items-center rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 px-3 py-2 text-sm font-black text-gray-800 dark:text-gray-100 transition-colors hover:border-blue-100 dark:hover:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-300"
+                                    title={getMeaningDisplay(word.meaning_ko)}
+                                  >
+                                    {word.word}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="py-2 text-gray-400 italic">데이터 정보 없음</div>
@@ -1114,7 +1159,8 @@ export default function BundleDetail({
                       )}
                     </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1275,17 +1321,17 @@ export default function BundleDetail({
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
               <Book className="w-5 h-5 text-purple-500" />
-              핵심 어휘 ({words.length})
+              핵심 어휘 ({sortedWords.length})
             </h2>
           </div>
 
-          {words.length === 0 ? (
+          {sortedWords.length === 0 ? (
             <div className="bg-white dark:bg-gray-900 p-12 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 text-center">
               <p className="text-gray-400 dark:text-gray-500 font-medium">연결된 단어가 없습니다.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {words.map((w) => (
+              {sortedWords.map((w) => (
                 <Link href={`/admin/words/${w.id}`} key={w.id} className="group">
                   <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all h-full flex flex-col">
                     <div className="flex justify-between items-start mb-3">

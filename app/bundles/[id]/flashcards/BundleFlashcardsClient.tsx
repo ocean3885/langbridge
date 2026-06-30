@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw, Volume2 } from 'lucide-react';
 
@@ -46,6 +46,7 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
   const [flipped, setFlipped] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const current = items[index];
   const progress = useMemo(() => (items.length > 0 ? Math.round(((index + 1) / items.length) * 100) : 0), [index, items.length]);
 
@@ -55,6 +56,30 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
     recordCurrentPracticeItem(bundleId, 'flashcards', current.id);
   }, [bundleId, current, isLoggedIn]);
 
+  const playAudio = useCallback(() => {
+    if (!current?.audioUrl) return;
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.pause();
+    audio.src = current.audioUrl;
+    audio.currentTime = 0;
+    audio.play().catch((error) => console.error('Audio play error:', error));
+  }, [current]);
+
+  useEffect(() => {
+    if (!current?.audioUrl) return;
+    const timer = window.setTimeout(() => {
+      playAudio();
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [current, playAudio]);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
   const goNext = () => {
     setFlipped(false);
     setIndex((value) => Math.min(items.length - 1, value + 1));
@@ -63,11 +88,6 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
   const goPrev = () => {
     setFlipped(false);
     setIndex((value) => Math.max(0, value - 1));
-  };
-
-  const playAudio = () => {
-    if (!current?.audioUrl) return;
-    new Audio(current.audioUrl).play().catch((error) => console.error('Audio play error:', error));
   };
 
   if (!current) {

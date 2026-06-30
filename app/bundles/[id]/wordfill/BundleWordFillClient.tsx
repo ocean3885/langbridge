@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronRight, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { WordInfoSheet } from '@/components/words/WordInfoSheet';
+import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
 
 interface OptionData {
@@ -28,6 +30,7 @@ interface BundleWordFillClientProps {
   title: string;
   items: WordFillItem[];
   optionItems: WordFillItem[];
+  wordUsageDetails: WordUsageDetail[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
@@ -47,6 +50,13 @@ const copy = {
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
     dictionaryFormLabel: '기본형',
+    wordInfo: '단어 정보',
+    usedForm: '사용 형태',
+    meaning: '뜻',
+    examples: '사용된 문장',
+    noExamples: '아직 연결된 문장이 없습니다.',
+    close: '닫기',
+    pos: '품사',
   },
   en: {
     back: 'Back to detail',
@@ -61,6 +71,13 @@ const copy = {
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
     dictionaryFormLabel: 'Dictionary form',
+    wordInfo: 'Word info',
+    usedForm: 'Used form',
+    meaning: 'Meaning',
+    examples: 'Example sentences',
+    noExamples: 'No linked sentences yet.',
+    close: 'Close',
+    pos: 'POS',
   },
 };
 
@@ -69,6 +86,7 @@ export default function BundleWordFillClient({
   title,
   items,
   optionItems,
+  wordUsageDetails,
   language,
   initialItemId = null,
   isLoggedIn,
@@ -80,7 +98,9 @@ export default function BundleWordFillClient({
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isWordInfoOpen, setIsWordInfoOpen] = useState(false);
   const current = items[index];
+  const currentWordDetail = current ? wordUsageDetails.find((detail) => detail.word_id === current.wordId) : null;
 
   // 문장 내에 usedAs 단어를 찾아 빈칸(_____)으로 치환
   const blankedSentence = useMemo(() => {
@@ -179,6 +199,7 @@ export default function BundleWordFillClient({
     }
     setIndex((value) => value + 1);
     setSelected(null);
+    setIsWordInfoOpen(false);
   };
 
   const retry = () => {
@@ -186,6 +207,7 @@ export default function BundleWordFillClient({
     setSelected(null);
     setScore(0);
     setFinished(false);
+    setIsWordInfoOpen(false);
   };
 
   if (!current) {
@@ -311,13 +333,38 @@ export default function BundleWordFillClient({
           ) : (
             <span className="flex flex-col gap-1">
               <span>{t.wrong}</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+              <button
+                type="button"
+                onClick={() => setIsWordInfoOpen(true)}
+                disabled={!currentWordDetail}
+                className="w-fit rounded-md text-left font-bold text-emerald-600 underline-offset-4 transition hover:text-emerald-700 hover:underline disabled:cursor-default disabled:no-underline dark:text-emerald-400 dark:hover:text-emerald-300"
+                title={currentWordDetail ? t.wordInfo : undefined}
+              >
                 {current.usedAs}
                 {shouldShowDictionaryForm && ` (${t.dictionaryFormLabel}: ${current.targetWord})`}
-              </span>
+              </button>
             </span>
           )}
         </div>
+      )}
+
+      {selected && !isCorrect && isWordInfoOpen && currentWordDetail && (
+        <WordInfoSheet
+          selectedWord={currentWordDetail}
+          selectedMapping={null}
+          language={language}
+          copy={{
+            words: t.wordInfo,
+            sheetTitle: t.wordInfo,
+            usedForm: t.usedForm,
+            meaning: t.meaning,
+            examples: t.examples,
+            noExamples: t.noExamples,
+            close: t.close,
+            pos: t.pos,
+          }}
+          onClose={() => setIsWordInfoOpen(false)}
+        />
       )}
 
       <button
