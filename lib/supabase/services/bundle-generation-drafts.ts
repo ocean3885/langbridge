@@ -311,6 +311,17 @@ export async function deleteBundleGenerationDraft(draftId: string) {
   if (error) throw new Error(`등록 대기 번들 삭제 실패: ${error.message}`);
 }
 
+export async function archiveBundleGenerationDraft(draftId: string) {
+  await assertAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('bundle_generation_drafts')
+    .update({ status: 'archived' })
+    .eq('id', draftId);
+
+  if (error) throw new Error(`등록 대기 번들 숨김 처리 실패: ${error.message}`);
+}
+
 export async function markBundleGenerationDraftConverted(draftId: string, bundleId: string) {
   await assertAdmin();
   const supabase = createAdminClient();

@@ -35,7 +35,10 @@ import {
   listAdminDrafts,
   deleteAdminDraftById
 } from '@/lib/supabase/services/admin-drafts';
-import { markBundleGenerationDraftConverted } from '@/lib/supabase/services/bundle-generation-drafts';
+import {
+  archiveBundleGenerationDraft,
+  markBundleGenerationDraftConverted,
+} from '@/lib/supabase/services/bundle-generation-drafts';
 import { 
   Clock,
   X,
@@ -609,12 +612,20 @@ export default function BundleCreateForm({ userId }: Props) {
         bundleMeta: { ...bundleMeta, image_url: finalBundleImageUrl, thumbnail_url: finalThumbnailUrl },
         sentenceTtsOptions,
         speakerTtsOptions,
+        sourceGenerationDraftId,
         pendingBundleId,
         itemImageMappings,
         savedImages: updatedImages.map(img => img.remoteUrl).filter(Boolean)
       };
       
       const saved = await saveAdminDraft(userId, DRAFT_TYPE, draftData, currentDraftId || undefined);
+      if (sourceGenerationDraftId) {
+        try {
+          await archiveBundleGenerationDraft(sourceGenerationDraftId);
+        } catch (draftUpdateError) {
+          console.error('Bundle draft saved, but generation draft status update failed', draftUpdateError);
+        }
+      }
       setBundleMeta(prev => ({ ...prev, image_url: finalBundleImageUrl, thumbnail_url: finalThumbnailUrl }));
       setLastSaved(saved.updated_at);
       setCurrentDraftId(saved.id);
@@ -665,6 +676,9 @@ export default function BundleCreateForm({ userId }: Props) {
         draft.wordGenerationProvider === 'chatgpt' || draft.wordGenerationProvider === 'gemini'
           ? draft.wordGenerationProvider
           : 'deepseek'
+      );
+      setSourceGenerationDraftId(
+        typeof draft.sourceGenerationDraftId === 'string' ? draft.sourceGenerationDraftId : null
       );
       setPendingBundleId(draft.pendingBundleId || createPendingBundleId());
       
@@ -791,6 +805,7 @@ export default function BundleCreateForm({ userId }: Props) {
       setItemImageMappings([]);
       setLastSaved(null);
       setCurrentDraftId(null);
+      setSourceGenerationDraftId(null);
     }
   };
 
