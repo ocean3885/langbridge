@@ -45,12 +45,98 @@ const TRANSFER_KEY = 'langbridge:bundle-generation-draft';
 const REGISTERED_BUNDLES_PER_PAGE = 20;
 
 function parseDraftInput(input: string) {
-  const parsed = JSON.parse(input);
+  const parsed = parseJsonLikeInput(input);
   return Array.isArray(parsed)
     ? parsed
     : Array.isArray(parsed?.bundles)
       ? parsed.bundles
       : [parsed];
+}
+
+function parseJsonLikeInput(input: string) {
+  const source = extractJsonSource(input);
+  try {
+    return JSON.parse(source);
+  } catch (initialError) {
+    const repaired = repairCommonJsonIssues(source);
+    if (repaired !== source) {
+      try {
+        return JSON.parse(repaired);
+      } catch {
+        // Fall through to the original error so the reported position matches the pasted text.
+      }
+    }
+
+    const message = initialError instanceof Error ? initialError.message : 'JSON 형식이 올바르지 않습니다.';
+    throw new Error(`JSON 형식이 올바르지 않습니다. ${message}`);
+  }
+}
+
+function extractJsonSource(input: string) {
+  const trimmed = input.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const firstObject = trimmed.indexOf('{');
+  const firstArray = trimmed.indexOf('[');
+  const starts = [firstObject, firstArray].filter(index => index >= 0);
+  if (starts.length === 0) return trimmed;
+
+  const start = Math.min(...starts);
+  const endChar = trimmed[start] === '[' ? ']' : '}';
+  const end = trimmed.lastIndexOf(endChar);
+  return end > start ? trimmed.slice(start, end + 1).trim() : trimmed;
+}
+
+function repairCommonJsonIssues(input: string) {
+  return escapeUnescapedStringQuotes(input)
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/(["}\]\d])\s*\n\s*("[-\w]+"\s*:)/g, '$1,\n$2')
+    .replace(/\b(true|false|null)\s*\n\s*("[-\w]+"\s*:)/g, '$1,\n$2');
+}
+
+function escapeUnescapedStringQuotes(input: string) {
+  let output = '';
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+
+    if (char === '"' && !isEscaped) {
+      if (!inString) {
+        inString = true;
+        output += char;
+      } else if (isLikelyClosingQuote(input, index)) {
+        inString = false;
+        output += char;
+      } else {
+        output += '\\"';
+      }
+      isEscaped = false;
+      continue;
+    }
+
+    output += char;
+
+    if (char === '\\' && !isEscaped) {
+      isEscaped = true;
+    } else {
+      isEscaped = false;
+    }
+  }
+
+  return output;
+}
+
+function isLikelyClosingQuote(input: string, quoteIndex: number) {
+  for (let index = quoteIndex + 1; index < input.length; index += 1) {
+    const char = input[index];
+    if (/\s/.test(char)) continue;
+    return char === ':' || char === ',' || char === '}' || char === ']';
+  }
+
+  return true;
 }
 
 function buildSourceJson(
@@ -532,7 +618,7 @@ function DraftCard({
     setIsWorking(true);
     try {
       await updateBundleGenerationDraft(draft.id, {
-        payload: JSON.parse(payloadJson),
+        payload: parseJsonLikeInput(payloadJson),
         notes,
         status,
       });

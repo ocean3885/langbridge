@@ -429,6 +429,7 @@ export default function BundleCreateForm({ userId }: Props) {
         items,
       }, null, 2));
       setTempTitle(String(draft.title_en || '').trim());
+      const transferredLevel = Number(draft.level);
       setBundleMeta(prev => ({
         ...prev,
         category_id: String(draft.category_id || ''),
@@ -436,6 +437,7 @@ export default function BundleCreateForm({ userId }: Props) {
         title_en: String(draft.title_en || '').trim(),
         description: String(draft.description || '').trim(),
         description_en: String(draft.description_en || '').trim(),
+        level: Number.isFinite(transferredLevel) && transferredLevel > 0 ? transferredLevel : prev.level,
       }));
       setSourceGenerationDraftId(
         typeof draft.generationDraftId === 'string' ? draft.generationDraftId : null
