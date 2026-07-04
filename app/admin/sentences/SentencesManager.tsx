@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react';
-import { generateSentenceAudio } from './actions';
 import Link from 'next/link';
 
 export interface Language {
@@ -86,22 +85,6 @@ export default function SentencesManager({ initialSentences, languages }: Senten
 
     setLoading(true);
     try {
-      // 1. TTS 오디오 생성
-      const defaultLangCode = 'es';
-
-      const audioResult = await generateSentenceAudio({
-        text: formData.sentence,
-        languageCode: defaultLangCode,
-        sentenceId: id,
-      });
-
-      if (!audioResult.success || !audioResult.audioPath) {
-        alert(audioResult.error || '오디오 생성에 실패했습니다.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. 오디오 경로와 함께 문장 수정
       const res = await fetch('/api/admin/sentences', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -110,7 +93,6 @@ export default function SentencesManager({ initialSentences, languages }: Senten
           sentence: formData.sentence,
           translation: formData.translation,
           translation_en: formData.translation_en,
-          audio_url: audioResult.audioPath,
         }),
       });
 
@@ -120,14 +102,21 @@ export default function SentencesManager({ initialSentences, languages }: Senten
       }
 
       const updatedSentence = await res.json();
-      setSentences(sentences.map(sentence => sentence.id === id ? updatedSentence : sentence));
+      setSentences(sentences.map(sentence => sentence.id === id
+        ? {
+            ...sentence,
+            ...updatedSentence,
+            word_count: updatedSentence.word_count ?? sentence.word_count,
+            bundle_count: updatedSentence.bundle_count ?? sentence.bundle_count,
+          }
+        : sentence
+      ));
       setEditingId(null);
       setFormData({
         sentence: '',
         translation: '',
         translation_en: '',
       });
-      alert('문장이 수정되었습니다.');
     } catch (error) {
       alert(error instanceof Error ? error.message : '문장 수정 중 오류가 발생했습니다.');
     } finally {

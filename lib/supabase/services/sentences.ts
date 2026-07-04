@@ -66,14 +66,20 @@ export async function getSentenceById(id: number): Promise<SupabaseSentence | nu
     
   if (sentenceError || !sentence) return null;
   
-  const { count, error: countError } = await supabase
+  const { count: wordCount } = await supabase
     .from('word_sentence_map')
+    .select('*', { count: 'exact', head: true })
+    .eq('sentence_id', id);
+
+  const { count: bundleCount } = await supabase
+    .from('bundle_items')
     .select('*', { count: 'exact', head: true })
     .eq('sentence_id', id);
   
   return {
     ...sentence,
-    word_count: count || 0
+    word_count: wordCount || 0,
+    bundle_count: bundleCount || 0,
   } as SupabaseSentence;
 }
 

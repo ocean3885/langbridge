@@ -5,7 +5,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AutoVerifyResult } from '../AutoVerifyWizard';
 import type { Word } from '../words.types';
 
-type WizardAction = 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold';
+type WizardAction = 'approve' | 'reapprove' | 'confirm' | 'reject' | 'incomplete' | 'hold';
 export type AutoVerifyModelProvider = 'deepseek' | 'chatgpt' | 'gemini';
 type SelectedCorrection = AutoVerifyResult['corrected_data'];
 
@@ -76,7 +76,7 @@ export function useAutoVerification({ words, setWords }: UseAutoVerificationOpti
     setIsSaving(true);
     try {
       const corrected = selectedCorrection || currentItem.corrected_data;
-      const shouldApplyCorrection = action === 'approve' && corrected;
+      const shouldApplyCorrection = (action === 'approve' || action === 'reapprove') && corrected;
       const payload: Record<string, unknown> = {
         wordId: currentItem.id,
         action,

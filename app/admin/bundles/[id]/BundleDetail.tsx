@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Copy, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
 import { bundleLevelOptions, getBundleLevelDisplay } from '@/lib/bundle-level';
 import { formatDate, getPublicUrl } from '@/lib/utils';
 import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder, regenerateBundleItemSentenceTTS } from '@/lib/supabase/services/bundles';
@@ -111,6 +111,7 @@ export default function BundleDetail({
   const [ttsModalItem, setTtsModalItem] = useState<any | null>(null);
   const [isRegeneratingItemAudio, setIsRegeneratingItemAudio] = useState(false);
   const [itemTtsOptions, setItemTtsOptions] = useState(defaultItemTtsOptions);
+  const [isSentenceListCopied, setIsSentenceListCopied] = useState(false);
   
   // Edit Form State
   const [editForm, setEditForm] = useState({
@@ -133,6 +134,9 @@ export default function BundleDetail({
   const sortedWords = [...words].sort((a, b) =>
     String(a.word || '').localeCompare(String(b.word || ''), 'es', { sensitivity: 'base' })
   );
+  const orderedSourceSentences = currentItems
+    .map(item => item.sentences?.sentence?.trim())
+    .filter((sentence): sentence is string => Boolean(sentence));
 
   const handleItemTtsProviderChange = (provider: TTSProvider) => {
     const model = TTS_PROVIDERS[provider].models[0].id;
@@ -468,6 +472,21 @@ export default function BundleDetail({
 
     return Array.from(uniqueWords.values());
   }
+
+  const handleCopySourceSentences = async () => {
+    if (orderedSourceSentences.length === 0) {
+      alert('복사할 원문 문장이 없습니다.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(orderedSourceSentences.join('\n'));
+      setIsSentenceListCopied(true);
+      window.setTimeout(() => setIsSentenceListCopied(false), 1800);
+    } catch (error) {
+      alert('클립보드 복사에 실패했습니다.');
+    }
+  };
 
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return;
@@ -942,6 +961,15 @@ export default function BundleDetail({
                 </>
               ) : (
                 <>
+                  <button
+                    onClick={() => void handleCopySourceSentences()}
+                    disabled={orderedSourceSentences.length === 0}
+                    className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+                    title="원문 문장 순서대로 복사"
+                  >
+                    {isSentenceListCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    {isSentenceListCopied ? '복사됨' : '원문 복사'}
+                  </button>
                   <button 
                     onClick={enterSortMode}
                     className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm flex items-center gap-2"

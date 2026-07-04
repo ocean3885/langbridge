@@ -16,6 +16,20 @@ export interface UserSentenceInteraction {
   updated_at: string;
 }
 
+export interface UserWordInteraction {
+  id: string;
+  user_id: string;
+  word_id: number;
+  proficiency_level: number;
+  correct_count: number;
+  incorrect_count: number;
+  streak_count: number;
+  last_reviewed_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * 특정 유저의 여러 문장에 대한 상호작용 정보를 가져옵니다.
  */
@@ -33,6 +47,24 @@ export async function listUserSentenceInteractions(userId: string, sentenceIds: 
   }
 
   return data as UserSentenceInteraction[];
+}
+
+export async function listUserWordInteractions(userId: string, wordIds: number[]) {
+  if (wordIds.length === 0) return [];
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('user_word_interactions')
+    .select('*')
+    .eq('user_id', userId)
+    .in('word_id', wordIds);
+
+  if (error) {
+    console.error('Error listing user word interactions:', error);
+    return [];
+  }
+
+  return data as UserWordInteraction[];
 }
 
 /**

@@ -38,7 +38,7 @@ interface AutoVerifyWizardProps {
   currentWizardIndex: number;
   setCurrentWizardIndex: React.Dispatch<React.SetStateAction<number>>;
   handleWizardAction: (
-    action: 'approve' | 'confirm' | 'reject' | 'incomplete' | 'hold',
+    action: 'approve' | 'reapprove' | 'confirm' | 'reject' | 'incomplete' | 'hold',
     selectedCorrection?: WordData
   ) => Promise<void>;
   loading: boolean;
@@ -451,17 +451,20 @@ export default function AutoVerifyWizard({
     });
   };
 
-  const approveWithSelectedChanges = () => {
+  const applySelectedChanges = (action: 'approve' | 'reapprove') => {
     if (!currentItem?.corrected_data || !currentSelection) {
-      void handleWizardAction('approve');
+      void handleWizardAction(action);
       return;
     }
 
     void handleWizardAction(
-      'approve',
+      action,
       mergeSelectedCorrection(currentItem.original_data, currentItem.corrected_data, currentSelection)
     );
   };
+
+  const approveWithSelectedChanges = () => applySelectedChanges('approve');
+  const reapproveWithSelectedChanges = () => applySelectedChanges('reapprove');
 
   // 단축키 이벤트 리스너 바인딩
   useEffect(() => {
@@ -1174,6 +1177,13 @@ export default function AutoVerifyWizard({
                           className="px-5 py-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300 rounded-xl text-sm font-bold shadow-sm transition"
                         >
                           반려완료
+                        </button>
+                        <button
+                          onClick={reapproveWithSelectedChanges}
+                          disabled={loading}
+                          className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm transition"
+                        >
+                          승인재검수
                         </button>
                         <button
                           onClick={approveWithSelectedChanges}

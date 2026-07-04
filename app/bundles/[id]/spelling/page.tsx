@@ -3,6 +3,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems, listBundleItemsWithDistractors } from '@/lib/supabase/services/bundles';
+import { listUserWordInteractions, type UserWordInteraction } from '@/lib/supabase/services/user-interactions';
 import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
 import { formatWordMeaning } from '@/lib/word-meaning';
@@ -10,6 +11,9 @@ import { getBundleTitle } from '../../bundle-utils';
 import PracticeSessionSelector from '../_components/PracticeSessionSelector';
 import { filterPracticeItems, getPracticeModeStarProgress, getPracticeSessionCounts, isPracticeSessionMode } from '../practice-session';
 import BundleSpellingClient from './BundleSpellingClient';
+
+const MASTERED_PROFICIENCY_LEVEL = 4;
+const TARGET_SPELLING_CANDIDATE_COUNT = 20;
 
 interface BundleSpellingItem {
   id: string;
@@ -48,7 +52,13 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
   }
 
   const spellingItems = getBundleSpellingItems({ items, itemsWithMappings, language });
-  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
+  const [progress, wordInteractions] = await Promise.all([
+    getBundleProgressSummary(user?.id, bundle.id, items.length),
+    user
+      ? listUserWordInteractions(user.id, spellingItems.map((item) => item.wordId))
+      : Promise.resolve([]),
+  ]);
+  const practiceSpellingItems = getPrioritizedSpellingItems(spellingItems, wordInteractions);
   const title = getBundleTitle(bundle, language);
   const effectiveMode = !user && !mode ? 'all' : mode;
 
@@ -60,13 +70,13 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
         modeName="Spelling Scramble"
         basePath={`/bundles/${bundle.id}/spelling`}
         language={language}
-        counts={getPracticeSessionCounts(spellingItems, progress.itemInteractions, 'spelling', progress.currentPracticeItemIds.spelling)}
-        starProgress={getPracticeModeStarProgress(spellingItems, progress.itemInteractions, 'spelling')}
+        counts={getPracticeSessionCounts(practiceSpellingItems, progress.itemInteractions, 'spelling', progress.currentPracticeItemIds.spelling)}
+        starProgress={getPracticeModeStarProgress(practiceSpellingItems, progress.itemInteractions, 'spelling')}
       />
     );
   }
 
-  const filteredItems = filterPracticeItems(spellingItems, progress.itemInteractions, effectiveMode, 'spelling');
+  const filteredItems = filterPracticeItems(practiceSpellingItems, progress.itemInteractions, effectiveMode, 'spelling');
   const sessionItems = limitPracticeItems(filteredItems, count);
   const wordUsageDetails = await listWordUsageDetails(sessionItems.map((item) => item.wordId));
   const initialItemId =
@@ -134,6 +144,49 @@ function getBundleSpellingItems({
   }
 
   return Array.from(byWordId.values()).filter((item) => item.meaning);
+}
+
+function getPrioritizedSpellingItems(
+  items: BundleSpellingItem[],
+  wordInteractions: UserWordInteraction[]
+) {
+  const proficiencyByWordId = new Map(
+    wordInteractions.map((interaction) => [
+      Number(interaction.word_id),
+      Number(interaction.proficiency_level || 0),
+    ])
+  );
+  const selectedWordIds = new Set<number>();
+  const getProficiencyLevel = (item: BundleSpellingItem) => proficiencyByWordId.get(item.wordId) || 0;
+  const pushUniqueItems = (target: BundleSpellingItem[], candidates: BundleSpellingItem[], limit?: number) => {
+    for (const item of candidates) {
+      if (limit !== undefined && target.length >= limit) break;
+      if (selectedWordIds.has(item.wordId)) continue;
+      selectedWordIds.add(item.wordId);
+      target.push(item);
+    }
+  };
+
+  const prioritizedItems = items.filter((item) => getProficiencyLevel(item) < MASTERED_PROFICIENCY_LEVEL);
+
+  if (prioritizedItems.length >= TARGET_SPELLING_CANDIDATE_COUNT) {
+    return prioritizedItems;
+  }
+
+  const selectedItems: BundleSpellingItem[] = [];
+  pushUniqueItems(selectedItems, prioritizedItems);
+  pushUniqueItems(
+    selectedItems,
+    items.filter((item) => getProficiencyLevel(item) === MASTERED_PROFICIENCY_LEVEL),
+    TARGET_SPELLING_CANDIDATE_COUNT
+  );
+
+  if (selectedItems.length >= TARGET_SPELLING_CANDIDATE_COUNT) {
+    return selectedItems;
+  }
+
+  pushUniqueItems(selectedItems, items, TARGET_SPELLING_CANDIDATE_COUNT);
+  return selectedItems;
 }
 
 function limitPracticeItems<T>(items: T[], count?: string) {

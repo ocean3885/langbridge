@@ -234,7 +234,8 @@ function validateCorrectedData(
       .map((item) => item.trim().toLocaleLowerCase())
   );
   const seenDistractors = new Set<string>();
-  const distractors = value.distractors.map((item, index) => {
+  const distractors: VerifiedDistractor[] = [];
+  value.distractors.forEach((item, index) => {
     if (!isRecord(item)) {
       throw new Error(`corrected_data.distractors[${index}]는 객체여야 합니다.`);
     }
@@ -254,16 +255,16 @@ function validateCorrectedData(
       throw new Error(`corrected_data.distractors[${index}]가 원본 또는 교정 단어와 같습니다.`);
     }
     if (seenDistractors.has(normalizedWord)) {
-      throw new Error(`corrected_data.distractors에 중복 단어 "${distractorWord}"가 있습니다.`);
+      return;
     }
     seenDistractors.add(normalizedWord);
 
-    return {
+    distractors.push({
       ...(item.id !== undefined ? { id: item.id } : {}),
       word: distractorWord,
       meaning_ko: meaningKo,
       meaning_en: meaningEn,
-    };
+    });
   });
 
   return {
@@ -381,6 +382,15 @@ ${JSON.stringify({
    - 품사(pos)는 반드시 "noun", "verb", "adj", "adv", "prep", "conj", "pron", "det", "num", "interj" 중 하나를 사용하고, 뜻(meaning_ko, meaning_en)의 품사 키도 동일한 축약형으로 맞추십시오. 수사는 "num"을 사용하십시오.
    - 뜻에서 원어(스페인어)는 제거하고 순수한 번역어(KO/EN)만 남기십시오.
    - 명사/형용사의 성별(gender) 및 성수 변화(declensions), 동사의 시제 변화(conjugations) 오류를 수정하십시오.
+   - declensions는 명사/형용사에서만 사용하고, declensions 키는 "ms", "mp", "fs", "fp"만 사용하십시오.
+   - pos에 "adj"가 포함된 경우:
+     * 성수 변화가 있는 일반 형용사는 gender를 "mf"로 반환하고 ms/mp/fs/fp를 모두 채우십시오.
+     * 성별 변화가 없는 형용사는 gender를 JSON null로 반환하고, 단수/복수 형태를 가능한 키에 명확히 채우십시오.
+   - pos가 "noun"이고 gender가 "m"이면 declensions.ms는 반드시 있어야 합니다.
+   - pos가 "noun"이고 gender가 "f"이면 declensions.fs는 반드시 있어야 합니다.
+   - 단수 전용/불가산/고유명사 등 복수형이 부자연스러운 경우에만 mp, fp를 생략하십시오.
+   - gender가 "mf"이면 ms/mp/fs/fp 중 해당 가능한 모든 형태를 채우십시오.
+   - 반환한 gender와 declensions 키가 서로 모순되면 status는 "corrected"로 하고 일관된 corrected_data를 반환하십시오.
    - 해당하지 않는 declensions 변화형은 빈 문자열이나 null로 채우지 말고 해당 키를 생략하십시오.
    - 동사가 아니거나 활용 정보가 없으면 conjugations는 빈 객체 {}로 반환하십시오.
    - 단어의 인지도 및 사용 빈도를 고려하여 CEFR 레벨 난이도(difficulty)의 타당성을 평가하십시오. (1: Beginner/입문, 2: A1, 3: A2, 4: B1, 5: B2, 6: C1, 7: C2). 현재 지정된 난이도가 너무 낮거나 높은 경우, 적절한 정수 값(1~7 사이)으로 제안하십시오.
@@ -414,7 +424,7 @@ ${JSON.stringify({
     "gender": "m 또는 f 또는 mf, 성별이 없으면 문자열이 아닌 JSON null",
     "difficulty": 1 | 2 | 3 | 4 | 5 | 6 | 7,
     "conjugations": { ... },
-    "declensions": { ... },
+    "declensions": { "ms": "남성 단수", "mp": "남성 복수", "fs": "여성 단수", "fp": "여성 복수" },
     "distractors": [
       { "id": "기존 오답 ID (새로 대체한 경우 빈 문자열)", "word": "오답 단어", "meaning_ko": "한국어 뜻", "meaning_en": "영어 뜻" }
     ]
@@ -492,7 +502,7 @@ ${JSON.stringify({
   }
 }
 
-// PUT: 개별 단어의 검수 결과 결정 반영 (승인완료 / 반려완료 / 미완료 등)
+// PUT: 개별 단어의 검수 결과 결정 반영 (승인완료 / 승인재검수 / 반려완료 / 미완료 등)
 export async function PUT(request: NextRequest) {
   try {
     const user = await getAppUserFromRequest(request);
@@ -515,7 +525,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '단어 ID는 양의 정수여야 합니다.' }, { status: 400 });
     }
 
-    if (action === 'approve' || action === 'confirm') {
+    if (action === 'approve' || action === 'reapprove' || action === 'confirm') {
       let validatedWordData: VerifiedWordData | null = null;
       if (wordData !== undefined || distractors !== undefined) {
         const existingDistractors = await listWordDistractors(targetId);
@@ -538,10 +548,10 @@ export async function PUT(request: NextRequest) {
           declensions: validatedWordData.declensions,
           conjugations: validatedWordData.conjugations,
           difficulty: validatedWordData.difficulty,
-          isVerified: true
+          isVerified: action === 'reapprove' ? false : true
         });
       } else {
-        await updateWord(targetId, { isVerified: true });
+        await updateWord(targetId, { isVerified: action === 'reapprove' ? false : true });
       }
 
       // 2. 오답(distractors) 리스트 업데이트 (교정안이 존재하거나 새로 덮어쓸 경우)
