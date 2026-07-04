@@ -31,7 +31,6 @@ import { compressImageForUpload } from '@/lib/image-compression';
 import { 
   saveAdminDraft, 
   getAdminDraft, 
-  deleteAdminDraft,
   listAdminDrafts,
   deleteAdminDraftById
 } from '@/lib/supabase/services/admin-drafts';
@@ -138,12 +137,19 @@ const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; vo
       { id: 'neural2', name: 'Neural2' },
     ],
     voices: [
-      { id: 'es-ES-Standard-A', name: 'es-ES-Standard-A (여성)', supportedModels: ['standard'] },
-      { id: 'es-ES-Standard-B', name: 'es-ES-Standard-B (남성)', supportedModels: ['standard'] },
       { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Neural2-B', name: 'es-ES-Neural2-B (남성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Wavenet-B', name: 'es-ES-Wavenet-B (남성)', supportedModels: ['wavenet'] },
-      { id: 'es-ES-Wavenet-C', name: 'es-ES-Wavenet-C (여성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Neural2-E', name: 'es-ES-Neural2-E (여성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Neural2-F', name: 'es-ES-Neural2-F (남성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Neural2-G', name: 'es-ES-Neural2-G (남성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Neural2-H', name: 'es-ES-Neural2-H (여성)', supportedModels: ['neural2'] },
+      { id: 'es-ES-Wavenet-E', name: 'es-ES-Wavenet-E (남성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Wavenet-F', name: 'es-ES-Wavenet-F (여성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Wavenet-G', name: 'es-ES-Wavenet-G (남성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Wavenet-H', name: 'es-ES-Wavenet-H (여성)', supportedModels: ['wavenet'] },
+      { id: 'es-ES-Standard-E', name: 'es-ES-Standard-E (남성)', supportedModels: ['standard'] },
+      { id: 'es-ES-Standard-F', name: 'es-ES-Standard-F (여성)', supportedModels: ['standard'] },
+      { id: 'es-ES-Standard-G', name: 'es-ES-Standard-G (남성)', supportedModels: ['standard'] },
+      { id: 'es-ES-Standard-H', name: 'es-ES-Standard-H (여성)', supportedModels: ['standard'] },
     ]
   },
   elevenlabs: {
@@ -1349,7 +1355,9 @@ export default function BundleCreateForm({ userId }: Props) {
           console.error('Bundle created, but generation draft status update failed', draftUpdateError);
         }
       }
-      await deleteAdminDraft(userId, DRAFT_TYPE);
+      if (currentDraftId) {
+        await deleteAdminDraftById(currentDraftId, userId);
+      }
       router.replace(`/admin/bundles/${bundle.id}`);
     } catch (err: any) {
       alert(err.message || '번들 생성 중 오류가 발생했습니다.');

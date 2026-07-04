@@ -11,7 +11,7 @@ import {
 import { generateProviderJson, normalizeWordGenerationProvider } from '@/lib/generator';
 
 const MAX_VERIFY_BATCH_SIZE = 10;
-const MIN_DISTRACTOR_COUNT = 6;
+const MIN_DISTRACTOR_COUNT = 8;
 const VERIFY_STATUSES = new Set(['valid', 'corrected', 'flagged']);
 const ALLOWED_POS = new Set(['noun', 'verb', 'adj', 'adv', 'prep', 'conj', 'pron', 'det', 'num', 'interj']);
 const POS_ALIASES: Record<string, string> = {

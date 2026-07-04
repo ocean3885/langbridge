@@ -21,11 +21,6 @@ interface WordsFiltersProps {
   sortOrder: SentenceSortOrder;
   onSortOrderChange: (value: SentenceSortOrder) => void;
   filteredWords: Word[];
-  isBulkGenerating: boolean;
-  incompleteBatchCount: number;
-  pendingBatchCount: number;
-  onBulkGenerate: () => void;
-  onLoadPendingBatch: () => void;
   autoVerifyBatchSize: number;
   onAutoVerifyBatchSizeChange: (value: number) => void;
   onStartAutoVerify: () => void;
@@ -58,9 +53,6 @@ function Toggle({
 }
 
 export default function WordsFilters(props: WordsFiltersProps) {
-  const hasLowDistractorWords = props.filteredWords.some(
-    (word) => (word.distractor_count ?? 0) < TARGET_DISTRACTOR_COUNT
-  );
   const activeFilterCount = [
     props.searchTerm.trim() !== '',
     props.filterLanguage !== 'all',
@@ -182,43 +174,6 @@ export default function WordsFilters(props: WordsFiltersProps) {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-            {props.pendingBatchCount > 0 && (
-              <button
-                type="button"
-                onClick={props.onLoadPendingBatch}
-                disabled={props.isBulkGenerating}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
-              >
-                검수 대기 배치 {props.pendingBatchCount}건
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={props.onBulkGenerate}
-              disabled={
-                !props.filterLowDistractors ||
-                !hasLowDistractorWords ||
-                props.isBulkGenerating ||
-                props.incompleteBatchCount > 0
-              }
-              title={
-                props.incompleteBatchCount > 0
-                  ? '미완료 배치를 먼저 검수·반영해주세요.'
-                  : !props.filterLowDistractors
-                    ? '오답 부족 필터를 켜면 생성할 수 있습니다.'
-                    : undefined
-              }
-              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:opacity-70 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300 dark:hover:bg-blue-950/30 dark:disabled:border-gray-700 dark:disabled:text-gray-500"
-            >
-              <Sparkles className="h-4 w-4" />
-              {props.isBulkGenerating
-                ? '오답 생성 중...'
-                : props.incompleteBatchCount > 0
-                  ? '검수 완료 후 생성'
-                  : '오답 일괄 생성'}
-            </button>
-
             <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg bg-blue-50 p-1 dark:bg-blue-950/30">
               <label htmlFor="auto-verify-size" className="pl-2 text-xs font-bold text-blue-700 dark:text-blue-300">
                 검수 단위

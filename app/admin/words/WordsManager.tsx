@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import BulkReportModal from './BulkReportModal';
 import AutoVerifyWizard from './AutoVerifyWizard';
 import WordCard from './WordCard';
 import WordsFilters from './WordsFilters';
 import { useAutoVerification } from './hooks/useAutoVerification';
 import type { AutoVerifyModelProvider } from './hooks/useAutoVerification';
-import { useDistractorBatch } from './hooks/useDistractorBatch';
 import type { Language, SentenceSortOrder, VerificationFilter, Word } from './words.types';
 import { TARGET_DISTRACTOR_COUNT, WORDS_PER_PAGE } from './words.constants';
 import { getCanonicalPOS, getMeaningDisplay } from './words.utils';
@@ -61,8 +59,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
       matchesVerification &&
       matchesDifficulty;
   });
-
-  const distractorBatch = useDistractorBatch({ filteredWords, setWords });
 
   const sortedWords = [...filteredWords].sort((a, b) => {
     if (sortOrder === 'none') return 0;
@@ -155,11 +151,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             setCurrentPage(1);
           }}
           filteredWords={filteredWords}
-          isBulkGenerating={distractorBatch.isGenerating}
-          incompleteBatchCount={distractorBatch.incompleteBatchCount}
-          pendingBatchCount={distractorBatch.pendingBatchCount}
-          onBulkGenerate={() => void distractorBatch.generate()}
-          onLoadPendingBatch={() => void distractorBatch.loadPendingBatch()}
           autoVerifyBatchSize={autoVerification.batchSize}
           onAutoVerifyBatchSizeChange={autoVerification.setBatchSize}
           onStartAutoVerify={() => setIsAutoVerifyModelModalOpen(true)}
@@ -243,26 +234,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
         </div>
       </div>
 
-      {distractorBatch.isGenerating && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl max-w-md w-full border border-gray-100 dark:border-gray-800 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center">오답 일괄 생성 중</h3>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 h-2.5 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-600 h-full transition-all duration-300"
-                style={{ width: `${(distractorBatch.progress.current / distractorBatch.progress.total) * 100}%` }}
-              />
-            </div>
-            <p className="text-sm font-semibold text-gray-650 dark:text-gray-400 text-center">
-              {distractorBatch.progress.current} / {distractorBatch.progress.total} 단어 완료
-            </p>
-            <p className="text-xs text-gray-400 text-center leading-relaxed">
-              API 요청 한도와 타임아웃을 조절하기 위해 단어별로 순차 처리 중입니다. 완료될 때까지 브라우저 창을 닫지 마세요.
-            </p>
-          </div>
-        </div>
-      )}
-
       {isAutoVerifyModelModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-gray-100 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900">
@@ -322,25 +293,6 @@ export default function WordsManager({ initialWords, languages }: WordsManagerPr
             </div>
           </div>
         </div>
-      )}
-
-      {distractorBatch.report && (
-        <BulkReportModal
-          bulkReport={distractorBatch.report}
-          onClose={() => distractorBatch.setReport(null)}
-          updateBulkDistractor={distractorBatch.updateDistractor}
-          setBulkWordReviewed={distractorBatch.setWordReviewed}
-          isPublishingBulkReport={distractorBatch.isPublishing}
-          isSavingBulkReview={distractorBatch.isSavingReview}
-          isDiscardingBulkBatch={distractorBatch.isDiscarding}
-          handleDiscardBulkBatch={distractorBatch.discard}
-          handleCopyBulkReportForChatGPT={distractorBatch.copyForReview}
-          isBulkReportCopied={distractorBatch.isReportCopied}
-          handleSaveBulkReview={distractorBatch.saveReview}
-          handlePublishBulkReport={distractorBatch.publish}
-          targetDistractorCount={TARGET_DISTRACTOR_COUNT}
-          getMeaningDisplay={getMeaningDisplay}
-        />
       )}
 
       {autoVerification.isOpen && (

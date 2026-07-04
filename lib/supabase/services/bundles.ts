@@ -848,11 +848,6 @@ export async function regenerateBundleItemSentenceTTS(itemId: string, options?: 
 
   if (!newAudioUrl) throw new Error('TTS 생성에 실패했습니다.');
 
-  const oldAudioUrls = Array.from(new Set([
-    item.audio_url,
-    sentence.audio_url
-  ].filter((url): url is string => Boolean(url && url !== newAudioUrl))));
-
   const { error: itemUpdateError } = await supabase
     .from('bundle_items')
     .update({ audio_url: newAudioUrl })
@@ -863,27 +858,21 @@ export async function regenerateBundleItemSentenceTTS(itemId: string, options?: 
     throw itemUpdateError;
   }
 
-  const { error: sentenceUpdateError } = await supabase
-    .from('sentences')
-    .update({ audio_url: newAudioUrl, updated_at: new Date().toISOString() })
-    .eq('id', item.sentence_id);
+  if (!sentence.audio_url) {
+    const { error: sentenceUpdateError } = await supabase
+      .from('sentences')
+      .update({ audio_url: newAudioUrl, updated_at: new Date().toISOString() })
+      .eq('id', item.sentence_id);
 
-  if (sentenceUpdateError) {
-    await supabase
-      .from('bundle_items')
-      .update({ audio_url: item.audio_url || null })
-      .eq('id', itemId);
-    await deleteFileFromPublicUrl(newAudioUrl);
-    throw sentenceUpdateError;
+    if (sentenceUpdateError) {
+      await supabase
+        .from('bundle_items')
+        .update({ audio_url: item.audio_url || null })
+        .eq('id', itemId);
+      await deleteFileFromPublicUrl(newAudioUrl);
+      throw sentenceUpdateError;
+    }
   }
-
-  await Promise.all(
-    oldAudioUrls.map(url =>
-      deleteFileFromPublicUrl(url).catch(err =>
-        console.error('Failed to delete old bundle item audio file:', err)
-      )
-    )
-  );
 
   return newAudioUrl;
 }
