@@ -168,12 +168,12 @@ export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder =
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {uniqueImages.map((url, i) => (
               <div 
-                key={i}
+                key={url}
                 onClick={() => setSelectedImageUrl(url)}
-                className={`relative aspect-video rounded-2xl border-2 overflow-hidden cursor-pointer transition-all ${selectedImageUrl === url ? 'border-blue-500 ring-4 ring-blue-50 shadow-lg' : 'border-white hover:border-gray-200'}`}
+                className={`group relative aspect-video rounded-2xl border-2 overflow-hidden cursor-pointer transition-all ${selectedImageUrl === url ? 'border-blue-500 ring-4 ring-blue-50 shadow-lg' : 'border-white hover:border-gray-200'}`}
               >
                 <Image src={url} alt={`Bundle image ${i}`} fill className="object-cover" sizes="(max-width: 640px) 50vw, 180px" />
-                <div className="absolute top-2 right-2 flex gap-1">
+                <div className="absolute top-2 right-2 z-20 flex gap-1">
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDeleteImage(url); }}
                     className="p-1.5 bg-black/40 hover:bg-red-500 text-white rounded-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 lg:opacity-100"
@@ -182,14 +182,14 @@ export default function BundleImageMapper({ items, onItemsUpdate, uploadFolder =
                   </button>
                 </div>
                 {selectedImageUrl === url && (
-                  <div className="absolute inset-0 bg-blue-500/10 flex items-center justify-center">
+                  <div className="pointer-events-none absolute inset-0 z-10 bg-blue-500/10 flex items-center justify-center">
                     <div className="bg-blue-500 text-white p-1 rounded-full">
                       <Check className="w-4 h-4" />
                     </div>
                   </div>
                 )}
                 {/* Count badge */}
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded text-[10px] text-white font-bold">
+                <div className="absolute bottom-2 left-2 z-20 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded text-[10px] text-white font-bold">
                   {Object.values(mappings).filter(m => m === url).length}개 연결
                 </div>
               </div>

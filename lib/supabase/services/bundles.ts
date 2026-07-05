@@ -938,7 +938,7 @@ export async function getRecommendedUnstudiedBundles(userId: string, limit: numb
   const [{ data: interactions }, { data: completedItems }] = await Promise.all([
     supabase
       .from('user_bundle_interactions')
-      .select('bundle_id, progress_ratio, is_completed')
+      .select('bundle_id, progress_ratio, is_completed, is_started, last_studied_at, current_bundle_item_id')
       .eq('user_id', userId),
     supabase
       .from('user_bundle_item_interactions')
@@ -949,7 +949,13 @@ export async function getRecommendedUnstudiedBundles(userId: string, limit: numb
     
   const studiedBundleIds = Array.from(new Set([
     ...(interactions || [])
-      .filter((interaction) => interaction.is_completed || Number(interaction.progress_ratio) > 0)
+      .filter((interaction) =>
+        interaction.is_completed ||
+        interaction.is_started ||
+        Boolean(interaction.last_studied_at) ||
+        Boolean(interaction.current_bundle_item_id) ||
+        Number(interaction.progress_ratio) > 0
+      )
       .map((interaction) => interaction.bundle_id),
     ...(completedItems || []).map((item) => item.bundle_id),
   ]));

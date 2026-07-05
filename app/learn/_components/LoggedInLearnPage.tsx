@@ -86,6 +86,7 @@ const loggedInSectionCopy = {
     practicedWords: '연습한 단어',
     wordsInMemory: '기억 중인 단어',
     practiceAccuracy: '정답률',
+    viewDetailedProgress: '자세한 학습 현황 보기',
     viewAllBundles: '전체 번들 보기',
   },
   en: {
@@ -101,6 +102,7 @@ const loggedInSectionCopy = {
     practicedWords: 'Practiced Words',
     wordsInMemory: 'Words in Memory',
     practiceAccuracy: 'Practice Accuracy',
+    viewDetailedProgress: 'View detailed progress',
     viewAllBundles: 'View all bundles',
   },
 };
@@ -464,6 +466,13 @@ function ProgressSummaryCard({ summary, language }: { summary: LearningProgressS
           </div>
         ))}
       </div>
+      <Link
+        href="/learn/progress"
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-bold text-zinc-700 transition hover:border-[#8bbf87] hover:bg-[#f1f8ef] hover:text-[#3f7d42] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-100"
+      >
+        {t.viewDetailedProgress}
+        <ArrowRight className="h-4 w-4" />
+      </Link>
     </div>
   );
 }

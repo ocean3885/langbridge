@@ -38,6 +38,14 @@ import {
   archiveBundleGenerationDraft,
   markBundleGenerationDraftConverted,
 } from '@/lib/supabase/services/bundle-generation-drafts';
+import {
+  type AdminTtsOptions,
+  type TTSProvider,
+  TTS_PROVIDERS,
+  defaultAdminTtsOptions,
+  normalizeTtsSelection,
+} from '@/lib/admin-tts-options';
+import TTSSettingsFields from '@/components/admin/TTSSettingsFields';
 import { 
   Clock,
   X,
@@ -71,14 +79,14 @@ interface ConversationSpeakerInput {
 }
 
 type SpeakerTtsOptions = Record<string, {
-  provider: TTSProvider;
-  model: string;
-  voice: string;
-  speed: number;
-  stability: number;
-  similarityBoost: number;
-  style: number;
-  useSpeakerBoost: boolean;
+  provider: AdminTtsOptions['provider'];
+  model: AdminTtsOptions['model'];
+  voice: AdminTtsOptions['voice'];
+  speed: AdminTtsOptions['speed'];
+  stability: AdminTtsOptions['stability'];
+  similarityBoost: AdminTtsOptions['similarityBoost'];
+  style: AdminTtsOptions['style'];
+  useSpeakerBoost: AdminTtsOptions['useSpeakerBoost'];
 }>;
 
 interface BundleJsonInput {
@@ -91,7 +99,6 @@ interface BundleJsonInput {
   items: BundleItemInput[];
 }
 
-type TTSProvider = 'google' | 'elevenlabs';
 type WordGenerationProvider = 'deepseek' | 'chatgpt' | 'gemini';
 
 type AutoWordGenerationResult = {
@@ -103,97 +110,11 @@ type AutoWordGenerationResult = {
   error?: string | null;
 };
 
-interface TTSOption {
-  id: string;
-  name: string;
-}
-
-interface TTSVoiceOption extends TTSOption {
-  supportedModels: string[];
-}
-
-const ELEVENLABS_MODELS: TTSOption[] = [
-  { id: 'eleven_multilingual_v2', name: 'Multilingual v2' },
-  { id: 'eleven_turbo_v2_5', name: 'Turbo v2.5' },
-  { id: 'eleven_flash_v2_5', name: 'Flash v2.5' },
-  { id: 'eleven_multilingual_v1', name: 'Multilingual v1' },
-  { id: 'eleven_monolingual_v1', name: 'Monolingual v1' },
-];
-
 const WORD_GENERATION_PROVIDERS: { id: WordGenerationProvider; name: string; description: string }[] = [
   { id: 'deepseek', name: 'DeepSeek', description: '기본형' },
   { id: 'chatgpt', name: 'ChatGPT', description: 'OpenAI' },
   { id: 'gemini', name: 'Gemini', description: 'Google' },
 ];
-
-const ELEVENLABS_MODEL_IDS = ELEVENLABS_MODELS.map(model => model.id);
-
-const TTS_PROVIDERS: Record<TTSProvider, { name: string; models: TTSOption[]; voices: TTSVoiceOption[] }> = {
-  google: {
-    name: 'Google Cloud TTS',
-    models: [
-      { id: 'standard', name: 'Standard' },
-      { id: 'wavenet', name: 'WaveNet' },
-      { id: 'neural2', name: 'Neural2' },
-    ],
-    voices: [
-      { id: 'es-ES-Neural2-A', name: 'es-ES-Neural2-A (여성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Neural2-E', name: 'es-ES-Neural2-E (여성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Neural2-F', name: 'es-ES-Neural2-F (남성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Neural2-G', name: 'es-ES-Neural2-G (남성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Neural2-H', name: 'es-ES-Neural2-H (여성)', supportedModels: ['neural2'] },
-      { id: 'es-ES-Wavenet-E', name: 'es-ES-Wavenet-E (남성)', supportedModels: ['wavenet'] },
-      { id: 'es-ES-Wavenet-F', name: 'es-ES-Wavenet-F (여성)', supportedModels: ['wavenet'] },
-      { id: 'es-ES-Wavenet-G', name: 'es-ES-Wavenet-G (남성)', supportedModels: ['wavenet'] },
-      { id: 'es-ES-Wavenet-H', name: 'es-ES-Wavenet-H (여성)', supportedModels: ['wavenet'] },
-      { id: 'es-ES-Standard-E', name: 'es-ES-Standard-E (남성)', supportedModels: ['standard'] },
-      { id: 'es-ES-Standard-F', name: 'es-ES-Standard-F (여성)', supportedModels: ['standard'] },
-      { id: 'es-ES-Standard-G', name: 'es-ES-Standard-G (남성)', supportedModels: ['standard'] },
-      { id: 'es-ES-Standard-H', name: 'es-ES-Standard-H (여성)', supportedModels: ['standard'] },
-    ]
-  },
-  elevenlabs: {
-    name: 'ElevenLabs',
-    models: ELEVENLABS_MODELS,
-    voices: [
-      { id: '2Lb1en5ujrODDIqmp7F3', name: '스페인어 학습 기본 (Custom)', supportedModels: ELEVENLABS_MODEL_IDS },
-      { id: '21m00Tcm4TlvDq8ikWAM', name: '스페인어 회화 여성 A - 차분함', supportedModels: ELEVENLABS_MODEL_IDS },
-      { id: 'EXAVITQu4vr4xnSDxMaL', name: '스페인어 회화 여성 B - 밝음', supportedModels: ELEVENLABS_MODEL_IDS },
-      { id: 'AZnzlk1XvdvUeBnXmlld', name: '스페인어 설명 여성 C - 또렷함', supportedModels: ELEVENLABS_MODEL_IDS },
-      { id: '29vD33N1CtxCmqQRPOHJ', name: '스페인어 회화 남성 A - 안정적', supportedModels: ELEVENLABS_MODEL_IDS },
-      { id: 'pNInz6obpgDQGcFmaJcg', name: '스페인어 설명 남성 B - 깊은 톤', supportedModels: ELEVENLABS_MODEL_IDS },
-    ]
-  }
-};
-
-function getVoicesForTtsSelection(provider: TTSProvider, model: string) {
-  return TTS_PROVIDERS[provider].voices.filter(voice => voice.supportedModels.includes(model));
-}
-
-function getDefaultVoiceForTtsSelection(provider: TTSProvider, model: string) {
-  return getVoicesForTtsSelection(provider, model)[0]?.id || '';
-}
-
-function normalizeTtsSelection(providerValue: unknown, modelValue?: string | null, voiceValue?: string | null) {
-  const provider: TTSProvider = providerValue === 'google' ? 'google' : 'elevenlabs';
-  const models = TTS_PROVIDERS[provider].models;
-  const model = models.some(option => option.id === modelValue) ? modelValue! : models[0].id;
-  const voices = getVoicesForTtsSelection(provider, model);
-  const voice = voices.some(option => option.id === voiceValue) ? voiceValue! : (voices[0]?.id || '');
-
-  return { provider, model, voice };
-}
-
-const defaultSentenceTtsOptions = {
-  provider: 'elevenlabs' as TTSProvider,
-  model: TTS_PROVIDERS.elevenlabs.models[0].id,
-  voice: TTS_PROVIDERS.elevenlabs.voices[0].id,
-  speed: 0.8,
-  stability: 0.5,
-  similarityBoost: 0.75,
-  style: 0,
-  useSpeakerBoost: true,
-};
 
 interface Props {
   userId: string;
@@ -316,7 +237,7 @@ export default function BundleCreateForm({ userId }: Props) {
     access_level: 'free' as 'free' | 'premium',
     is_published: false
   });
-  const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultSentenceTtsOptions);
+  const [sentenceTtsOptions, setSentenceTtsOptions] = useState(defaultAdminTtsOptions);
   const [speakerTtsOptions, setSpeakerTtsOptions] = useState<SpeakerTtsOptions>({});
   const [bundleImageFile, setBundleImageFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -476,17 +397,17 @@ export default function BundleCreateForm({ userId }: Props) {
       for (const speaker of parsedData.speakers || []) {
         const current = prev[speaker.key];
         const selection = normalizeTtsSelection(
-          speaker.provider || current?.provider || defaultSentenceTtsOptions.provider,
+          speaker.provider || current?.provider || defaultAdminTtsOptions.provider,
           speaker.model || current?.model,
           speaker.voice || current?.voice
         );
         next[speaker.key] = {
           ...selection,
-          speed: speaker.speed ?? prev[speaker.key]?.speed ?? defaultSentenceTtsOptions.speed,
-          stability: speaker.stability ?? prev[speaker.key]?.stability ?? defaultSentenceTtsOptions.stability,
-          similarityBoost: speaker.similarityBoost ?? prev[speaker.key]?.similarityBoost ?? defaultSentenceTtsOptions.similarityBoost,
-          style: speaker.style ?? prev[speaker.key]?.style ?? defaultSentenceTtsOptions.style,
-          useSpeakerBoost: speaker.useSpeakerBoost ?? prev[speaker.key]?.useSpeakerBoost ?? defaultSentenceTtsOptions.useSpeakerBoost,
+          speed: speaker.speed ?? prev[speaker.key]?.speed ?? defaultAdminTtsOptions.speed,
+          stability: speaker.stability ?? prev[speaker.key]?.stability ?? defaultAdminTtsOptions.stability,
+          similarityBoost: speaker.similarityBoost ?? prev[speaker.key]?.similarityBoost ?? defaultAdminTtsOptions.similarityBoost,
+          style: speaker.style ?? prev[speaker.key]?.style ?? defaultAdminTtsOptions.style,
+          useSpeakerBoost: speaker.useSpeakerBoost ?? prev[speaker.key]?.useSpeakerBoost ?? defaultAdminTtsOptions.useSpeakerBoost,
         };
       }
 
@@ -499,7 +420,7 @@ export default function BundleCreateForm({ userId }: Props) {
     updates: Partial<SpeakerTtsOptions[string]>
   ) => {
     setSpeakerTtsOptions(prev => {
-      const current = prev[speakerKey] || defaultSentenceTtsOptions;
+      const current = prev[speakerKey] || defaultAdminTtsOptions;
       const provider = updates.provider || current.provider;
       const providerChanged = updates.provider && updates.provider !== current.provider;
       const model = providerChanged ? TTS_PROVIDERS[provider].models[0].id : (updates.model || current.model);
@@ -705,7 +626,7 @@ export default function BundleCreateForm({ userId }: Props) {
       };
       setBundleMeta({ ...defaultMeta, ...(draft.bundleMeta || {}) });
       const draftSentenceTts = {
-        ...defaultSentenceTtsOptions,
+        ...defaultAdminTtsOptions,
         ...(draft.sentenceTtsOptions || {})
       };
       setSentenceTtsOptions({
@@ -716,7 +637,7 @@ export default function BundleCreateForm({ userId }: Props) {
         Object.entries(draft.speakerTtsOptions || {}).map(([key, value]: [string, any]) => [
           key,
           {
-            ...defaultSentenceTtsOptions,
+            ...defaultAdminTtsOptions,
             ...value,
             ...normalizeTtsSelection(value?.provider, value?.model, value?.voice)
           }
@@ -806,7 +727,7 @@ export default function BundleCreateForm({ userId }: Props) {
         access_level: 'free' as 'free' | 'premium',
         is_published: false
       });
-      setSentenceTtsOptions(defaultSentenceTtsOptions);
+      setSentenceTtsOptions(defaultAdminTtsOptions);
       setSpeakerTtsOptions({});
       setBundleImageFile(null);
       setThumbnailFile(null);
@@ -1249,15 +1170,6 @@ export default function BundleCreateForm({ userId }: Props) {
     const newMappings = [...itemImageMappings];
     newMappings[itemIndex] = imageIndex;
     setItemImageMappings(newMappings);
-  };
-
-  const handleSentenceTtsProviderChange = (provider: TTSProvider) => {
-    setSentenceTtsOptions({
-      ...sentenceTtsOptions,
-      provider,
-      model: TTS_PROVIDERS[provider].models[0].id,
-      voice: getDefaultVoiceForTtsSelection(provider, TTS_PROVIDERS[provider].models[0].id),
-    });
   };
 
   const handleSubmit = async () => {
@@ -2041,115 +1953,11 @@ export default function BundleCreateForm({ userId }: Props) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">API 제공자</label>
-                          <select
-                            value={sentenceTtsOptions.provider}
-                            onChange={(e) => handleSentenceTtsProviderChange(e.target.value as TTSProvider)}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                          >
-                            <option value="elevenlabs">ElevenLabs</option>
-                            <option value="google">Google Cloud TTS</option>
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">모델</label>
-                          <select
-                            value={sentenceTtsOptions.model}
-                            onChange={(e) => setSentenceTtsOptions({
-                              ...sentenceTtsOptions,
-                              model: e.target.value,
-                              voice: getDefaultVoiceForTtsSelection(sentenceTtsOptions.provider, e.target.value)
-                            })}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                          >
-                            {TTS_PROVIDERS[sentenceTtsOptions.provider].models.map(model => (
-                              <option key={model.id} value={model.id}>{model.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">목소리</label>
-                          <select
-                            value={sentenceTtsOptions.voice}
-                            onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, voice: e.target.value })}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                          >
-                            {getVoicesForTtsSelection(sentenceTtsOptions.provider, sentenceTtsOptions.model).map(voice => (
-                              <option key={voice.id} value={voice.id}>{voice.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">재생 속도 <span className="text-xs font-medium text-gray-400">(추천 0.8)</span></label>
-                          <input
-                            type="number"
-                            min="0.7"
-                            max="1.2"
-                            step="0.1"
-                            value={sentenceTtsOptions.speed}
-                            onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, speed: parseFloat(e.target.value) || 0.8 })}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                          />
-                        </div>
-
-                        {sentenceTtsOptions.provider === 'elevenlabs' && (
-                          <>
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">안정성 <span className="text-xs font-medium text-gray-400">(추천 0.5)</span></label>
-                              <input
-                                type="number"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value={sentenceTtsOptions.stability}
-                                onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, stability: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">유사도 <span className="text-xs font-medium text-gray-400">(추천 0.75)</span></label>
-                              <input
-                                type="number"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value={sentenceTtsOptions.similarityBoost}
-                                onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, similarityBoost: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">스타일 <span className="text-xs font-medium text-gray-400">(추천 0)</span></label>
-                              <input
-                                type="number"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value={sentenceTtsOptions.style}
-                                onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, style: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
-                              />
-                            </div>
-
-                            <label className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl text-sm font-bold text-gray-700 dark:text-gray-300">
-                              <input
-                                type="checkbox"
-                                checked={sentenceTtsOptions.useSpeakerBoost}
-                                onChange={(e) => setSentenceTtsOptions({ ...sentenceTtsOptions, useSpeakerBoost: e.target.checked })}
-                                className="w-4 h-4"
-                              />
-                              스피커 부스트
-                            </label>
-                          </>
-                        )}
-                      </div>
+                      <TTSSettingsFields
+                        value={sentenceTtsOptions}
+                        onChange={setSentenceTtsOptions}
+                        variant="form"
+                      />
                     </>
                   )}
 
@@ -2162,16 +1970,7 @@ export default function BundleCreateForm({ userId }: Props) {
 
                       <div className="space-y-4">
                         {parsedData.speakers.map((speaker) => {
-                          const options = speakerTtsOptions[speaker.key] || {
-                            provider: defaultSentenceTtsOptions.provider,
-                            model: TTS_PROVIDERS[defaultSentenceTtsOptions.provider].models[0].id,
-                            voice: getDefaultVoiceForTtsSelection(defaultSentenceTtsOptions.provider, TTS_PROVIDERS[defaultSentenceTtsOptions.provider].models[0].id),
-                            speed: defaultSentenceTtsOptions.speed,
-                            stability: defaultSentenceTtsOptions.stability,
-                            similarityBoost: defaultSentenceTtsOptions.similarityBoost,
-                            style: defaultSentenceTtsOptions.style,
-                            useSpeakerBoost: defaultSentenceTtsOptions.useSpeakerBoost,
-                          };
+                          const options = speakerTtsOptions[speaker.key] || defaultAdminTtsOptions;
 
                           return (
                             <div key={speaker.key} className="rounded-2xl border border-white/80 dark:border-emerald-900/30 bg-white/80 dark:bg-gray-900/60 p-4">
@@ -2185,111 +1984,11 @@ export default function BundleCreateForm({ userId }: Props) {
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">API 제공자</label>
-                                  <select
-                                    value={options.provider}
-                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { provider: e.target.value as TTSProvider })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                  >
-                                    <option value="elevenlabs">ElevenLabs</option>
-                                    <option value="google">Google Cloud TTS</option>
-                                  </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">모델</label>
-                                  <select
-                                    value={options.model}
-                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { model: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                  >
-                                    {TTS_PROVIDERS[options.provider].models.map(model => (
-                                      <option key={model.id} value={model.id}>{model.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">목소리</label>
-                                  <select
-                                    value={options.voice}
-                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { voice: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                  >
-                                    {getVoicesForTtsSelection(options.provider, options.model).map(voice => (
-                                      <option key={voice.id} value={voice.id}>{voice.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">재생 속도 <span className="font-medium text-gray-400">(추천 0.8)</span></label>
-                                  <input
-                                    type="number"
-                                    min="0.7"
-                                    max="1.2"
-                                    step="0.1"
-                                    value={options.speed}
-                                    onChange={(e) => updateSpeakerTtsOption(speaker.key, { speed: parseFloat(e.target.value) || 0.8 })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                  />
-                                </div>
-
-                                {options.provider === 'elevenlabs' && (
-                                  <>
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">안정성 <span className="font-medium text-gray-400">(추천 0.5)</span></label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={options.stability}
-                                        onChange={(e) => updateSpeakerTtsOption(speaker.key, { stability: parseFloat(e.target.value) || 0 })}
-                                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">유사도 <span className="font-medium text-gray-400">(추천 0.75)</span></label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={options.similarityBoost}
-                                        onChange={(e) => updateSpeakerTtsOption(speaker.key, { similarityBoost: parseFloat(e.target.value) || 0 })}
-                                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-bold text-gray-600 dark:text-gray-400 ml-1">스타일 <span className="font-medium text-gray-400">(추천 0)</span></label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={options.style}
-                                        onChange={(e) => updateSpeakerTtsOption(speaker.key, { style: parseFloat(e.target.value) || 0 })}
-                                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none text-sm text-gray-900 dark:text-gray-100"
-                                      />
-                                    </div>
-
-                                    <label className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-400">
-                                      <input
-                                        type="checkbox"
-                                        checked={options.useSpeakerBoost}
-                                        onChange={(e) => updateSpeakerTtsOption(speaker.key, { useSpeakerBoost: e.target.checked })}
-                                        className="w-4 h-4"
-                                      />
-                                      스피커 부스트
-                                    </label>
-                                  </>
-                                )}
-                              </div>
+                              <TTSSettingsFields
+                                value={options}
+                                onChange={(nextOptions) => updateSpeakerTtsOption(speaker.key, nextOptions)}
+                                variant="compact"
+                              />
                             </div>
                           );
                         })}

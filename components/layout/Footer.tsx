@@ -21,8 +21,9 @@ const translations = {
     practice: 'PRACTICE',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
-    listenRepeat: 'Listen & Repeat',
+    wordFill: 'Word Fill',
     wordScramble: 'Word Scramble',
+    spelling: 'Spelling',
     resources: 'RESOURCES',
     helpCenter: 'Help Center',
     roadmap: 'Roadmap',
@@ -54,8 +55,9 @@ const translations = {
     practice: 'PRACTICE',
     flashcards: 'Flashcards',
     quickQuiz: 'Quick Quiz',
-    listenRepeat: 'Listen & Repeat',
+    wordFill: 'Word Fill',
     wordScramble: 'Word Scramble',
+    spelling: 'Spelling',
     resources: 'RESOURCES',
     helpCenter: 'Help Center',
     roadmap: 'Roadmap',
@@ -173,10 +175,11 @@ export default function Footer({ language = 'ko' }: Props) {
                 {t.practice}
               </h3>
               <ul className="space-y-2 text-sm text-[#eae6df]/85">
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.flashcards}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.quickQuiz}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.listenRepeat}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.wordScramble}</Link></li>
+                <li><Link href="/practice#flashcards" className="hover:text-white hover:underline transition-colors">{t.flashcards}</Link></li>
+                <li><Link href="/practice#quiz" className="hover:text-white hover:underline transition-colors">{t.quickQuiz}</Link></li>
+                <li><Link href="/practice#scramble" className="hover:text-white hover:underline transition-colors">{t.wordScramble}</Link></li>
+                <li><Link href="/practice#wordfill" className="hover:text-white hover:underline transition-colors">{t.wordFill}</Link></li>
+                <li><Link href="/practice#spelling" className="hover:text-white hover:underline transition-colors">{t.spelling}</Link></li>
               </ul>
             </div>
 
@@ -199,8 +202,8 @@ export default function Footer({ language = 'ko' }: Props) {
                 {t.about}
               </h3>
               <ul className="space-y-2 text-sm text-[#eae6df]/85">
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.aboutHolaLingo}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.ourStory}</Link></li>
+                <li><Link href="/about" className="hover:text-white hover:underline transition-colors">{t.aboutHolaLingo}</Link></li>
+                <li><Link href="/about#mission" className="hover:text-white hover:underline transition-colors">{t.ourStory}</Link></li>
                 <li><Link href="/blog" className="hover:text-white hover:underline transition-colors">{t.blog}</Link></li>
               </ul>
             </div>
