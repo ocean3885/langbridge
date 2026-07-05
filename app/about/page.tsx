@@ -226,7 +226,7 @@ export default async function AboutPage() {
         </div>
 
         <TrustImage
-          src="/images/heroimg_land.jpg"
+          src="/images/about_main.jpg"
           alt={t.images.first.alt}
           caption={t.images.first.caption}
           language={language}

@@ -189,10 +189,10 @@ export default function Footer({ language = 'ko' }: Props) {
                 {t.resources}
               </h3>
               <ul className="space-y-2 text-sm text-[#eae6df]/85">
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.helpCenter}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.roadmap}</Link></li>
-                <li><Link href="#" className="hover:text-white hover:underline transition-colors">{t.feedback}</Link></li>
-                <li><a href="mailto:pheebok6256@gmail.com" className="hover:text-white hover:underline transition-colors">{t.contact}</a></li>
+                <li><Link href="/help" className="hover:text-white hover:underline transition-colors">{t.helpCenter}</Link></li>
+                <li><Link href="/roadmap" className="hover:text-white hover:underline transition-colors">{t.roadmap}</Link></li>
+                <li><Link href="/feedback" className="hover:text-white hover:underline transition-colors">{t.feedback}</Link></li>
+                <li><Link href="/contact" className="hover:text-white hover:underline transition-colors">{t.contact}</Link></li>
               </ul>
             </div>
 
@@ -235,9 +235,9 @@ export default function Footer({ language = 'ko' }: Props) {
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
             <Link href="/privacy-policy" className="hover:text-white hover:underline">{t.privacy}</Link>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
-            <span className="hover:text-gray-300 cursor-pointer">{t.cookie}</span>
+            <Link href="/privacy-policy#cookies" className="hover:text-white hover:underline">{t.cookie}</Link>
             <span className="mx-2 text-[#eae6df]/30">&middot;</span>
-            <span className="hover:text-gray-300 cursor-pointer">{t.help}</span>
+            <Link href="/help" className="hover:text-white hover:underline">{t.help}</Link>
           </div>
         </div>
 

@@ -74,6 +74,7 @@ const encouragementCopy = {
 
 const loggedInSectionCopy = {
   ko: {
+    todaySummary: '오늘 학습 요약',
     exploreBundles: '새로운 번들 탐색하기',
     quickPractice: '빠른 연습',
     quickPracticeDescriptionPrefix: '최근 학습하던',
@@ -90,6 +91,7 @@ const loggedInSectionCopy = {
     viewAllBundles: '전체 번들 보기',
   },
   en: {
+    todaySummary: "Today's Summary",
     exploreBundles: 'Explore More Bundles',
     quickPractice: 'Quick Practice',
     quickPracticeDescriptionPrefix: 'Jump back into',
@@ -137,6 +139,12 @@ export function LoggedInLearnPage({
     <div className="mx-auto grid max-w-7xl gap-7 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100 lg:grid-cols-[1fr_360px]">
       <div className="space-y-9">
         <WelcomeSection name={name} language={language} />
+        <MobileTodaySummary
+          streakSummary={streakSummary}
+          goalSummary={goalSummary}
+          reviewNeededSummary={reviewNeededSummary}
+          language={language}
+        />
         <ContinueLearningSection recentBundle={recentBundle} language={language} />
         <ActiveBundlesSection
           bundles={activeBundles}
@@ -155,6 +163,31 @@ export function LoggedInLearnPage({
         language={language}
       />
     </div>
+  );
+}
+
+function MobileTodaySummary({
+  streakSummary,
+  goalSummary,
+  reviewNeededSummary,
+  language,
+}: {
+  streakSummary: LearningStreakSummary;
+  goalSummary: LearningGoalSummary;
+  reviewNeededSummary: ReviewNeededSummary;
+  language: DisplayLanguage;
+}) {
+  const t = loggedInSectionCopy[language];
+
+  return (
+    <section className="lg:hidden">
+      <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.todaySummary}</h2>
+      <div className="mt-4 space-y-4">
+        <StreakCard summary={streakSummary} language={language} />
+        <GoalCard summary={goalSummary} language={language} editable />
+        <ReviewNeededSection summary={reviewNeededSummary} language={language} compact />
+      </div>
+    </section>
   );
 }
 
@@ -429,9 +462,11 @@ function LearnSidebar({
 }) {
   return (
     <aside className="space-y-5 lg:self-start">
-      <StreakCard summary={streakSummary} language={language} />
-      <GoalCard summary={goalSummary} language={language} editable />
-      <ReviewNeededSection summary={reviewNeededSummary} language={language} compact />
+      <div className="hidden space-y-5 lg:block">
+        <StreakCard summary={streakSummary} language={language} />
+        <GoalCard summary={goalSummary} language={language} editable />
+        <ReviewNeededSection summary={reviewNeededSummary} language={language} compact />
+      </div>
       <ProgressSummaryCard summary={progressSummary} language={language} />
       <EncouragementCard language={language} />
     </aside>

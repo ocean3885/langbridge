@@ -129,7 +129,7 @@ export default async function PrivacyPolicyPage() {
 
       <div className="mt-10 space-y-9">
         {t.sections.map(([title, body]) => (
-          <section key={title}>
+          <section key={title} id={title.includes('쿠키') || title.includes('Cookies') ? 'cookies' : undefined}>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
             <p className="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">{body}</p>
           </section>

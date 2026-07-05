@@ -16,19 +16,49 @@ export interface SupabaseBoardPost {
 export async function listBoardPosts(input?: {
   limit?: number;
   offset?: number;
+  includeFeedback?: boolean;
 }): Promise<{ posts: SupabaseBoardPost[]; total: number }> {
   const supabase = createAdminClient();
   const limit = input?.limit ?? 20;
   const offset = input?.offset ?? 0;
 
-  const { data: posts, error: postsError, count } = await supabase
+  let query = supabase
     .from('board_posts')
     .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: false });
+
+  if (!input?.includeFeedback) {
+    query = query.not('title', 'like', '[Feedback]%');
+  }
+
+  const { data: posts, error: postsError, count } = await query.range(offset, offset + limit - 1);
 
   if (postsError) {
     throw new Error(`Failed to list board posts: ${postsError.message}`);
+  }
+
+  return { posts: posts as SupabaseBoardPost[], total: count ?? 0 };
+}
+
+export async function listFeedbackBoardPosts(input?: {
+  limit?: number;
+  offset?: number;
+  category?: string;
+}): Promise<{ posts: SupabaseBoardPost[]; total: number }> {
+  const supabase = createAdminClient();
+  const limit = input?.limit ?? 50;
+  const offset = input?.offset ?? 0;
+  const categoryPrefix = input?.category ? `[Feedback][${input.category}]%` : '[Feedback]%';
+
+  const { data: posts, error, count } = await supabase
+    .from('board_posts')
+    .select('*', { count: 'exact' })
+    .like('title', categoryPrefix)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new Error(`Failed to list feedback posts: ${error.message}`);
   }
 
   return { posts: posts as SupabaseBoardPost[], total: count ?? 0 };
