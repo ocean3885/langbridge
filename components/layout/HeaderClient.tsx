@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User as UserIcon, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
+import { User as UserIcon, BarChart3, LogOut, Sun, Moon, Menu, X } from 'lucide-react';
 
 interface Props {
   isLoggedIn: boolean;
@@ -34,6 +34,7 @@ const translations = {
     bundles: 'Bundles',
     pricing: 'Pricing',
     profile: '프로필',
+    progress: '학습 리포트',
     logout: '로그아웃',
   },
   en: {
@@ -46,6 +47,7 @@ const translations = {
     bundles: 'Bundles',
     pricing: 'Pricing',
     profile: 'Profile',
+    progress: 'Progress',
     logout: 'Logout',
   }
 };
@@ -195,9 +197,24 @@ export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language 
                   </Link>
                 </DropdownMenuItem>
 
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/learn/progress"
+                    prefetch={false}
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-[#DFF1E5] hover:text-[#2F7D4A] focus:bg-[#DFF1E5] focus:text-[#2F7D4A] dark:text-zinc-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-100 dark:focus:bg-emerald-950/40 dark:focus:text-emerald-100"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EAF4E8] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200">
+                      <BarChart3 size={16} strokeWidth={2.5} />
+                    </span>
+                    <span>{t.progress}</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-1 my-2 bg-zinc-200/80 dark:bg-zinc-800" />
+
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="mt-1 flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-[#C65D47] transition-colors hover:bg-[#FBE9E2] focus:bg-[#FBE9E2] focus:text-[#A94C3A] dark:text-orange-300 dark:hover:bg-orange-950/30 dark:focus:bg-orange-950/30"
+                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-[#C65D47] transition-colors hover:bg-[#FBE9E2] focus:bg-[#FBE9E2] focus:text-[#A94C3A] dark:text-orange-300 dark:hover:bg-orange-950/30 dark:focus:bg-orange-950/30"
                 >
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FBE9E2] text-[#C65D47] dark:bg-orange-950/40 dark:text-orange-200">
                     <LogOut size={16} strokeWidth={2.5} />
