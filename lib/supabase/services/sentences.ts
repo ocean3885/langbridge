@@ -18,18 +18,30 @@ export type SupabaseSentence = {
   bundle_count?: number;
 };
 
+const SENTENCES_QUERY_PAGE_SIZE = 1000;
+
 export async function listSentences(): Promise<SupabaseSentence[]> {
   const supabase = createAdminClient();
-  const { data: sentences, error: sentenceError } = await supabase
-    .from('sentences')
-    .select(`
-      *,
-      word_count:word_sentence_map(count),
-      bundle_count:bundle_items(count)
-    `)
-    .order('created_at', { ascending: false });
-    
-  if (sentenceError || !sentences) return [];
+  const sentences: any[] = [];
+
+  for (let from = 0; ; from += SENTENCES_QUERY_PAGE_SIZE) {
+    const to = from + SENTENCES_QUERY_PAGE_SIZE - 1;
+    const { data, error: sentenceError } = await supabase
+      .from('sentences')
+      .select(`
+        *,
+        word_count:word_sentence_map(count),
+        bundle_count:bundle_items(count)
+      `)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (sentenceError || !data) return [];
+
+    sentences.push(...data);
+
+    if (data.length < SENTENCES_QUERY_PAGE_SIZE) break;
+  }
 
   return sentences.map((row: any) => {
     const wCount = Array.isArray(row.word_count) && row.word_count[0] ? row.word_count[0].count : 0;

@@ -25,11 +25,13 @@ export type WordUsageSentence = {
   sentence: string;
   translation: string | null;
   translation_en: string | null;
+  audio_url: string | null;
 };
 
 export type WordUsageDetail = {
   word_id: number;
   word: string;
+  audio_url: string | null;
   meaning_ko: string | null;
   meaning_en: string | null;
   pos: string[];
@@ -85,6 +87,7 @@ export async function listWordUsageDetails(wordIds: number[]): Promise<WordUsage
     .select(`
       id,
       word,
+      audio_url,
       meaning_ko,
       meaning_en,
       pos,
@@ -97,7 +100,8 @@ export async function listWordUsageDetails(wordIds: number[]): Promise<WordUsage
           id,
           sentence,
           translation,
-          translation_en
+          translation_en,
+          audio_url
         )
       )
     `)
@@ -112,6 +116,7 @@ export async function listWordUsageDetails(wordIds: number[]): Promise<WordUsage
   return (data || []).map((word) => ({
     word_id: word.id,
     word: word.word,
+    audio_url: word.audio_url ?? null,
     meaning_ko: formatWordMeaning(word.meaning_ko),
     meaning_en: formatWordMeaning(word.meaning_en),
     pos: Array.isArray(word.pos) ? word.pos : [],
@@ -127,6 +132,7 @@ export async function listWordUsageDetails(wordIds: number[]): Promise<WordUsage
         sentence: sentence.sentence,
         translation: sentence.translation ?? null,
         translation_en: sentence.translation_en ?? null,
+        audio_url: sentence.audio_url ?? null,
       }];
     }),
   }));

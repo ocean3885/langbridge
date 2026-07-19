@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { BookOpen, ChevronRight, X } from 'lucide-react';
+import { BookOpen, ChevronRight, Volume2, X } from 'lucide-react';
 import type { SentenceMappedWord, WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
+import { getPublicUrl } from '@/lib/utils';
 
 export type DisplayLanguage = 'ko' | 'en';
 
@@ -34,6 +35,7 @@ export function WordInfoSheet({
 }: WordInfoSheetProps) {
   const visibleSentences = selectedWord.sentences.slice(0, 10);
   const meaning = selectedMapping ? getMeaning(selectedMapping, language) : getMeaning(selectedWord, language);
+  const wordAudioUrl = getPublicUrl(selectedWord.audio_url);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -71,6 +73,12 @@ export function WordInfoSheet({
               </p>
             )}
           </div>
+          {wordAudioUrl && (
+            <AudioIconButton
+              audioUrl={wordAudioUrl}
+              label={language === 'en' ? 'Listen to word' : '단어 듣기'}
+            />
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -103,7 +111,7 @@ export function WordInfoSheet({
                   <div key={`${selectedWord.word_id}-${sentence.sentence_id}`} className="rounded-xl border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/70">
                     <div className="flex items-start gap-2">
                       <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold leading-6 text-zinc-950 dark:text-zinc-50 md:text-base md:leading-7">{sentence.sentence}</p>
                         {getSentenceTranslation(sentence, language) && (
                           <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400 md:text-base md:leading-7">{getSentenceTranslation(sentence, language)}</p>
@@ -114,6 +122,13 @@ export function WordInfoSheet({
                           </p>
                         )}
                       </div>
+                      {getPublicUrl(sentence.audio_url) && (
+                        <AudioIconButton
+                          audioUrl={getPublicUrl(sentence.audio_url)!}
+                          label={language === 'en' ? 'Listen to example sentence' : '예문 듣기'}
+                          className="mt-0.5"
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -127,6 +142,31 @@ export function WordInfoSheet({
         </div>
       </aside>
     </div>
+  );
+}
+
+function AudioIconButton({
+  audioUrl,
+  label,
+  className = '',
+}: {
+  audioUrl: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(console.error);
+      }}
+      className={`${className} flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:border-[#2f7d4a]/30 hover:bg-[#f4fbf6] hover:text-[#2f7d4a] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-emerald-700 dark:hover:bg-zinc-800 dark:hover:text-emerald-400`}
+      aria-label={label}
+      title={label}
+    >
+      <Volume2 className="h-4 w-4" />
+    </button>
   );
 }
 

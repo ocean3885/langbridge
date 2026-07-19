@@ -23,19 +23,34 @@ export type SupabaseWord = {
   distractors?: any[];
 };
 
+const WORDS_QUERY_PAGE_SIZE = 1000;
+
 export async function listWords(langCode?: string): Promise<SupabaseWord[]> {
   const supabase = createAdminClient();
-  let query = supabase.from('words').select('*, word_sentence_map(id), words_distractor(id)');
-  
-  if (langCode) {
-    query = query.eq('lang_code', langCode);
+  const rows: any[] = [];
+
+  for (let from = 0; ; from += WORDS_QUERY_PAGE_SIZE) {
+    const to = from + WORDS_QUERY_PAGE_SIZE - 1;
+    let query = supabase
+      .from('words')
+      .select('*, word_sentence_map(id), words_distractor(id)')
+      .order('word', { ascending: true })
+      .range(from, to);
+
+    if (langCode) {
+      query = query.eq('lang_code', langCode);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) return [];
+
+    rows.push(...data);
+
+    if (data.length < WORDS_QUERY_PAGE_SIZE) break;
   }
-  
-  const { data, error } = await query.order('word', { ascending: true });
-  
-  if (error || !data) return [];
-  
-  return data.map(row => ({
+
+  return rows.map(row => ({
     ...row,
     sentence_count: Array.isArray(row.word_sentence_map) ? row.word_sentence_map.length : 0,
     distractor_count: Array.isArray(row.words_distractor) ? row.words_distractor.length : 0
