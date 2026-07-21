@@ -158,7 +158,7 @@ export function ExploreBundlesClient({
   }, [currentPage, totalPages]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 md:space-y-8">
       {/* Interactive Hero with Search */}
       <BundlesHero
         copy={copy}
@@ -230,15 +230,19 @@ export function ExploreBundlesClient({
           </div>
 
           {/* Filters & Sort Dropdown */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:flex-wrap md:items-center md:justify-end">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2 shadow-sm md:flex md:flex-wrap md:items-center md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none">
             <div className="relative md:hidden">
+              <label htmlFor="bundle-category-filter" className="mb-1 block text-[10px] font-bold uppercase text-zinc-500 dark:text-zinc-400">
+                {language === 'ko' ? '카테고리' : 'Category'}
+              </label>
               <select
+                id="bundle-category-filter"
                 value={activeCategory}
                 onChange={(e) => {
                   setActiveCategory(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750"
+                className="h-10 w-full appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 focus:border-[#559c63] focus:ring-1 focus:ring-[#559c63] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750"
                 aria-label={language === 'ko' ? '카테고리 필터' : 'Category filter'}
               >
                 <option value="all">{language === 'ko' ? `전체 (${bundles.length})` : `All (${bundles.length})`}</option>
@@ -254,18 +258,22 @@ export function ExploreBundlesClient({
                   );
                 })}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+              <div className="pointer-events-none absolute bottom-0 right-0 flex h-10 items-center pr-2.5 text-zinc-500 dark:text-zinc-400">
                 <ChevronDown className="h-4 w-4" />
               </div>
             </div>
             <div className="relative">
+              <label htmlFor="bundle-level-filter" className="mb-1 block text-[10px] font-bold uppercase text-zinc-500 dark:text-zinc-400 md:sr-only">
+                {language === 'ko' ? '난이도' : 'Level'}
+              </label>
               <select
+                id="bundle-level-filter"
                 value={selectedLevel}
                 onChange={(e) => {
                   setSelectedLevel(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                className="h-10 w-full appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 focus:border-[#559c63] focus:ring-1 focus:ring-[#559c63] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
                 aria-label={language === 'ko' ? '난이도 필터' : 'Level filter'}
               >
                 <option value="">{language === 'ko' ? '모든 난이도' : 'All levels'}</option>
@@ -275,19 +283,23 @@ export function ExploreBundlesClient({
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+              <div className="pointer-events-none absolute bottom-0 right-0 flex h-10 items-center pr-2.5 text-zinc-500 dark:text-zinc-400">
                 <ChevronDown className="h-4 w-4" />
               </div>
             </div>
             {isLoggedIn && (
               <div className="relative">
+                <label htmlFor="bundle-status-filter" className="mb-1 block text-[10px] font-bold uppercase text-zinc-500 dark:text-zinc-400 md:sr-only">
+                  {language === 'ko' ? '진행단계' : 'Status'}
+                </label>
                 <select
+                  id="bundle-status-filter"
                   value={selectedStatus}
                   onChange={(e) => {
                     setSelectedStatus(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                  className="h-10 w-full appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 focus:border-[#559c63] focus:ring-1 focus:ring-[#559c63] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
                   aria-label={language === 'ko' ? '진행단계 필터' : 'Progress status filter'}
                 >
                   <option value="">{language === 'ko' ? '모든 진행단계' : 'All statuses'}</option>
@@ -295,24 +307,29 @@ export function ExploreBundlesClient({
                   <option value="not_started">{language === 'ko' ? '시작 전' : 'Not Started'}</option>
                   <option value="completed">{language === 'ko' ? '완료' : 'Completed'}</option>
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+                <div className="pointer-events-none absolute bottom-0 right-0 flex h-10 items-center pr-2.5 text-zinc-500 dark:text-zinc-400">
                   <ChevronDown className="h-4 w-4" />
                 </div>
               </div>
             )}
             <div className="relative">
+              <label htmlFor="bundle-sort-filter" className="mb-1 block text-[10px] font-bold uppercase text-zinc-500 dark:text-zinc-400 md:sr-only">
+                {language === 'ko' ? '정렬' : 'Sort'}
+              </label>
               <select
+                id="bundle-sort-filter"
                 value={sortBy}
                 onChange={(e) => {
                   setSortBy(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white py-2 pl-4 pr-10 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                className="h-10 w-full appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 focus:border-[#559c63] focus:ring-1 focus:ring-[#559c63] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750 md:w-auto md:text-sm"
+                aria-label={language === 'ko' ? '정렬 기준' : 'Sort bundles'}
               >
                 <option value="latest">{language === 'ko' ? '최신순' : 'Latest'}</option>
                 <option value="oldest">{language === 'ko' ? '오래된순' : 'Oldest'}</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 dark:text-zinc-400">
+              <div className="pointer-events-none absolute bottom-0 right-0 flex h-10 items-center pr-2.5 text-zinc-500 dark:text-zinc-400">
                 <ChevronDown className="h-4 w-4" />
               </div>
             </div>

@@ -49,6 +49,7 @@ const copy = {
     done: '학습 완료',
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
+    chooseSet: '문제 다시 선택',
     dictionaryFormLabel: '기본형',
     wordInfo: '단어 정보',
     usedForm: '사용 형태',
@@ -70,6 +71,7 @@ const copy = {
     done: 'Word Fill complete',
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
+    chooseSet: 'Change Set',
     dictionaryFormLabel: 'Dictionary form',
     wordInfo: 'Word info',
     usedForm: 'Used form',
@@ -222,10 +224,10 @@ export default function BundleWordFillClient({
         <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
         <div className="flex gap-2">
           <Link
-            href={`/bundles/${bundleId}`}
+            href={`/bundles/${bundleId}/wordfill`}
             className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
-            {t.back}
+            {t.chooseSet}
           </Link>
           <button
             onClick={retry}
@@ -242,7 +244,7 @@ export default function BundleWordFillClient({
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
         <Link
-          href={`/bundles/${bundleId}`}
+          href={`/bundles/${bundleId}/wordfill`}
           className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
         >
           <ArrowLeft className="h-5 w-5" />

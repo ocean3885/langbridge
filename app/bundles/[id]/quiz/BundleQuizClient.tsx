@@ -37,6 +37,7 @@ const copy = {
     done: '퀴즈 완료',
     score: (score: number, total: number) => `${score} / ${total} 정답`,
     retry: '다시 풀기',
+    chooseSet: '문제 다시 선택',
   },
   en: {
     back: 'Back to detail',
@@ -51,6 +52,7 @@ const copy = {
     done: 'Quiz complete',
     score: (score: number, total: number) => `${score} / ${total} correct`,
     retry: 'Retry',
+    chooseSet: 'Change Set',
   },
 };
 
@@ -160,8 +162,8 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
         <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{t.done}</h1>
         <p className="text-lg font-black text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
         <div className="flex gap-2">
-          <Link href={`/bundles/${bundleId}`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            {t.back}
+          <Link href={`/bundles/${bundleId}/quiz`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+            {t.chooseSet}
           </Link>
           <button onClick={retry} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.retry}
@@ -174,7 +176,7 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link href={`/bundles/${bundleId}`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+        <Link href={`/bundles/${bundleId}/quiz`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0">

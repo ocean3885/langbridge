@@ -137,11 +137,11 @@ export interface LearningProgressSummary {
   activeBundles: number;
 }
 
-export interface ReviewNeededSummary extends LearningReviewNeededSummary {}
+export type ReviewNeededSummary = LearningReviewNeededSummary;
 
-export interface ReviewSentenceItem extends LearningReviewSentenceItem {}
+export type ReviewSentenceItem = LearningReviewSentenceItem;
 
-export interface ReviewWordItem extends LearningReviewWordItem {}
+export type ReviewWordItem = LearningReviewWordItem;
 
 interface LearningStatsValues {
   completed_sentences: number;
@@ -433,108 +433,126 @@ function toLearningProgressSummary(
 export async function getRecentStudiedBundle(userId: string): Promise<RecentStudiedBundle | null> {
   const supabase = createAdminClient();
 
-  const { data: interaction, error: interactionError } = await supabase
+  const { data: interactions, error: interactionError } = await supabase
     .from('user_bundle_interactions')
     .select('*')
     .eq('user_id', userId)
     .not('last_studied_at', 'is', null)
     .order('last_studied_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(12);
 
   if (interactionError) {
     console.error('Error fetching recent bundle interaction:', interactionError);
     return null;
   }
 
-  if (!interaction?.bundle_id) {
+  const bundleInteractions = (interactions || []) as UserBundleInteraction[];
+
+  if (bundleInteractions.length === 0) {
     return null;
   }
 
-  const [
-    { data: bundle, error: bundleError },
-    { data: currentItem, error: currentItemError },
-    { count: totalItems, error: totalError },
-    { count: completedItems, error: completedError },
-  ] = await Promise.all([
-    supabase
-      .from('bundle')
-      .select(`
-        id,
-        title,
-        title_en,
-        description,
-        description_en,
-        level,
-        thumbnail_url,
-        bundle_category(id, name, name_en),
-        bundle_type(id, name, code)
-      `)
-      .eq('id', interaction.bundle_id)
-      .maybeSingle(),
-    interaction.current_bundle_item_id
-      ? supabase
-          .from('bundle_items')
-          .select('id, order_index, sentences(sentence, translation, translation_en)')
-          .eq('id', interaction.current_bundle_item_id)
-          .eq('bundle_id', interaction.bundle_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    supabase
-      .from('bundle_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('bundle_id', interaction.bundle_id),
-    supabase
-      .from('user_bundle_item_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('bundle_id', interaction.bundle_id)
-      .eq('is_completed', true),
-  ]);
+  for (const interaction of bundleInteractions) {
+    if (!interaction.bundle_id || interaction.is_completed) {
+      continue;
+    }
 
-  if (bundleError || !bundle) {
-    console.error('Error fetching recent bundle:', bundleError);
-    return null;
+    const [
+      { data: bundle, error: bundleError },
+      { data: currentItem, error: currentItemError },
+      { count: totalItems, error: totalError },
+      { count: completedItems, error: completedError },
+    ] = await Promise.all([
+      supabase
+        .from('bundle')
+        .select(`
+          id,
+          title,
+          title_en,
+          description,
+          description_en,
+          level,
+          thumbnail_url,
+          bundle_category(id, name, name_en),
+          bundle_type(id, name, code)
+        `)
+        .eq('id', interaction.bundle_id)
+        .maybeSingle(),
+      interaction.current_bundle_item_id
+        ? supabase
+            .from('bundle_items')
+            .select('id, order_index, sentences(sentence, translation, translation_en)')
+            .eq('id', interaction.current_bundle_item_id)
+            .eq('bundle_id', interaction.bundle_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from('bundle_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('bundle_id', interaction.bundle_id),
+      supabase
+        .from('user_bundle_item_interactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('bundle_id', interaction.bundle_id)
+        .eq('is_completed', true),
+    ]);
+
+    if (bundleError) {
+      console.error('Error fetching recent bundle:', bundleError);
+      continue;
+    }
+
+    if (!bundle) {
+      continue;
+    }
+
+    if (currentItemError) {
+      console.error('Error fetching current bundle item:', currentItemError);
+    }
+
+    if (totalError) {
+      console.error('Error counting recent bundle items:', totalError);
+    }
+
+    if (completedError) {
+      console.error('Error counting completed recent bundle items:', completedError);
+    }
+
+    const total = totalItems || 0;
+    const completed = completedItems || 0;
+    const storedRatio = Number(interaction.progress_ratio);
+    const calculatedRatio = total > 0 ? completed / total : 0;
+    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+    const progressPercent = Math.round(progressRatio * 100);
+
+    if (progressPercent >= 100 || (total > 0 && completed >= total)) {
+      continue;
+    }
+
+    const normalizedBundle = {
+      ...bundle,
+      bundle_category: normalizeSingleRelation(bundle.bundle_category),
+      bundle_type: normalizeSingleRelation(bundle.bundle_type),
+    } as unknown as RecentStudiedBundle['bundle'];
+
+    return {
+      interaction: interaction as UserBundleInteraction,
+      bundle: normalizedBundle,
+      currentItem: currentItem
+        ? {
+            id: currentItem.id,
+            order_index: currentItem.order_index,
+            sentence: normalizeSingleRelation(currentItem.sentences),
+          }
+        : null,
+      totalItems: total,
+      completedItems: completed,
+      progressPercent,
+    };
   }
 
-  if (currentItemError) {
-    console.error('Error fetching current bundle item:', currentItemError);
-  }
-
-  if (totalError) {
-    console.error('Error counting recent bundle items:', totalError);
-  }
-
-  if (completedError) {
-    console.error('Error counting completed recent bundle items:', completedError);
-  }
-
-  const total = totalItems || 0;
-  const completed = completedItems || 0;
-  const storedRatio = Number(interaction.progress_ratio);
-  const calculatedRatio = total > 0 ? completed / total : 0;
-  const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
-
-  const normalizedBundle = {
-    ...bundle,
-    bundle_category: normalizeSingleRelation(bundle.bundle_category),
-    bundle_type: normalizeSingleRelation(bundle.bundle_type),
-  } as unknown as RecentStudiedBundle['bundle'];
-
-  return {
-    interaction: interaction as UserBundleInteraction,
-    bundle: normalizedBundle,
-    currentItem: currentItem
-      ? {
-          id: currentItem.id,
-          order_index: currentItem.order_index,
-          sentence: normalizeSingleRelation(currentItem.sentences),
-        }
-      : null,
-    totalItems: total,
-    completedItems: completed,
-    progressPercent: Math.round(progressRatio * 100),
-  };
+  return null;
 }
 
 export async function getRecentLearningActivities(
