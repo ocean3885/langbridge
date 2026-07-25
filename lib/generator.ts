@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = process.env.CHATGPT_MODEL || 'gpt-5.4-mini';
 const DEEPSEEK_CHAT_API_URL = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 
 export type WordGenerationProvider = 'deepseek' | 'chatgpt' | 'gemini';
