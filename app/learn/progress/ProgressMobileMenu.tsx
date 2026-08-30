@@ -34,7 +34,7 @@ const copy = {
 
 const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Award, CircleGauge];
 
-export default function ProgressMobileMenu({ language }: { language: DisplayLanguage }) {
+export default function ProgressMobileMenu({ language, activeIndex = 0 }: { language: DisplayLanguage; activeIndex?: number }) {
   const t = copy[language];
   const [open, setOpen] = useState(false);
 
@@ -92,7 +92,7 @@ export default function ProgressMobileMenu({ language }: { language: DisplayLang
             <nav className="mt-6 flex flex-col gap-2">
               {t.nav.map((item, index) => {
                 const Icon = icons[index] || HelpCircle;
-                const active = index === 0;
+                const active = index === activeIndex;
                 return (
                   <Link
                     key={item}
@@ -120,13 +120,13 @@ export default function ProgressMobileMenu({ language }: { language: DisplayLang
 function getSidebarHref(index: number) {
   switch (index) {
     case 1:
-      return '/learn/review/words';
+      return '/learn/progress/words';
     case 2:
-      return '/learn/review/sentences';
+      return '/learn/progress/sentences';
     case 3:
-      return '/bundles';
+      return '/learn/progress/bundles';
     case 4:
-      return '/learn/review/sentences';
+      return '/learn/review';
     case 5:
       return '/learn';
     case 6:

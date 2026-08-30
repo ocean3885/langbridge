@@ -2,10 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
-  Award,
   BookOpen,
   CalendarDays,
-  CircleGauge,
   Home,
   HelpCircle,
   MessagesSquare,
@@ -13,9 +11,7 @@ import {
   Send,
   Share2,
   Target,
-  TimerReset,
 } from 'lucide-react';
-import { WelcomefullAsset } from '@/components/assets/CharacterBadges';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import {
   getActiveLearningBundles,
@@ -27,6 +23,7 @@ import {
 import { getReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
 import ProgressMobileMenu from './ProgressMobileMenu';
+import ProgressSidebar from './ProgressSidebar';
 
 type DisplayLanguage = 'ko' | 'en';
 
@@ -35,10 +32,6 @@ const copy = {
     loginRequired: '로그인이 필요합니다.',
     goToLogin: '로그인 페이지로 이동',
     learnHome: 'Learn 홈',
-    sidebarTitle: '학습 리포트',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
-    mascotTitle: '꾸준함이 실력을 만듭니다.',
-    mascotBody: '매일 조금씩 성장해요.',
     title: 'Overview',
     description: '현재 학습 현황을 확인하고 오늘의 학습을 계획해보세요.',
     share: '공유',
@@ -85,10 +78,6 @@ const copy = {
     loginRequired: 'Login is required.',
     goToLogin: 'Go to Login Page',
     learnHome: 'Learn Home',
-    sidebarTitle: 'Learning Report',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
-    mascotTitle: 'Consistency builds skill.',
-    mascotBody: 'Grow a little every day.',
     title: 'Overview',
     description: "Check your progress and plan today's study.",
     share: 'Share',
@@ -171,7 +160,7 @@ export default async function LearnProgressPage() {
   return (
     <main className="mx-auto max-w-7xl px-0 pb-10 text-[#171717] dark:text-zinc-100 lg:px-2">
       <div className="grid min-h-[calc(100vh-140px)] gap-0 overflow-hidden rounded-none border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:grid-cols-[238px_1fr] lg:rounded-xl lg:border">
-        <ProgressSidebar language={language} />
+        <ProgressSidebar language={language} activeIndex={0} />
         <ProgressMobileMenu language={language} />
 
         <section className="min-w-0 px-4 py-7 pb-24 sm:px-8 lg:px-10 lg:pb-7">
@@ -288,52 +277,6 @@ export default async function LearnProgressPage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function ProgressSidebar({ language }: { language: DisplayLanguage }) {
-  const t = copy[language];
-  const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Award, CircleGauge];
-
-  return (
-    <aside className="hidden border-r border-zinc-200 bg-white px-4 py-5 dark:border-zinc-800 dark:bg-zinc-950 lg:block">
-      <h2 className="px-2 text-sm font-bold tracking-tight">{t.sidebarTitle}</h2>
-      <nav className="mt-5 flex flex-col gap-2">
-        {t.nav.map((item, index) => {
-          const Icon = icons[index] || HelpCircle;
-          const active = index === 0;
-          const href = getSidebarHref(index);
-          return (
-            <Link
-              key={item}
-              href={href}
-                className={`inline-flex min-w-fit items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition ${
-                active
-                  ? 'bg-[#eef8ef] text-[#2f8748] dark:bg-emerald-950/50 dark:text-emerald-200'
-                  : 'text-zinc-650 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex min-h-[178px] flex-col">
-          <div>
-            <p className="text-sm font-bold leading-5">{t.mascotTitle}</p>
-            <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t.mascotBody}</p>
-          </div>
-          <WelcomefullAsset
-            size={112}
-            className="!mx-auto !mb-[-8px] !mt-4"
-            priority
-          />
-        </div>
-      </div>
-    </aside>
   );
 }
 
@@ -531,7 +474,7 @@ function ReviewNeededCard({ language, sentences, words }: { language: DisplayLan
   const rows = [
     { icon: MessagesSquare, label: t.sentenceReview, value: sentences, href: '/learn/review/sentences', color: 'text-[#3f9657]' },
     { icon: BookOpen, label: t.wordReview, value: words, href: '/learn/review/words', color: 'text-sky-600' },
-    { icon: RotateCcw, label: t.allReview, value: sentences + words, href: '/learn/review/sentences', color: 'text-[#ff6848]' },
+    { icon: RotateCcw, label: t.allReview, value: sentences + words, href: '/learn/review', color: 'text-[#ff6848]' },
   ];
 
   return (
@@ -615,25 +558,6 @@ function calculateOverallPercent(accuracy: number, activeBundles: ActiveLearning
     ? Math.round(activeBundles.reduce((sum, item) => sum + item.progressPercent, 0) / activeBundles.length)
     : 0;
   return clampPercent(Math.round((accuracy * 0.45) + (activeAverage * 0.55)));
-}
-
-function getSidebarHref(index: number) {
-  switch (index) {
-    case 1:
-      return '/learn/review/words';
-    case 2:
-      return '/learn/review/sentences';
-    case 3:
-      return '/bundles';
-    case 4:
-      return '/learn/review/sentences';
-    case 5:
-      return '/learn';
-    case 6:
-      return '/learn/active';
-    default:
-      return '/learn/progress';
-  }
 }
 
 function getProgressToneClass(tone: 'amber' | 'green' | 'violet') {

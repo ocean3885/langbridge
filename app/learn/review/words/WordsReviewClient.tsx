@@ -19,23 +19,33 @@ interface WordsReviewClientProps {
   wordUsageDetails: WordUsageDetail[];
   availableReviewCount: number;
   language: 'ko' | 'en';
+  sessionKind?: 'review' | 'learning';
+  returnTo?: string;
+  nextTo?: string;
 }
 
 const copy = {
   ko: {
     title: '단어 복습 세션',
     description: '숙련도 레벨 1~4의 단어들을 복습하여 완벽히 마스터해 보세요.',
+    learningTitle: '새 단어 학습',
+    learningDescription: '아직 시작하지 않은 단어를 다양한 방식으로 익혀보세요.',
     emptyTitle: '지금은 복습할 단어가 없어요!',
     emptyDesc: '새로운 학습 번들을 공부하면 복습할 단어들이 여기에 쌓입니다.',
-    backToLearn: '대시보드로 돌아가기',
+    learningEmptyTitle: '학습을 시작할 단어가 없어요!',
+    learningEmptyDesc: '현재 시작 전 상태인 단어가 없습니다.',
+    backToLearn: '학습 현황으로 돌아가기',
+    backToReview: '복습 목록으로 돌아가기',
     setupTitle: '복습 설정',
     setupCount: '복습할 단어 수 선택',
+    learningSetupTitle: '학습 설정',
+    learningSetupCount: '학습할 단어 수 선택',
     allCount: (count: number) => `전체 ${count}`,
     setupMode: '복습 방식 선택',
     modeQuiz: '뜻 맞추기 (객관식)',
     modeSpelling: '스펠링 완성 (조합)',
     modeFlashcard: '플래시카드',
-    modeMixed: '방식 섞어서',
+    modeMixed: '혼합 복습',
     startBtn: '시작하기',
     checkBtn: '확인',
     nextBtn: '다음 문제',
@@ -44,6 +54,7 @@ const copy = {
     wrong: '다시 확인해보세요.',
     correctAnswer: '정답:',
     doneTitle: '복습을 완료했습니다!',
+    learningDoneTitle: '새 단어 학습을 완료했습니다!',
     doneScore: (score: number, total: number) => `총 ${total}문제 중 ${score}문제를 맞혔습니다!`,
     retryBtn: '다시 풀기',
     wordInfo: '단어 정보',
@@ -55,7 +66,10 @@ const copy = {
     close: '닫기',
     pos: '품사',
     restartBtn: '다시 복습하기',
+    learningRestartBtn: '다시 학습하기',
+    continueWithSentences: '문장 복습 계속',
     itemsLeft: (count: number) => `전체 복습 후보 단어: ${count}개`,
+    learningItemsLeft: (count: number) => `학습을 시작할 단어: ${count}개`,
     knowBtn: '알고 있어요',
     dontKnowBtn: '아직 잘 몰라요',
     flipCardPrompt: '카드를 탭해서 뜻을 확인하세요.',
@@ -76,11 +90,18 @@ const copy = {
   en: {
     title: 'Word Review Session',
     description: 'Review words with proficiency level 1–4 to master them.',
+    learningTitle: 'Learn New Words',
+    learningDescription: 'Practice words you have not started yet in a variety of ways.',
     emptyTitle: 'Nothing to review right now!',
     emptyDesc: 'Study new bundles to build your review list.',
-    backToLearn: 'Back to Dashboard',
+    learningEmptyTitle: 'No new words to start!',
+    learningEmptyDesc: 'There are no words in the not-started state right now.',
+    backToLearn: 'Back to progress',
+    backToReview: 'Back to Review',
     setupTitle: 'Review Settings',
     setupCount: 'Select word count',
+    learningSetupTitle: 'Learning Settings',
+    learningSetupCount: 'Select word count to learn',
     allCount: (count: number) => `All ${count}`,
     setupMode: 'Select review mode',
     modeQuiz: 'Multiple Choice',
@@ -95,6 +116,7 @@ const copy = {
     wrong: 'Try again.',
     correctAnswer: 'Correct answer:',
     doneTitle: 'Review Complete!',
+    learningDoneTitle: 'New Word Learning Complete!',
     doneScore: (score: number, total: number) => `You answered ${score} of ${total} correctly!`,
     retryBtn: 'Retry',
     wordInfo: 'Word info',
@@ -106,7 +128,10 @@ const copy = {
     close: 'Close',
     pos: 'POS',
     restartBtn: 'Review Again',
+    learningRestartBtn: 'Learn Again',
+    continueWithSentences: 'Continue with sentences',
     itemsLeft: (count: number) => `${count} word review candidates`,
+    learningItemsLeft: (count: number) => `${count} words ready to learn`,
     knowBtn: 'I know it',
     dontKnowBtn: "I'm not sure yet",
     flipCardPrompt: 'Tap the card to reveal the meaning.',
@@ -126,8 +151,11 @@ const copy = {
   },
 };
 
-export default function WordsReviewClient({ initialItems, wordUsageDetails, availableReviewCount, language }: WordsReviewClientProps) {
+export default function WordsReviewClient({ initialItems, wordUsageDetails, availableReviewCount, language, sessionKind = 'review', returnTo, nextTo }: WordsReviewClientProps) {
   const t = copy[language];
+  const isLearning = sessionKind === 'learning';
+  const returnHref = isLearning ? '/learn/progress/words' : returnTo || '/learn/review';
+  const returnLabel = isLearning || returnTo ? t.backToLearn : t.backToReview;
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 
@@ -315,11 +343,11 @@ export default function WordsReviewClient({ initialItems, wordUsageDetails, avai
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
         <CharacterAsset name="tryagainbadge" size={128} />
-        <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.emptyTitle}</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">{t.emptyDesc}</p>
-        <Link href="/learn" className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
+        <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{isLearning ? t.learningEmptyTitle : t.emptyTitle}</h1>
+        <p className="text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">{isLearning ? t.learningEmptyDesc : t.emptyDesc}</p>
+        <Link href={returnHref} className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
           <ArrowLeft className="h-4 w-4" />
-          {t.backToLearn}
+          {returnLabel}
         </Link>
       </div>
     );
@@ -329,18 +357,19 @@ export default function WordsReviewClient({ initialItems, wordUsageDetails, avai
   if (step === 'finished') {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
-        <h1 className={`${headingClass} text-4xl dark:text-zinc-100`}>{t.doneTitle}</h1>
+        <h1 className={`${headingClass} text-4xl dark:text-zinc-100`}>{isLearning ? t.learningDoneTitle : t.doneTitle}</h1>
         <div className="my-6">
           <CharacterAsset name="completebadge" size={200} />
         </div>
         <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.doneScore(score, activeItems.length)}</p>
         <div className="flex flex-wrap justify-center gap-3 mt-4">
-          <Link href="/learn" className="rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            {t.backToLearn}
+          {nextTo && !isLearning && <Link href={nextTo} className="inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">{t.continueWithSentences}<ChevronRight className="h-4 w-4" /></Link>}
+          <Link href={returnHref} className="rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
+            {returnLabel}
           </Link>
-          <button onClick={restart} className="inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
+          <button onClick={restart} className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
             <RotateCcw className="h-4 w-4" />
-            {t.restartBtn}
+            {isLearning ? t.learningRestartBtn : t.restartBtn}
           </button>
         </div>
       </div>
@@ -352,22 +381,22 @@ export default function WordsReviewClient({ initialItems, wordUsageDetails, avai
     return (
       <div className="mx-auto max-w-xl px-4 py-8">
         <header className="mb-8 flex items-center gap-4">
-          <Link href="/learn" className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Link href={returnHref} className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{t.title}</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t.description}</p>
+            <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{isLearning ? t.learningTitle : t.title}</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{isLearning ? t.learningDescription : t.description}</p>
           </div>
         </header>
 
         <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-xl font-bold dark:text-zinc-100">{t.setupTitle}</h2>
+          <h2 className="text-xl font-bold dark:text-zinc-100">{isLearning ? t.learningSetupTitle : t.setupTitle}</h2>
 
           {/* Word count */}
           <div className="space-y-2">
             <PracticeCountSelector
-              label={t.setupCount}
+              label={isLearning ? t.learningSetupCount : t.setupCount}
               totalCount={initialItems.length}
               selectedCount={selectedCount}
               onSelect={setSelectedCount}
@@ -375,7 +404,7 @@ export default function WordsReviewClient({ initialItems, wordUsageDetails, avai
               showAll={showAllCountOption}
               allLabel={t.allCount}
             />
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.itemsLeft(availableReviewCount)}</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">{isLearning ? t.learningItemsLeft(availableReviewCount) : t.itemsLeft(availableReviewCount)}</p>
           </div>
 
           {/* Mode Selection */}

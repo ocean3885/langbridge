@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getReviewDueAt, isReviewDue } from '@/lib/learning/review-schedule';
 
 export interface ReviewNeededSummary {
   sentences: number;
@@ -10,6 +11,9 @@ export interface ReviewNeededSummary {
   availableSentences: number;
   availableWords: number;
   availableTotal: number;
+  lowestSentenceLevel: number | null;
+  lowestWordLevel: number | null;
+  nextReviewAt: string | null;
 }
 
 export interface ReviewSentenceItem {
@@ -40,44 +44,6 @@ export interface ReviewWordItem {
 }
 
 const REVIEW_RECOMMENDATION_LIMIT = 20;
-const REVIEW_INTERVAL_BY_LEVEL_DAYS: Record<number, number> = {
-  1: 1,
-  2: 7,
-  3: 15,
-  4: 30,
-};
-const INCORRECT_REVIEW_INTERVAL_DAYS = 1;
-
-type ReviewDueInteraction = {
-  proficiency_level: number | null;
-  last_reviewed_at?: string | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-function getReviewIntervalDays(interaction: ReviewDueInteraction) {
-  const metadata = interaction.metadata || {};
-  const lastPracticeIsCorrect = metadata.last_practice_is_correct;
-
-  if (lastPracticeIsCorrect === false) {
-    return INCORRECT_REVIEW_INTERVAL_DAYS;
-  }
-
-  return REVIEW_INTERVAL_BY_LEVEL_DAYS[Number(interaction.proficiency_level || 0)] ?? Number.POSITIVE_INFINITY;
-}
-
-function isReviewDue(interaction: ReviewDueInteraction, now = new Date()) {
-  if (!interaction.last_reviewed_at) return true;
-
-  const intervalDays = getReviewIntervalDays(interaction);
-  if (!Number.isFinite(intervalDays)) return false;
-
-  const reviewedAt = new Date(interaction.last_reviewed_at).getTime();
-  if (!Number.isFinite(reviewedAt)) return true;
-
-  const dueAt = reviewedAt + intervalDays * 24 * 60 * 60 * 1000;
-  return dueAt <= now.getTime();
-}
-
 function normalizeSingleRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) {
     return value[0] || null;
@@ -120,12 +86,18 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
   }
 
   const now = new Date();
-  const availableSentences = (sentenceInteractions || []).filter(interaction => isReviewDue(interaction, now)).length;
-  const availableWords = (wordInteractions || []).filter(interaction => isReviewDue(interaction, now)).length;
+  const dueSentenceInteractions = (sentenceInteractions || []).filter(interaction => isReviewDue(interaction, now));
+  const dueWordInteractions = (wordInteractions || []).filter(interaction => isReviewDue(interaction, now));
+  const availableSentences = dueSentenceInteractions.length;
+  const availableWords = dueWordInteractions.length;
   const sentences = sentenceItems.length;
   const words = wordItems.length;
   const reviewableSentences = Math.max(availableSentences, sentences);
   const reviewableWords = Math.max(availableWords, words);
+  const futureDueDates = [...(sentenceInteractions || []), ...(wordInteractions || [])]
+    .map(interaction => getReviewDueAt(interaction))
+    .filter((date): date is Date => Boolean(date && date.getTime() > now.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
 
   return {
     sentences,
@@ -135,15 +107,27 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
     availableSentences: reviewableSentences,
     availableWords: reviewableWords,
     availableTotal: reviewableSentences + reviewableWords,
+    lowestSentenceLevel: minProficiencyLevel(dueSentenceInteractions),
+    lowestWordLevel: minProficiencyLevel(dueWordInteractions),
+    nextReviewAt: futureDueDates[0]?.toISOString() || null,
   };
 }
 
-export async function getReviewSentences(userId: string, limit: number = 20): Promise<ReviewSentenceItem[]> {
+function minProficiencyLevel(interactions: Array<{ proficiency_level: number | null }>) {
+  if (!interactions.length) return null;
+  return Math.min(...interactions.map(interaction => Number(interaction.proficiency_level || 0)));
+}
+
+export async function getReviewSentences(
+  userId: string,
+  limit: number = 20,
+  scope: 'review' | 'unstarted' = 'review',
+): Promise<ReviewSentenceItem[]> {
   const supabase = createAdminClient();
   if (limit <= 0) return [];
   const normalizedLimit = Math.max(1, limit);
 
-  const { data: interactions, error: interactionError } = await supabase
+  let interactionQuery = supabase
     .from('user_sentence_interactions')
     .select(`
       sentence_id,
@@ -160,9 +144,13 @@ export async function getReviewSentences(userId: string, limit: number = 20): Pr
         audio_url
       )
     `)
-    .eq('user_id', userId)
-    .gt('proficiency_level', 0)
-    .lt('proficiency_level', 5)
+    .eq('user_id', userId);
+
+  interactionQuery = scope === 'unstarted'
+    ? interactionQuery.eq('proficiency_level', 0)
+    : interactionQuery.gt('proficiency_level', 0).lt('proficiency_level', 5);
+
+  const { data: interactions, error: interactionError } = await interactionQuery
     .order('proficiency_level', { ascending: true })
     .order('incorrect_count', { ascending: false })
     .order('last_reviewed_at', { ascending: true, nullsFirst: true });
@@ -174,7 +162,7 @@ export async function getReviewSentences(userId: string, limit: number = 20): Pr
 
   const now = new Date();
   const primaryInteractions = (interactions || [])
-    .filter(interaction => isReviewDue(interaction, now))
+    .filter(interaction => scope === 'unstarted' || isReviewDue(interaction, now))
     .slice(0, normalizedLimit);
   const sentenceIds = primaryInteractions.map((row) => row.sentence_id);
   let primaryItems: ReviewSentenceItem[] = [];
@@ -222,12 +210,16 @@ export async function getReviewSentences(userId: string, limit: number = 20): Pr
   return primaryItems.slice(0, normalizedLimit);
 }
 
-export async function getReviewWords(userId: string, limit: number = 20): Promise<ReviewWordItem[]> {
+export async function getReviewWords(
+  userId: string,
+  limit: number = 20,
+  scope: 'review' | 'unstarted' = 'review',
+): Promise<ReviewWordItem[]> {
   const supabase = createAdminClient();
   if (limit <= 0) return [];
   const normalizedLimit = Math.max(1, limit);
 
-  const { data: interactions, error: interactionError } = await supabase
+  let interactionQuery = supabase
     .from('user_word_interactions')
     .select(`
       word_id,
@@ -251,9 +243,13 @@ export async function getReviewWords(userId: string, limit: number = 20): Promis
         )
       )
     `)
-    .eq('user_id', userId)
-    .gt('proficiency_level', 0)
-    .lt('proficiency_level', 5)
+    .eq('user_id', userId);
+
+  interactionQuery = scope === 'unstarted'
+    ? interactionQuery.eq('proficiency_level', 0)
+    : interactionQuery.gt('proficiency_level', 0).lt('proficiency_level', 5);
+
+  const { data: interactions, error: interactionError } = await interactionQuery
     .order('proficiency_level', { ascending: true })
     .order('incorrect_count', { ascending: false })
     .order('last_reviewed_at', { ascending: true, nullsFirst: true });
@@ -267,7 +263,7 @@ export async function getReviewWords(userId: string, limit: number = 20): Promis
 
   const now = new Date();
   const dueInteractions = (interactions || [])
-    .filter(interaction => isReviewDue(interaction, now))
+    .filter(interaction => scope === 'unstarted' || isReviewDue(interaction, now))
     .slice(0, normalizedLimit);
 
   const primaryItems = dueInteractions.flatMap((row) => {

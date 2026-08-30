@@ -20,6 +20,8 @@ export interface UserWordInteraction {
   id: string;
   user_id: string;
   word_id: number;
+  is_pinned: boolean;
+  memo: string | null;
   proficiency_level: number;
   correct_count: number;
   incorrect_count: number;
@@ -28,6 +30,33 @@ export interface UserWordInteraction {
   metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+}
+
+export async function upsertUserWordInteraction(
+  userId: string,
+  wordId: number,
+  updates: Partial<Pick<UserWordInteraction, 'is_pinned' | 'memo'>>
+) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('user_word_interactions')
+    .upsert({
+      user_id: userId,
+      word_id: wordId,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id,word_id',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting user word interaction:', error);
+    throw error;
+  }
+
+  return data as UserWordInteraction;
 }
 
 /**
