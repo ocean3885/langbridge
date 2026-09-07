@@ -10,7 +10,7 @@ const content = {
       {
         title: 'Available now',
         icon: CheckCircle2,
-        items: ['번들 기반 스페인어 학습', 'Flashcards, Quiz, Scramble, Word Fill, Spelling', '단어와 문장 복습', '학습 진도 확인', '블로그와 학습 자료'],
+        items: ['번들 기반 스페인어 학습', 'Flashcards, Sentence Quiz, Scramble, Word Fill, Spelling', '단어와 문장 복습', '학습 진도 확인', '블로그와 학습 자료'],
       },
       {
         title: 'In progress',
@@ -33,7 +33,7 @@ const content = {
       {
         title: 'Available now',
         icon: CheckCircle2,
-        items: ['Bundle-based Spanish learning', 'Flashcards, Quiz, Scramble, Word Fill, and Spelling', 'Word and sentence review', 'Progress tracking', 'Blog and learning resources'],
+        items: ['Bundle-based Spanish learning', 'Flashcards, Sentence Quiz, Scramble, Word Fill, and Spelling', 'Word and sentence review', 'Progress tracking', 'Blog and learning resources'],
       },
       {
         title: 'In progress',

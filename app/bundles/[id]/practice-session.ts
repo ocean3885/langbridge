@@ -1,15 +1,10 @@
-import type { UserBundleItemInteraction } from '@/lib/supabase/services/bundle-progress';
-
 export type PracticeSessionMode = 'resume' | 'all' | 'incorrect' | 'correct' | 'incomplete';
-export type PracticeMode = 'quiz' | 'scramble' | 'wordfill' | 'spelling';
+export { type PracticeMode } from '@/lib/practice/registry';
+import { PRACTICE_REGISTRY, type PracticeMode } from '@/lib/practice/registry';
+import { getPracticeStatus, hasEarnedPracticeStar, getPracticeInteractionId, type PracticeInteraction } from '@/lib/practice/progress';
 
+type SessionInteraction = PracticeInteraction & { bundle_item_id?: string; word_id?: number };
 export const practiceSessionModes: PracticeSessionMode[] = ['resume', 'all', 'incorrect', 'correct', 'incomplete'];
-export const PRACTICE_MODE_STARS = {
-  quiz: 1,
-  scramble: 1,
-  wordfill: 1,
-  spelling: 1,
-} satisfies Record<PracticeMode, number>;
 
 export function isPracticeSessionMode(value: unknown): value is PracticeSessionMode {
   return typeof value === 'string' && practiceSessionModes.includes(value as PracticeSessionMode);
@@ -20,43 +15,13 @@ export interface PracticeItem {
   progressId?: string;
 }
 
-type PracticeStatus = 'correct' | 'incorrect' | 'incomplete';
-
-function getPracticeStatus(interaction: UserBundleItemInteraction | undefined, practiceMode: PracticeMode): PracticeStatus {
-  const modeMetadata = getPracticeModeMetadata(interaction?.metadata?.practice_modes, practiceMode);
-
-  if (modeMetadata) {
-    const modeValue = modeMetadata.last_is_correct;
-    if (typeof modeValue === 'boolean') return modeValue ? 'correct' : 'incorrect';
-
-    const modeCorrectCount = Number(modeMetadata.correct_count || 0);
-    const modeIncorrectCount = Number(modeMetadata.incorrect_count || 0);
-
-    if (modeCorrectCount > 0 && modeIncorrectCount === 0) return 'correct';
-    if (modeIncorrectCount > 0 && modeCorrectCount === 0) return 'incorrect';
-    return 'incomplete';
-  }
-
-  const metadata = interaction?.metadata;
-  const value = metadata?.last_practice_mode === practiceMode ? metadata.last_practice_is_correct : null;
-  if (typeof value === 'boolean') return value ? 'correct' : 'incorrect';
-
-  const correctCount = Number(interaction?.correct_count || 0);
-  const incorrectCount = Number(interaction?.incorrect_count || 0);
-
-  if (correctCount > 0 && incorrectCount === 0) return 'correct';
-  if (incorrectCount > 0 && correctCount === 0) return 'incorrect';
-
-  return 'incomplete';
-}
-
 export function filterPracticeItems<T extends PracticeItem>(
   items: T[],
-  interactions: UserBundleItemInteraction[],
+  interactions: SessionInteraction[],
   mode: PracticeSessionMode,
   practiceMode: PracticeMode,
 ) {
-  const interactionByItemId = new Map(interactions.map((interaction) => [interaction.bundle_item_id, interaction]));
+  const interactionByItemId = new Map(interactions.map((interaction) => [getPracticeInteractionId(interaction, practiceMode), interaction]));
 
   if (mode === 'incorrect') {
     return items.filter((item) => {
@@ -84,7 +49,7 @@ export function filterPracticeItems<T extends PracticeItem>(
 
 export function getPracticeSessionCounts<T extends PracticeItem>(
   items: T[],
-  interactions: UserBundleItemInteraction[],
+  interactions: SessionInteraction[],
   practiceMode: PracticeMode,
   currentPracticeItemId?: string | null,
 ) {
@@ -101,14 +66,14 @@ export function getPracticeSessionCounts<T extends PracticeItem>(
 
 export function getPracticeModeStarProgress<T extends PracticeItem>(
   items: T[],
-  interactions: UserBundleItemInteraction[],
+  interactions: SessionInteraction[],
   practiceMode: PracticeMode,
 ) {
-  const interactionByItemId = new Map(interactions.map((interaction) => [interaction.bundle_item_id, interaction]));
-  const starsPerItem = PRACTICE_MODE_STARS[practiceMode];
+  const interactionByItemId = new Map(interactions.map((interaction) => [getPracticeInteractionId(interaction, practiceMode), interaction]));
+  const starsPerItem = PRACTICE_REGISTRY[practiceMode].stars;
   const earnedItems = items.filter((item) => {
     const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
-    return getPracticeStatus(interaction, practiceMode) === 'correct';
+    return hasEarnedPracticeStar(interaction?.metadata, practiceMode);
   }).length;
 
   return {
@@ -119,15 +84,4 @@ export function getPracticeModeStarProgress<T extends PracticeItem>(
 
 function getPracticeItemProgressId(item: PracticeItem) {
   return item.progressId || item.id;
-}
-
-function getPracticeModeMetadata(value: unknown, practiceMode: PracticeMode) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const modeMetadata = (value as Record<string, unknown>)[practiceMode];
-  return modeMetadata && typeof modeMetadata === 'object' && !Array.isArray(modeMetadata)
-    ? modeMetadata as Record<string, unknown>
-    : null;
 }

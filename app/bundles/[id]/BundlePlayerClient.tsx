@@ -1,5 +1,8 @@
 'use client';
 
+import { practiceModeColors } from '@/components/practice/practice-mode-colors';
+import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -13,16 +16,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Gauge,
-  HelpCircle,
   Languages,
   LetterText,
   Pause,
   Play,
   Repeat,
-  Shuffle,
   Star,
 } from 'lucide-react';
 import { getPublicUrl } from '@/lib/utils';
+import { PRACTICE_MODES, PRACTICE_REGISTRY, isBundlePracticeMode } from '@/lib/practice/registry';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { WordUsageBadges } from '@/components/words/WordUsageBadges';
 import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
@@ -57,13 +59,10 @@ const translations = {
     noItems: '등록된 학습 항목이 없습니다.',
     noImage: '이미지가 없습니다',
     practice: '연습 모드',
-    practiceInfo: 'Quiz, Scramble, Word Fill, Spelling 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
+    practiceInfo: 'Sentence Quiz, Scramble, Word Fill에서 처음 정답을 맞히면 별을 획득합니다. 획득한 별은 유지되며, 단어 연습은 단어 숙련도에 반영됩니다.',
     viewItems: '전체 항목 보기',
-    flashcards: '플래시카드',
-    quickQuiz: '퀵 퀴즈',
-    scramble: '스크램블',
-    wordFill: 'Word Fill',
-    spelling: 'Spelling',
+    sentencePractice: '문장 연습',
+    wordPractice: '단어 연습',
     keyWords: '핵심 단어',
     noKeywords: '연결된 핵심 단어가 없습니다.',
     sheetTitle: '단어 정보',
@@ -88,13 +87,10 @@ const translations = {
     noItems: 'No learning items registered.',
     noImage: 'No image available',
     practice: 'Practice',
-    practiceInfo: 'Earn stars by answering Quiz, Scramble, Word Fill, and Spelling challenges correctly.',
+    practiceInfo: 'Earn permanent stars for first correct answers in Sentence Quiz, Scramble, and Word Fill. Word practice builds word proficiency.',
     viewItems: 'View All Items',
-    flashcards: 'Flashcards',
-    quickQuiz: 'Quick Quiz',
-    scramble: 'Scramble',
-    wordFill: 'Word Fill',
-    spelling: 'Spelling',
+    sentencePractice: 'Sentence practice',
+    wordPractice: 'Word practice',
     keyWords: 'Key Words',
     noKeywords: 'No related key words.',
     sheetTitle: 'Word info',
@@ -455,13 +451,19 @@ export default function BundlePlayerClient({
             <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
             <p>{t.practiceInfo}</p>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-4 lg:grid-cols-1 lg:gap-3">
-            <PracticeLink href={`/bundles/${bundle.id}/flashcards`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.flashcards} tone="sky" />
-            <PracticeLink href={`/bundles/${bundle.id}/quiz`} icon={<HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.quickQuiz} tone="violet" />
-            <PracticeLink href={`/bundles/${bundle.id}/scramble`} icon={<Shuffle className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.scramble} tone="orange" />
-            <PracticeLink href={`/bundles/${bundle.id}/wordfill`} icon={<BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.wordFill} tone="sky" />
-            <PracticeLink href={`/bundles/${bundle.id}/spelling`} icon={<LetterText className="h-5 w-5 sm:h-6 sm:w-6" />} label={t.spelling} tone="violet" />
-          </div>
+          {(['sentence', 'word'] as const).map(target => (
+            <div key={target} className="mt-4 sm:mt-5">
+              <h3 className="mb-2 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                {target === 'sentence' ? t.sentencePractice : t.wordPractice}
+              </h3>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-1 lg:gap-3">
+                {PRACTICE_MODES.filter(mode => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target).map(mode => {
+                  const definition = PRACTICE_REGISTRY[mode];
+                  return <PracticeLink key={mode} href={`/bundles/${bundle.id}/${definition.path}`} icon={<PracticeModeIcon mode={mode} className="h-5 w-5 sm:h-6 sm:w-6" />} label={definition.label} tone={practiceModeColors[mode]} />;
+                })}
+              </div>
+            </div>
+          ))}
           <Link
             href={`/bundles/${bundle.id}/items`}
             className="mt-4 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-700"
@@ -507,17 +509,12 @@ function PracticeLink({
   href: string;
   icon: React.ReactNode;
   label: string;
-  tone: 'sky' | 'violet' | 'orange';
+  tone: string;
 }) {
-  const tones = {
-    sky: 'bg-sky-50 text-sky-600 dark:bg-sky-950/70 dark:text-sky-300',
-    violet: 'bg-violet-50 text-violet-600 dark:bg-violet-950/70 dark:text-violet-300',
-    orange: 'bg-orange-50 text-orange-600 dark:bg-orange-950/70 dark:text-orange-300',
-  };
 
   return (
     <Link href={href} className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-xl border border-zinc-100 bg-white px-2 text-center transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:hover:shadow-black/20 sm:min-h-[132px] sm:gap-3 lg:min-h-[88px] lg:flex-row lg:justify-start lg:px-4 lg:text-left">
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 lg:h-12 lg:w-12 ${tones[tone]}`}>{icon}</span>
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full sm:h-14 sm:w-14 lg:h-12 lg:w-12 ${tone}`}>{icon}</span>
       <span className="text-xs font-bold leading-tight text-zinc-800 dark:text-zinc-100 sm:text-sm">{label}</span>
     </Link>
   );

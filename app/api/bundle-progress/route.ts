@@ -1,9 +1,9 @@
+import { isBundlePracticeMode, isScoredPracticeMode, PRACTICE_REGISTRY } from '@/lib/practice/registry';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getBundle } from '@/lib/supabase/services/bundles';
 import {
-  type BundlePracticeMode,
   recordBundleItemPractice,
   recordBundlePracticeAccess,
   recordBundleStudyAccess,
@@ -14,10 +14,6 @@ async function getAccessibleBundle(bundleId: string, user: { id: string; email: 
   const bundle = await getBundle(bundleId);
   const isAdminUser = await isSuperAdmin({ userId: user.id, email: user.email });
   return bundle && (bundle.is_published || isAdminUser) ? bundle : null;
-}
-
-function isValidPracticeMode(value: unknown): value is BundlePracticeMode {
-  return typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(value);
 }
 
 export async function POST(request: NextRequest) {
@@ -34,10 +30,16 @@ export async function POST(request: NextRequest) {
     if (
       !bundle_id ||
       !bundle_item_id ||
-      !['quiz', 'scramble', 'wordfill', 'spelling'].includes(practice_mode) ||
+      !isBundlePracticeMode(practice_mode) ||
+      !isScoredPracticeMode(practice_mode) ||
       typeof is_correct !== 'boolean'
     ) {
       return NextResponse.json({ error: '유효한 Practice 결과가 필요합니다.' }, { status: 400 });
+    }
+
+    const definition = PRACTICE_REGISTRY[practice_mode];
+    if ((definition.target === 'word' || definition.updatesRelatedWord) && (!Number.isSafeInteger(word_id) || word_id <= 0)) {
+      return NextResponse.json({ error: '유효한 단어 ID가 필요합니다.' }, { status: 400 });
     }
 
     const bundle = await getAccessibleBundle(String(bundle_id), user);
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       user.id,
       String(bundle_id),
       String(bundle_item_id),
-      practice_mode as 'quiz' | 'scramble' | 'wordfill' | 'spelling',
+      practice_mode,
       is_correct,
       word_id ? Number(word_id) : null,
     );
@@ -70,7 +72,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { bundle_id, current_bundle_item_id, current_practice_mode, is_pinned } = body;
+    const { bundle_id, current_bundle_item_id, current_practice_mode, current_word_id, is_pinned } = body;
 
     if (!bundle_id || (typeof is_pinned !== 'boolean' && typeof current_bundle_item_id !== 'string')) {
       return NextResponse.json({ error: '유효한 번들 진행 상태가 필요합니다.' }, { status: 400 });
@@ -83,7 +85,7 @@ export async function PATCH(request: NextRequest) {
 
     if (typeof current_bundle_item_id === 'string') {
       if (current_practice_mode !== undefined) {
-        if (!isValidPracticeMode(current_practice_mode)) {
+        if (!isBundlePracticeMode(current_practice_mode)) {
           return NextResponse.json({ error: '유효한 Practice mode가 필요합니다.' }, { status: 400 });
         }
 
@@ -92,6 +94,7 @@ export async function PATCH(request: NextRequest) {
           String(bundle_id),
           current_practice_mode,
           current_bundle_item_id,
+          current_word_id === undefined ? null : Number(current_word_id),
         );
         return NextResponse.json({ success: true });
       }

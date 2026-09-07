@@ -26,7 +26,7 @@ interface BundleQuizClientProps {
 const copy = {
   ko: {
     back: '상세로 돌아가기',
-    mode: 'Quick Quiz',
+    mode: 'Sentence Quiz',
     prompt: '문장의 뜻을 고르세요',
     empty: '퀴즈로 학습할 문장이 없습니다.',
     correct: '정답입니다.',
@@ -41,7 +41,7 @@ const copy = {
   },
   en: {
     back: 'Back to detail',
-    mode: 'Quick Quiz',
+    mode: 'Sentence Quiz',
     prompt: 'Choose the meaning of the sentence',
     empty: 'No sentences for quiz.',
     correct: 'Correct.',
@@ -245,7 +245,7 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
 function Empty({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
-      <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Quick Quiz</p>
+      <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Sentence Quiz</p>
       <h1 className="text-2xl font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
       <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">

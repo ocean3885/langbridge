@@ -1,5 +1,5 @@
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getActiveLearningBundles, getLearningProgressSummary, getRecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
+import { getActiveLearningBundles, getLearningProficiencySummary, getLearningProgressSummary, getRecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
 import { getRecommendedUnstudiedBundles } from '@/lib/supabase/services/bundles';
 import { getLearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import { getTodayLearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
@@ -16,11 +16,12 @@ export default async function LearnPage() {
   if (!user) return <AnonymousLearnPage language={language} />;
 
   const name = user.email?.split('@')[0] || 'Learner';
-  const [recentBundle, streakSummary, goalSummary, progressSummary, activeBundles, reviewNeededSummary] = await Promise.all([
+  const [recentBundle, streakSummary, goalSummary, progressSummary, proficiencySummary, activeBundles, reviewNeededSummary] = await Promise.all([
     getRecentStudiedBundle(user.id),
     getLearningStreakSummary(user.id),
     getTodayLearningGoalSummary(user.id),
     getLearningProgressSummary(user.id),
+    getLearningProficiencySummary(user.id),
     getActiveLearningBundles(user.id),
     getReviewNeededSummary(user.id),
   ]);
@@ -37,6 +38,7 @@ export default async function LearnPage() {
       streakSummary={streakSummary}
       goalSummary={goalSummary}
       progressSummary={progressSummary}
+      proficiencySummary={proficiencySummary}
       language={language}
     />
   );

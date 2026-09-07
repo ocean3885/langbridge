@@ -6,11 +6,10 @@ import {
   Compass,
   HelpCircle,
   Shuffle,
-  Star,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
-import type { ActiveLearningBundle, LearningProgressSummary, RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
+import type { ActiveLearningBundle, LearningProficiencySummary, LearningProgressSummary, RecentStudiedBundle } from '@/lib/supabase/services/bundle-progress';
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
 import type { ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
@@ -80,13 +79,10 @@ const loggedInSectionCopy = {
     quickPracticeDescriptionPrefix: '최근 학습하던',
     quickPracticeDescriptionSuffix: '번들로 돌아가 가볍게 복습해 보세요.',
     progressTitle: '학습 현황',
-    completedSentences: '완료한 문장',
-    earnedStars: '획득한 별',
+    learnedSentences: '학습한 문장',
+    learnedWords: '학습한 단어',
     completedBundles: '완료한 번들',
-    activeBundles: '진행 중인 번들',
-    practicedWords: '연습한 단어',
-    wordsInMemory: '기억 중인 단어',
-    practiceAccuracy: '정답률',
+    practiceAccuracy: '연습 정답률',
     viewDetailedProgress: '자세한 학습 현황 보기',
     viewAllBundles: '전체 번들 보기',
   },
@@ -97,12 +93,9 @@ const loggedInSectionCopy = {
     quickPracticeDescriptionPrefix: 'Jump back into',
     quickPracticeDescriptionSuffix: 'with a short practice session.',
     progressTitle: 'Your Progress',
-    completedSentences: 'Sentences Completed',
-    earnedStars: 'Earned Stars',
+    learnedSentences: 'Learned Sentences',
+    learnedWords: 'Learned Words',
     completedBundles: 'Bundles Completed',
-    activeBundles: 'Active Bundles',
-    practicedWords: 'Practiced Words',
-    wordsInMemory: 'Words in Memory',
     practiceAccuracy: 'Practice Accuracy',
     viewDetailedProgress: 'View detailed progress',
     viewAllBundles: 'View all bundles',
@@ -118,6 +111,7 @@ export function LoggedInLearnPage({
   streakSummary,
   goalSummary,
   progressSummary,
+  proficiencySummary,
   language,
 }: {
   name: string;
@@ -128,6 +122,7 @@ export function LoggedInLearnPage({
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
   progressSummary: LearningProgressSummary;
+  proficiencySummary: LearningProficiencySummary;
   language: DisplayLanguage;
 }) {
   const displayedProgressSummary = {
@@ -160,6 +155,7 @@ export function LoggedInLearnPage({
         goalSummary={goalSummary}
         reviewNeededSummary={reviewNeededSummary}
         progressSummary={displayedProgressSummary}
+        proficiencySummary={proficiencySummary}
         language={language}
       />
     </div>
@@ -405,7 +401,7 @@ function getQuickPracticeItems(bundleId: string, language: DisplayLanguage) {
         color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
       },
       {
-        title: 'Quick Quiz',
+        title: 'Sentence Quiz',
         desc: '퀴즈로 이해도 확인',
         href: `/bundles/${bundleId}/quiz`,
         icon: HelpCircle,
@@ -428,7 +424,7 @@ function getQuickPracticeItems(bundleId: string, language: DisplayLanguage) {
         color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
       },
       {
-        title: 'Quick Quiz',
+        title: 'Sentence Quiz',
         desc: 'Check understanding',
         href: `/bundles/${bundleId}/quiz`,
         icon: HelpCircle,
@@ -452,12 +448,14 @@ function LearnSidebar({
   goalSummary,
   reviewNeededSummary,
   progressSummary,
+  proficiencySummary,
   language,
 }: {
   streakSummary: LearningStreakSummary;
   goalSummary: LearningGoalSummary;
   reviewNeededSummary: ReviewNeededSummary;
   progressSummary: LearningProgressSummary;
+  proficiencySummary: LearningProficiencySummary;
   language: DisplayLanguage;
 }) {
   return (
@@ -467,21 +465,18 @@ function LearnSidebar({
         <GoalCard summary={goalSummary} language={language} editable />
         <ReviewNeededSection summary={reviewNeededSummary} language={language} compact />
       </div>
-      <ProgressSummaryCard summary={progressSummary} language={language} />
+      <ProgressSummaryCard summary={progressSummary} proficiencySummary={proficiencySummary} language={language} />
       <EncouragementCard language={language} />
     </aside>
   );
 }
 
-function ProgressSummaryCard({ summary, language }: { summary: LearningProgressSummary; language: DisplayLanguage }) {
+function ProgressSummaryCard({ summary, proficiencySummary, language }: { summary: LearningProgressSummary; proficiencySummary: LearningProficiencySummary; language: DisplayLanguage }) {
   const t = loggedInSectionCopy[language];
   const rows = [
-    [t.earnedStars, formatCount(summary.earnedStars)],
+    [t.learnedSentences, formatCount(proficiencySummary.sentences.total)],
+    [t.learnedWords, formatCount(proficiencySummary.words.total)],
     [t.completedBundles, formatCount(summary.completedBundles)],
-    [t.activeBundles, formatCount(summary.activeBundles)],
-    [t.completedSentences, formatCount(summary.completedSentences)],
-    [t.practicedWords, formatCount(summary.practicedWords)],
-    [t.wordsInMemory, formatCount(summary.wordsInMemory)],
     [t.practiceAccuracy, `${summary.practiceAccuracyPercent}%`],
   ];
 
@@ -494,7 +489,6 @@ function ProgressSummaryCard({ summary, language }: { summary: LearningProgressS
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between py-3 text-sm">
             <span className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-              {label === t.earnedStars && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
               {label}
             </span>
             <strong>{value}</strong>

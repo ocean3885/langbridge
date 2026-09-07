@@ -43,7 +43,7 @@ const copy = {
     editMemo: '메모', memoPlaceholder: '이 단어에 대한 학습 메모를 남겨보세요.', save: '저장', saving: '저장 중', saved: '저장됨', saveFailed: '저장하지 못했습니다.',
     emptyTitle: '조건에 맞는 단어가 없습니다.', emptyBody: '검색어나 필터를 바꾸어 확인해보세요.', emptyAllTitle: '아직 학습한 단어가 없습니다.', emptyAllBody: '단어 중심 학습이나 복습을 시작하면 여기에 기록됩니다.', browse: '학습 번들 보기',
     previous: '이전', next: '다음', listen: '단어 듣기', level: '레벨', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`,
-    levels: ['시작 전', '학습 중', '익숙해지는 중', '익숙함', '거의 숙달', '숙달'],
+    levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '숙달'],
   },
   en: {
     back: 'Back to Overview', title: 'Words', description: 'See the proficiency and review status of the words you have studied.',
@@ -57,7 +57,7 @@ const copy = {
     editMemo: 'Memo', memoPlaceholder: 'Add a learning note for this word.', save: 'Save', saving: 'Saving', saved: 'Saved', saveFailed: 'Could not save.',
     emptyTitle: 'No words match these filters.', emptyBody: 'Try another search or filter.', emptyAllTitle: 'No learned words yet.', emptyAllBody: 'Words will appear here after word-focused practice or review.', browse: 'Browse bundles',
     previous: 'Previous', next: 'Next', listen: 'Listen to word', level: 'Level', attempts: (c: number, i: number) => `${c} correct · ${i} incorrect`,
-    levels: ['Not started', 'Learning', 'Getting familiar', 'Familiar', 'Almost mastered', 'Mastered'],
+    levels: ['Not started', 'Learning', 'Getting familiar', 'Familiar', 'Advanced', 'Mastered'],
   },
 };
 

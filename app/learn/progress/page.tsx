@@ -2,25 +2,31 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
+  BarChart3,
   BookOpen,
   CalendarDays,
+  CheckCircle2,
+  CircleCheckBig,
   Home,
-  HelpCircle,
+  Layers3,
   MessagesSquare,
   RotateCcw,
   Send,
   Share2,
-  Target,
+  Star,
+  XCircle,
 } from 'lucide-react';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
+import { getReviewHref, getReviewRecommendation } from '@/lib/learning/review-recommendation';
 import {
   getActiveLearningBundles,
+  getLearningProficiencySummary,
   getLearningProgressSummary,
   getRecentLearningActivities,
   type ActiveLearningBundle,
   type RecentLearningActivity,
 } from '@/lib/supabase/services/bundle-progress';
-import { getReviewNeededSummary } from '@/lib/supabase/services/learning-review';
+import { getReviewNeededSummary, type ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
 import ProgressMobileMenu from './ProgressMobileMenu';
 import ProgressSidebar from './ProgressSidebar';
@@ -35,37 +41,36 @@ const copy = {
     title: 'Overview',
     description: '현재 학습 현황을 확인하고 오늘의 학습을 계획해보세요.',
     share: '공유',
-    overall: '성취도',
-    level: 'Level B1',
-    levelHint: (remaining: number) => `다음 레벨까지 ${remaining}% 남았어요!`,
+    completedBundles: '완료한 번들',
+    completedBundleBasis: '모든 항목을 완료한 번들',
     learnedSentences: '학습한 문장',
     learnedWords: '학습한 단어',
     reviewNeeded: '복습 필요',
     sentenceWordCount: (sentences: number, words: number) => `문장 ${sentences} · 단어 ${words}`,
-    totalSentenceBasis: '전체 문장 기준',
-    totalWordBasis: '전체 단어 기준',
+    proficiencyLearning: '학습중',
+    proficiencyFamiliar: '익숙함',
+    proficiencyAlmostMastered: '숙련',
+    proficiencyMastered: '숙달',
     todayTitle: '오늘의 학습',
-    todaySubtitle: '우선순위가 높은 항목부터 시작해요.',
-    reviewSentences: '복습 문장',
-    reviewWords: '복습 단어',
-    activeBundle: '이어할 번들',
-    noActiveBundle: '새 번들',
-    startRecommended: '시작하기',
-    reviewOnly: '복습하기',
-    areaTitle: '영역별 성취도',
-    detailHint: '상세 복습은 메뉴에서 확인할 수 있어요.',
-    words: 'Words (단어)',
-    sentences: 'Sentences (문장)',
-    bundles: 'Bundles (번들)',
-    gettingUsed: '익숙해지는 중',
-    stable: '안정적',
-    learning: '학습 중',
-    reviewPanelTitle: '복습 항목',
-    sentenceReview: '문장 복습',
-    wordReview: '단어 복습',
-    allReview: '전체 복습',
-    reviewAction: '복습',
-    reviewBoost: '복습을 하면 기억이 더 오래 유지돼요!',
+    todaySubtitle: '지금 가장 필요한 학습을 추천해드려요.',
+    reviewRecommendation: (type: string, count: number) => `${type} ${count}개를 먼저 복습해보세요.`,
+    reviewBreakdown: (sentences: number, words: number) => `문장 ${sentences}개 · 단어 ${words}개 복습 필요`,
+    sentenceType: '문장',
+    wordType: '단어',
+    continueRecommendation: '최근 학습을 이어가세요.',
+    bundleProgress: (completed: number, total: number, percent: number) => `${completed} / ${total} 완료 · ${percent}%`,
+    newRecommendation: '새로운 학습을 시작해보세요.',
+    newRecommendationBody: '관심 있는 번들을 골라 첫 학습을 시작할 수 있어요.',
+    startReview: '복습 시작',
+    continueLearning: '계속 학습',
+    browseBundles: '번들 둘러보기',
+    learningRecord: '학습 기록',
+    learningRecordHint: '지금까지의 연습 결과와 학습 활동을 확인해보세요.',
+    practiceAccuracy: '연습 정답률',
+    correctAnswers: '총 정답',
+    incorrectAnswers: '총 오답',
+    earnedStars: '획득한 별',
+    activeBundles: '진행 중인 번들',
     recentTitle: '최근 학습한 번들',
     viewAllBundles: '전체 보기',
     continue: '계속하기',
@@ -81,37 +86,36 @@ const copy = {
     title: 'Overview',
     description: "Check your progress and plan today's study.",
     share: 'Share',
-    overall: 'Progress',
-    level: 'Level B1',
-    levelHint: (remaining: number) => `${remaining}% left until the next level.`,
+    completedBundles: 'Completed bundles',
+    completedBundleBasis: 'Bundles with every item completed',
     learnedSentences: 'Learned sentences',
     learnedWords: 'Learned words',
     reviewNeeded: 'Review needed',
     sentenceWordCount: (sentences: number, words: number) => `Sentences ${sentences} · Words ${words}`,
-    totalSentenceBasis: 'Based on all sentences',
-    totalWordBasis: 'Based on all words',
+    proficiencyLearning: 'Learning',
+    proficiencyFamiliar: 'Familiar',
+    proficiencyAlmostMastered: 'Advanced',
+    proficiencyMastered: 'Mastered',
     todayTitle: "Today's Study",
-    todaySubtitle: 'Start with the highest-priority items.',
-    reviewSentences: 'Review sentences',
-    reviewWords: 'Review words',
-    activeBundle: 'Continue bundle',
-    noActiveBundle: 'New bundle',
-    startRecommended: 'Start',
-    reviewOnly: 'Review',
-    areaTitle: 'Progress by area',
-    detailHint: 'Detailed review is available from the menu.',
-    words: 'Words',
-    sentences: 'Sentences',
-    bundles: 'Bundles',
-    gettingUsed: 'Getting familiar',
-    stable: 'Stable',
-    learning: 'Learning',
-    reviewPanelTitle: 'Review items',
-    sentenceReview: 'Sentence review',
-    wordReview: 'Word review',
-    allReview: 'Full review',
-    reviewAction: 'Review',
-    reviewBoost: 'Review helps memories last longer.',
+    todaySubtitle: 'Here is the most useful thing to study next.',
+    reviewRecommendation: (type: string, count: number) => `Review ${count} ${type.toLowerCase()} first.`,
+    reviewBreakdown: (sentences: number, words: number) => `${sentences} sentences · ${words} words due`,
+    sentenceType: 'Sentences',
+    wordType: 'Words',
+    continueRecommendation: 'Continue your latest lesson.',
+    bundleProgress: (completed: number, total: number, percent: number) => `${completed} / ${total} complete · ${percent}%`,
+    newRecommendation: 'Start something new.',
+    newRecommendationBody: 'Choose a bundle that interests you and begin your first lesson.',
+    startReview: 'Start review',
+    continueLearning: 'Continue learning',
+    browseBundles: 'Explore bundles',
+    learningRecord: 'Learning record',
+    learningRecordHint: 'See your practice results and learning activity so far.',
+    practiceAccuracy: 'Practice accuracy',
+    correctAnswers: 'Correct answers',
+    incorrectAnswers: 'Incorrect answers',
+    earnedStars: 'Earned stars',
+    activeBundles: 'Active bundles',
     recentTitle: 'Recently studied bundles',
     viewAllBundles: 'View all',
     continue: 'Continue',
@@ -142,20 +146,16 @@ export default async function LearnProgressPage() {
     );
   }
 
-  const [progressSummary, activeBundles, recentActivities, reviewSummary] = await Promise.all([
+  const [progressSummary, proficiencySummary, activeBundles, recentActivities, reviewSummary] = await Promise.all([
     getLearningProgressSummary(user.id),
+    getLearningProficiencySummary(user.id),
     getActiveLearningBundles(user.id, 6),
     getRecentLearningActivities(user.id, { limit: 6 }),
     getReviewNeededSummary(user.id),
   ]);
 
   const recentBundles = mergeRecentBundles(activeBundles, recentActivities).slice(0, 3);
-  const featuredBundle = activeBundles[0] || recentBundles[0] || null;
-  const overallPercent = calculateOverallPercent(progressSummary.practiceAccuracyPercent, activeBundles);
-  const remainingPercent = Math.max(0, 100 - overallPercent);
-  const wordsPercent = clampPercent(progressSummary.practiceAccuracyPercent || progressSummary.wordsInMemory * 4);
-  const sentencesPercent = clampPercent(progressSummary.completedSentences ? 50 + Math.min(45, progressSummary.completedSentences * 2) : 0);
-  const bundlesPercent = clampPercent(activeBundles.length ? Math.round(activeBundles.reduce((sum, item) => sum + item.progressPercent, 0) / activeBundles.length) : progressSummary.completedBundles * 20);
+  const featuredBundle = activeBundles[0] || null;
 
   return (
     <main className="mx-auto max-w-7xl px-0 pb-10 text-[#171717] dark:text-zinc-100 lg:px-2">
@@ -189,30 +189,28 @@ export default async function LearnProgressPage() {
 
           <section className="mt-6 grid grid-cols-2 gap-3 lg:mt-9 lg:gap-5 xl:grid-cols-4">
             <OverviewCard
-              icon={Target}
+              icon={CircleCheckBig}
               iconClassName="text-[#3f9657]"
-              title={t.overall}
-              value={`${overallPercent}%`}
-              badge={t.level}
-              progress={overallPercent}
-              footer={t.levelHint(remainingPercent)}
-              footerStrong="B1"
+              title={t.completedBundles}
+              value={formatCount(progressSummary.completedBundles)}
+              suffix={language === 'ko' ? '개' : ''}
+              footer={t.completedBundleBasis}
             />
             <OverviewCard
               icon={MessagesSquare}
               iconClassName="text-[#3f9657]"
               title={t.learnedSentences}
-              value={formatCount(progressSummary.completedSentences)}
+              value={formatCount(proficiencySummary.sentences.total)}
               suffix={language === 'ko' ? '개' : ''}
-              footer={t.totalSentenceBasis}
+              details={getProficiencyDetails(proficiencySummary.sentences, t)}
             />
             <OverviewCard
               icon={BookOpen}
               iconClassName="text-[#4f83e6]"
               title={t.learnedWords}
-              value={formatCount(progressSummary.practicedWords)}
+              value={formatCount(proficiencySummary.words.total)}
               suffix={language === 'ko' ? '개' : ''}
-              footer={t.totalWordBasis}
+              details={getProficiencyDetails(proficiencySummary.words, t)}
             />
             <OverviewCard
               icon={RotateCcw}
@@ -221,29 +219,20 @@ export default async function LearnProgressPage() {
               value={formatCount(reviewSummary.availableTotal)}
               suffix={language === 'ko' ? '개' : ''}
               footer={t.sentenceWordCount(reviewSummary.availableSentences, reviewSummary.availableWords)}
+              href="/learn/review"
             />
           </section>
 
           <TodayRecommendation
             language={language}
-            reviewSentences={reviewSummary.availableSentences}
-            reviewWords={reviewSummary.availableWords}
+            reviewSummary={reviewSummary}
             featuredBundle={featuredBundle}
           />
 
-          <section className="mt-7 grid gap-6 xl:grid-cols-[1fr_1.12fr]">
-            <AreaProgressCard
+          <section className="mt-7">
+            <LearningRecordCard
               language={language}
-              rows={[
-                { label: t.words, value: wordsPercent, tone: 'amber', status: t.gettingUsed },
-                { label: t.sentences, value: sentencesPercent, tone: 'green', status: t.stable },
-                { label: t.bundles, value: bundlesPercent, tone: 'violet', status: t.learning },
-              ]}
-            />
-            <ReviewNeededCard
-              language={language}
-              sentences={reviewSummary.availableSentences}
-              words={reviewSummary.availableWords}
+              summary={progressSummary}
             />
           </section>
 
@@ -286,23 +275,21 @@ function OverviewCard({
   title,
   value,
   suffix,
-  badge,
-  progress,
   footer,
-  footerStrong,
+  details,
+  href,
 }: {
   icon: React.ElementType;
   iconClassName: string;
   title: string;
   value: string;
   suffix?: string;
-  badge?: string;
-  progress?: number;
-  footer: string;
-  footerStrong?: string;
+  footer?: string;
+  details?: Array<{ label: string; value: number }>;
+  href?: string;
 }) {
-  return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-5 lg:p-6">
+  const card = (
+    <article className="h-full rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-5 lg:p-6">
       <div className="flex items-start gap-3 lg:block">
         <Icon className={`h-7 w-7 shrink-0 sm:h-8 sm:w-8 lg:h-10 lg:w-10 ${iconClassName}`} strokeWidth={2.4} />
         <div className="min-w-0 flex-1">
@@ -312,195 +299,117 @@ function OverviewCard({
               {value}
               {suffix && <span className="ml-1 text-sm font-bold lg:text-base">{suffix}</span>}
             </p>
-            {badge && (
-              <span className="rounded-full bg-[#e8f4ea] px-2.5 py-1 text-xs font-bold text-[#2f8748] dark:bg-emerald-950 dark:text-emerald-200 lg:px-3 lg:text-sm">
-                {badge}
-              </span>
-            )}
           </div>
         </div>
       </div>
-      {typeof progress === 'number' && (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800 lg:mt-6 lg:h-2">
-          <div className="h-full rounded-full bg-[#3f9657]" style={{ width: `${progress}%` }} />
-        </div>
-      )}
-      <p className="mt-3 hidden text-xs leading-5 text-zinc-600 dark:text-zinc-400 sm:block sm:text-sm lg:mt-4 lg:leading-6">
-        {footerStrong && <span className="font-bold text-zinc-800 dark:text-zinc-200">{footerStrong} </span>}
-        {footer}
-      </p>
+      {details ? (
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-zinc-100 pt-3 text-[11px] dark:border-zinc-800 sm:text-xs lg:mt-4 lg:pt-4">
+          {details.map(detail => (
+            <div key={detail.label} className="flex min-w-0 items-center justify-between gap-1.5">
+              <dt className="truncate text-zinc-500 dark:text-zinc-400">{detail.label}</dt>
+              <dd className="shrink-0 font-bold tabular-nums">{formatCount(detail.value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : footer ? (
+        <p className="mt-3 hidden text-xs leading-5 text-zinc-600 dark:text-zinc-400 sm:block sm:text-sm lg:mt-4 lg:leading-6">{footer}</p>
+      ) : null}
     </article>
   );
+
+  return href ? <Link href={href} className="block h-full">{card}</Link> : card;
 }
 
 function TodayRecommendation({
   language,
-  reviewSentences,
-  reviewWords,
+  reviewSummary,
   featuredBundle,
 }: {
   language: DisplayLanguage;
-  reviewSentences: number;
-  reviewWords: number;
-  featuredBundle: ActiveLearningBundle | RecentLearningActivity | null;
+  reviewSummary: ReviewNeededSummary;
+  featuredBundle: ActiveLearningBundle | null;
 }) {
   const t = copy[language];
-  const title = featuredBundle ? getBundleTitle(featuredBundle.bundle, language) : t.noActiveBundle;
+  const recommendation = getReviewRecommendation(reviewSummary);
+  const hasReview = recommendation !== null;
+  const recommendedCount = recommendation === 'words' ? reviewSummary.availableWords : reviewSummary.availableSentences;
+  const otherCount = recommendation === 'words' ? reviewSummary.availableSentences : reviewSummary.availableWords;
+  const reviewType = recommendation === 'words' ? t.wordType : t.sentenceType;
+  const bundleTitle = featuredBundle ? getBundleTitle(featuredBundle.bundle, language) : '';
   const category = featuredBundle ? getCategoryName(featuredBundle.bundle, language) : '';
-  const href = featuredBundle
-    ? 'currentBundleItemId' in featuredBundle && featuredBundle.currentBundleItemId
+  const bundleHref = featuredBundle
+    ? featuredBundle.currentBundleItemId
       ? `/bundles/${featuredBundle.bundle.id}/learn?item=${featuredBundle.currentBundleItemId}`
       : `/bundles/${featuredBundle.bundle.id}/learn`
     : '/bundles';
+  const href = recommendation ? getReviewHref(recommendation, otherCount) : bundleHref;
+  const headline = hasReview
+    ? t.reviewRecommendation(reviewType, recommendedCount)
+    : featuredBundle
+      ? t.continueRecommendation
+      : t.newRecommendation;
+  const description = hasReview
+    ? t.reviewBreakdown(reviewSummary.availableSentences, reviewSummary.availableWords)
+    : featuredBundle
+      ? `${category ? `${category} · ` : ''}${bundleTitle} · ${t.bundleProgress(featuredBundle.completedItems, featuredBundle.totalItems, featuredBundle.progressPercent)}`
+      : t.newRecommendationBody;
+  const action = hasReview ? t.startReview : featuredBundle ? t.continueLearning : t.browseBundles;
+  const ActionIcon = hasReview ? RotateCcw : Send;
 
   return (
     <section className="mt-6 rounded-lg border border-[#dcebdd] bg-[#fbfffb] p-4 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/10 sm:p-5 lg:mt-8 lg:p-6">
-      <div className="grid gap-5 xl:grid-cols-[1fr_210px] xl:items-center">
-        <div className="min-w-0">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e6f5e8] text-[#3f9657] dark:bg-emerald-950 dark:text-emerald-200 sm:h-11 sm:w-11">
-              <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold sm:text-xl">{t.todayTitle}</h2>
-              <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400 sm:mt-2">{t.todaySubtitle}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <RecommendationMiniCard icon={MessagesSquare} tone="green" title={t.reviewSentences} value={reviewSentences} language={language} />
-            <RecommendationMiniCard icon={BookOpen} tone="sky" title={t.reviewWords} value={reviewWords} language={language} />
-            <Link href={href} className="min-w-0 rounded-lg border border-zinc-200 bg-white p-3 transition hover:border-[#8bbf87] hover:bg-[#f8fcf7] dark:border-zinc-800 dark:bg-zinc-900 sm:col-span-2 xl:col-span-1 xl:p-4">
-              <div className="grid min-w-0 grid-cols-[40px_1fr_auto] items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-200">
-                  <Send className="h-5 w-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-zinc-600 dark:text-zinc-400">{t.activeBundle}</p>
-                  <p className="mt-0.5 truncate text-base font-bold sm:text-lg">{featuredBundle ? '1' : '0'}</p>
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">{category ? `${category}: ${title}` : title}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0" />
-              </div>
-            </Link>
-          </div>
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e6f5e8] text-[#3f9657] dark:bg-emerald-950 dark:text-emerald-200 sm:h-11 sm:w-11">
+          <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
-        <div className="grid grid-cols-2 gap-3 xl:flex xl:flex-col">
-          <Link href={href} className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#3f9657] px-3 py-2.5 text-center text-sm font-bold text-white shadow-sm transition hover:bg-[#2f7f45] sm:px-5 lg:py-3">
-            {t.startRecommended}
-          </Link>
-          <Link href="/learn/review/sentences" className="inline-flex min-h-10 items-center justify-center rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-center text-sm font-bold text-zinc-700 transition hover:border-[#8bbf87] hover:bg-[#f8fcf7] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 sm:px-5 lg:py-3">
-            {t.reviewOnly}
-          </Link>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold sm:text-xl">{t.todayTitle}</h2>
+          <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400 sm:mt-2">{t.todaySubtitle}</p>
         </div>
       </div>
-    </section>
-  );
-}
 
-function RecommendationMiniCard({
-  icon: Icon,
-  tone,
-  title,
-  value,
-  language,
-}: {
-  icon: React.ElementType;
-  tone: 'green' | 'sky';
-  title: string;
-  value: number;
-  language: DisplayLanguage;
-}) {
-  const toneClass = tone === 'green'
-    ? 'bg-[#e7f4e8] text-[#3f9657] dark:bg-emerald-950 dark:text-emerald-200'
-    : 'bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-200';
-
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 xl:p-4">
-      <div className="flex items-center gap-3 xl:gap-4">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${toneClass}`}>
-          <Icon className="h-5 w-5" />
+      <div className="mt-5 grid gap-5 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-5">
+        <span className={`flex h-11 w-11 items-center justify-center rounded-full ${hasReview ? 'bg-[#fff0ec] text-[#e95c3e]' : 'bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-200'}`}>
+          <ActionIcon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-zinc-600 dark:text-zinc-400">{title}</p>
-          <p className="mt-0.5 text-lg font-bold xl:mt-1 xl:text-xl">
-            {formatCount(value)}
-            {language === 'ko' && <span className="ml-1 text-sm">개</span>}
-          </p>
+          <h3 className="text-base font-bold sm:text-lg">{headline}</h3>
+          <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{description}</p>
         </div>
+        <Link href={href} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#3f9657] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#2f7f45] sm:justify-self-end">
+          {action}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
-    </div>
-  );
-}
-
-function AreaProgressCard({
-  language,
-  rows,
-}: {
-  language: DisplayLanguage;
-  rows: Array<{ label: string; value: number; status: string; tone: 'amber' | 'green' | 'violet' }>;
-}) {
-  const t = copy[language];
-
-  return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-bold">{t.areaTitle}</h2>
-        <HelpCircle className="h-4 w-4 text-zinc-400" />
-      </div>
-      <div className="mt-7 space-y-5">
-        {rows.map((row) => (
-          <div key={row.label} className="text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-bold">{row.label}</span>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-bold ${getStatusToneClass(row.tone)}`}>{row.status}</span>
-            </div>
-            <div className="mt-3 grid grid-cols-[1fr_44px] items-center gap-3">
-              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                <div className={`h-full rounded-full ${getProgressToneClass(row.tone)}`} style={{ width: `${row.value}%` }} />
-              </div>
-              <span className="text-right text-xs font-bold tabular-nums">{row.value}%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-8 border-t border-zinc-100 pt-5 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">{t.detailHint}</p>
     </section>
   );
 }
 
-function ReviewNeededCard({ language, sentences, words }: { language: DisplayLanguage; sentences: number; words: number }) {
+function LearningRecordCard({ language, summary }: { language: DisplayLanguage; summary: Awaited<ReturnType<typeof getLearningProgressSummary>> }) {
   const t = copy[language];
   const rows = [
-    { icon: MessagesSquare, label: t.sentenceReview, value: sentences, href: '/learn/review/sentences', color: 'text-[#3f9657]' },
-    { icon: BookOpen, label: t.wordReview, value: words, href: '/learn/review/words', color: 'text-sky-600' },
-    { icon: RotateCcw, label: t.allReview, value: sentences + words, href: '/learn/review', color: 'text-[#ff6848]' },
+    { label: t.practiceAccuracy, value: `${summary.practiceAccuracyPercent}%`, icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300' },
+    { label: t.correctAnswers, value: formatCount(summary.totalCorrectCount), icon: CheckCircle2, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' },
+    { label: t.incorrectAnswers, value: formatCount(summary.totalIncorrectCount), icon: XCircle, tone: 'bg-rose-50 text-rose-500 dark:bg-rose-950/60 dark:text-rose-300' },
+    { label: t.earnedStars, value: formatCount(summary.earnedStars), icon: Star, tone: 'bg-amber-50 text-amber-500 dark:bg-amber-950/60 dark:text-amber-300' },
+    { label: t.activeBundles, value: formatCount(summary.activeBundles), icon: Layers3, tone: 'bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300' },
   ];
 
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-bold">{t.reviewPanelTitle}</h2>
-        <HelpCircle className="h-4 w-4 text-zinc-400" />
-      </div>
-      <div className="mt-6 divide-y divide-zinc-100 dark:divide-zinc-800">
-        {rows.map((row) => (
-          <Link key={row.label} href={row.href} className="grid grid-cols-[1fr_auto] items-center gap-4 py-3 transition hover:text-[#2f7f45] sm:grid-cols-[1fr_auto_auto]">
-            <span className="inline-flex items-center gap-3 text-sm font-bold">
-              <row.icon className={`h-5 w-5 ${row.color}`} />
-              {row.label}
-            </span>
-            <span className="text-2xl font-bold tabular-nums">
-              {formatCount(row.value)}
-              {language === 'ko' && <span className="ml-1 text-sm font-bold">개</span>}
-            </span>
-            <span className="hidden rounded-md border border-zinc-200 px-4 py-2 text-sm font-bold dark:border-zinc-700 sm:inline-flex">
-              {t.reviewAction}
-            </span>
-          </Link>
+      <h2 className="text-xl font-bold">{t.learningRecord}</h2>
+      <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{t.learningRecordHint}</p>
+      <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {rows.map((row, index) => (
+          <div key={row.label} className={`rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/50 ${index === rows.length - 1 ? 'col-span-2 lg:col-span-1' : ''}`}>
+            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${row.tone}`}>
+              <row.icon className="h-5 w-5" />
+            </div>
+            <dt className="mt-4 text-xs font-semibold leading-5 text-zinc-500 dark:text-zinc-400">{row.label}</dt>
+            <dd className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{row.value}</dd>
+          </div>
         ))}
-      </div>
-      <p className="mt-5 text-sm text-zinc-500 dark:text-zinc-400">{t.reviewBoost}</p>
+      </dl>
     </section>
   );
 }
@@ -553,23 +462,16 @@ function mergeRecentBundles(active: ActiveLearningBundle[], recent: RecentLearni
   return Array.from(merged.values());
 }
 
-function calculateOverallPercent(accuracy: number, activeBundles: ActiveLearningBundle[]) {
-  const activeAverage = activeBundles.length
-    ? Math.round(activeBundles.reduce((sum, item) => sum + item.progressPercent, 0) / activeBundles.length)
-    : 0;
-  return clampPercent(Math.round((accuracy * 0.45) + (activeAverage * 0.55)));
-}
-
-function getProgressToneClass(tone: 'amber' | 'green' | 'violet') {
-  if (tone === 'amber') return 'bg-amber-400';
-  if (tone === 'violet') return 'bg-violet-500';
-  return 'bg-[#3f9657]';
-}
-
-function getStatusToneClass(tone: 'amber' | 'green' | 'violet') {
-  if (tone === 'amber') return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200';
-  if (tone === 'violet') return 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200';
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200';
+function getProficiencyDetails(
+  distribution: { learning: number; familiar: number; almostMastered: number; mastered: number },
+  t: typeof copy.ko,
+) {
+  return [
+    { label: t.proficiencyLearning, value: distribution.learning },
+    { label: t.proficiencyFamiliar, value: distribution.familiar },
+    { label: t.proficiencyAlmostMastered, value: distribution.almostMastered },
+    { label: t.proficiencyMastered, value: distribution.mastered },
+  ];
 }
 
 function clampPercent(value: number) {

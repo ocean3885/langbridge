@@ -1,17 +1,19 @@
 'use client';
 
+import { practiceModeColors } from '@/components/practice/practice-mode-colors';
+import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
+
+import { getBundleStarProgress } from '@/lib/practice/progress';
+import { PRACTICE_REGISTRY, PRACTICE_MODES, isBundlePracticeMode } from '@/lib/practice/registry';
+
 import { useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  BookOpen,
   Info,
   Layers,
-  Library,
   Lock,
-  MessageCircleQuestion,
-  Shuffle,
   Star,
 } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
@@ -36,13 +38,13 @@ const copy = {
     cefr: 'CEFR',
     progressTitle: '내 진행률',
     progressInfoLabel: '진행률 반영 기준 보기',
-    progressInfo: '학습 성취도는 아래 연습 모드에서 학습 활동을 완료하면 올라갑니다. 일반 학습 화면에서 문장을 듣는 것만으로는 완료 항목에 포함되지 않습니다.',
-    practiceStars: 'Stars earned',
+    progressInfo: '문장 연습에서 한 번 이상 정답을 맞힌 문장을 학습한 문장으로 집계합니다. 단어 연습과 듣기는 문장 완료에 포함되지 않습니다.',
+    practiceStars: 'Sentence Stars',
     saveBundle: '번들 저장',
     unsaveBundle: '번들 저장 해제',
     loginRequired: '번들을 저장하려면 로그인이 필요합니다.',
     saveFailed: '번들 저장 상태를 변경하지 못했습니다.',
-    completed: (done: number, total: number) => `${done} / ${total} 완료`,
+    completed: (done: number, total: number) => `학습한 문장 ${done} / ${total}`,
     status: '상태',
     notStarted: '시작 전',
     inProgress: '진행 중',
@@ -62,9 +64,9 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: '연습 모드 설명 보기',
-    practiceModesInfo: 'Quiz, Scramble, Word Fill, Spelling 문제를 풀고 정답을 맞히면 별을 획득할 수 있습니다.',
+    practiceModesInfo: '문장 연습에서 처음 정답을 맞히면 별을 획득합니다. 획득한 별은 유지되며, 단어 연습은 단어 숙련도에 반영됩니다.',
     flashcards: 'Flashcards',
-    quickQuiz: 'Quick Quiz',
+    quickQuiz: 'Sentence Quiz',
     scramble: 'Scramble',
     wordFill: 'Word Fill',
   },
@@ -75,13 +77,13 @@ const copy = {
     cefr: 'CEFR',
     progressTitle: 'My progress',
     progressInfoLabel: 'View how progress is measured',
-    progressInfo: 'Your progress increases when you complete activities in the Practice Modes below. Listening to sentences on the learning screen alone does not mark items as complete.',
-    practiceStars: 'Stars earned',
+    progressInfo: 'A sentence counts as practiced after a correct answer in a sentence practice mode. Word practice and listening do not complete sentences.',
+    practiceStars: 'Sentence Stars',
     saveBundle: 'Save bundle',
     unsaveBundle: 'Remove saved bundle',
     loginRequired: 'Log in to save this bundle.',
     saveFailed: 'Failed to update the saved bundle.',
-    completed: (done: number, total: number) => `${done} / ${total} complete`,
+    completed: (done: number, total: number) => `${done} / ${total} sentences practiced`,
     status: 'Status',
     notStarted: 'Not started',
     inProgress: 'In progress',
@@ -101,9 +103,9 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: 'View practice mode details',
-    practiceModesInfo: 'Earn stars by answering Quiz, Scramble, Word Fill, and Spelling challenges correctly.',
+    practiceModesInfo: 'Earn permanent stars for first correct answers in sentence practice. Word practice builds word proficiency.',
     flashcards: 'Flashcards',
-    quickQuiz: 'Quick Quiz',
+    quickQuiz: 'Sentence Quiz',
     scramble: 'Scramble',
     wordFill: 'Word Fill',
   },
@@ -125,9 +127,9 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
   const minutes = estimateBundleMinutes(items.length);
   const minuteLabel = language === 'en' ? `${minutes} min` : `${minutes}분`;
   const hasStarted = progress.completedItems > 0 || !!progress.bundleInteraction?.is_started;
-  const remainingItems = Math.max(0, items.length - progress.completedItems);
+  const remainingItems = Math.max(0, progress.totalItems - progress.completedItems);
   const estimatedLeftMinutes = estimateBundleMinutes(remainingItems);
-  const isCompleted = progress.progressPercent >= 100 || !!progress.bundleInteraction?.is_completed;
+  const isCompleted = progress.totalItems > 0 && progress.progressPercent >= 100;
   const statusLabel = isCompleted ? t.completedStatus : hasStarted ? t.inProgress : t.notStarted;
   const lastStudiedLabel = formatProgressDate(progress.bundleInteraction?.last_studied_at, language) || t.noRecord;
   const backHref = bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
@@ -141,7 +143,7 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
   const primaryHref = canAccessLearning ? learnHref : gatedHref;
   const primaryLabel = canAccessLearning ? (hasStarted ? t.continue : t.start) : access.reason === 'login_required' ? t.loginToAccess : t.subscribe;
   const modeHref = (path: string) => canAccessLearning ? path : gatedHref;
-  const practiceStars = calculatePracticeStars(progress.itemInteractions, items.length);
+  const practiceStars = getBundleStarProgress(items, progress.itemInteractions, language);
 
   const handleTogglePinned = async () => {
     if (!isLoggedIn) {
@@ -256,13 +258,16 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
               <Info className="h-4 w-4" />
             </button>
           </div>
+          {progress.totalItems > 0 && <>
           <div className="mt-3 flex items-end justify-between gap-4">
-            <p className="text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, items.length)}</p>
+            <p className="text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, progress.totalItems)}</p>
             <p className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{progress.progressPercent}%</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
             <div className="h-full rounded-full bg-[#3f8d54] dark:bg-emerald-500" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
           </div>
+          </>}
+          {practiceStars.max > 0 ? <>
           <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
             <span className="inline-flex items-center gap-2 text-sm font-semibold">
               <Star className="h-4 w-4 fill-current" />
@@ -270,6 +275,12 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             </span>
             <span className="text-base font-bold tabular-nums">{practiceStars.earned} / {practiceStars.max}</span>
           </div>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+            {practiceStars.modes.filter(mode => mode.max > 0).map(mode => (
+              <span key={mode.mode}>{PRACTICE_REGISTRY[mode.mode].label} {mode.earned}/{mode.max}</span>
+            ))}
+          </div>
+          </> : <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{language === 'ko' ? '획득 가능한 문장 별이 없습니다. 단어 연습은 단어 숙련도에 반영됩니다.' : 'No sentence stars are available. Word practice builds word proficiency.'}</p>}
           {showProgressInfo && (
             <div className="mt-3 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
               <Info className="mt-1 h-4 w-4 shrink-0 text-[#2f7d4a] dark:text-emerald-400" />
@@ -309,13 +320,16 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
             <p>{t.practiceModesInfo}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 lg:gap-3">
-            <ModeLink href={modeHref(`/bundles/${bundle.id}/flashcards`)} icon={<Library className="h-5 w-5" />} label={t.flashcards} color="blue" />
-            <ModeLink href={modeHref(`/bundles/${bundle.id}/quiz`)} icon={<MessageCircleQuestion className="h-5 w-5" />} label={t.quickQuiz} color="violet" />
-            <ModeLink href={modeHref(`/bundles/${bundle.id}/scramble`)} icon={<Shuffle className="h-5 w-5" />} label={t.scramble} color="orange" />
-            <ModeLink href={modeHref(`/bundles/${bundle.id}/wordfill`)} icon={<BookOpen className="h-5 w-5" />} label={t.wordFill} color="blue" />
-            <ModeLink href={modeHref(`/bundles/${bundle.id}/spelling`)} icon={<BookOpen className="h-5 w-5" />} label="Spelling" color="blue" />
-          </div>
+          {(['sentence', 'word'] as const).map(target => (
+            <div key={target} className="mb-4">
+              <h3 className="mb-2 text-sm font-semibold">{target === 'sentence' ? (language === 'ko' ? '문장 연습' : 'Sentence practice') : (language === 'ko' ? '단어 연습' : 'Word practice')}</h3>
+              <div className="grid grid-cols-2 gap-2 lg:gap-3">
+                {PRACTICE_MODES.filter(mode => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target).map(mode => (
+                  <ModeLink key={mode} href={modeHref(`/bundles/${bundle.id}/${PRACTICE_REGISTRY[mode].path}`)} icon={<PracticeModeIcon mode={mode} className="h-5 w-5" />} label={PRACTICE_REGISTRY[mode].label} color={practiceModeColors[mode]} />
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       </main>
       </div>
@@ -350,48 +364,6 @@ function ProgressMeta({ label, value }: { label: string; value: string }) {
   );
 }
 
-const PRACTICE_MODE_STARS = {
-  quiz: 1,
-  scramble: 1,
-  wordfill: 1,
-  spelling: 1,
-} satisfies Record<string, number>;
-
-function calculatePracticeStars(itemInteractions: BundleProgressSummary['itemInteractions'], totalItems: number) {
-  const maxPerItem = Object.values(PRACTICE_MODE_STARS).reduce((total, stars) => total + stars, 0);
-  const earned = itemInteractions.reduce((total, interaction) => {
-    const practiceModes = interaction.metadata?.practice_modes;
-    if (!practiceModes || typeof practiceModes !== 'object' || Array.isArray(practiceModes)) {
-      const legacyMode = interaction.metadata?.last_practice_mode;
-      return interaction.metadata?.last_practice_is_correct === true && isPracticeStarMode(legacyMode)
-        ? total + PRACTICE_MODE_STARS[legacyMode]
-        : total;
-    }
-
-    return total + Object.entries(PRACTICE_MODE_STARS).reduce((modeTotal, [mode, stars]) => {
-      const modeMetadata = (practiceModes as Record<string, unknown>)[mode];
-      if (!modeMetadata || typeof modeMetadata !== 'object' || Array.isArray(modeMetadata)) {
-        return interaction.metadata?.last_practice_mode === mode && interaction.metadata?.last_practice_is_correct === true
-          ? modeTotal + stars
-          : modeTotal;
-      }
-
-      return (modeMetadata as Record<string, unknown>).last_is_correct === true
-        ? modeTotal + stars
-        : modeTotal;
-    }, 0);
-  }, 0);
-
-  return {
-    earned,
-    max: totalItems * maxPerItem,
-  };
-}
-
-function isPracticeStarMode(value: unknown): value is keyof typeof PRACTICE_MODE_STARS {
-  return typeof value === 'string' && value in PRACTICE_MODE_STARS;
-}
-
 function ModeLink({
   href,
   icon,
@@ -401,17 +373,12 @@ function ModeLink({
   href: string;
   icon: ReactNode;
   label: string;
-  color: 'blue' | 'violet' | 'orange';
+  color: string;
 }) {
-  const colors = {
-    blue: 'bg-sky-50 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300',
-    violet: 'bg-violet-50 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300',
-    orange: 'bg-orange-50 text-orange-700 dark:bg-orange-950/70 dark:text-orange-300',
-  };
 
   return (
     <Link href={href} className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl bg-white px-1 text-center shadow-sm ring-1 ring-zinc-100 transition hover:-translate-y-0.5 hover:shadow-md dark:bg-zinc-800 dark:shadow-black/20 dark:ring-zinc-700 dark:hover:bg-zinc-700">
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${colors[color]}`}>{icon}</span>
+      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${color}`}>{icon}</span>
       <span className="text-xs font-bold leading-tight text-zinc-700 dark:text-zinc-200">{label}</span>
     </Link>
   );

@@ -1,3 +1,4 @@
+import { getEligiblePracticeItems, getPracticeSentenceTranslation } from '@/lib/practice/registry';
 import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
@@ -33,12 +34,11 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
     redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
-  const scrambleItems = items
-    .filter((item) => item.sentences?.sentence)
+  const scrambleItems = getEligiblePracticeItems(items, 'scramble', language)
     .map((item) => ({
       id: item.id,
       sentence: item.sentences.sentence,
-      translation: (language === 'en' ? item.sentences.translation_en : item.sentences.translation) || item.sentences.translation || '',
+      translation: getPracticeSentenceTranslation(item, language),
       audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
     }))
     .filter((item) => item.translation);

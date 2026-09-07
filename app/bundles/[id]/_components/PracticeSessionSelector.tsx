@@ -14,7 +14,8 @@ interface PracticeSessionSelectorProps {
   basePath: string;
   language: 'ko' | 'en';
   counts: Record<PracticeSessionMode, number>;
-  starProgress: {
+  target?: 'sentence' | 'word';
+  starProgress?: {
     earned: number;
     max: number;
   };
@@ -26,6 +27,7 @@ const copy = {
     scopeLabel: '풀 문제 선택',
     countLabel: '문제 수',
     start: '시작하기',
+    resume: '이어서 학습하기',
     items: (count: number) => `${count}문장`,
     allItems: (count: number) => `전체 ${count}`,
     empty: '문장 없음',
@@ -42,6 +44,7 @@ const copy = {
     scopeLabel: 'Choose practice set',
     countLabel: 'Question count',
     start: 'Start',
+    resume: 'Resume practice',
     items: (count: number) => `${count} sentences`,
     allItems: (count: number) => `All ${count}`,
     empty: 'No sentences',
@@ -63,6 +66,7 @@ export default function PracticeSessionSelector({
   language,
   counts,
   starProgress,
+  target = 'sentence',
 }: PracticeSessionSelectorProps) {
   const t = copy[language];
   const scopeCounts = {
@@ -100,13 +104,19 @@ export default function PracticeSessionSelector({
         </div>
       </header>
 
-      <div className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+      {counts.resume > 0 && (
+        <Link href={`${basePath}?mode=resume`} className="rounded-xl border border-emerald-200 px-4 py-3 text-center text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:text-emerald-300">
+          {t.resume}
+        </Link>
+      )}
+
+      {starProgress && <div className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
         <span className="inline-flex items-center gap-2 text-sm font-bold">
           <Star className="h-4 w-4 fill-current" />
           {t.starsEarned}
         </span>
         <span className="text-base font-extrabold tabular-nums">{starProgress.earned} / {starProgress.max}</span>
-      </div>
+      </div>}
 
       <div className="space-y-5 rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20">
         <PracticeSessionScopeSelector
@@ -115,8 +125,8 @@ export default function PracticeSessionSelector({
           onSelect={setSelectedScope}
           counts={scopeCounts}
           labels={t.modes}
-          emptyLabel={t.empty}
-          itemLabel={t.items}
+          emptyLabel={target === 'word' ? (language === 'ko' ? '단어 없음' : 'No words') : t.empty}
+          itemLabel={target === 'word' ? count => language === 'ko' ? `${count}단어` : `${count} words` : t.items}
         />
         <PracticeCountSelector
           label={t.countLabel}

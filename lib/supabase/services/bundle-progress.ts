@@ -1,5 +1,8 @@
 'use server';
 
+import { PRACTICE_REGISTRY, isBundlePracticeMode, isScoredPracticeMode, type PracticeMode, type PracticeDefinition, type PracticeBundleItem, getPracticeWordTargets } from '@/lib/practice/registry';
+import { calculateSentenceStars, hasEarnedPracticeStar } from '@/lib/practice/progress';
+
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   recordLearningDailyActivity,
@@ -63,7 +66,7 @@ export interface BundleProgressSummary {
   currentPracticeItemIds: Record<string, string>;
 }
 
-export type BundlePracticeMode = 'flashcards' | 'quiz' | 'scramble' | (string & {});
+export type BundlePracticeMode = PracticeMode;
 
 export interface RecentStudiedBundle {
   interaction: UserBundleInteraction;
@@ -132,9 +135,24 @@ export interface LearningProgressSummary {
   earnedStars: number;
   practicedWords: number;
   wordsInMemory: number;
+  totalCorrectCount: number;
+  totalIncorrectCount: number;
   practiceAccuracyPercent: number;
   completedBundles: number;
   activeBundles: number;
+}
+
+export interface LearningProficiencyDistribution {
+  total: number;
+  learning: number;
+  familiar: number;
+  almostMastered: number;
+  mastered: number;
+}
+
+export interface LearningProficiencySummary {
+  sentences: LearningProficiencyDistribution;
+  words: LearningProficiencyDistribution;
 }
 
 export type ReviewNeededSummary = LearningReviewNeededSummary;
@@ -158,13 +176,6 @@ interface LearningStatsDelta {
   totalCorrect: number;
   totalIncorrect: number;
 }
-
-const LEARNING_PROGRESS_STARS = {
-  quiz: 1,
-  scramble: 1,
-  wordfill: 1,
-  spelling: 1,
-} satisfies Record<string, number>;
 
 export async function getReviewNeededSummary(userId: string): Promise<ReviewNeededSummary> {
   return getReviewNeededSummaryFromReviewService(userId);
@@ -219,6 +230,66 @@ export async function getLearningProgressSummary(userId: string): Promise<Learni
   };
 }
 
+export async function getLearningProficiencySummary(userId: string): Promise<LearningProficiencySummary> {
+  const supabase = createAdminClient();
+  const [sentenceLevels, wordLevels] = await Promise.all([
+    fetchProficiencyLevels(supabase, 'user_sentence_interactions', userId),
+    fetchProficiencyLevels(supabase, 'user_word_interactions', userId),
+  ]);
+
+  return {
+    sentences: summarizeProficiencyLevels(sentenceLevels),
+    words: summarizeProficiencyLevels(wordLevels),
+  };
+}
+
+async function fetchProficiencyLevels(
+  supabase: ReturnType<typeof createAdminClient>,
+  table: 'user_sentence_interactions' | 'user_word_interactions',
+  userId: string,
+) {
+  const pageSize = 1000;
+  const levels: number[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('proficiency_level')
+      .eq('user_id', userId)
+      .gt('proficiency_level', 0)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error(`Error fetching ${table} proficiency levels:`, error);
+      return levels;
+    }
+
+    const rows = data || [];
+    levels.push(...rows.map(row => Number(row.proficiency_level || 0)));
+    if (rows.length < pageSize) return levels;
+  }
+}
+
+function summarizeProficiencyLevels(levels: number[]): LearningProficiencyDistribution {
+  const distribution = {
+    total: levels.length,
+    learning: 0,
+    familiar: 0,
+    almostMastered: 0,
+    mastered: 0,
+  };
+
+  for (const level of levels) {
+    if (level === 1) distribution.learning += 1;
+    else if (level <= 3) distribution.familiar += 1;
+    else if (level === 4) distribution.almostMastered += 1;
+    else if (level >= 5) distribution.mastered += 1;
+  }
+
+  return distribution;
+}
+
 async function calculateLearningProgressSummaryFromInteractions(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string,
@@ -233,7 +304,7 @@ async function calculateLearningStatsFromInteractions(
 ): Promise<LearningStatsValues> {
   const [
     { data: itemInteractions, error: itemInteractionsError },
-    { count: practicedWords, error: practicedWordsError },
+    { data: wordInteractions, error: practicedWordsError },
   ] = await Promise.all([
     supabase
       .from('user_bundle_item_interactions')
@@ -241,8 +312,9 @@ async function calculateLearningStatsFromInteractions(
       .eq('user_id', userId),
     supabase
       .from('user_word_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .select('metadata, last_reviewed_at')
+      .eq('user_id', userId)
+      .not('last_reviewed_at', 'is', null),
   ]);
 
   if (itemInteractionsError) {
@@ -267,14 +339,16 @@ async function calculateLearningStatsFromInteractions(
     metadata: Record<string, unknown> | null;
   }>;
   const completedSentences = rows.filter((row) => row.is_completed).length;
-  const totalCorrect = rows.reduce((total, row) => total + Number(row.correct_count || 0), 0);
-  const totalIncorrect = rows.reduce((total, row) => total + Number(row.incorrect_count || 0), 0);
-  const earnedStars = rows.reduce((total, row) => total + calculateEarnedStarsFromMetadata(row.metadata), 0);
+  const wordCorrect = (wordInteractions || []).reduce((sum, row) => sum + Number(row.metadata?.standalone_correct_count || 0), 0);
+  const wordIncorrect = (wordInteractions || []).reduce((sum, row) => sum + Number(row.metadata?.standalone_incorrect_count || 0), 0);
+  const totalCorrect = wordCorrect + rows.reduce((total, row) => total + Number(row.correct_count || 0), 0);
+  const totalIncorrect = wordIncorrect + rows.reduce((total, row) => total + Number(row.incorrect_count || 0), 0);
+  const earnedStars = rows.reduce((total, row) => total + calculateSentenceStars(row.metadata), 0);
 
   return {
     completed_sentences: completedSentences,
     earned_stars: earnedStars,
-    practiced_words: practicedWords || 0,
+    practiced_words: (wordInteractions || []).length,
     total_correct_count: totalCorrect,
     total_incorrect_count: totalIncorrect,
   };
@@ -424,6 +498,8 @@ function toLearningProgressSummary(
     earnedStars: stats.earned_stars,
     practicedWords: stats.practiced_words,
     wordsInMemory: 0,
+    totalCorrectCount: stats.total_correct_count,
+    totalIncorrectCount: stats.total_incorrect_count,
     practiceAccuracyPercent: totalAttempts > 0 ? Math.round((stats.total_correct_count / totalAttempts) * 100) : 0,
     completedBundles: bundleCounts.completedBundles,
     activeBundles: bundleCounts.activeBundles,
@@ -489,6 +565,7 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
       supabase
         .from('bundle_items')
         .select('id', { count: 'exact', head: true })
+        .not('sentence_id', 'is', null)
         .eq('bundle_id', interaction.bundle_id),
       supabase
         .from('user_bundle_item_interactions')
@@ -521,9 +598,8 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
 
     const total = totalItems || 0;
     const completed = completedItems || 0;
-    const storedRatio = Number(interaction.progress_ratio);
     const calculatedRatio = total > 0 ? completed / total : 0;
-    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+    const progressRatio = Math.min(1, calculatedRatio);
     const progressPercent = Math.round(progressRatio * 100);
 
     if (progressPercent >= 100 || (total > 0 && completed >= total)) {
@@ -609,6 +685,7 @@ export async function getRecentLearningActivities(
     supabase
       .from('bundle_items')
       .select('bundle_id')
+      .not('sentence_id', 'is', null)
       .in('bundle_id', bundleIds),
     supabase
       .from('user_bundle_item_interactions')
@@ -650,9 +727,8 @@ export async function getRecentLearningActivities(
 
     const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
     const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
-    const storedRatio = Number(interaction.progress_ratio);
     const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+    const progressRatio = Math.min(1, calculatedRatio);
 
     return [{
       interaction,
@@ -708,6 +784,7 @@ export async function getActiveLearningBundles(userId: string, limit = 20): Prom
     supabase
       .from('bundle_items')
       .select('bundle_id')
+      .not('sentence_id', 'is', null)
       .in('bundle_id', bundleIds),
     supabase
       .from('user_bundle_item_interactions')
@@ -749,9 +826,8 @@ export async function getActiveLearningBundles(userId: string, limit = 20): Prom
 
     const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
     const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
-    const storedRatio = Number(interaction.progress_ratio);
     const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-    const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+    const progressRatio = Math.min(1, calculatedRatio);
     if (progressRatio <= 0) return [];
 
     return [{
@@ -770,6 +846,11 @@ export async function getBundleProgressSummary(
   bundleId: string,
   totalItems: number,
 ): Promise<BundleProgressSummary> {
+  const { count: sentenceCount, error: sentenceCountError } = await createAdminClient()
+    .from('bundle_items').select('id', { count: 'exact', head: true })
+    .eq('bundle_id', bundleId).not('sentence_id', 'is', null);
+  if (sentenceCountError) throw sentenceCountError;
+  totalItems = sentenceCount || 0;
   if (!userId) {
     return createEmptyBundleProgress(totalItems);
   }
@@ -800,9 +881,8 @@ export async function getBundleProgressSummary(
 
   const interactions = (itemInteractions || []) as UserBundleItemInteraction[];
   const completedItems = interactions.filter((item) => item.is_completed).length;
-  const storedRatio = Number(bundleInteraction?.progress_ratio);
   const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-  const progressRatio = Number.isFinite(storedRatio) && storedRatio > calculatedRatio ? storedRatio : calculatedRatio;
+  const progressRatio = Math.min(1, calculatedRatio);
 
   return {
     bundleInteraction: (bundleInteraction as UserBundleInteraction | null) || null,
@@ -927,26 +1007,51 @@ export async function updateBundlePinnedState(
   return data as UserBundleInteraction;
 }
 
+async function getPracticeBundleItem(bundleId: string, bundleItemId: string) {
+  const { data, error } = await createAdminClient()
+    .from('bundle_items')
+    .select('*, words(*), sentences(*, word_sentence_map(used_as, words(*)))')
+    .eq('bundle_id', bundleId)
+    .eq('id', bundleItemId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as unknown as (PracticeBundleItem & { sentence_id: number | null }) | null;
+}
+
+async function validatePracticeTarget(bundleId: string, mode: PracticeMode, bundleItemId: string, wordId?: number | null) {
+  const definition: PracticeDefinition = PRACTICE_REGISTRY[mode];
+  const item = await getPracticeBundleItem(bundleId, bundleItemId);
+  if (!item || (!definition.isEligible(item, 'ko') && !definition.isEligible(item, 'en'))) {
+    throw new Error('This item is not available for the requested practice.');
+  }
+  if (definition.target === 'word' || definition.updatesRelatedWord) {
+    if (!Number.isSafeInteger(wordId) || Number(wordId) <= 0) throw new Error('A valid word is required.');
+    const linked = definition.target === 'word'
+      ? getPracticeWordTargets([item], mode, 'ko').some(target => Number(target.word.id) === wordId)
+      : definition.getWords?.(item).some(word => Number(word.id) === wordId);
+    if (!linked) throw new Error('Word does not belong to the requested bundle item.');
+  }
+  return item;
+}
+
 export async function recordBundlePracticeAccess(
   userId: string,
   bundleId: string,
   practiceMode: BundlePracticeMode,
   currentBundleItemId: string,
+  currentWordId?: number | null,
 ) {
+  if (!isBundlePracticeMode(practiceMode)) throw new Error('Unknown practice mode.');
+  const definition = PRACTICE_REGISTRY[practiceMode];
+  // Access for sentence activities does not select an answer word yet.
+  if (definition.target === 'word') {
+    await validatePracticeTarget(bundleId, practiceMode, currentBundleItemId, currentWordId);
+  } else {
+    const item = await getPracticeBundleItem(bundleId, currentBundleItemId);
+    if (!item) throw new Error('Bundle item does not belong to the requested bundle.');
+  }
   const supabase = createAdminClient();
   const now = new Date().toISOString();
-
-  const { data: bundleItem, error: bundleItemError } = await supabase
-    .from('bundle_items')
-    .select('id')
-    .eq('id', currentBundleItemId)
-    .eq('bundle_id', bundleId)
-    .maybeSingle();
-
-  if (bundleItemError || !bundleItem) {
-    throw new Error('Bundle item does not belong to the requested bundle.');
-  }
-
   const { data: existingInteraction, error: existingError } = await supabase
     .from('user_bundle_interactions')
     .select('started_at, current_practice_item_ids')
@@ -961,7 +1066,7 @@ export async function recordBundlePracticeAccess(
 
   const currentPracticeItemIds = {
     ...normalizePracticeItemIds(existingInteraction?.current_practice_item_ids),
-    [practiceMode]: currentBundleItemId,
+    [practiceMode]: definition.target === 'word' ? String(currentWordId) : currentBundleItemId,
   };
 
   const { error } = await supabase
@@ -992,24 +1097,20 @@ export async function recordBundleItemPractice(
   userId: string,
   bundleId: string,
   bundleItemId: string,
-  mode: 'quiz' | 'scramble' | 'wordfill' | 'spelling',
+  mode: PracticeMode,
   isCorrect: boolean,
   wordId?: number | null,
 ) {
+  if (!isBundlePracticeMode(mode) || !isScoredPracticeMode(mode)) throw new Error('This mode does not accept correctness results.');
+  const definition = PRACTICE_REGISTRY[mode];
+  const bundleItem = await validatePracticeTarget(bundleId, mode, bundleItemId, wordId);
+  if (definition.target === 'word') {
+    await recordWordReviewResult(userId, wordId!, isCorrect, mode);
+    await recordBundlePracticeAccess(userId, bundleId, mode, bundleItemId, wordId);
+    return getBundleProgressSummary(userId, bundleId, 0);
+  }
   const supabase = createAdminClient();
   const now = new Date().toISOString();
-
-  const { data: bundleItem, error: bundleItemError } = await supabase
-    .from('bundle_items')
-    .select('id, sentence_id')
-    .eq('id', bundleItemId)
-    .eq('bundle_id', bundleId)
-    .maybeSingle();
-
-  if (bundleItemError || !bundleItem) {
-    throw new Error('Bundle item does not belong to the requested bundle.');
-  }
-
   const { data: existingItemInteraction, error: existingItemError } = await supabase
     .from('user_bundle_item_interactions')
     .select('*')
@@ -1028,7 +1129,7 @@ export async function recordBundleItemPractice(
   const statsBaselineReady = await ensureLearningStatsBaseline(supabase, userId);
   const statsDelta: LearningStatsDelta = {
     completedSentences: !wasCompleted && isCorrect ? 1 : 0,
-    earnedStars: isCorrect && !hasEarnedPracticeStar(existingMetadata, mode) ? LEARNING_PROGRESS_STARS[mode] : 0,
+    earnedStars: isCorrect && !hasEarnedPracticeStar(existingMetadata, mode) ? definition.stars : 0,
     practicedWords: 0,
     totalCorrect: isCorrect ? 1 : 0,
     totalIncorrect: isCorrect ? 0 : 1,
@@ -1065,8 +1166,12 @@ export async function recordBundleItemPractice(
     throw itemError;
   }
 
+  if (statsBaselineReady) {
+    await safeIncrementLearningStats(supabase, userId, statsDelta);
+  }
+
   // user_sentence_interactions 테이블 업데이트 추가 (문장 학습 숙련도/스트릭 반영)
-  if (bundleItem.sentence_id && mode !== 'spelling') {
+  if (bundleItem.sentence_id) {
     const { data: existingSentenceInteraction, error: sentenceFetchError } = await supabase
       .from('user_sentence_interactions')
       .select('*')
@@ -1129,73 +1234,8 @@ export async function recordBundleItemPractice(
     }
   }
 
-  // Only word-focused practice should update word proficiency.
-  const targetWordId = wordId || null;
-  if (targetWordId) {
-    const { data: existingWordInteraction, error: wordFetchError } = await supabase
-      .from('user_word_interactions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('word_id', targetWordId)
-      .maybeSingle();
-
-    if (wordFetchError) {
-      console.error('Error fetching word interaction:', wordFetchError);
-    } else {
-      const currentLevel = Number(existingWordInteraction?.proficiency_level || 0);
-      const newStreakCount = isCorrect ? Number(existingWordInteraction?.streak_count || 0) + 1 : 0;
-
-      let calculatedLevel = 0;
-      if (newStreakCount >= 15) calculatedLevel = 5;
-      else if (newStreakCount >= 10) calculatedLevel = 4;
-      else if (newStreakCount >= 6) calculatedLevel = 3;
-      else if (newStreakCount >= 3) calculatedLevel = 2;
-      else if (newStreakCount >= 1) calculatedLevel = 1;
-
-      const newProficiencyLevel = isCorrect
-        ? Math.max(currentLevel, calculatedLevel)
-        : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
-
-      const existingWordMetadata = existingWordInteraction?.metadata || {};
-      const wordMetadata = {
-        ...existingWordMetadata,
-        last_practice_mode: mode,
-        last_practice_is_correct: isCorrect,
-        practice_modes: updatePracticeModeMetadata(
-          (existingWordMetadata as any).practice_modes,
-          mode,
-          isCorrect,
-          now
-        ),
-      };
-
-      const { error: wordUpsertError } = await supabase
-        .from('user_word_interactions')
-        .upsert(
-          {
-            user_id: userId,
-            word_id: targetWordId,
-            correct_count: Number(existingWordInteraction?.correct_count || 0) + (isCorrect ? 1 : 0),
-            incorrect_count: Number(existingWordInteraction?.incorrect_count || 0) + (isCorrect ? 0 : 1),
-            streak_count: newStreakCount,
-            proficiency_level: newProficiencyLevel,
-            last_reviewed_at: now,
-            metadata: wordMetadata,
-            updated_at: now,
-          },
-          {
-            onConflict: 'user_id,word_id',
-          }
-        );
-
-      if (wordUpsertError) {
-        console.error('Error upserting user word interaction:', wordUpsertError);
-      }
-    }
-  }
-
-  if (statsBaselineReady) {
-    await safeIncrementLearningStats(supabase, userId, statsDelta);
+  if (definition.updatesRelatedWord && wordId) {
+    await recordWordReviewResult(userId, wordId, isCorrect, mode, { countAttempt: false, recordActivity: false });
   }
 
   const [
@@ -1206,6 +1246,7 @@ export async function recordBundleItemPractice(
     supabase
       .from('bundle_items')
       .select('id', { count: 'exact', head: true })
+      .not('sentence_id', 'is', null)
       .eq('bundle_id', bundleId),
     supabase
       .from('user_bundle_item_interactions')
@@ -1338,7 +1379,7 @@ function countRowsByBundleId(rows: Array<{ bundle_id?: string | null }>) {
 
 function updatePracticeModeMetadata(
   value: unknown,
-  mode: 'quiz' | 'scramble' | 'wordfill' | 'spelling',
+  mode: PracticeMode,
   isCorrect: boolean,
   practicedAt: string,
 ) {
@@ -1372,34 +1413,16 @@ function normalizePracticeModes(value: unknown) {
   );
 }
 
-function calculateEarnedStarsFromMetadata(metadata: Record<string, unknown> | null) {
-  return Object.entries(LEARNING_PROGRESS_STARS).reduce((total, [mode, stars]) => {
-    return hasEarnedPracticeStar(metadata, mode)
-      ? total + stars
-      : total;
-  }, 0);
-}
-
-function hasEarnedPracticeStar(metadata: Record<string, unknown> | null, mode: string) {
-  const practiceModes = normalizePracticeModes(metadata?.practice_modes);
-  const modeMetadata = practiceModes[mode];
-
-  if (!modeMetadata) {
-    return metadata?.last_practice_mode === mode && metadata?.last_practice_is_correct === true;
-  }
-
-  const correctCount = Number(modeMetadata.correct_count || 0);
-  return correctCount > 0 || Boolean(modeMetadata.first_correct_at);
-}
-
 export async function recordWordReviewResult(
   userId: string,
   wordId: number,
   isCorrect: boolean,
-  mode: 'quiz' | 'spelling' | 'flashcards',
+  mode: PracticeMode,
+  options: { countAttempt?: boolean; recordActivity?: boolean } = {},
 ) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
+  const statsBaselineReady = await ensureLearningStatsBaseline(supabase, userId);
 
   const { data: existingWordInteraction, error: wordFetchError } = await supabase
     .from('user_word_interactions')
@@ -1430,11 +1453,14 @@ export async function recordWordReviewResult(
   const existingWordMetadata = existingWordInteraction?.metadata || {};
   const wordMetadata = {
     ...existingWordMetadata,
+    // Secondary word effects (e.g. Word Fill) must not count the answer twice.
+    standalone_correct_count: Number(existingWordMetadata.standalone_correct_count || 0) + (options.countAttempt !== false && isCorrect ? 1 : 0),
+    standalone_incorrect_count: Number(existingWordMetadata.standalone_incorrect_count || 0) + (options.countAttempt !== false && !isCorrect ? 1 : 0),
     last_practice_mode: mode,
     last_practice_is_correct: isCorrect,
     practice_modes: updatePracticeModeMetadata(
       (existingWordMetadata as any).practice_modes,
-      mode as any,
+      mode,
       isCorrect,
       now
     ),
@@ -1465,19 +1491,18 @@ export async function recordWordReviewResult(
   }
 
   // Also record to user_learning_daily_activity to count streaks and daily goals
-  const statsBaselineReady = await ensureLearningStatsBaseline(supabase, userId);
   const statsDelta = {
     completedSentences: 0,
     earnedStars: 0,
-    practicedWords: !existingWordInteraction ? 1 : 0,
-    totalCorrect: isCorrect ? 1 : 0,
-    totalIncorrect: isCorrect ? 0 : 1,
+    practicedWords: !existingWordInteraction?.last_reviewed_at ? 1 : 0,
+    totalCorrect: options.countAttempt !== false && isCorrect ? 1 : 0,
+    totalIncorrect: options.countAttempt !== false && !isCorrect ? 1 : 0,
   };
 
-  await safeIncrementLearningStats(supabase, userId, statsDelta);
+  if (statsBaselineReady) await safeIncrementLearningStats(supabase, userId, statsDelta);
 
   try {
-    await recordLearningDailyActivity({
+    if (options.recordActivity !== false) await recordLearningDailyActivity({
       userId,
       activityType: 'practice_result',
       practiceMode: mode,

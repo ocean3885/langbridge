@@ -49,19 +49,19 @@ export async function countPublishedBundles(): Promise<number> {
   return count ?? 0;
 }
 
-export async function listBundleItems(bundleId: string) {
+export async function listBundleItems(bundleId: string, includeDistractors = false) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bundle_items')
     .select(`
       *,
-      words(*),
+      words(*${includeDistractors ? ', words_distractor(distractor, meaning_ko, meaning_en)' : ''}),
       sentences(
         *,
         word_sentence_map(
           id,
           used_as,
-          words(*)
+          words(*${includeDistractors ? ', words_distractor(distractor, meaning_ko, meaning_en)' : ''})
         )
       )
     `)

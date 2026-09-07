@@ -1,3 +1,4 @@
+import { getEligiblePracticeItems, getWordFillMapCandidates, type PracticeBundleItem } from '@/lib/practice/registry';
 import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
@@ -35,13 +36,7 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
   }
 
   // 문장별로 word_sentence_map을 통해 연결된 단어 정보가 있는 아이템만 추출
-  const wordFillItems = items
-    .filter((item: any) => {
-      const sentence = item.sentences;
-      if (!sentence) return false;
-      const maps = sentence.word_sentence_map || [];
-      return getWordFillMapCandidates(sentence.sentence, maps).length > 0;
-    })
+  const wordFillItems = getEligiblePracticeItems(items as unknown as PracticeBundleItem[], 'wordfill', language)
     .map((item: any) => {
       const sentence = item.sentences;
       const maps = sentence.word_sentence_map || [];
@@ -121,27 +116,6 @@ export default async function BundleWordFillPage({ params, searchParams }: Bundl
 function limitPracticeItems<T>(items: T[], count?: string) {
   const parsedCount = count ? Number.parseInt(count, 10) : NaN;
   return Number.isFinite(parsedCount) && parsedCount > 0 ? items.slice(0, parsedCount) : items;
-}
-
-function getWordFillMapCandidates(sentence: string, maps: any[]) {
-  const validMaps = maps.filter((map: any) => map.words?.word);
-  const replaceableMaps = validMaps.filter((map: any) => {
-    const target = map.used_as || map.words.word;
-    return sentenceIncludesTarget(sentence, target);
-  });
-
-  return replaceableMaps.length > 0 ? replaceableMaps : validMaps;
-}
-
-function sentenceIncludesTarget(sentence: string, target: string) {
-  const escaped = escapeRegex(target);
-  const wordBoundaryRegex = new RegExp(`\\b${escaped}\\b`, 'i');
-
-  return wordBoundaryRegex.test(sentence) || new RegExp(escaped, 'i').test(sentence);
-}
-
-function escapeRegex(value: string) {
-  return value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 function pickRandomMap<T>(maps: T[]) {

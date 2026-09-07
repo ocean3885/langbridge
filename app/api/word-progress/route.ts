@@ -1,3 +1,4 @@
+import { isWordPracticeMode } from '@/lib/practice/registry';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { recordWordReviewResult } from '@/lib/supabase/services/bundle-progress';
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { word_id, is_correct, practice_mode } = body;
 
-    if (!word_id || typeof is_correct !== 'boolean' || !['quiz', 'spelling', 'flashcards'].includes(practice_mode)) {
+    if (!Number.isSafeInteger(word_id) || word_id <= 0 || typeof is_correct !== 'boolean' || !isWordPracticeMode(practice_mode)) {
       return NextResponse.json({ error: '유효한 결과 데이터가 필요합니다.' }, { status: 400 });
     }
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       user.id,
       Number(word_id),
       is_correct,
-      practice_mode as 'quiz' | 'spelling' | 'flashcards',
+      practice_mode,
     );
 
     return NextResponse.json(result);

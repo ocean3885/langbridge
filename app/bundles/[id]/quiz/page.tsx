@@ -1,3 +1,4 @@
+import { getEligiblePracticeItems, getPracticeSentenceTranslation } from '@/lib/practice/registry';
 import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
@@ -33,12 +34,11 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
     redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
-  const quizItems = items
-    .filter((item) => item.sentences?.sentence)
+  const quizItems = getEligiblePracticeItems(items, 'quiz', language)
     .map((item) => ({
       id: item.id,
       sentence: item.sentences.sentence,
-      translation: (language === 'en' ? item.sentences.translation_en : item.sentences.translation) || item.sentences.translation || '',
+      translation: getPracticeSentenceTranslation(item, language),
       audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
     }))
     .filter((item) => item.translation);
@@ -52,7 +52,7 @@ export default async function BundleQuizPage({ params, searchParams }: BundleQui
       <PracticeSessionSelector
         bundleId={bundle.id}
         title={title}
-        modeName="Quick Quiz"
+        modeName="Sentence Quiz"
         basePath={`/bundles/${bundle.id}/quiz`}
         language={language}
         counts={getPracticeSessionCounts(quizItems, progress.itemInteractions, 'quiz', progress.currentPracticeItemIds.quiz)}

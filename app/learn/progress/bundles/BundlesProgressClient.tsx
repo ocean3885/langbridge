@@ -19,11 +19,11 @@ const PAGE_SIZE = 12;
 const copy = {
   ko: {
     back: 'Overview로 돌아가기', title: 'Bundles', description: '학습 중이거나 완료한 번들의 진행 상황을 확인하세요.', explore: '새 번들 찾기',
-    total: '내 번들', active: '학습 중', completed: '완료한 번들', average: '평균 진행률', continueTitle: '이어서 학습', continue: '계속 학습', details: '상세 보기',
+    total: '내 번들', active: '학습중', completed: '완료한 번들', average: '평균 진행률', continueTitle: '이어서 학습', continue: '계속 학습', details: '상세 보기',
     myBundles: '내 번들 목록', results: (n: number) => `${n}개 번들`, search: '번들 제목이나 설명 검색', status: '상태', category: '카테고리', level: '난이도', sort: '정렬', all: '전체', pinned: '저장한 번들',
-    saved: '저장됨', inProgress: '학습 중', almostComplete: '거의 완료', completedStatus: '완료', recent: '최근 학습', highProgress: '진행률 높은 순', lowProgress: '진행률 낮은 순', titleSort: '제목순',
+    saved: '저장됨', inProgress: '학습중', almostComplete: '거의 완료', completedStatus: '완료', recent: '최근 학습', highProgress: '진행률 높은 순', lowProgress: '진행률 낮은 순', titleSort: '제목순',
     progress: '진행률', completedItems: (done: number, total: number) => `${done} / ${total} 완료`, lastStudied: '마지막 학습', never: '아직 없음', accuracy: '정답률', noAttempts: '기록 없음', correctIncorrect: (c: number, i: number) => `정답 ${c} · 오답 ${i}`,
-    bundleInfo: '번들 정보', startedAt: '학습 시작', completedAt: '완료일', practiceModes: '연습 모드', basicLearning: '기본 학습', flashcards: '플래시카드', quiz: '퀴즈', scramble: '스크램블', wordfill: '단어 채우기', spelling: '스펠링', close: '닫기',
+    bundleInfo: '번들 정보', startedAt: '학습 시작', completedAt: '완료일', practiceModes: '연습 모드', basicLearning: '기본 학습', flashcards: '플래시카드', quiz: 'Sentence Quiz', scramble: '스크램블', wordfill: '단어 채우기', spelling: '스펠링', close: '닫기',
     emptyTitle: '조건에 맞는 번들이 없습니다.', emptyBody: '검색어나 필터를 바꾸어 확인해보세요.', emptyAllTitle: '아직 내 번들이 없습니다.', emptyAllBody: '관심 있는 번들을 저장하거나 첫 학습을 시작해보세요.', previous: '이전', next: '다음', saveFailed: '저장 상태를 변경하지 못했습니다.',
   },
   en: {
@@ -32,7 +32,7 @@ const copy = {
     myBundles: 'My bundle list', results: (n: number) => `${n} bundles`, search: 'Search bundle titles or descriptions', status: 'Status', category: 'Category', level: 'Level', sort: 'Sort', all: 'All', pinned: 'Saved bundles',
     saved: 'Saved', inProgress: 'In progress', almostComplete: 'Almost complete', completedStatus: 'Completed', recent: 'Recently studied', highProgress: 'Highest progress', lowProgress: 'Lowest progress', titleSort: 'Title',
     progress: 'Progress', completedItems: (done: number, total: number) => `${done} / ${total} complete`, lastStudied: 'Last studied', never: 'Not yet', accuracy: 'Accuracy', noAttempts: 'No attempts', correctIncorrect: (c: number, i: number) => `${c} correct · ${i} incorrect`,
-    bundleInfo: 'Bundle details', startedAt: 'Started', completedAt: 'Completed on', practiceModes: 'Practice modes', basicLearning: 'Basic learning', flashcards: 'Flashcards', quiz: 'Quiz', scramble: 'Scramble', wordfill: 'Word Fill', spelling: 'Spelling', close: 'Close',
+    bundleInfo: 'Bundle details', startedAt: 'Started', completedAt: 'Completed on', practiceModes: 'Practice modes', basicLearning: 'Basic learning', flashcards: 'Flashcards', quiz: 'Sentence Quiz', scramble: 'Scramble', wordfill: 'Word Fill', spelling: 'Spelling', close: 'Close',
     emptyTitle: 'No bundles match these filters.', emptyBody: 'Try another search or filter.', emptyAllTitle: 'No bundles here yet.', emptyAllBody: 'Save a bundle or begin your first lesson.', previous: 'Previous', next: 'Next', saveFailed: 'Could not update the saved state.',
   },
 };

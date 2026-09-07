@@ -33,13 +33,13 @@ const practiceCopy = {
     primaryCta: '번들 선택하기',
     secondaryCta: '학습 홈으로',
     previewLabel: '오늘의 연습 흐름',
-    previewItems: ['Flashcards', 'Quick Quiz', 'Word Scramble', 'Word Fill', 'Spelling'],
+    previewItems: ['Flashcards', 'Sentence Quiz', 'Word Scramble', 'Word Fill', 'Spelling'],
     sectionEyebrow: 'Mode Guide',
     sectionTitle: '연습 모드 둘러보기',
     sectionDescription: '각 모드는 같은 번들 문장을 다른 방식으로 다시 만나게 해줍니다.',
     startTitle: '연습을 시작하려면 먼저 번들을 골라주세요.',
     startDescription:
-      '연습 모드는 특정 번들의 문장과 단어를 기반으로 만들어집니다. 관심 있는 주제를 고르면 Flashcards, Quiz, Scramble, Word Fill, Spelling을 바로 사용할 수 있어요.',
+      '연습 모드는 특정 번들의 문장과 단어를 기반으로 만들어집니다. 관심 있는 주제를 고르면 Flashcards, Sentence Quiz, Scramble, Word Fill, Spelling을 바로 사용할 수 있어요.',
     startButton: '번들 둘러보기',
     modes: {
       flashcards: {
@@ -49,7 +49,7 @@ const practiceCopy = {
         bestFor: '첫 복습, 빠른 워밍업',
       },
       quiz: {
-        label: 'Quick Quiz',
+        label: 'Sentence Quiz',
         title: '정답을 고르며 이해도 확인',
         description: '스페인어 문장을 보고 자연스러운 해석이나 의미를 빠르게 선택합니다.',
         bestFor: '의미 확인, 짧은 테스트',
@@ -88,13 +88,13 @@ const practiceCopy = {
     primaryCta: 'Choose a Bundle',
     secondaryCta: 'Learn Home',
     previewLabel: 'Today\'s practice flow',
-    previewItems: ['Flashcards', 'Quick Quiz', 'Word Scramble', 'Word Fill', 'Spelling'],
+    previewItems: ['Flashcards', 'Sentence Quiz', 'Word Scramble', 'Word Fill', 'Spelling'],
     sectionEyebrow: 'Mode Guide',
     sectionTitle: 'Explore Practice Modes',
     sectionDescription: 'Each mode helps you revisit the same bundle items from a different angle.',
     startTitle: 'Choose a bundle to start practicing.',
     startDescription:
-      'Practice modes are powered by the sentences and words inside each bundle. Pick a topic, then jump into Flashcards, Quiz, Scramble, Word Fill, or Spelling.',
+      'Practice modes are powered by the sentences and words inside each bundle. Pick a topic, then jump into Flashcards, Sentence Quiz, Scramble, Word Fill, or Spelling.',
     startButton: 'Explore Bundles',
     modes: {
       flashcards: {
@@ -104,7 +104,7 @@ const practiceCopy = {
         bestFor: 'Warm-ups, quick review',
       },
       quiz: {
-        label: 'Quick Quiz',
+        label: 'Sentence Quiz',
         title: 'Check meaning fast',
         description: 'Read a Spanish sentence and choose the natural translation or meaning.',
         bestFor: 'Comprehension checks',
@@ -411,7 +411,7 @@ function MiniPracticePanel({ mode, language }: { mode: 'quiz' | 'scramble'; lang
       <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-4 flex items-center gap-2 text-sm font-bold text-violet-600 dark:text-violet-300">
           <HelpCircle className="h-4 w-4" />
-          Quick Quiz
+          Sentence Quiz
         </div>
         <p className="font-serif text-xl">Necesito ayuda.</p>
         <div className="mt-5 grid gap-2">

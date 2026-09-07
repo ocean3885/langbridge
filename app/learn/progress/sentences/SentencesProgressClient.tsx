@@ -20,7 +20,7 @@ const copy = {
   ko: {
     back: 'Overview로 돌아가기', title: 'Sentences', description: '학습한 문장의 숙련도와 복습 상태를 확인하세요.',
     startLearning: '새로 익히기', startReview: '복습하기', total: '학습한 문장', due: '복습 필요', mastered: '숙달한 문장', accuracy: '전체 정확도', noAttempts: '기록 없음',
-    distribution: '숙련도 분포', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`, level: '레벨', levels: ['시작 전', '학습 중', '익숙해지는 중', '익숙함', '거의 숙달', '숙달'],
+    distribution: '숙련도 분포', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`, level: '레벨', levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '숙달'],
     mySentences: '내 문장', results: (n: number) => `${n}개 문장`, search: '문장이나 번역 검색', status: '상태', sort: '정렬', all: '전체', pinned: '핀한 문장', hasMemo: '메모 있음',
     priority: '복습 우선', recent: '최근 학습', mistakes: '오답 많은 순', alphabetical: '문장순', now: '지금 복습', upcoming: '예정', complete: '숙달', notScheduled: '일정 없음', never: '아직 없음',
     listen: '문장 듣기', details: '문장 상세', translation: '번역', proficiency: '숙련도', correct: '정답', incorrect: '오답', streak: '연속 정답', lastStudy: '마지막 학습', nextReview: '다음 복습', bundles: '연결된 번들', keyWords: '핵심 단어', noBundles: '연결된 번들이 없습니다.', noWords: '연결된 단어가 없습니다.',
@@ -30,7 +30,7 @@ const copy = {
   en: {
     back: 'Back to Overview', title: 'Sentences', description: 'See the proficiency and review status of the sentences you have studied.',
     startLearning: 'Learn new', startReview: 'Review now', total: 'Learned sentences', due: 'Review due', mastered: 'Mastered', accuracy: 'Overall accuracy', noAttempts: 'No attempts',
-    distribution: 'Proficiency distribution', attempts: (c: number, i: number) => `${c} correct · ${i} incorrect`, level: 'Level', levels: ['Not started', 'Learning', 'Getting familiar', 'Familiar', 'Almost mastered', 'Mastered'],
+    distribution: 'Proficiency distribution', attempts: (c: number, i: number) => `${c} correct · ${i} incorrect`, level: 'Level', levels: ['Not started', 'Learning', 'Getting familiar', 'Familiar', 'Advanced', 'Mastered'],
     mySentences: 'My sentences', results: (n: number) => `${n} sentences`, search: 'Search sentences or translations', status: 'Status', sort: 'Sort', all: 'All', pinned: 'Pinned', hasMemo: 'Has memo',
     priority: 'Review priority', recent: 'Recently studied', mistakes: 'Most mistakes', alphabetical: 'Sentence order', now: 'Review now', upcoming: 'Upcoming', complete: 'Mastered', notScheduled: 'Not scheduled', never: 'Not yet',
     listen: 'Listen to sentence', details: 'Sentence details', translation: 'Translation', proficiency: 'Proficiency', correct: 'Correct', incorrect: 'Incorrect', streak: 'Correct streak', lastStudy: 'Last studied', nextReview: 'Next review', bundles: 'Linked bundles', keyWords: 'Key words', noBundles: 'No linked bundles.', noWords: 'No linked words.',

@@ -13,7 +13,7 @@ const content = {
         icon: BookOpen,
         items: [
           ['번들은 어디서 시작하나요?', 'Bundles에서 원하는 주제를 고른 뒤 Learn, Quiz, Flashcards 등 원하는 방식으로 학습할 수 있습니다.'],
-          ['연습 모드는 무엇인가요?', 'Flashcards, Quick Quiz, Word Scramble, Word Fill, Spelling으로 같은 문장을 여러 방식으로 복습합니다.'],
+          ['연습 모드는 무엇인가요?', 'Flashcards, Sentence Quiz, Word Scramble, Word Fill, Spelling으로 같은 문장을 여러 방식으로 복습합니다.'],
         ],
       },
       {
@@ -55,7 +55,7 @@ const content = {
         icon: BookOpen,
         items: [
           ['Where do I start a bundle?', 'Open Bundles, choose a topic, then learn with modes like Learn, Quiz, and Flashcards.'],
-          ['What are practice modes?', 'Flashcards, Quick Quiz, Word Scramble, Word Fill, and Spelling help you review the same material in different ways.'],
+          ['What are practice modes?', 'Flashcards, Sentence Quiz, Word Scramble, Word Fill, and Spelling help you review the same material in different ways.'],
         ],
       },
       {

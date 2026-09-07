@@ -87,7 +87,7 @@ const copy = {
 
 export default function BundleSpellingClient({ bundleId, title, items, wordUsageDetails, language, initialItemId = null, isLoggedIn }: BundleSpellingClientProps) {
   const t = copy[language];
-  const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.bundleItemId === initialItemId)) : 0;
+  const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => String(item.wordId) === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -114,7 +114,7 @@ export default function BundleSpellingClient({ bundleId, title, items, wordUsage
 
   useEffect(() => {
     if (!isLoggedIn || !current) return;
-    recordCurrentPracticeItem(bundleId, 'spelling', current.bundleItemId);
+    recordCurrentPracticeItem(bundleId, 'spelling', current.bundleItemId, current.wordId);
   }, [bundleId, current, isLoggedIn]);
 
   const playAudio = () => {
@@ -325,7 +325,7 @@ function recordPracticeResult(bundleId: string, bundleItemId: string, wordId: nu
   });
 }
 
-function recordCurrentPracticeItem(bundleId: string, practiceMode: string, bundleItemId: string) {
+function recordCurrentPracticeItem(bundleId: string, practiceMode: string, bundleItemId: string, wordId: number) {
   void fetch('/api/bundle-progress', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -333,6 +333,7 @@ function recordCurrentPracticeItem(bundleId: string, practiceMode: string, bundl
       bundle_id: bundleId,
       current_bundle_item_id: bundleItemId,
       current_practice_mode: practiceMode,
+      current_word_id: wordId,
     }),
   });
 }
