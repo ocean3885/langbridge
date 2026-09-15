@@ -14,12 +14,12 @@ function loadPracticeModules(mocks = {}) {
   const cache = new Map();
   function load(filename) {
     filename = path.resolve(testDirectory, '..', filename);
-    if (!path.extname(filename)) filename += '.ts';
+    if (!path.extname(filename)) filename += fs.existsSync(filename + '.ts') ? '.ts' : '.tsx';
     if (cache.has(filename)) return cache.get(filename).exports;
     const loadedModule = { exports: {} };
     cache.set(filename, loadedModule);
     const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
     }).outputText;
     const localRequire = name => {
       if (Object.hasOwn(mocks, name)) return mocks[name];
@@ -223,3 +223,304 @@ for (const mode of ['word_quiz', 'word_flashcards']) {
     await assert.rejects(service.recordBundleItemPractice('u1', 'b1', 's1', mode, true, 99), /Word does not belong/);
   });
 }
+
+function reviewFixture(overrides = {}, cap = 73, failTable = null) {
+  const old = '2020-01-01T00:00:00Z';
+  const interaction = { user_id: 'u1', proficiency_level: 1, incorrect_count: 0, streak_count: 1, last_reviewed_at: old, metadata: { last_practice_is_correct: true } };
+  const tables = {
+    user_sentence_interactions: [{ ...interaction, id: 'si1', sentence_id: 1, sentences: { id: 1, sentence: 'hola', translation: '안녕' } }],
+    user_word_interactions: [{ ...interaction, id: 'wi1', word_id: 11, words: wordA }],
+    user_bundle_item_interactions: [{ id: 'hi1', user_id: 'u1', bundle_id: 'b1', bundle_item_id: 'item1', last_practiced_at: old }],
+    user_bundle_interactions: [{ id: 'hb1', user_id: 'u1', bundle_id: 'b1', last_studied_at: old }],
+    bundle_items: [{ id: 'item1', sentence_id: 1, bundle_id: 'b1', bundle: { is_published: true, access_level: 'free' } }],
+    ...overrides,
+  };
+  const db = { from(table) {
+    const filters = [];
+    let start = 0, end = cap - 1;
+    const q = {
+      select() { return q; },
+      eq(k, v) { filters.push(r => r[k] === v); return q; },
+      gte(k, v) { filters.push(r => r[k] >= v); return q; },
+      lt(k, v) { filters.push(r => r[k] < v); return q; },
+      in(k, v) { filters.push(r => v.includes(r[k])); return q; },
+      not(k, _op, v) { filters.push(r => r[k] !== v); return q; },
+      order() { return q; },
+      range(a, b) { start = a; end = Math.min(b, a + cap - 1); return q; },
+      then(resolve, reject) {
+        if (table === failTable) return Promise.resolve({ data: null, error: new Error('database unavailable') }).then(resolve, reject);
+        const data = tables[table].filter(r => filters.every(f => f(r))).sort((a, b) => a.id.localeCompare(b.id)).slice(start, end + 1);
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      },
+    };
+    return q;
+  } };
+  const service = loadPracticeModules({
+    react: { cache: fn => fn },
+    '@/lib/supabase/admin': { createAdminClient: () => db },
+    '@/lib/bundle-access': { getBundleAccess: async bundle => ({ canView: bundle.is_published && bundle.access_level === 'free' }) },
+  })('lib/supabase/services/learning-review');
+  return { service, tables, interaction };
+}
+
+test('review chooses a practiced, accessible sentence item deterministically', async () => {
+  const { service, tables } = reviewFixture();
+  tables.bundle_items.push(
+    { id: 'aaa', sentence_id: 1, bundle_id: 'unlearned', bundle: { is_published: true, access_level: 'free' } },
+    { id: 'zzz', sentence_id: 1, bundle_id: 'private', bundle: { is_published: false, access_level: 'free' } },
+    { id: 'premium', sentence_id: 1, bundle_id: 'premium', bundle: { is_published: true, access_level: 'premium' } },
+    { id: 'new', sentence_id: 1, bundle_id: 'new', bundle: { is_published: true, access_level: 'free' } },
+  );
+  for (const bundle_id of ['private', 'premium', 'new']) tables.user_bundle_interactions.push({ id: bundle_id, user_id: 'u1', bundle_id, last_studied_at: '2026-01-01' });
+  tables.user_bundle_item_interactions.push({ id: 'private-history', user_id: 'u1', bundle_id: 'private', bundle_item_id: 'zzz', last_practiced_at: '2026-01-01' });
+  assert.equal((await service.getReviewSentences('u1'))[0].bundle_item_id, 'item1');
+  tables.bundle_items.reverse();
+  assert.equal((await service.getReviewSentences('u1'))[0].bundle_item_id, 'item1');
+  tables.bundle_items.find(r => r.id === 'item1').bundle.is_published = false;
+  assert.equal((await service.getReviewSentences('u1'))[0].bundle_item_id, 'new');
+});
+
+test('initial wrong answers enter review after one day and are not unstarted', async () => {
+  const { service, tables } = reviewFixture();
+  for (const table of ['user_sentence_interactions', 'user_word_interactions']) {
+    Object.assign(tables[table][0], { proficiency_level: 0, incorrect_count: 1, metadata: { last_practice_is_correct: false } });
+  }
+  assert.equal((await service.getReviewSentences('u1')).length, 1);
+  assert.equal((await service.getReviewWords('u1')).length, 1);
+  assert.equal((await service.getReviewWords('u1', 20, 'unstarted')).length, 0);
+  assert.equal((await service.getReviewNeededSummary('u1')).availableTotal, 2);
+  for (const table of ['user_sentence_interactions', 'user_word_interactions']) tables[table][0].last_reviewed_at = new Date().toISOString();
+  assert.equal((await service.getReviewNeededSummary('u1')).availableTotal, 0);
+  const { isReviewDue } = load('lib/learning/review-schedule');
+  const row = { proficiency_level: 0, last_reviewed_at: '2026-01-01T00:00:00Z', metadata: { last_practice_is_correct: false } };
+  assert.equal(isReviewDue(row, new Date('2026-01-01T23:59:59Z')), false);
+  assert.equal(isReviewDue(row, new Date('2026-01-02T00:00:00Z')), true);
+});
+
+test('counts exclude invalid content and limits apply after validation', async () => {
+  const { service, tables, interaction } = reviewFixture();
+  tables.user_word_interactions.unshift({ ...interaction, id: 'a', word_id: 90, words: null }, { ...interaction, id: 'b', word_id: 91, words: { word: 'empty', meaning_ko: '' } });
+  tables.user_sentence_interactions.unshift({ ...interaction, id: 'a', sentence_id: 90, sentences: { sentence: 'unlinked', translation: '연결 없음' } }, { ...interaction, id: 'b', sentence_id: 91, sentences: null });
+  const summary = await service.getReviewNeededSummary('u1');
+  assert.equal(summary.availableSentences, 1);
+  assert.equal(summary.availableWords, 1);
+  assert.equal((await service.getReviewWords('u1', 1))[0].id, 11);
+  assert.equal((await service.getReviewSentences('u1', 1))[0].id, 1);
+  tables.bundle_items.length = 0;
+  assert.equal((await service.getReviewNeededSummary('u1')).availableSentences, 0);
+});
+
+test('review exhausts capped pages before due filtering, counts and limits', async () => {
+  const { service, tables, interaction } = reviewFixture({}, 73);
+  tables.user_sentence_interactions = [];
+  tables.user_word_interactions = [];
+  tables.bundle_items = [];
+  for (let i = 0; i < 1105; i++) {
+    const id = String(i).padStart(5, '0');
+    const timing = i < 1000 ? { last_reviewed_at: new Date().toISOString() } : {};
+    tables.user_word_interactions.push({ ...interaction, ...timing, id, word_id: i, words: { ...wordA, id: i } });
+    tables.user_sentence_interactions.push({ ...interaction, ...timing, id, sentence_id: i, sentences: { id: i, sentence: 'hola', translation: '안녕' } });
+    tables.bundle_items.push({ id, sentence_id: i, bundle_id: 'b1', bundle: { is_published: true, access_level: 'free' } });
+  }
+  const summary = await service.getReviewNeededSummary('u1');
+  assert.equal(summary.availableWords, 105);
+  assert.equal(summary.availableSentences, 105);
+  assert.equal((await service.getReviewWords('u1', 2000)).length, 105);
+  assert.equal((await service.getReviewSentences('u1', 2000)).length, 105);
+  assert.equal((await service.getReviewSentences('u1', 40)).length, 40);
+});
+
+test('review fails explicitly on database errors rather than reporting an empty queue', async () => {
+  const { service } = reviewFixture({}, 73, 'user_word_interactions');
+  await assert.rejects(service.getReviewNeededSummary('u1'), /database unavailable/);
+});
+
+test('review distinguishes new, mastered and first-wrong records and falls back across display languages', async () => {
+  const { service, tables, interaction } = reviewFixture();
+  tables.user_word_interactions = [
+    { ...interaction, id: 'new', word_id: 21, proficiency_level: 0, last_reviewed_at: null, metadata: {}, words: { ...wordA, id: 21 } },
+    { ...interaction, id: 'mastered', word_id: 22, proficiency_level: 5, words: { ...wordA, id: 22 } },
+    { ...interaction, id: 'english', word_id: 23, words: { id: 23, word: 'hola', meaning_en: 'hello' } },
+  ];
+  assert.deepEqual((await service.getReviewWords('u1', 20, 'unstarted')).map(r => r.id), [21]);
+  const words = await service.getReviewWords('u1');
+  assert.deepEqual(words.map(r => r.id), [23]);
+  assert.equal(words[0].meaning_ko, 'hello');
+  assert.equal((await service.getReviewNeededSummary('u1')).availableWords, 1);
+});
+
+test('pinning a bundle alone does not make it a sentence result destination', async () => {
+  const { service, tables } = reviewFixture();
+  tables.user_bundle_item_interactions = [];
+  tables.user_bundle_interactions = [{ id: 'pin', user_id: 'u1', bundle_id: 'b1', is_started: false, last_studied_at: null }];
+  assert.equal((await service.getReviewSentences('u1')).length, 0);
+  assert.equal((await service.getReviewNeededSummary('u1')).availableSentences, 0);
+});
+
+const { buildScrambleQuestion, isScrambleAnswerCorrect, normalizeScrambleWords } = load('lib/practice/scramble');
+
+test('scramble beginners get groups and a fixed first piece; familiar sentences use words', () => {
+  const text = 'Hoy quiero tomar un café con mis amigos';
+  for (const level of [undefined, 0, 1]) {
+    const question = buildScrambleQuestion(text, level);
+    assert.equal(question.grouped, true);
+    assert.deepEqual(question.tokens.map(t => t.text), ['hoy quiero', 'tomar un', 'café con', 'mis amigos']);
+    assert.deepEqual(question.fixedTokens, question.tokens.slice(0, 1));
+    assert.equal(isScrambleAnswerCorrect(question, question.selectableTokens), true);
+    assert.equal(isScrambleAnswerCorrect(question, [...question.selectableTokens].reverse()), false);
+  }
+  for (const level of [2, 3, 4, 5]) {
+    const question = buildScrambleQuestion(text, level);
+    assert.equal(question.grouped, false);
+    assert.equal(question.tokens.length, 8);
+    assert.equal(question.fixedTokens.length, 0);
+  }
+});
+
+test('scramble limits pieces without dropping words in long sentences', () => {
+  for (const length of [9, 13, 20, 51]) {
+    const text = Array.from({ length }, (_, i) => `word${i}`).join(' ');
+    for (const level of [0, 1, 2, 5]) {
+      const question = buildScrambleQuestion(text, level);
+      assert.ok(question.tokens.length <= (level < 2 ? 6 : 8));
+      assert.equal(question.tokens.map(t => t.text).join(' '), text);
+      assert.equal(isScrambleAnswerCorrect(question, question.selectableTokens), true);
+      assert.equal(isScrambleAnswerCorrect(question, question.selectableTokens.slice(1)), false);
+      assert.deepEqual(question, buildScrambleQuestion(text, level));
+    }
+  }
+});
+
+test('scramble handles punctuation, spacing, accented words and repeated words', () => {
+  const question = buildScrambleQuestion('¿Tú, tú quieres café?  Sí, café.', 3);
+  assert.deepEqual(normalizeScrambleWords('¿Tú, tú quieres café?  Sí, café.'), ['tú', 'tú', 'quieres', 'café', 'sí', 'café']);
+  const selected = [...question.selectableTokens];
+  [selected[0], selected[1]] = [selected[1], selected[0]];
+  assert.equal(isScrambleAnswerCorrect(question, selected), true);
+  assert.equal(new Set(question.tokens.map(t => t.id)).size, question.tokens.length);
+  const duplicate = [...selected];
+  duplicate[1] = duplicate[0];
+  assert.equal(isScrambleAnswerCorrect(question, duplicate), false);
+  assert.equal(isScrambleAnswerCorrect(question, selected.map(t => ({ ...t, text: t.text === 'tú' ? 'tu' : t.text }))), false);
+});
+
+test('scramble never supplies the whole answer and rejects empty questions', () => {
+  for (const text of ['', ' ¿ ? ']) {
+    const question = buildScrambleQuestion(text, 0);
+    assert.equal(question.tokens.length, 0);
+    assert.equal(isScrambleAnswerCorrect(question, []), false);
+  }
+  for (const text of ['¡Hola!', 'Buenos días', 'Me gusta café']) {
+    const question = buildScrambleQuestion(text, 0);
+    assert.ok(question.selectableTokens.length > 0);
+    assert.equal(isScrambleAnswerCorrect(question, []), false);
+    assert.equal(isScrambleAnswerCorrect(question, question.selectableTokens), true);
+  }
+});
+
+// Exercise client event handlers with a minimal hook runner (no DOM or network).
+function practiceClientHarness(file, props) {
+  const slots = [], effects = [];
+  let cursor = 0;
+  const react = {
+    useState(initial) {
+      const i = cursor++;
+      if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial;
+      return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }];
+    },
+    useRef(initial) { const i = cursor++; return slots[i] ||= { current: initial }; },
+    useMemo(fn, deps) {
+      const i = cursor++;
+      if (!slots[i] || deps.some((v, n) => !Object.is(v, slots[i].deps[n]))) slots[i] = { deps, value: fn() };
+      return slots[i].value;
+    },
+    useCallback(fn, deps) { return react.useMemo(() => fn, deps); },
+    useEffect(fn, deps) {
+      const i = cursor++;
+      if (!slots[i] || deps.some((v, n) => !Object.is(v, slots[i][n]))) { slots[i] = deps; effects.push(fn); }
+    },
+  };
+  const component = loadPracticeModules({
+    react,
+    'next/link': { __esModule: true, default: 'a' },
+    '@/lib/utils': { getPublicUrl: x => x },
+    '@/components/assets/CharacterAsset': { CharacterAsset: 'CharacterAsset' },
+    '@/components/practice/ScrambleQuestion': { ScrambleQuestion: 'ScrambleQuestion' },
+    '@/components/practice/MultipleChoiceQuestion': { MultipleChoiceQuestion: 'MultipleChoiceQuestion' },
+    '@/components/practice/PracticeCountSelector': { PracticeCountSelector: 'PracticeCountSelector' },
+    '@/components/practice/PracticeScorePills': { PracticeScorePills: 'PracticeScorePills' },
+    '@/components/practice/ScrambleReveal': { ScrambleRevealActions: 'RevealActions', ScrambleRevealedAnswer: 'RevealedAnswer' },
+  })(file).default;
+  function render() {
+    cursor = 0;
+    let tree = component(props);
+    if (effects.length) { effects.splice(0).forEach(fn => fn()); cursor = 0; tree = component(props); }
+    return tree;
+  }
+  return { render };
+}
+function elements(tree) {
+  if (!tree || typeof tree !== 'object') return [];
+  if (Array.isArray(tree)) return tree.flatMap(elements);
+  return [tree, ...elements(tree.props?.children)];
+}
+function textOf(tree) {
+  if (typeof tree === 'string' || typeof tree === 'number') return String(tree);
+  if (Array.isArray(tree)) return tree.map(textOf).join('');
+  return tree?.props ? textOf(tree.props.children) : '';
+}
+
+test('bundle scramble reveal records one wrong answer; skip and guest reveal do not save results', async () => {
+  const originalFetch = globalThis.fetch, calls = [];
+  globalThis.fetch = async (_url, options) => { calls.push(options); return {}; };
+  try {
+    const props = { bundleId: 'b1', title: 'Test', items: [{ id: 's1', sentence: 'hola amigo', translation: '안녕 친구', audioUrl: null }, { id: 's2', sentence: 'buenos días', translation: '좋은 아침', audioUrl: null }], language: 'en', isLoggedIn: true };
+    const h = practiceClientHarness('app/bundles/[id]/scramble/BundleScrambleClient.tsx', props);
+    let tree = h.render();
+    elements(tree).find(e => e.type === 'RevealActions').props.onReveal();
+    tree = h.render();
+    assert.equal(elements(tree).find(e => e.type === 'RevealedAnswer').props.sentence, 'hola amigo');
+    assert.equal(elements(tree).find(e => e.type === 'ScrambleQuestion').props.result, null);
+    assert.equal(elements(tree).some(e => e.type === 'RevealActions'), false);
+    assert.deepEqual(calls.filter(c => c.method === 'POST').map(c => JSON.parse(c.body).is_correct), [false]);
+    elements(tree).find(e => e.type === 'button' && textOf(e) === 'Next').props.onClick();
+    tree = h.render();
+    elements(tree).find(e => e.type === 'RevealActions').props.onSkip();
+    assert.match(textOf(h.render()), /Scramble complete/);
+    assert.equal(calls.filter(c => c.method === 'POST').length, 1);
+    calls.length = 0;
+    const guest = practiceClientHarness('app/bundles/[id]/scramble/BundleScrambleClient.tsx', { ...props, isLoggedIn: false });
+    elements(guest.render()).find(e => e.type === 'RevealActions').props.onReveal();
+    guest.render();
+    assert.equal(calls.length, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('review scramble skip is unscored; reveal is wrong and shows neutral feedback', async () => {
+  const originalFetch = globalThis.fetch, calls = [];
+  globalThis.fetch = async (_url, options) => { calls.push(JSON.parse(options.body)); return {}; };
+  try {
+    const initialItems = [1, 2].map(id => ({ id, sentence: 'hola amigo', translation: '안녕 친구', translation_en: 'hello friend', bundle_id: 'b1', bundle_item_id: `s${id}`, proficiency_level: 1, audio_url: null }));
+    const h = practiceClientHarness('app/learn/review/sentences/SentencesReviewClient.tsx', { initialItems, availableReviewCount: 2, language: 'en' });
+    let tree = h.render();
+    elements(tree).find(e => e.type === 'button' && textOf(e) === 'Scramble').props.onClick();
+    tree = h.render();
+    const start = elements(tree).find(e => e.type === 'button' && /Start/.test(textOf(e)));
+    start.props.onClick();
+    tree = h.render();
+    elements(tree).find(e => e.type === 'RevealActions').props.onSkip();
+    tree = h.render();
+    assert.equal(calls.length, 0);
+    assert.equal(elements(tree).find(e => e.type === 'PracticeScorePills').props.incorrect, 0);
+    elements(tree).find(e => e.type === 'RevealActions').props.onReveal();
+    tree = h.render();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].is_correct, false);
+    assert.ok(elements(tree).some(e => e.type === 'RevealedAnswer'));
+    assert.equal(elements(tree).find(e => e.type === 'PracticeScorePills').props.incorrect, 1);
+    elements(tree).find(e => e.type === 'button' && textOf(e) === 'Finish').props.onClick();
+    const finished = textOf(h.render());
+    assert.match(finished, /0 of 1/);
+    assert.match(finished, /Skipped: 1/);
+  } finally { globalThis.fetch = originalFetch; }
+});

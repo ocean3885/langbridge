@@ -4,6 +4,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import { getPublicUrl } from '@/lib/utils';
 import { getBundleTitle } from '../../bundle-utils';
 import PracticeSessionSelector from '../_components/PracticeSessionSelector';
@@ -37,6 +38,7 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
   const scrambleItems = getEligiblePracticeItems(items, 'scramble', language)
     .map((item) => ({
       id: item.id,
+      sentenceId: Number(item.sentence_id || item.sentences.id),
       sentence: item.sentences.sentence,
       translation: getPracticeSentenceTranslation(item, language),
       audioUrl: getPublicUrl(item.audio_url || item.sentences.audio_url),
@@ -63,6 +65,14 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
 
   const filteredItems = filterPracticeItems(scrambleItems, progress.itemInteractions, effectiveMode, 'scramble');
   const sessionItems = limitPracticeItems(filteredItems, count);
+  const levels = new Map<number, number>();
+  if (user) {
+    const sentenceIds = [...new Set(sessionItems.map(item => item.sentenceId))];
+    for (let start = 0; start < sentenceIds.length; start += 100) {
+      const rows = await listUserSentenceInteractions(user.id, sentenceIds.slice(start, start + 100));
+      for (const row of rows) levels.set(Number(row.sentence_id), row.proficiency_level);
+    }
+  }
   const initialItemId =
     effectiveMode === 'resume' && progress.currentPracticeItemIds.scramble && sessionItems.some((item) => item.id === progress.currentPracticeItemIds.scramble)
       ? progress.currentPracticeItemIds.scramble
@@ -72,7 +82,7 @@ export default async function BundleScramblePage({ params, searchParams }: Bundl
     <BundleScrambleClient
       bundleId={bundle.id}
       title={title}
-      items={sessionItems}
+      items={sessionItems.map(item => ({ ...item, proficiencyLevel: levels.get(item.sentenceId) || 0 }))}
       language={language}
       initialItemId={initialItemId}
       isLoggedIn={Boolean(user)}

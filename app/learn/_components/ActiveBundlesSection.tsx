@@ -20,6 +20,7 @@ const copy = {
     emptyDescription: '관심 있는 번들을 선택하고 학습을 시작하면 여기에 표시됩니다.',
     fallbackCategory: '학습 번들',
     fallbackTitle: '제목 없는 번들',
+    lastStudied: '최근 학습',
     today: '오늘',
     yesterday: '어제',
     daysAgo: (days: number) => `${days}일 전`,
@@ -35,6 +36,7 @@ const copy = {
     emptyDescription: 'Start learning from a bundle and it will appear here.',
     fallbackCategory: 'Learning Bundle',
     fallbackTitle: 'Untitled Bundle',
+    lastStudied: 'Last studied',
     today: 'Today',
     yesterday: 'Yesterday',
     daysAgo: (days: number) => `${days} days ago`,
@@ -133,7 +135,7 @@ function ActiveBundleRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-black uppercase tracking-wide text-[#5a975d]">{categoryName}</p>
-          {lastStudied && <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{lastStudied}</p>}
+          {lastStudied && <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{t.lastStudied}: {lastStudied}</p>}
         </div>
         <h3 className={`${getDisplayHeadingClass(language)} mt-2 truncate text-xl`}>{title}</h3>
         <div className="mt-3 flex items-center gap-3">

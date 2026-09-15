@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
+import { ScrambleRevealActions, ScrambleRevealedAnswer } from '@/components/practice/ScrambleReveal';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
 import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
 import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
+import { buildScrambleQuestion, getScrambleInstruction, isScrambleAnswerCorrect, type AdaptiveScrambleToken } from '@/lib/practice/scramble';
 import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/learning-review';
 import { getPublicUrl } from '@/lib/utils';
@@ -23,7 +25,7 @@ interface SentencesReviewClientProps {
 const copy = {
   ko: {
     title: '문장 복습 세션',
-    description: '숙련도 레벨 1~4의 문장들을 복습하여 완벽히 마스터해 보세요.',
+    description: '문장을 더 자신 있게 사용할 수 있도록 복습해보세요.',
     learningTitle: '새 문장 학습',
     learningDescription: '아직 시작하지 않은 문장을 퀴즈와 배열 문제로 익혀보세요.',
     emptyTitle: '지금은 복습할 문장이 없어요!',
@@ -59,7 +61,7 @@ const copy = {
   },
   en: {
     title: 'Sentence Review Session',
-    description: 'Review sentences with proficiency level 1–4 to master them.',
+    description: 'Review sentences to feel more confident using them.',
     learningTitle: 'Learn New Sentences',
     learningDescription: 'Practice sentences you have not started yet with quizzes and scrambles.',
     emptyTitle: 'Nothing to review right now!',
@@ -110,17 +112,20 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
   const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [selectedWords, setSelectedWords] = useState<string[]>([]);
+  const [selectedWords, setSelectedWords] = useState<AdaptiveScrambleToken[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
+  const [revealed, setRevealed] = useState(false);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [score, setScore] = useState<number>(0);
-  const [scramblePool, setScramblePool] = useState<string[]>([]);
+  const [scramblePool, setScramblePool] = useState<AdaptiveScrambleToken[]>([]);
   const [multipleChoiceOptions, setMultipleChoiceOptions] = useState<string[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const showAllCountOption = availableReviewCount <= initialItems.length;
 
   const currentItem = activeItems[currentIndex];
+  const scrambleQuestion = useMemo(() => buildScrambleQuestion(currentItem?.sentence || '', currentItem?.proficiency_level), [currentItem]);
   const progress = activeItems.length > 0 ? Math.round(((currentIndex) / activeItems.length) * 100) : 0;
 
   // Sound play helper
@@ -140,18 +145,12 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
     return selectedMode;
   }, [selectedMode, currentIndex, currentItem]);
 
-  // Scrambled pool setup
-  const cleanWords = (sentence: string) => {
-    return sentence.split(/\s+/).filter(Boolean);
-  };
-
   // Setup current item options or scramble pool
   useEffect(() => {
     if (!currentItem) return;
 
     if (currentItemMode === 'scramble') {
-      const words = cleanWords(currentItem.sentence);
-      setScramblePool(shuffle(words));
+      setScramblePool(shuffle(scrambleQuestion.selectableTokens));
       setSelectedWords([]);
     } else {
       // Multiple Choice options
@@ -160,8 +159,9 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
       setSelectedOption(null);
     }
     setIsCorrect(null);
+    setRevealed(false);
     setIsAnswered(false);
-  }, [currentItem, currentItemMode, initialItems, isEnglish]);
+  }, [currentItem, currentItemMode, initialItems, isEnglish, scrambleQuestion]);
 
   // Audio loading when currentItem changes
   const audioSrc = currentItem?.audio_url ? getPublicUrl(currentItem.audio_url) : null;
@@ -173,7 +173,9 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
     setActiveItems(shuffled.slice(0, count));
     setCurrentIndex(0);
     setScore(0);
+    setSkippedCount(0);
     setIsCorrect(null);
+    setRevealed(false);
     setIsAnswered(false);
     setSelectedOption(null);
     setSelectedWords([]);
@@ -182,10 +184,8 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
 
   // Evaluate Scramble
   const checkScramble = () => {
-    if (isAnswered) return;
-    const constructed = selectedWords.join(' ');
-    const correctClean = currentItem.sentence.trim();
-    const answerIsCorrect = constructed.toLowerCase().replace(/[.,?!]/g, '') === correctClean.toLowerCase().replace(/[.,?!]/g, '');
+    if (isAnswered || scramblePool.length > 0) return;
+    const answerIsCorrect = isScrambleAnswerCorrect(scrambleQuestion, selectedWords);
 
     setIsCorrect(answerIsCorrect);
     setIsAnswered(true);
@@ -220,6 +220,14 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
     }, 200);
   };
 
+  const revealAnswer = () => {
+    if (isAnswered) return;
+    setRevealed(true);
+    setIsCorrect(false);
+    setIsAnswered(true);
+    recordPracticeResult(currentItem.bundle_id, currentItem.bundle_item_id, 'scramble', false);
+  };
+
   // Next Question
   const goNext = () => {
     if (currentIndex + 1 >= activeItems.length) {
@@ -227,6 +235,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
       return;
     }
     setIsCorrect(null);
+    setRevealed(false);
     setIsAnswered(false);
     setSelectedOption(null);
     setSelectedWords([]);
@@ -235,6 +244,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
 
   const restart = () => {
     setIsCorrect(null);
+    setRevealed(false);
     setIsAnswered(false);
     setSelectedOption(null);
     setSelectedWords([]);
@@ -268,7 +278,8 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
           <CharacterAsset name="completebadge" size={200} />
         </div>
 
-        <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.doneScore(score, activeItems.length)}</p>
+        <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.doneScore(score, activeItems.length - skippedCount)}</p>
+        {skippedCount > 0 && <p className="text-sm text-zinc-500">{language === 'ko' ? `건너뛴 문제: ${skippedCount}개` : `Skipped: ${skippedCount}`}</p>}
 
         <div className="flex flex-wrap justify-center gap-3 mt-4">
           {nextTo && !isLearning && <Link href={nextTo} className="inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">{t.continueWithWords}<ChevronRight className="h-4 w-4" /></Link>}
@@ -355,7 +366,7 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
 
   // Active Practice state
   const correctTranslation = (isEnglish ? currentItem?.translation_en : currentItem?.translation) || currentItem?.translation || '';
-  const answeredCount = currentIndex + (isAnswered ? 1 : 0);
+  const answeredCount = currentIndex - skippedCount + (isAnswered ? 1 : 0);
   const incorrectCount = Math.max(0, answeredCount - score);
 
   return (
@@ -398,26 +409,32 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
           <>
             <ScrambleQuestion
               eyebrow={t.modeScramble}
-              promptLabel={isEnglish ? 'Translate this sentence:' : '이 문장을 완성해 보세요:'}
+              promptLabel={getScrambleInstruction(scrambleQuestion.grouped, language)}
               prompt={<h2 className="text-2xl font-bold leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>}
-              answerSlots={selectedWords.map((word, idx) => ({
-                key: `${word}-${idx}`,
-                text: word,
-                type: 'selected' as const,
-                onRemove: () => {
-                  setSelectedWords((prev) => prev.filter((_, i) => i !== idx));
-                  setScramblePool((prev) => [...prev, word]);
-                },
-              }))}
-              availableTokens={scramblePool.map((word, idx) => ({ id: idx, text: word }))}
+              answerSlots={[
+                ...scrambleQuestion.fixedTokens.map(token => ({ key: `hint-${token.id}`, text: token.text, type: 'hint' as const })),
+                ...selectedWords.map(word => ({
+                  key: `selected-${word.id}`,
+                  text: word.text,
+                  type: 'selected' as const,
+                  onRemove: () => {
+                    if (isAnswered) return;
+                    setSelectedWords(prev => prev.filter(token => token.id !== word.id));
+                    setScramblePool(prev => prev.some(token => token.id === word.id) ? prev : [...prev, word]);
+                  },
+                })),
+              ]}
+              availableTokens={scramblePool}
               onSelectToken={(token: ScrambleToken) => {
-                setSelectedWords((prev) => [...prev, token.text]);
-                setScramblePool((prev) => prev.filter((_, i) => i !== Number(token.id)));
+                if (isAnswered) return;
+                const word = { id: Number(token.id), text: token.text };
+                setSelectedWords(prev => prev.some(item => item.id === word.id) ? prev : [...prev, word]);
+                setScramblePool(prev => prev.filter(item => item.id !== word.id));
               }}
               isAnswered={isAnswered}
-              result={isAnswered ? (isCorrect ? 'correct' : 'wrong') : null}
+              result={isAnswered && !revealed ? (isCorrect ? 'correct' : 'wrong') : null}
               emptyAnswerText={isEnglish ? 'Build your answer here.' : '여기에 문장을 완성하세요.'}
-              chooseText={isEnglish ? 'Choose words below' : '아래에서 단어를 선택하세요'}
+              chooseText={language === 'ko' ? '모두 배치했어요. 정답을 확인해보세요.' : 'All pieces are placed. Check your answer.'}
               audioAction={isAnswered && audioSrc ? (
                 <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
                   <Volume2 className="h-5 w-5" />
@@ -425,10 +442,11 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
               ) : null}
               variant="embedded"
             />
+            {!isAnswered && <div className="mt-5"><ScrambleRevealActions language={language} onReveal={revealAnswer} onSkip={() => { if (isAnswered) return; setSkippedCount(value => value + 1); goNext(); }} /></div>}
             {!isAnswered && (
               <div className="mt-8 flex justify-end">
                 <button
-                  disabled={selectedWords.length === 0}
+                  disabled={scramblePool.length > 0 || selectedWords.length === 0}
                   onClick={checkScramble}
                   className="rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 >
@@ -441,7 +459,8 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
       </div>
 
       {/* Answer feedback panel */}
-      {isAnswered && (
+      {revealed && <div className="mt-6"><ScrambleRevealedAnswer language={language} sentence={currentItem.sentence} translation={correctTranslation} onPlay={audioSrc ? playAudio : undefined} /><button onClick={goNext} className="mt-4 ml-auto block rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white">{currentIndex + 1 >= activeItems.length ? t.finishBtn : t.nextBtn}</button></div>}
+      {isAnswered && !revealed && (
         <div className={`mt-6 flex flex-col gap-4 rounded-2xl p-5 border ${
           isCorrect
             ? 'border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-200'

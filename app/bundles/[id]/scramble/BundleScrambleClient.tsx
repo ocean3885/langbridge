@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, SkipForward, Trophy, Volume2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, RotateCcw, Shuffle, Trophy, Volume2, X } from 'lucide-react';
+import { ScrambleRevealActions, ScrambleRevealedAnswer } from '@/components/practice/ScrambleReveal';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
+import { buildScrambleQuestion, getScrambleInstruction, isScrambleAnswerCorrect } from '@/lib/practice/scramble';
 import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 
 interface ScrambleItem {
@@ -11,6 +13,7 @@ interface ScrambleItem {
   sentence: string;
   translation: string;
   audioUrl: string | null;
+  proficiencyLevel?: number;
 }
 
 interface WordToken {
@@ -27,23 +30,17 @@ interface BundleScrambleClientProps {
   isLoggedIn: boolean;
 }
 
-const MAX_SCRAMBLE = 10;
-const TOKEN_EDGE_PUNCTUATION = /^[¡¿"'“”‘’()[\]{}.,!?;:]+|[¡¿"'“”‘’()[\]{}.,!?;:]+$/g;
-
 const copy = {
   ko: {
     back: '상세로 돌아가기',
     mode: 'Scramble',
-    prompt: '이 문장을 스페인어로 배열하세요',
     empty: '스크램블로 학습할 문장이 없습니다.',
-    choose: '아래에서 단어를 선택하세요',
     correct: '정답입니다!',
     wrong: '오답입니다.',
     prev: '이전',
     reset: '초기화',
     check: '정답 확인',
     next: '다음 문장',
-    skip: '건너뛰기',
     listen: '문장 다시 듣기',
     done: '스크램블 완료',
     doneDesc: (total: number) => `${total}개 문장을 모두 마쳤습니다.`,
@@ -53,16 +50,13 @@ const copy = {
   en: {
     back: 'Back to detail',
     mode: 'Scramble',
-    prompt: 'Arrange this sentence in Spanish',
     empty: 'No sentences for scramble.',
-    choose: 'Choose words below',
     correct: 'Correct!',
     wrong: 'Not quite.',
     prev: 'Prev',
     reset: 'Reset',
     check: 'Check',
     next: 'Next',
-    skip: 'Skip',
     listen: 'Listen again',
     done: 'Scramble complete',
     doneDesc: (total: number) => `You finished ${total} sentences.`,
@@ -78,7 +72,7 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   const [selectedWords, setSelectedWords] = useState<WordToken[]>([]);
   const [availableWords, setAvailableWords] = useState<WordToken[]>([]);
   const [hintSlots, setHintSlots] = useState<Map<number, WordToken>>(new Map());
-  const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
+  const [result, setResult] = useState<'correct' | 'wrong' | 'revealed' | null>(null);
   const [completedCount, setCompletedCount] = useState(initialIndex);
   const [isFinished, setIsFinished] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
@@ -87,7 +81,8 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   itemsRef.current = items;
 
   const currentItem = items[currentIndex];
-  const correctWords = useMemo(() => tokenize(currentItem?.sentence || ''), [currentItem]);
+  const question = useMemo(() => buildScrambleQuestion(currentItem?.sentence || '', currentItem?.proficiencyLevel), [currentItem]);
+  const correctWords = useMemo(() => question.tokens.map(token => token.text), [question]);
   const progressPercent = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
 
   const answerSlots = useMemo(() => {
@@ -106,27 +101,9 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   const initQuestion = useCallback((index: number) => {
     const item = itemsRef.current[index];
     if (!item) return;
-    const tokens = tokenize(item.sentence).map((word, tokenIndex) => ({ id: tokenIndex, text: word }));
-
-    if (tokens.length > MAX_SCRAMBLE) {
-      const scrambleIndices = new Set(shuffleArray(tokens.map((_, tokenIndex) => tokenIndex)).slice(0, MAX_SCRAMBLE));
-      const hints = new Map<number, WordToken>();
-      const scrambleTokens: WordToken[] = [];
-
-      tokens.forEach((token, tokenIndex) => {
-        if (scrambleIndices.has(tokenIndex)) {
-          scrambleTokens.push(token);
-        } else {
-          hints.set(tokenIndex, token);
-        }
-      });
-
-      setHintSlots(hints);
-      setAvailableWords(shuffleArray(scrambleTokens));
-    } else {
-      setHintSlots(new Map());
-      setAvailableWords(shuffleArray(tokens));
-    }
+    const layout = buildScrambleQuestion(item.sentence, item.proficiencyLevel);
+    setHintSlots(new Map(layout.fixedTokens.map(token => [token.id, token])));
+    setAvailableWords(shuffleArray(layout.selectableTokens));
 
     setSelectedWords([]);
     setResult(null);
@@ -178,20 +155,8 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   }, [currentItem]);
 
   const checkAnswer = () => {
-    const answer: string[] = [];
-    let userIndex = 0;
-    correctWords.forEach((_, slotIndex) => {
-      if (hintSlots.has(slotIndex)) {
-        answer.push(hintSlots.get(slotIndex)!.text);
-      } else if (userIndex < selectedWords.length) {
-        answer.push(selectedWords[userIndex].text);
-        userIndex++;
-      } else {
-        answer.push('');
-      }
-    });
-
-    const isCorrect = answer.join(' ') === correctWords.join(' ');
+    if (result || availableWords.length > 0) return;
+    const isCorrect = isScrambleAnswerCorrect(question, selectedWords);
     setResult(isCorrect ? 'correct' : 'wrong');
     if (isCorrect) {
       playCurrentAudio();
@@ -199,6 +164,12 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
     if (isLoggedIn) {
       recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
     }
+  };
+
+  const revealAnswer = () => {
+    if (result) return;
+    setResult('revealed');
+    if (isLoggedIn) recordPracticeResult(bundleId, currentItem.id, 'scramble', false);
   };
 
   const goPrev = () => {
@@ -265,7 +236,7 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
 
       <ScrambleQuestion
         eyebrow={`${currentIndex + 1} / ${items.length}`}
-        promptLabel={t.prompt}
+        promptLabel={getScrambleInstruction(question.grouped, language)}
         prompt={<h2 className="text-xl font-black leading-relaxed text-zinc-950 dark:text-zinc-50">{currentItem.translation}</h2>}
         answerSlots={
           answerSlots
@@ -300,12 +271,13 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
         availableTokens={availableWords.map((word) => ({ id: word.id, text: word.text }))}
         onSelectToken={(token: ScrambleToken) => selectWord({ id: Number(token.id), text: token.text })}
         isAnswered={Boolean(result)}
-        result={result}
-        emptyAnswerText={t.choose}
-        chooseText={t.choose}
+        result={result === 'revealed' ? null : result}
+        emptyAnswerText={getScrambleInstruction(question.grouped, language)}
+        chooseText={language === 'ko' ? '모두 배치했어요. 정답을 확인해보세요.' : 'All pieces are placed. Check your answer.'}
       />
 
-      {result && (
+      {result === 'revealed' && <ScrambleRevealedAnswer language={language} sentence={currentItem.sentence} translation={currentItem.translation} onPlay={currentItem.audioUrl ? playCurrentAudio : undefined} />}
+      {result && result !== 'revealed' && (
         <div className={`flex flex-wrap items-center justify-center gap-4 rounded-xl px-4 py-3 text-sm font-black ${result === 'correct' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-200'}`}>
           <CharacterAsset name={result === 'correct' ? 'correctbadge' : 'tryagainbadge'} alt="" size={96} className="!h-16 !w-16 sm:!h-20 sm:!w-20" unoptimized />
           {result === 'correct' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -330,6 +302,8 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
           )}
         </div>
       )}
+
+      {!result && <ScrambleRevealActions language={language} onReveal={revealAnswer} onSkip={goNext} />}
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="flex justify-start gap-1">
@@ -357,14 +331,12 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
             {t.next}
           </button>
         ) : (
-          <button onClick={checkAnswer} disabled={selectedWords.length === 0} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500">
+          <button onClick={checkAnswer} disabled={availableWords.length > 0 || selectedWords.length === 0} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.check}
           </button>
         )}
 
-        <button onClick={goNext} className="justify-self-end rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 transition hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
-          {t.skip} <SkipForward className="inline h-4 w-4" />
-        </button>
+
       </div>
     </div>
   );
@@ -381,13 +353,6 @@ function Empty({ bundleId, title, text, back }: { bundleId: string; title: strin
       </Link>
     </div>
   );
-}
-
-function tokenize(sentence: string) {
-  return sentence
-    .split(/\s+/)
-    .map((word) => word.replace(TOKEN_EDGE_PUNCTUATION, '').toLocaleLowerCase())
-    .filter(Boolean);
 }
 
 function shuffleArray<T>(values: T[]) {

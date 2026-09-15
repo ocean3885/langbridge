@@ -35,7 +35,7 @@ interface WordsReviewClientProps {
 const copy = {
   ko: {
     title: '단어 복습 세션',
-    description: '숙련도 레벨 1~4의 단어들을 복습하여 완벽히 마스터해 보세요.',
+    description: '단어를 오래 기억할 수 있도록 복습해보세요.',
     learningTitle: '새 단어 학습',
     learningDescription: '아직 시작하지 않은 단어를 다양한 방식으로 익혀보세요.',
     emptyTitle: '지금은 복습할 단어가 없어요!',
@@ -97,7 +97,7 @@ const copy = {
   },
   en: {
     title: 'Word Review Session',
-    description: 'Review words with proficiency level 1–4 to master them.',
+    description: 'Practice words to help them stick.',
     learningTitle: 'Learn New Words',
     learningDescription: 'Practice words you have not started yet in a variety of ways.',
     emptyTitle: 'Nothing to review right now!',
