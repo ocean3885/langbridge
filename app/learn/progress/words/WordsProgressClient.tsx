@@ -144,8 +144,7 @@ export default function WordsProgressClient({
           <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div>
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              <Link href="/learn/review/words?scope=unstarted" aria-disabled={initialData.summary.levels[0] === 0} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 text-sm font-bold ${initialData.summary.levels[0] ? 'border-[#3f9657] text-[#2f7d4a] hover:bg-[#eef8ef] dark:text-emerald-300' : 'pointer-events-none border-zinc-200 text-zinc-400 dark:border-zinc-700'}`}><BookOpen className="h-4 w-4" />{t.startLearning}{initialData.summary.levels[0] > 0 && ` (${initialData.summary.levels[0]})`}</Link>
+            <div className="flex">
               <Link href="/learn/review/words?returnTo=/learn/progress/words" aria-disabled={initialData.summary.due === 0} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-bold text-white ${initialData.summary.due ? 'bg-[#3f9657] hover:bg-[#2f7d4a]' : 'pointer-events-none bg-zinc-300 dark:bg-zinc-700'}`}><Play className="h-4 w-4" />{t.startReview}{initialData.summary.due > 0 && ` (${initialData.summary.due})`}</Link>
             </div>
           </div>

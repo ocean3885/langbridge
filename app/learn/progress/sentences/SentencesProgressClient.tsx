@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, BookOpen, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Clock3,
+  ArrowLeft, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Clock3,
   Filter, MessageSquareText, Play, Search, Target, Volume2, X,
 } from 'lucide-react';
 import ProgressMobileMenu from '../ProgressMobileMenu';
@@ -93,8 +93,7 @@ export default function SentencesProgressClient({ initialData, language }: { ini
             <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
-                <ActionLink href="/learn/review/sentences?scope=unstarted" enabled={initialData.summary.levels[0] > 0} secondary icon={BookOpen} label={`${t.startLearning}${initialData.summary.levels[0] ? ` (${initialData.summary.levels[0]})` : ''}`} />
+              <div className="flex">
                 <ActionLink href="/learn/review/sentences?returnTo=/learn/progress/sentences" enabled={initialData.summary.due > 0} icon={Play} label={`${t.startReview}${initialData.summary.due ? ` (${initialData.summary.due})` : ''}`} />
               </div>
             </div>
