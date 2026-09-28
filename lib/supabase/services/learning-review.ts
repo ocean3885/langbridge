@@ -19,6 +19,27 @@ export interface ReviewNeededSummary {
   nextReviewAt: string | null;
 }
 
+export interface ReviewSentenceWordMap {
+  id: number;
+  used_as: string | null;
+  word_id: number;
+  words: {
+    id: number;
+    word: string;
+    meaning_ko: unknown;
+    meaning_en: unknown;
+    pos?: string[] | null;
+    words_distractor?: Array<{ distractor: string; meaning_ko: unknown; meaning_en: unknown }>;
+  } | Array<{
+    id: number;
+    word: string;
+    meaning_ko: unknown;
+    meaning_en: unknown;
+    pos?: string[] | null;
+    words_distractor?: Array<{ distractor: string; meaning_ko: unknown; meaning_en: unknown }>;
+  }> | null;
+}
+
 export interface ReviewSentenceItem {
   id: number;
   sentence: string;
@@ -30,6 +51,7 @@ export interface ReviewSentenceItem {
   proficiency_level: number;
   incorrect_count: number;
   streak_count: number;
+  word_maps?: ReviewSentenceWordMap[];
 }
 
 export interface ReviewWordItem {
@@ -57,7 +79,9 @@ type Interaction = {
   last_reviewed_at: string | null;
   metadata: Record<string, unknown> | null;
 };
-type SentenceContent = Pick<ReviewSentenceItem, 'id' | 'sentence' | 'translation' | 'translation_en' | 'audio_url'>;
+type SentenceContent = Pick<ReviewSentenceItem, 'id' | 'sentence' | 'translation' | 'translation_en' | 'audio_url'> & {
+  word_sentence_map?: ReviewSentenceWordMap[] | null;
+};
 const reviewClock = cache(() => new Date());
 type Candidate<T> = { item: T; interaction: Interaction };
 
@@ -99,7 +123,7 @@ const sentenceCatalog = cache(async (userId: string) => {
   const [interactions, allItemHistory, allBundleHistory] = await Promise.all([
     readAll<Interaction & { sentence_id: number; sentences: SentenceContent | SentenceContent[] | null }>((from, to) => db
       .from('user_sentence_interactions')
-      .select('id, sentence_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, sentences(id, sentence, translation, translation_en, audio_url)')
+      .select('id, sentence_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, sentences(id, sentence, translation, translation_en, audio_url, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en))))')
       .eq('user_id', userId).gte('proficiency_level', 0).lt('proficiency_level', 5).order('id').range(from, to)),
     readAll<{ id: string; bundle_id: string; bundle_item_id: string; last_practiced_at: string | null; last_played_at: string | null }>((from, to) => db
       .from('user_bundle_item_interactions').select('id, bundle_id, bundle_item_id, last_practiced_at, last_played_at')
@@ -154,6 +178,7 @@ const sentenceCatalog = cache(async (userId: string) => {
       translation_en: sentence.translation_en?.trim() || translation,
       audio_url: sentence.audio_url || null, bundle_id: item.bundle_id, bundle_item_id: item.id,
       proficiency_level: row.proficiency_level, incorrect_count: row.incorrect_count, streak_count: row.streak_count,
+      word_maps: Array.isArray(sentence.word_sentence_map) ? sentence.word_sentence_map : [],
     } });
   }
   return { candidates: prioritize(candidates), now: reviewClock() };

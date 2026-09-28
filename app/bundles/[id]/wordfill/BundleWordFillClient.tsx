@@ -13,7 +13,7 @@ interface OptionData {
   meaning: string;
 }
 
-interface WordFillItem {
+export interface WordFillItem {
   id: string; // bundle_item_id
   sentence: string;
   translation: string;
@@ -25,8 +25,8 @@ interface WordFillItem {
   distractors: OptionData[]; // Incorrect words from words_distractor
 }
 
-interface BundleWordFillClientProps {
-  bundleId: string;
+export interface BundleWordFillClientProps {
+  bundleId?: string;
   title: string;
   items: WordFillItem[];
   optionItems: WordFillItem[];
@@ -34,6 +34,11 @@ interface BundleWordFillClientProps {
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
+  backHref?: string;
+  onBack?: () => void;
+  onRecordResult?: (itemId: string, isCorrect: boolean, wordId: number) => void;
+  onRecordCurrentItem?: (itemId: string) => void;
+  headerEyebrow?: string;
 }
 
 const copy = {
@@ -92,6 +97,11 @@ export default function BundleWordFillClient({
   language,
   initialItemId = null,
   isLoggedIn,
+  backHref,
+  onBack,
+  onRecordResult,
+  onRecordCurrentItem,
+  headerEyebrow,
 }: BundleWordFillClientProps) {
   const t = copy[language] || copy.ko;
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
@@ -166,8 +176,12 @@ export default function BundleWordFillClient({
   useEffect(() => {
     if (!isLoggedIn) return;
     if (!current) return;
-    recordCurrentWordFillItem(bundleId, current.id);
-  }, [bundleId, current, isLoggedIn]);
+    if (onRecordCurrentItem) {
+      onRecordCurrentItem(current.id);
+    } else if (bundleId) {
+      recordCurrentWordFillItem(bundleId, current.id);
+    }
+  }, [bundleId, current, isLoggedIn, onRecordCurrentItem]);
 
   useEffect(() => {
     setMounted(true);
@@ -189,7 +203,11 @@ export default function BundleWordFillClient({
       setScore((value) => value + 1);
     }
     if (isLoggedIn) {
-      recordPracticeResult(bundleId, current.id, 'wordfill', answerIsCorrect, current.wordId);
+      if (onRecordResult) {
+        onRecordResult(current.id, answerIsCorrect, current.wordId);
+      } else if (bundleId) {
+        recordPracticeResult(bundleId, current.id, 'wordfill', answerIsCorrect, current.wordId);
+      }
     }
     playSentenceAudio(current.audioUrl);
   };
@@ -212,23 +230,35 @@ export default function BundleWordFillClient({
     setIsWordInfoOpen(false);
   };
 
+  const backLink = backHref || (bundleId ? `/bundles/${bundleId}/wordfill` : '/bundles');
+
   if (!current) {
-    return <Empty bundleId={bundleId} title={title} text={t.empty} back={t.back} />;
+    return <Empty bundleId={bundleId} backHref={backLink} title={title} text={t.empty} back={t.back} />;
   }
 
   if (finished) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
-        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
         <h1 className="text-3xl font-bold text-zinc-950 dark:text-zinc-50">{t.done}</h1>
         <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
         <div className="flex gap-2">
-          <Link
-            href={`/bundles/${bundleId}/wordfill`}
-            className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            {t.chooseSet}
-          </Link>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </button>
+          ) : (
+            <Link
+              href={backLink}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </Link>
+          )}
           <button
             onClick={retry}
             className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
@@ -243,14 +273,24 @@ export default function BundleWordFillClient({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link
-          href={`/bundles/${bundleId}/wordfill`}
-          className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        ) : (
+          <Link
+            href={backLink}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        )}
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
           <h1 className="truncate text-lg font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
@@ -381,13 +421,14 @@ export default function BundleWordFillClient({
   );
 }
 
-function Empty({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
+function Empty({ bundleId, backHref, title, text, back }: { bundleId?: string; backHref?: string; title: string; text: string; back: string }) {
+  const targetHref = backHref || (bundleId ? `/bundles/${bundleId}` : '/bundles');
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
       <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Word Fill</p>
       <h1 className="text-2xl font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
-      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
+      <Link href={targetHref} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}
       </Link>
     </div>

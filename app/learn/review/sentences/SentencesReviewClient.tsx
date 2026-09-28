@@ -1,17 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Volume2, RotateCcw } from 'lucide-react';
-import { ScrambleRevealActions, ScrambleRevealedAnswer } from '@/components/practice/ScrambleReveal';
-import { CharacterAsset } from '@/components/assets/CharacterAsset';
-import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
+import { ArrowLeft } from 'lucide-react';
 import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
-import { PracticeScorePills } from '@/components/practice/PracticeScorePills';
-import { buildScrambleQuestion, getScrambleInstruction, isScrambleAnswerCorrect, type AdaptiveScrambleToken } from '@/lib/practice/scramble';
-import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/learning-review';
 import { getPublicUrl } from '@/lib/utils';
+import { formatWordMeaning } from '@/lib/word-meaning';
+import BundleQuizClient, { type QuizItem } from '@/app/bundles/[id]/quiz/BundleQuizClient';
+import BundleScrambleClient, { type ScrambleItem } from '@/app/bundles/[id]/scramble/BundleScrambleClient';
+import BundleFlashcardsClient, { type FlashcardItem } from '@/app/bundles/[id]/flashcards/BundleFlashcardsClient';
+import BundleWordFillClient, { type WordFillItem } from '@/app/bundles/[id]/wordfill/BundleWordFillClient';
 
 interface SentencesReviewClientProps {
   initialItems: ReviewSentenceItem[];
@@ -42,20 +41,10 @@ const copy = {
     setupMode: '복습 방식 선택',
     modeQuiz: 'Sentence Quiz',
     modeScramble: '스크램블 (단어 배열)',
-    modeMixed: '두 방식 섞어서',
+    modeWordfill: '단어 채우기 (Word Fill)',
+    modeFlashcards: '플래시카드',
+    modeMixed: '두 방식 섞어서 (Quiz + Scramble)',
     startBtn: '시작하기',
-    checkBtn: '확인',
-    nextBtn: '다음 문제',
-    finishBtn: '완료',
-    correct: '정답입니다!',
-    wrong: '다시 확인해보세요.',
-    correctAnswer: '정답:',
-    doneTitle: '복습을 완료했습니다!',
-    learningDoneTitle: '새 문장 학습을 완료했습니다!',
-    doneScore: (score: number, total: number) => `총 ${total}문제 중 ${score}문제를 맞혔습니다!`,
-    restartBtn: '다시 복습하기',
-    learningRestartBtn: '다시 학습하기',
-    continueWithWords: '단어 복습 계속',
     itemsLeft: (count: number) => `전체 복습 후보 문장: ${count}개`,
     learningItemsLeft: (count: number) => `학습을 시작할 문장: ${count}개`,
   },
@@ -78,26 +67,22 @@ const copy = {
     setupMode: 'Select review mode',
     modeQuiz: 'Sentence Quiz',
     modeScramble: 'Scramble',
-    modeMixed: 'Mixed Modes',
+    modeWordfill: 'Word Fill',
+    modeFlashcards: 'Flashcards',
+    modeMixed: 'Mixed Modes (Quiz + Scramble)',
     startBtn: 'Start Review',
-    checkBtn: 'Check',
-    nextBtn: 'Next',
-    finishBtn: 'Finish',
-    correct: 'Correct!',
-    wrong: 'Try again.',
-    correctAnswer: 'Correct answer:',
-    doneTitle: 'Review Complete!',
-    learningDoneTitle: 'New Sentence Learning Complete!',
-    doneScore: (score: number, total: number) => `You answered ${score} of ${total} correctly!`,
-    restartBtn: 'Review Again',
-    learningRestartBtn: 'Learn Again',
-    continueWithWords: 'Continue with words',
     itemsLeft: (count: number) => `${count} sentence review candidates`,
     learningItemsLeft: (count: number) => `${count} sentences ready to learn`,
   },
 };
 
-export default function SentencesReviewClient({ initialItems, availableReviewCount, language, sessionKind = 'review', returnTo, nextTo }: SentencesReviewClientProps) {
+export default function SentencesReviewClient({
+  initialItems,
+  availableReviewCount,
+  language,
+  sessionKind = 'review',
+  returnTo,
+}: SentencesReviewClientProps) {
   const t = copy[language];
   const isLearning = sessionKind === 'learning';
   const returnHref = isLearning ? '/learn/progress/sentences' : returnTo || '/learn/review';
@@ -105,161 +90,35 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 
-  // State
-  const [step, setStep] = useState<'setup' | 'practice' | 'finished'>('setup');
-  const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => initialItems.length >= 10 ? 10 : 'all');
-  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'mixed'>('mixed');
+  const [step, setStep] = useState<'setup' | 'practice'>('setup');
+  const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => (initialItems.length >= 10 ? 10 : 'all'));
+  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'flashcards' | 'wordfill' | 'mixed'>('mixed');
   const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [selectedWords, setSelectedWords] = useState<AdaptiveScrambleToken[]>([]);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [isAnswered, setIsAnswered] = useState<boolean>(false);
-  const [revealed, setRevealed] = useState(false);
-  const [skippedCount, setSkippedCount] = useState(0);
-  const [score, setScore] = useState<number>(0);
-  const [scramblePool, setScramblePool] = useState<AdaptiveScrambleToken[]>([]);
-  const [multipleChoiceOptions, setMultipleChoiceOptions] = useState<string[]>([]);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const showAllCountOption = availableReviewCount <= initialItems.length;
+  const sessionTitle = isLearning ? t.learningTitle : t.title;
 
-  const currentItem = activeItems[currentIndex];
-  const scrambleQuestion = useMemo(() => buildScrambleQuestion(currentItem?.sentence || '', currentItem?.proficiency_level), [currentItem]);
-  const progress = activeItems.length > 0 ? Math.round(((currentIndex) / activeItems.length) * 100) : 0;
-
-  // Sound play helper
-  const playAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch((err) => console.error('Audio play error:', err));
-    }
-  };
-
-  // Determine mode per item for mixed mode
-  const currentItemMode = useMemo(() => {
-    if (!currentItem) return 'quiz';
-    if (selectedMode === 'mixed') {
-      return currentIndex % 2 === 0 ? 'scramble' : 'quiz';
-    }
-    return selectedMode;
-  }, [selectedMode, currentIndex, currentItem]);
-
-  // Setup current item options or scramble pool
-  useEffect(() => {
-    if (!currentItem) return;
-
-    if (currentItemMode === 'scramble') {
-      setScramblePool(shuffle(scrambleQuestion.selectableTokens));
-      setSelectedWords([]);
-    } else {
-      // Multiple Choice options
-      const distractors = buildDistractors(currentItem, initialItems, isEnglish);
-      setMultipleChoiceOptions(distractors);
-      setSelectedOption(null);
-    }
-    setIsCorrect(null);
-    setRevealed(false);
-    setIsAnswered(false);
-  }, [currentItem, currentItemMode, initialItems, isEnglish, scrambleQuestion]);
-
-  // Audio loading when currentItem changes
-  const audioSrc = currentItem?.audio_url ? getPublicUrl(currentItem.audio_url) : null;
-
-  // Handle start session
   const startSession = () => {
     const shuffled = shuffle(initialItems);
     const count = selectedCount === 'all' ? shuffled.length : Math.min(selectedCount, shuffled.length);
     setActiveItems(shuffled.slice(0, count));
-    setCurrentIndex(0);
-    setScore(0);
-    setSkippedCount(0);
-    setIsCorrect(null);
-    setRevealed(false);
-    setIsAnswered(false);
-    setSelectedOption(null);
-    setSelectedWords([]);
     setStep('practice');
   };
 
-  // Evaluate Scramble
-  const checkScramble = () => {
-    if (isAnswered || scramblePool.length > 0) return;
-    const answerIsCorrect = isScrambleAnswerCorrect(scrambleQuestion, selectedWords);
-
-    setIsCorrect(answerIsCorrect);
-    setIsAnswered(true);
-    if (answerIsCorrect) {
-      setScore((s) => s + 1);
-    }
-    // Record to database
-    recordPracticeResult(currentItem.bundle_id, currentItem.bundle_item_id, 'scramble', answerIsCorrect);
-    // Play sound automatically on correct/incorrect
-    setTimeout(() => {
-      playAudio();
-    }, 200);
-  };
-
-  // Evaluate Multiple Choice
-  const selectOption = (option: string) => {
-    if (isAnswered) return;
-    setSelectedOption(option);
-    const correctTrans = (isEnglish ? currentItem.translation_en : currentItem.translation) || currentItem.translation;
-    const answerIsCorrect = option === correctTrans;
-
-    setIsCorrect(answerIsCorrect);
-    setIsAnswered(true);
-    if (answerIsCorrect) {
-      setScore((s) => s + 1);
-    }
-    // Record to database
-    recordPracticeResult(currentItem.bundle_id, currentItem.bundle_item_id, 'quiz', answerIsCorrect);
-    // Play sound automatically
-    setTimeout(() => {
-      playAudio();
-    }, 200);
-  };
-
-  const revealAnswer = () => {
-    if (isAnswered) return;
-    setRevealed(true);
-    setIsCorrect(false);
-    setIsAnswered(true);
-    recordPracticeResult(currentItem.bundle_id, currentItem.bundle_item_id, 'scramble', false);
-  };
-
-  // Next Question
-  const goNext = () => {
-    if (currentIndex + 1 >= activeItems.length) {
-      setStep('finished');
-      return;
-    }
-    setIsCorrect(null);
-    setRevealed(false);
-    setIsAnswered(false);
-    setSelectedOption(null);
-    setSelectedWords([]);
-    setCurrentIndex((prev) => prev + 1);
-  };
-
   const restart = () => {
-    setIsCorrect(null);
-    setRevealed(false);
-    setIsAnswered(false);
-    setSelectedOption(null);
-    setSelectedWords([]);
-    setCurrentIndex(0);
     setStep('setup');
   };
 
-  // Empty state
+  // 1. Empty State
   if (initialItems.length === 0) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
-        <CharacterAsset name="tryagainbadge" size={128} />
-        <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{isLearning ? t.learningEmptyTitle : t.emptyTitle}</h1>
-        <p className="text-zinc-500 dark:text-zinc-400 max-w-md leading-relaxed">{isLearning ? t.learningEmptyDesc : t.emptyDesc}</p>
-        <Link href={returnHref} className="inline-flex items-center gap-2 rounded-lg bg-[#57985a] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#477f4a]">
+      <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 px-4 text-center">
+        <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{isLearning ? t.learningEmptyTitle : t.emptyTitle}</h1>
+        <p className="text-base font-semibold text-zinc-600 dark:text-zinc-400">{isLearning ? t.learningEmptyDesc : t.emptyDesc}</p>
+        <Link
+          href={returnHref}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#3f8d54] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
+        >
           <ArrowLeft className="h-4 w-4" />
           {returnLabel}
         </Link>
@@ -267,63 +126,46 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
     );
   }
 
-  // Finished state
-  if (step === 'finished') {
-    return (
-      <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-6 text-center px-4">
-        <h1 className={`${headingClass} text-4xl dark:text-zinc-100`}>{isLearning ? t.learningDoneTitle : t.doneTitle}</h1>
-        
-        {/* Only character badge is shown as per user request */}
-        <div className="my-6">
-          <CharacterAsset name="completebadge" size={200} />
-        </div>
-
-        <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{t.doneScore(score, activeItems.length - skippedCount)}</p>
-        {skippedCount > 0 && <p className="text-sm text-zinc-500">{language === 'ko' ? `건너뛴 문제: ${skippedCount}개` : `Skipped: ${skippedCount}`}</p>}
-
-        <div className="flex flex-wrap justify-center gap-3 mt-4">
-          {nextTo && !isLearning && <Link href={nextTo} className="inline-flex items-center gap-2 rounded-lg bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">{t.continueWithWords}<ChevronRight className="h-4 w-4" /></Link>}
-          <Link href={returnHref} className="rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            {returnLabel}
-          </Link>
-          <button onClick={restart} className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            <RotateCcw className="h-4 w-4" />
-            {isLearning ? t.learningRestartBtn : t.restartBtn}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Setup state
+  // 2. Setup State
   if (step === 'setup') {
     return (
-      <div className="mx-auto max-w-xl px-4 py-8">
-        <header className="mb-8 flex items-center gap-4">
-          <Link href={returnHref} className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <ArrowLeft className="h-5 w-5" />
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <header className="mb-8">
+          <Link
+            href={returnHref}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {returnLabel}
           </Link>
-          <div>
-            <h1 className={`${headingClass} text-3xl dark:text-zinc-100`}>{isLearning ? t.learningTitle : t.title}</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{isLearning ? t.learningDescription : t.description}</p>
-          </div>
+          <h1 className={`text-2xl font-black text-zinc-950 dark:text-zinc-50 sm:text-3xl ${headingClass}`}>
+            {sessionTitle}
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+            {isLearning ? t.learningDescription : t.description}
+          </p>
         </header>
 
-        <div className="space-y-6 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-xl font-bold dark:text-zinc-100">{isLearning ? t.learningSetupTitle : t.setupTitle}</h2>
-          
-          {/* Sentence count */}
+        <div className="space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-lg font-black text-zinc-950 dark:text-zinc-50">
+            {isLearning ? t.learningSetupTitle : t.setupTitle}
+          </h2>
+
+          {/* Count Selection */}
           <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#3f8d54] dark:text-emerald-400">
+                {isLearning ? t.learningItemsLeft(availableReviewCount) : t.itemsLeft(availableReviewCount)}
+              </span>
+            </div>
             <PracticeCountSelector
               label={isLearning ? t.learningSetupCount : t.setupCount}
-              totalCount={initialItems.length}
               selectedCount={selectedCount}
               onSelect={setSelectedCount}
-              options={[5, 10, 20, 40]}
+              totalCount={initialItems.length}
               showAll={showAllCountOption}
               allLabel={t.allCount}
             />
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">{isLearning ? t.learningItemsLeft(availableReviewCount) : t.itemsLeft(availableReviewCount)}</p>
           </div>
 
           {/* Mode Selection */}
@@ -333,6 +175,8 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
               {[
                 { id: 'quiz', label: t.modeQuiz },
                 { id: 'scramble', label: t.modeScramble },
+                { id: 'flashcards', label: t.modeFlashcards },
+                { id: 'wordfill', label: t.modeWordfill },
                 { id: 'mixed', label: t.modeMixed },
               ].map((mode) => {
                 const active = selectedMode === mode.id;
@@ -364,137 +208,224 @@ export default function SentencesReviewClient({ initialItems, availableReviewCou
     );
   }
 
-  // Active Practice state
-  const correctTranslation = (isEnglish ? currentItem?.translation_en : currentItem?.translation) || currentItem?.translation || '';
-  const answeredCount = currentIndex - skippedCount + (isAnswered ? 1 : 0);
-  const incorrectCount = Math.max(0, answeredCount - score);
+  // 3. Practice State: Route to unified bundle practice clients
+
+  // Mode: Sentence Quiz
+  if (selectedMode === 'quiz') {
+    const quizItems: QuizItem[] = activeItems.map((item) => ({
+      id: item.bundle_item_id,
+      sentence: item.sentence,
+      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+    }));
+
+    const allOptionItems: QuizItem[] = initialItems.map((item) => ({
+      id: item.bundle_item_id,
+      sentence: item.sentence,
+      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+    }));
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <BundleQuizClient
+          title={sessionTitle}
+          headerEyebrow={t.modeQuiz}
+          items={quizItems}
+          optionItems={allOptionItems}
+          language={language}
+          isLoggedIn={true}
+          onBack={restart}
+          onRecordResult={(bundleItemId, isCorrect) => {
+            const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
+            if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'quiz', isCorrect);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Mode: Scramble
+  if (selectedMode === 'scramble') {
+    const scrambleItems: ScrambleItem[] = activeItems.map((item) => ({
+      id: item.bundle_item_id,
+      sentence: item.sentence,
+      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+      proficiencyLevel: item.proficiency_level,
+    }));
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <BundleScrambleClient
+          title={sessionTitle}
+          headerEyebrow={t.modeScramble}
+          items={scrambleItems}
+          language={language}
+          isLoggedIn={true}
+          onBack={restart}
+          onRecordResult={(bundleItemId, isCorrect) => {
+            const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
+            if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'scramble', isCorrect);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Mode: Flashcards
+  if (selectedMode === 'flashcards') {
+    const flashcardItems: FlashcardItem[] = activeItems.map((item) => ({
+      id: item.bundle_item_id,
+      sentence: item.sentence,
+      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+    }));
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <BundleFlashcardsClient
+          title={sessionTitle}
+          headerEyebrow={t.modeFlashcards}
+          items={flashcardItems}
+          language={language}
+          isLoggedIn={true}
+          onBack={restart}
+        />
+      </div>
+    );
+  }
+
+  // Mode: WordFill
+  if (selectedMode === 'wordfill') {
+    const buildWordFillItem = (item: ReviewSentenceItem): WordFillItem => {
+      const maps = item.word_maps || [];
+      const candidates = maps
+        .map((m) => {
+          const word = Array.isArray(m.words) ? m.words[0] : m.words;
+          return {
+            mapId: m.id,
+            used_as: m.used_as,
+            word_id: m.word_id,
+            words: word,
+          };
+        })
+        .filter((m) => m.words && m.words.word);
+
+      let targetWord = '';
+      let targetMeaning = '';
+      let usedAs = '';
+      let wordId = 0;
+      let distractors: Array<{ word: string; meaning: string }> = [];
+
+      if (candidates.length > 0) {
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        targetWord = chosen.words!.word;
+        targetMeaning = formatWordMeaning(isEnglish ? chosen.words!.meaning_en : chosen.words!.meaning_ko) || '';
+        usedAs = chosen.used_as || targetWord;
+        wordId = chosen.word_id;
+        distractors = (chosen.words!.words_distractor || [])
+          .map((d) => ({
+            word: d.distractor,
+            meaning: formatWordMeaning(isEnglish ? d.meaning_en : d.meaning_ko) || '',
+          }))
+          .filter(
+            (d) =>
+              d.word.toLowerCase().trim() !== targetWord.toLowerCase().trim() &&
+              d.word.toLowerCase().trim() !== usedAs.toLowerCase().trim()
+          );
+      } else {
+        const wordsInSentence = item.sentence.replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ\s]/g, '').split(/\s+/).filter((w) => w.length >= 3);
+        usedAs = wordsInSentence[0] || item.sentence.split(' ')[0] || '';
+        targetWord = usedAs;
+        targetMeaning = item.translation;
+      }
+
+      return {
+        id: item.bundle_item_id,
+        sentence: item.sentence,
+        translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+        audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+        targetWord,
+        targetMeaning,
+        usedAs,
+        wordId,
+        distractors,
+      };
+    };
+
+    const wordFillItems = activeItems.map(buildWordFillItem);
+    const allOptionItems = initialItems.map(buildWordFillItem);
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <BundleWordFillClient
+          title={sessionTitle}
+          headerEyebrow={t.modeWordfill}
+          items={wordFillItems}
+          optionItems={allOptionItems}
+          wordUsageDetails={[]}
+          language={language}
+          isLoggedIn={true}
+          onBack={restart}
+          onRecordResult={(bundleItemId, isCorrect, wordId) => {
+            const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
+            if (item) {
+              void fetch('/api/bundle-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bundle_id: item.bundle_id,
+                  bundle_item_id: item.bundle_item_id,
+                  practice_mode: 'wordfill',
+                  is_correct: isCorrect,
+                  word_id: wordId || undefined,
+                }),
+              });
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Mode: Mixed (Quiz for half, Scramble for half)
+  const quizSubset = activeItems.filter((_, idx) => idx % 2 === 0);
+  const scrambleSubset = activeItems.filter((_, idx) => idx % 2 !== 0);
+
+  const quizItems: QuizItem[] = (quizSubset.length > 0 ? quizSubset : activeItems).map((item) => ({
+    id: item.bundle_item_id,
+    sentence: item.sentence,
+    translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+  }));
+
+  const allOptionItems: QuizItem[] = initialItems.map((item) => ({
+    id: item.bundle_item_id,
+    sentence: item.sentence,
+    translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
+    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+  }));
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      {/* Audio element */}
-      {audioSrc && <audio ref={audioRef} src={audioSrc} />}
-
-      <header className="mb-6 flex items-center justify-between">
-        <button onClick={restart} className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">{currentIndex + 1} / {activeItems.length}</span>
-        <PracticeScorePills correct={score} incorrect={incorrectCount} />
-      </header>
-
-      {/* Progress Bar */}
-      <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-        <div className="h-full bg-[#3f8d54] transition-all dark:bg-emerald-500" style={{ width: `${progress}%` }} />
-      </div>
-
-      {/* Quiz Card */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        {currentItemMode === 'quiz' ? (
-          <MultipleChoiceQuestion
-            eyebrow={t.modeQuiz}
-            question={<h2 className="text-2xl font-bold leading-relaxed dark:text-zinc-50">{currentItem.sentence}</h2>}
-            options={multipleChoiceOptions}
-            selectedOption={selectedOption}
-            correctOption={correctTranslation}
-            isAnswered={isAnswered}
-            onSelect={selectOption}
-            audioAction={audioSrc ? (
-              <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
-                <Volume2 className="h-5 w-5" />
-              </button>
-            ) : null}
-            variant="embedded"
-          />
-        ) : (
-          <>
-            <ScrambleQuestion
-              eyebrow={t.modeScramble}
-              promptLabel={getScrambleInstruction(scrambleQuestion.grouped, language)}
-              prompt={<h2 className="text-2xl font-bold leading-relaxed dark:text-zinc-50">{correctTranslation}</h2>}
-              answerSlots={[
-                ...scrambleQuestion.fixedTokens.map(token => ({ key: `hint-${token.id}`, text: token.text, type: 'hint' as const })),
-                ...selectedWords.map(word => ({
-                  key: `selected-${word.id}`,
-                  text: word.text,
-                  type: 'selected' as const,
-                  onRemove: () => {
-                    if (isAnswered) return;
-                    setSelectedWords(prev => prev.filter(token => token.id !== word.id));
-                    setScramblePool(prev => prev.some(token => token.id === word.id) ? prev : [...prev, word]);
-                  },
-                })),
-              ]}
-              availableTokens={scramblePool}
-              onSelectToken={(token: ScrambleToken) => {
-                if (isAnswered) return;
-                const word = { id: Number(token.id), text: token.text };
-                setSelectedWords(prev => prev.some(item => item.id === word.id) ? prev : [...prev, word]);
-                setScramblePool(prev => prev.filter(item => item.id !== word.id));
-              }}
-              isAnswered={isAnswered}
-              result={isAnswered && !revealed ? (isCorrect ? 'correct' : 'wrong') : null}
-              emptyAnswerText={isEnglish ? 'Build your answer here.' : '여기에 문장을 완성하세요.'}
-              chooseText={language === 'ko' ? '모두 배치했어요. 정답을 확인해보세요.' : 'All pieces are placed. Check your answer.'}
-              audioAction={isAnswered && audioSrc ? (
-                <button onClick={playAudio} className="rounded-full p-2 text-zinc-600 hover:bg-[#f4fbf6] dark:text-zinc-300 dark:hover:bg-zinc-800">
-                  <Volume2 className="h-5 w-5" />
-                </button>
-              ) : null}
-              variant="embedded"
-            />
-            {!isAnswered && <div className="mt-5"><ScrambleRevealActions language={language} onReveal={revealAnswer} onSkip={() => { if (isAnswered) return; setSkippedCount(value => value + 1); goNext(); }} /></div>}
-            {!isAnswered && (
-              <div className="mt-8 flex justify-end">
-                <button
-                  disabled={scramblePool.length > 0 || selectedWords.length === 0}
-                  onClick={checkScramble}
-                  className="rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                >
-                  {t.checkBtn}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Answer feedback panel */}
-      {revealed && <div className="mt-6"><ScrambleRevealedAnswer language={language} sentence={currentItem.sentence} translation={correctTranslation} onPlay={audioSrc ? playAudio : undefined} /><button onClick={goNext} className="mt-4 ml-auto block rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white">{currentIndex + 1 >= activeItems.length ? t.finishBtn : t.nextBtn}</button></div>}
-      {isAnswered && !revealed && (
-        <div className={`mt-6 flex flex-col gap-4 rounded-2xl p-5 border ${
-          isCorrect
-            ? 'border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-200'
-            : 'border-red-200 bg-red-50/80 text-red-800 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-200'
-        }`}>
-          <div className="flex items-center gap-4">
-            <CharacterAsset
-              name={isCorrect ? 'correctbadge' : 'tryagainbadge'}
-              size={72}
-            />
-            <div>
-              <h3 className="text-lg font-bold">{isCorrect ? t.correct : t.wrong}</h3>
-              <p className="mt-1 text-sm font-bold select-all">
-                {isCorrect ? currentItem.sentence : `${t.correctAnswer} ${currentItem.sentence}`}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              onClick={goNext}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#3f8d54] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
-            >
-              {currentIndex + 1 >= activeItems.length ? t.finishBtn : t.nextBtn}
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      <BundleQuizClient
+        title={sessionTitle}
+        headerEyebrow={t.modeMixed}
+        items={quizItems}
+        optionItems={allOptionItems}
+        language={language}
+        isLoggedIn={true}
+        onBack={restart}
+        onRecordResult={(bundleItemId, isCorrect) => {
+          const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
+          if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'quiz', isCorrect);
+        }}
+      />
     </div>
   );
 }
 
-// Utility Shuffling Function
 function shuffle<T>(array: T[]): T[] {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -508,35 +439,6 @@ function getReviewHeadingClass(language: 'ko' | 'en') {
   return language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold';
 }
 
-// Distractor Builder
-function buildDistractors(currentItem: ReviewSentenceItem, allItems: ReviewSentenceItem[], isEnglish: boolean): string[] {
-  const getTranslation = (item: ReviewSentenceItem) =>
-    (isEnglish ? item.translation_en : item.translation) || item.translation || '';
-  const currentTrans = getTranslation(currentItem);
-  const uniqueTranslations = Array.from(
-    new Set(
-      allItems
-        .filter((item) => item.id !== currentItem.id)
-        .map(getTranslation)
-        .filter(Boolean)
-    )
-  );
-  
-  const shuffled = shuffle(uniqueTranslations).slice(0, 3);
-  const fallbacks = isEnglish
-    ? ['Good morning!', 'How are you?', 'Where is the library?', 'Nice to meet you.', 'I would like a coffee.']
-    : ['좋은 아침입니다!', '어떻게 지내세요?', '도서관이 어디에 있나요?', '만나서 반갑습니다.', '커피 한 잔 주세요.'];
-
-  while (shuffled.length < 3) {
-    const fb = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-    if (!shuffled.includes(fb) && fb !== currentTrans) {
-      shuffled.push(fb);
-    }
-  }
-  return shuffle([currentTrans, ...shuffled]);
-}
-
-// Record practice progress via client fetch to bundle-progress API
 function recordPracticeResult(bundleId: string, bundleItemId: string, mode: 'quiz' | 'scramble', isCorrect: boolean) {
   void fetch('/api/bundle-progress', {
     method: 'POST',

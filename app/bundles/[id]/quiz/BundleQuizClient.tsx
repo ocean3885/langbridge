@@ -6,21 +6,27 @@ import { ArrowLeft, Check, ChevronRight, Volume2, X } from 'lucide-react';
 import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { MultipleChoiceQuestion } from '@/components/practice/MultipleChoiceQuestion';
 
-interface QuizItem {
+export interface QuizItem {
   id: string;
   sentence: string;
   translation: string;
   audioUrl: string | null;
 }
 
-interface BundleQuizClientProps {
-  bundleId: string;
+export interface BundleQuizClientProps {
+  bundleId?: string;
   title: string;
   items: QuizItem[];
   optionItems?: QuizItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
+  backHref?: string;
+  onBack?: () => void;
+  onRecordResult?: (itemId: string, isCorrect: boolean) => void;
+  onRecordCurrentItem?: (itemId: string) => void;
+  onFinish?: (score: number, total: number) => void;
+  headerEyebrow?: string;
 }
 
 const copy = {
@@ -56,7 +62,21 @@ const copy = {
   },
 };
 
-export default function BundleQuizClient({ bundleId, title, items, optionItems = items, language, initialItemId = null, isLoggedIn }: BundleQuizClientProps) {
+export default function BundleQuizClient({
+  bundleId,
+  title,
+  items,
+  optionItems = items,
+  language,
+  initialItemId = null,
+  isLoggedIn,
+  backHref,
+  onBack,
+  onRecordResult,
+  onRecordCurrentItem,
+  onFinish,
+  headerEyebrow,
+}: BundleQuizClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
@@ -87,8 +107,12 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   useEffect(() => {
     if (!isLoggedIn) return;
     if (!current) return;
-    recordCurrentQuizItem(bundleId, current.id);
-  }, [bundleId, current, isLoggedIn]);
+    if (onRecordCurrentItem) {
+      onRecordCurrentItem(current.id);
+    } else if (bundleId) {
+      recordCurrentQuizItem(bundleId, current.id);
+    }
+  }, [bundleId, current, isLoggedIn, onRecordCurrentItem]);
 
   useEffect(() => {
     setIsAudioPlaying(false);
@@ -122,22 +146,34 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
     return () => window.clearTimeout(timer);
   }, [current, playCurrentAudio]);
 
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
   const choose = (option: string) => {
     if (selected) return;
     setSelected(option);
     const answerIsCorrect = option === current.translation;
+    const newScore = answerIsCorrect ? score + 1 : score;
     if (answerIsCorrect) {
-      setScore((value) => value + 1);
+      setScore(newScore);
       playCurrentAudio();
     }
     if (isLoggedIn) {
-      recordPracticeResult(bundleId, current.id, 'quiz', answerIsCorrect);
+      if (onRecordResult) {
+        onRecordResult(current.id, answerIsCorrect);
+      } else if (bundleId) {
+        recordPracticeResult(bundleId, current.id, 'quiz', answerIsCorrect);
+      }
     }
   };
 
   const goNext = () => {
     if (index + 1 >= items.length) {
       setFinished(true);
+      if (onFinish) onFinish(score, items.length);
       return;
     }
     setIndex((value) => value + 1);
@@ -151,20 +187,35 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
     setFinished(false);
   };
 
+  const backLink = backHref || (bundleId ? `/bundles/${bundleId}/quiz` : '/bundles');
+
   if (!current) {
-    return <Empty bundleId={bundleId} title={title} text={t.empty} back={t.back} />;
+    return <Empty bundleId={bundleId} backHref={backLink} title={title} text={t.empty} back={t.back} />;
   }
 
   if (finished) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
-        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
         <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{t.done}</h1>
         <p className="text-lg font-black text-zinc-700 dark:text-zinc-300">{t.score(score, items.length)}</p>
         <div className="flex gap-2">
-          <Link href={`/bundles/${bundleId}/quiz`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            {t.chooseSet}
-          </Link>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </button>
+          ) : (
+            <Link
+              href={backLink}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </Link>
+          )}
           <button onClick={retry} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.retry}
           </button>
@@ -176,11 +227,24 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link href={`/bundles/${bundleId}/quiz`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        ) : (
+          <Link
+            href={backLink}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        )}
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
           <h1 className="truncate text-lg font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
@@ -242,13 +306,14 @@ export default function BundleQuizClient({ bundleId, title, items, optionItems =
   );
 }
 
-function Empty({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
+function Empty({ bundleId, backHref, title, text, back }: { bundleId?: string; backHref?: string; title: string; text: string; back: string }) {
+  const targetHref = backHref || (bundleId ? `/bundles/${bundleId}` : '/bundles');
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
       <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Sentence Quiz</p>
       <h1 className="text-2xl font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
-      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
+      <Link href={targetHref} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}
       </Link>
     </div>

@@ -4,20 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw, Volume2 } from 'lucide-react';
 
-interface FlashcardItem {
+export interface FlashcardItem {
   id: string;
   sentence: string;
   translation: string;
   audioUrl?: string | null;
 }
 
-interface BundleFlashcardsClientProps {
-  bundleId: string;
+export interface BundleFlashcardsClientProps {
+  bundleId?: string;
   title: string;
   items: FlashcardItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
+  backHref?: string;
+  onBack?: () => void;
+  onRecordCurrentItem?: (itemId: string) => void;
+  headerEyebrow?: string;
 }
 
 const copy = {
@@ -41,7 +45,18 @@ const copy = {
   },
 };
 
-export default function BundleFlashcardsClient({ bundleId, title, items, language, initialItemId = null, isLoggedIn }: BundleFlashcardsClientProps) {
+export default function BundleFlashcardsClient({
+  bundleId,
+  title,
+  items,
+  language,
+  initialItemId = null,
+  isLoggedIn,
+  backHref,
+  onBack,
+  onRecordCurrentItem,
+  headerEyebrow,
+}: BundleFlashcardsClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [index, setIndex] = useState(initialIndex);
@@ -53,8 +68,12 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
   useEffect(() => {
     if (!isLoggedIn) return;
     if (!current) return;
-    recordCurrentPracticeItem(bundleId, 'flashcards', current.id);
-  }, [bundleId, current, isLoggedIn]);
+    if (onRecordCurrentItem) {
+      onRecordCurrentItem(current.id);
+    } else if (bundleId) {
+      recordCurrentPracticeItem(bundleId, 'flashcards', current.id);
+    }
+  }, [bundleId, current, isLoggedIn, onRecordCurrentItem]);
 
   const playAudio = useCallback(() => {
     if (!current?.audioUrl) return;
@@ -90,18 +109,33 @@ export default function BundleFlashcardsClient({ bundleId, title, items, languag
     setIndex((value) => Math.max(0, value - 1));
   };
 
+  const backLink = backHref || (bundleId ? `/bundles/${bundleId}` : '/bundles');
+
   if (!current) {
-    return <EmptyMode bundleId={bundleId} title={title} text={t.empty} back={t.back} />;
+    return <EmptyMode bundleId={bundleId} backHref={backLink} title={title} text={t.empty} back={t.back} />;
   }
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link href={`/bundles/${bundleId}`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        ) : (
+          <Link
+            href={backLink}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        )}
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
           <h1 className="truncate text-lg font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
@@ -154,13 +188,14 @@ function recordCurrentPracticeItem(bundleId: string, practiceMode: string, bundl
   });
 }
 
-function EmptyMode({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
+function EmptyMode({ bundleId, backHref, title, text, back }: { bundleId?: string; backHref?: string; title: string; text: string; back: string }) {
+  const targetHref = backHref || (bundleId ? `/bundles/${bundleId}` : '/bundles');
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
       <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">Flashcards</p>
       <h1 className="text-2xl font-bold text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
-      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
+      <Link href={targetHref} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}
       </Link>
     </div>

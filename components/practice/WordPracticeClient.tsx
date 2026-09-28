@@ -231,6 +231,25 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
     }
   }, [currentItem, currentItemMode, initialItems, optionItems, isEnglish]);
 
+  // Auto-play audio when question is presented in quiz or flashcard mode
+  useEffect(() => {
+    if (step !== 'practice' || !audioSrc) return;
+    if (currentItemMode === 'quiz' || currentItemMode === 'flashcard') {
+      const timer = window.setTimeout(() => {
+        playAudio();
+      }, 250);
+      return () => window.clearTimeout(timer);
+    }
+  }, [currentIndex, currentItemMode, step, audioSrc]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!bundleSession?.isLoggedIn || !currentItem || step !== 'practice') return;
     void fetch('/api/bundle-progress', {

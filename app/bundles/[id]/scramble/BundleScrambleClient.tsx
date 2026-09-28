@@ -8,7 +8,7 @@ import { CharacterAsset } from '@/components/assets/CharacterAsset';
 import { buildScrambleQuestion, getScrambleInstruction, isScrambleAnswerCorrect } from '@/lib/practice/scramble';
 import { ScrambleQuestion, type ScrambleToken } from '@/components/practice/ScrambleQuestion';
 
-interface ScrambleItem {
+export interface ScrambleItem {
   id: string;
   sentence: string;
   translation: string;
@@ -16,18 +16,24 @@ interface ScrambleItem {
   proficiencyLevel?: number;
 }
 
-interface WordToken {
+export interface WordToken {
   id: number;
   text: string;
 }
 
-interface BundleScrambleClientProps {
-  bundleId: string;
+export interface BundleScrambleClientProps {
+  bundleId?: string;
   title: string;
   items: ScrambleItem[];
   language: 'ko' | 'en';
   initialItemId?: string | null;
   isLoggedIn: boolean;
+  backHref?: string;
+  onBack?: () => void;
+  onRecordResult?: (itemId: string, isCorrect: boolean) => void;
+  onRecordCurrentItem?: (itemId: string) => void;
+  onFinish?: (total: number) => void;
+  headerEyebrow?: string;
 }
 
 const copy = {
@@ -65,7 +71,20 @@ const copy = {
   },
 };
 
-export default function BundleScrambleClient({ bundleId, title, items, language, initialItemId = null, isLoggedIn }: BundleScrambleClientProps) {
+export default function BundleScrambleClient({
+  bundleId,
+  title,
+  items,
+  language,
+  initialItemId = null,
+  isLoggedIn,
+  backHref,
+  onBack,
+  onRecordResult,
+  onRecordCurrentItem,
+  onFinish,
+  headerEyebrow,
+}: BundleScrambleClientProps) {
   const t = copy[language];
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -122,10 +141,20 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   }, [currentIndex]);
 
   useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isLoggedIn) return;
     if (!currentItem) return;
-    recordCurrentPracticeItem(bundleId, 'scramble', currentItem.id);
-  }, [bundleId, currentItem, isLoggedIn]);
+    if (onRecordCurrentItem) {
+      onRecordCurrentItem(currentItem.id);
+    } else if (bundleId) {
+      recordCurrentPracticeItem(bundleId, 'scramble', currentItem.id);
+    }
+  }, [bundleId, currentItem, isLoggedIn, onRecordCurrentItem]);
 
   const selectWord = (word: WordToken) => {
     if (result) return;
@@ -162,14 +191,24 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
       playCurrentAudio();
     }
     if (isLoggedIn) {
-      recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
+      if (onRecordResult) {
+        onRecordResult(currentItem.id, isCorrect);
+      } else if (bundleId) {
+        recordPracticeResult(bundleId, currentItem.id, 'scramble', isCorrect);
+      }
     }
   };
 
   const revealAnswer = () => {
     if (result) return;
     setResult('revealed');
-    if (isLoggedIn) recordPracticeResult(bundleId, currentItem.id, 'scramble', false);
+    if (isLoggedIn) {
+      if (onRecordResult) {
+        onRecordResult(currentItem.id, false);
+      } else if (bundleId) {
+        recordPracticeResult(bundleId, currentItem.id, 'scramble', false);
+      }
+    }
   };
 
   const goPrev = () => {
@@ -182,6 +221,7 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
     if (currentIndex + 1 >= items.length) {
       setCompletedCount(items.length);
       setIsFinished(true);
+      if (onFinish) onFinish(items.length);
       return;
     }
     setCompletedCount((value) => Math.min(items.length, value + 1));
@@ -195,21 +235,36 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
     initQuestion(0);
   };
 
+  const backLink = backHref || (bundleId ? `/bundles/${bundleId}/scramble` : '/bundles');
+
   if (!currentItem) {
-    return <Empty bundleId={bundleId} title={title} text={t.empty} back={t.back} />;
+    return <Empty bundleId={bundleId} backHref={backLink} title={title} text={t.empty} back={t.back} />;
   }
 
   if (isFinished) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-5 text-center">
         <Trophy className="h-16 w-16 text-amber-500" />
-        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+        <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
         <h1 className="text-3xl font-black text-zinc-950 dark:text-zinc-50">{t.done}</h1>
         <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t.doneDesc(items.length)}</p>
         <div className="flex gap-2">
-          <Link href={`/bundles/${bundleId}/scramble`} className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
-            {t.chooseSet}
-          </Link>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </button>
+          ) : (
+            <Link
+              href={backLink}
+              className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {t.chooseSet}
+            </Link>
+          )}
           <button onClick={resetAll} className="rounded-lg bg-[#3f8d54] px-4 py-3 text-sm font-black text-white transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500">
             {t.retry}
           </button>
@@ -221,11 +276,24 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-2 pb-10">
       <header className="flex items-center gap-3">
-        <Link href={`/bundles/${bundleId}/scramble`} className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        ) : (
+          <Link
+            href={backLink}
+            className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        )}
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{t.mode}</p>
+          <p className="text-xs font-bold uppercase text-[#2f7d4a] dark:text-emerald-400">{headerEyebrow || t.mode}</p>
           <h1 className="truncate text-lg font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
@@ -342,13 +410,14 @@ export default function BundleScrambleClient({ bundleId, title, items, language,
   );
 }
 
-function Empty({ bundleId, title, text, back }: { bundleId: string; title: string; text: string; back: string }) {
+function Empty({ bundleId, backHref, title, text, back }: { bundleId?: string; backHref?: string; title: string; text: string; back: string }) {
+  const targetHref = backHref || (bundleId ? `/bundles/${bundleId}` : '/bundles');
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 text-center">
       <Shuffle className="h-12 w-12 text-[#3f8d54] dark:text-emerald-400" />
       <h1 className="text-2xl font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
       <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{text}</p>
-      <Link href={`/bundles/${bundleId}`} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
+      <Link href={targetHref} className="text-sm font-bold text-[#2f7d4a] dark:text-emerald-400">
         {back}
       </Link>
     </div>
