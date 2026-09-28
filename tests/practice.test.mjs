@@ -496,7 +496,7 @@ test('bundle scramble reveal records one wrong answer; skip and guest reveal do 
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test('review scramble skip is unscored; reveal is wrong and shows neutral feedback', async () => {
+test('review scramble delegates to BundleScrambleClient and records results', async () => {
   const originalFetch = globalThis.fetch, calls = [];
   globalThis.fetch = async (_url, options) => { calls.push(JSON.parse(options.body)); return {}; };
   try {
@@ -508,19 +508,14 @@ test('review scramble skip is unscored; reveal is wrong and shows neutral feedba
     const start = elements(tree).find(e => e.type === 'button' && /Start/.test(textOf(e)));
     start.props.onClick();
     tree = h.render();
-    elements(tree).find(e => e.type === 'RevealActions').props.onSkip();
-    tree = h.render();
-    assert.equal(calls.length, 0);
-    assert.equal(elements(tree).find(e => e.type === 'PracticeScorePills').props.incorrect, 0);
-    elements(tree).find(e => e.type === 'RevealActions').props.onReveal();
-    tree = h.render();
+    const scrambleNode = elements(tree).find(e => typeof e.type === 'function');
+    assert.ok(scrambleNode);
+    assert.equal(scrambleNode.props.headerEyebrow, 'Scramble');
+    assert.equal(scrambleNode.props.items.length, 2);
+    scrambleNode.props.onRecordResult('s1', false);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].is_correct, false);
-    assert.ok(elements(tree).some(e => e.type === 'RevealedAnswer'));
-    assert.equal(elements(tree).find(e => e.type === 'PracticeScorePills').props.incorrect, 1);
-    elements(tree).find(e => e.type === 'button' && textOf(e) === 'Finish').props.onClick();
-    const finished = textOf(h.render());
-    assert.match(finished, /0 of 1/);
-    assert.match(finished, /Skipped: 1/);
+    assert.equal(calls[0].bundle_id, 'b1');
+    assert.equal(calls[0].bundle_item_id, 's1');
   } finally { globalThis.fetch = originalFetch; }
 });

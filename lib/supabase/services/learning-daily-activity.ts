@@ -15,6 +15,14 @@ export interface UserLearningDailyActivity {
   user_id: string;
   activity_date: string;
   activity_count: number;
+  earned_stars?: number;
+  completed_sentences?: number;
+  practiced_words?: number;
+  mastered_sentences?: number;
+  mastered_words?: number;
+  total_correct_count?: number;
+  total_incorrect_count?: number;
+  study_seconds?: number;
   first_activity_at: string | null;
   last_activity_at: string | null;
   metadata: Record<string, unknown> | null;
@@ -31,6 +39,14 @@ export interface RecordLearningDailyActivityInput {
   isCorrect?: boolean | null;
   occurredAt?: Date;
   timeZone?: string;
+  earnedStarsDelta?: number;
+  completedSentencesDelta?: number;
+  practicedWordsDelta?: number;
+  masteredSentencesDelta?: number;
+  masteredWordsDelta?: number;
+  totalCorrectDelta?: number;
+  totalIncorrectDelta?: number;
+  studySecondsDelta?: number;
 }
 
 export interface LearningStreakSummary {
@@ -75,11 +91,28 @@ export async function recordLearningDailyActivity(input: RecordLearningDailyActi
     time_zone: timeZone,
   });
 
+  const earnedStarsDelta = Math.max(0, input.earnedStarsDelta || 0);
+  const completedSentencesDelta = Math.max(0, input.completedSentencesDelta || 0);
+  const practicedWordsDelta = Math.max(0, input.practicedWordsDelta || 0);
+  const masteredSentencesDelta = Math.max(0, input.masteredSentencesDelta || 0);
+  const masteredWordsDelta = Math.max(0, input.masteredWordsDelta || 0);
+  const totalCorrectDelta = Math.max(0, input.totalCorrectDelta || 0);
+  const totalIncorrectDelta = Math.max(0, input.totalIncorrectDelta || 0);
+  const studySecondsDelta = Math.max(0, input.studySecondsDelta || 0);
+
   if (existing) {
     const { data, error } = await supabase
       .from('user_learning_daily_activity')
       .update({
         activity_count: Number(existing.activity_count || 0) + 1,
+        earned_stars: Number(existing.earned_stars || 0) + earnedStarsDelta,
+        completed_sentences: Number(existing.completed_sentences || 0) + completedSentencesDelta,
+        practiced_words: Number(existing.practiced_words || 0) + practicedWordsDelta,
+        mastered_sentences: Number(existing.mastered_sentences || 0) + masteredSentencesDelta,
+        mastered_words: Number(existing.mastered_words || 0) + masteredWordsDelta,
+        total_correct_count: Number(existing.total_correct_count || 0) + totalCorrectDelta,
+        total_incorrect_count: Number(existing.total_incorrect_count || 0) + totalIncorrectDelta,
+        study_seconds: Number(existing.study_seconds || 0) + studySecondsDelta,
         first_activity_at: existing.first_activity_at || occurredAtIso,
         last_activity_at: occurredAtIso,
         metadata,
@@ -103,6 +136,14 @@ export async function recordLearningDailyActivity(input: RecordLearningDailyActi
       user_id: input.userId,
       activity_date: activityDate,
       activity_count: 1,
+      earned_stars: earnedStarsDelta,
+      completed_sentences: completedSentencesDelta,
+      practiced_words: practicedWordsDelta,
+      mastered_sentences: masteredSentencesDelta,
+      mastered_words: masteredWordsDelta,
+      total_correct_count: totalCorrectDelta,
+      total_incorrect_count: totalIncorrectDelta,
+      study_seconds: studySecondsDelta,
       first_activity_at: occurredAtIso,
       last_activity_at: occurredAtIso,
       metadata,

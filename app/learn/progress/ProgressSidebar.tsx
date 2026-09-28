@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Award, BookOpen, CalendarDays, CircleGauge, HelpCircle, MessagesSquare, Target, TimerReset } from 'lucide-react';
+import { BookOpen, CalendarDays, HelpCircle, MessagesSquare, Target, TimerReset, Trophy } from 'lucide-react';
 import { WelcomefullAsset } from '@/components/assets/CharacterBadges';
 
 type DisplayLanguage = 'ko' | 'en';
@@ -7,27 +7,26 @@ type DisplayLanguage = 'ko' | 'en';
 const copy = {
   ko: {
     title: '학습 리포트',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
+    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Rankings'],
     mascotTitle: '꾸준함이 실력을 만듭니다.',
     mascotBody: '매일 조금씩 성장해요.',
   },
   en: {
     title: 'Learning Report',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
+    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Rankings'],
     mascotTitle: 'Consistency builds skill.',
     mascotBody: 'Grow a little every day.',
   },
 };
 
-const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Award, CircleGauge];
+const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Trophy];
 const hrefs = [
   '/learn/progress',
   '/learn/progress/words',
   '/learn/progress/sentences',
   '/learn/progress/bundles',
   '/learn/review',
-  '/learn',
-  '/learn/active',
+  '/learn/rankings',
 ];
 
 export default function ProgressSidebar({ language, activeIndex }: { language: DisplayLanguage; activeIndex: number }) {

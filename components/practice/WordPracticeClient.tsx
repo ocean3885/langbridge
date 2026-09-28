@@ -53,7 +53,6 @@ const copy = {
     modeQuiz: 'Word Quiz',
     modeSpelling: '스펠링 완성 (조합)',
     modeFlashcard: 'Word Flashcards',
-    modeMixed: '혼합 복습',
     startBtn: '시작하기',
     checkBtn: '확인',
     nextBtn: '다음 문제',
@@ -115,7 +114,6 @@ const copy = {
     modeQuiz: 'Word Quiz',
     modeSpelling: 'Spelling Scramble',
     modeFlashcard: 'Word Flashcards',
-    modeMixed: 'Mixed Modes',
     startBtn: 'Start Review',
     checkBtn: 'Check',
     nextBtn: 'Next',
@@ -170,7 +168,7 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   // State
   const [step, setStep] = useState<'setup' | 'practice' | 'finished'>(bundleSession ? 'practice' : 'setup');
   const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => initialItems.length >= 10 ? 10 : 'all');
-  const [selectedMode, setSelectedMode] = useState<'quiz' | 'spelling' | 'flashcard' | 'mixed'>(bundleSession ? (bundleSession.mode === 'word_quiz' ? 'quiz' : 'flashcard') : 'mixed');
+  const [selectedMode, setSelectedMode] = useState<'quiz' | 'spelling' | 'flashcard'>(bundleSession ? (bundleSession.mode === 'word_quiz' ? 'quiz' : 'flashcard') : 'quiz');
   const [activeItems, setActiveItems] = useState<ReviewWordItem[]>(bundleSession ? initialItems : []);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   
@@ -201,15 +199,7 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
     }
   };
 
-  // Determine mode per item for mixed mode
-  const currentItemMode = useMemo(() => {
-    if (!currentItem) return 'quiz';
-    if (selectedMode === 'mixed') {
-      const modes: Array<'quiz' | 'spelling' | 'flashcard'> = ['quiz', 'spelling', 'flashcard'];
-      return modes[currentIndex % 3];
-    }
-    return selectedMode;
-  }, [selectedMode, currentIndex, currentItem]);
+  const currentItemMode = selectedMode;
 
   // Audio source
   const audioSrc = currentItem?.audio_url ? getPublicUrl(currentItem.audio_url) : null;
@@ -477,7 +467,6 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
                 { id: 'quiz', label: t.modeQuiz },
                 { id: 'spelling', label: t.modeSpelling },
                 { id: 'flashcard', label: t.modeFlashcard },
-                { id: 'mixed', label: t.modeMixed },
               ].map((mode) => {
                 const active = selectedMode === mode.id;
                 return (

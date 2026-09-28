@@ -3,15 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Award,
   BookOpen,
   CalendarDays,
-  CircleGauge,
   HelpCircle,
   Menu,
   MessagesSquare,
   Target,
   TimerReset,
+  Trophy,
   X,
 } from 'lucide-react';
 
@@ -22,17 +21,17 @@ const copy = {
     title: '학습 리포트',
     open: '리포트 메뉴 열기',
     close: '리포트 메뉴 닫기',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
+    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Rankings'],
   },
   en: {
     title: 'Learning Report',
     open: 'Open report menu',
     close: 'Close report menu',
-    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Awards', 'Activity'],
+    nav: ['Overview', 'Words', 'Sentences', 'Bundles', 'Review', 'Rankings'],
   },
 };
 
-const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Award, CircleGauge];
+const icons = [CalendarDays, Target, MessagesSquare, BookOpen, TimerReset, Trophy];
 
 export default function ProgressMobileMenu({ language, activeIndex = 0 }: { language: DisplayLanguage; activeIndex?: number }) {
   const t = copy[language];
@@ -128,9 +127,7 @@ function getSidebarHref(index: number) {
     case 4:
       return '/learn/review';
     case 5:
-      return '/learn';
-    case 6:
-      return '/learn/active';
+      return '/learn/rankings';
     default:
       return '/learn/progress';
   }

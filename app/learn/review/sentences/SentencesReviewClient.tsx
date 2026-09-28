@@ -43,7 +43,6 @@ const copy = {
     modeScramble: '스크램블 (단어 배열)',
     modeWordfill: '단어 채우기 (Word Fill)',
     modeFlashcards: '플래시카드',
-    modeMixed: '두 방식 섞어서 (Quiz + Scramble)',
     startBtn: '시작하기',
     itemsLeft: (count: number) => `전체 복습 후보 문장: ${count}개`,
     learningItemsLeft: (count: number) => `학습을 시작할 문장: ${count}개`,
@@ -69,7 +68,6 @@ const copy = {
     modeScramble: 'Scramble',
     modeWordfill: 'Word Fill',
     modeFlashcards: 'Flashcards',
-    modeMixed: 'Mixed Modes (Quiz + Scramble)',
     startBtn: 'Start Review',
     itemsLeft: (count: number) => `${count} sentence review candidates`,
     learningItemsLeft: (count: number) => `${count} sentences ready to learn`,
@@ -92,7 +90,7 @@ export default function SentencesReviewClient({
 
   const [step, setStep] = useState<'setup' | 'practice'>('setup');
   const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => (initialItems.length >= 10 ? 10 : 'all'));
-  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'flashcards' | 'wordfill' | 'mixed'>('mixed');
+  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'flashcards' | 'wordfill'>('quiz');
   const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>([]);
 
   const showAllCountOption = availableReviewCount <= initialItems.length;
@@ -177,7 +175,6 @@ export default function SentencesReviewClient({
                 { id: 'scramble', label: t.modeScramble },
                 { id: 'flashcards', label: t.modeFlashcards },
                 { id: 'wordfill', label: t.modeWordfill },
-                { id: 'mixed', label: t.modeMixed },
               ].map((mode) => {
                 const active = selectedMode === mode.id;
                 return (
@@ -321,13 +318,21 @@ export default function SentencesReviewClient({
       if (candidates.length > 0) {
         const chosen = candidates[Math.floor(Math.random() * candidates.length)];
         targetWord = chosen.words!.word;
-        targetMeaning = formatWordMeaning(isEnglish ? chosen.words!.meaning_en : chosen.words!.meaning_ko) || '';
+        targetMeaning =
+          formatWordMeaning(isEnglish ? chosen.words!.meaning_en : chosen.words!.meaning_ko)
+          || formatWordMeaning(chosen.words!.meaning_ko)
+          || formatWordMeaning(chosen.words!.meaning_en)
+          || '';
         usedAs = chosen.used_as || targetWord;
         wordId = chosen.word_id;
         distractors = (chosen.words!.words_distractor || [])
           .map((d) => ({
             word: d.distractor,
-            meaning: formatWordMeaning(isEnglish ? d.meaning_en : d.meaning_ko) || '',
+            meaning:
+              formatWordMeaning(isEnglish ? d.meaning_en : d.meaning_ko)
+              || formatWordMeaning(d.meaning_ko)
+              || formatWordMeaning(d.meaning_en)
+              || '',
           }))
           .filter(
             (d) =>
@@ -389,41 +394,7 @@ export default function SentencesReviewClient({
     );
   }
 
-  // Mode: Mixed (Quiz for half, Scramble for half)
-  const quizSubset = activeItems.filter((_, idx) => idx % 2 === 0);
-  const scrambleSubset = activeItems.filter((_, idx) => idx % 2 !== 0);
-
-  const quizItems: QuizItem[] = (quizSubset.length > 0 ? quizSubset : activeItems).map((item) => ({
-    id: item.bundle_item_id,
-    sentence: item.sentence,
-    translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
-    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
-  }));
-
-  const allOptionItems: QuizItem[] = initialItems.map((item) => ({
-    id: item.bundle_item_id,
-    sentence: item.sentence,
-    translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
-    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
-  }));
-
-  return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <BundleQuizClient
-        title={sessionTitle}
-        headerEyebrow={t.modeMixed}
-        items={quizItems}
-        optionItems={allOptionItems}
-        language={language}
-        isLoggedIn={true}
-        onBack={restart}
-        onRecordResult={(bundleItemId, isCorrect) => {
-          const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
-          if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'quiz', isCorrect);
-        }}
-      />
-    </div>
-  );
+  return null;
 }
 
 function shuffle<T>(array: T[]): T[] {

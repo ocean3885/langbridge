@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   recordLearningDailyActivity,
   type LearningActivityType,
+  type RecordLearningDailyActivityInput,
 } from '@/lib/supabase/services/learning-daily-activity';
 import {
   getReviewNeededSummary as getReviewNeededSummaryFromReviewService,
@@ -1170,6 +1171,7 @@ export async function recordBundleItemPractice(
     await safeIncrementLearningStats(supabase, userId, statsDelta);
   }
 
+  let masteredSentencesDelta = 0;
   // user_sentence_interactions 테이블 업데이트 추가 (문장 학습 숙련도/스트릭 반영)
   if (bundleItem.sentence_id) {
     const { data: existingSentenceInteraction, error: sentenceFetchError } = await supabase
@@ -1195,6 +1197,10 @@ export async function recordBundleItemPractice(
       const newProficiencyLevel = isCorrect 
         ? Math.max(currentLevel, calculatedLevel)
         : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
+
+      if (currentLevel < 5 && newProficiencyLevel >= 5) {
+        masteredSentencesDelta = 1;
+      }
 
       const existingSentenceMetadata = existingSentenceInteraction?.metadata || {};
       const sentenceMetadata = {
@@ -1317,6 +1323,11 @@ export async function recordBundleItemPractice(
     bundleItemId,
     practiceMode: mode,
     isCorrect,
+    earnedStarsDelta: statsDelta.earnedStars,
+    completedSentencesDelta: statsDelta.completedSentences,
+    masteredSentencesDelta,
+    totalCorrectDelta: statsDelta.totalCorrect,
+    totalIncorrectDelta: statsDelta.totalIncorrect,
   });
 
   return getBundleProgressSummary(userId, bundleId, total);
@@ -1346,14 +1357,7 @@ function normalizePracticeItemIds(value: unknown): Record<string, string> {
   );
 }
 
-async function safeRecordLearningDailyActivity(input: {
-  userId: string;
-  activityType: LearningActivityType;
-  bundleId: string;
-  bundleItemId?: string | null;
-  practiceMode?: string | null;
-  isCorrect?: boolean | null;
-}) {
+async function safeRecordLearningDailyActivity(input: RecordLearningDailyActivityInput) {
   try {
     await recordLearningDailyActivity(input);
   } catch (error) {
@@ -1450,6 +1454,8 @@ export async function recordWordReviewResult(
     ? Math.max(currentLevel, calculatedLevel)
     : currentLevel > 0 ? Math.max(1, currentLevel - 1) : 0;
 
+  const masteredWordsDelta = (currentLevel < 5 && newProficiencyLevel >= 5) ? 1 : 0;
+
   const existingWordMetadata = existingWordInteraction?.metadata || {};
   const wordMetadata = {
     ...existingWordMetadata,
@@ -1491,10 +1497,13 @@ export async function recordWordReviewResult(
   }
 
   // Also record to user_learning_daily_activity to count streaks and daily goals
+  const isFirstEver = !existingWordInteraction?.last_reviewed_at;
+  const isFirstToday = isFirstEver || existingWordInteraction.last_reviewed_at.slice(0, 10) !== now.slice(0, 10);
+
   const statsDelta = {
     completedSentences: 0,
     earnedStars: 0,
-    practicedWords: !existingWordInteraction?.last_reviewed_at ? 1 : 0,
+    practicedWords: isFirstEver ? 1 : 0,
     totalCorrect: options.countAttempt !== false && isCorrect ? 1 : 0,
     totalIncorrect: options.countAttempt !== false && !isCorrect ? 1 : 0,
   };
@@ -1507,6 +1516,10 @@ export async function recordWordReviewResult(
       activityType: 'practice_result',
       practiceMode: mode,
       isCorrect: isCorrect,
+      practicedWordsDelta: isFirstToday ? 1 : 0,
+      masteredWordsDelta,
+      totalCorrectDelta: statsDelta.totalCorrect,
+      totalIncorrectDelta: statsDelta.totalIncorrect,
     });
   } catch (error) {
     console.error('Error recording daily learning activity for word:', error);

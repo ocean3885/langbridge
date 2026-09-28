@@ -6,7 +6,9 @@
     "start": "next start",
     "generate:character-assets": "node scripts/generate-character-assets.mjs",
     "lint": "eslint .",
-    "test:practice": "node tests/practice.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:practice": "node tests/practice.test.mjs",
+    "test:leaderboard": "node tests/leaderboard.test.mjs"
   },
   "dependencies": {
     "@google-cloud/text-to-speech": "^6.4.0",
