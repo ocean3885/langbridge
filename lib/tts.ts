@@ -99,8 +99,8 @@ export async function generateTTS(
       const arrayBuffer = await response.arrayBuffer();
       audioBuffer = Buffer.from(arrayBuffer);
     } else {
-      const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error('API 키(GOOGLE_API_KEY)가 설정되지 않았습니다.');
+      const apiKey = process.env.GEMINI_TTS_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('API 키(GEMINI_TTS_API_KEY)가 설정되지 않았습니다.');
 
       const googleVoiceName = options?.voice || (lang.includes('es') ? (lang === 'es' ? 'es-ES-Standard-F' : `${lang}-Standard-F`) : undefined);
       const googleLanguageCode = googleVoiceName?.split('-').slice(0, 2).join('-') || (lang === 'es' ? 'es-ES' : lang);
