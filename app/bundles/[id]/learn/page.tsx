@@ -65,6 +65,7 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
         language={lang}
         user={user}
         initialItemId={initialItemId}
+        itemInteractions={progress.itemInteractions}
       />
     </div>
   );

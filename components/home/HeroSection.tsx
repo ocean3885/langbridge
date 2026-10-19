@@ -11,8 +11,11 @@ const translations = {
     badge: "진짜 입이 열리는 실전 스페인어",
     title: (
       <>
-        우리의 <span className="text-[#E27D60]">일상</span>이<br />
-        스페인어가 됩니다
+        <span className="inline-block">
+          우리의 <span className="text-[#E27D60]">일상</span>이
+        </span><br className="hidden sm:inline" />{' '}
+        <span className="inline-block">스페인어가</span>{' '}
+        <span className="inline-block">됩니다</span>
       </>
     ),
     titleSub: "Nuestra vida diaria se convierte en español",
@@ -59,7 +62,7 @@ const translations = {
 
 export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps) {
   const t = translations[lang];
-  const titleLeadingClass = lang === 'ko' ? 'leading-[1.48] sm:leading-[1.42]' : 'leading-[1.2]';
+  const titleLeadingClass = lang === 'ko' ? 'leading-[1.28] sm:leading-[1.38]' : 'leading-[1.2]';
   const titleTrackingClass = lang === 'ko' ? 'tracking-[-0.01em]' : 'tracking-tight';
 
   return (
@@ -77,7 +80,7 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
           </div>
 
           <div>
-            <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-black ${titleLeadingClass} ${titleTrackingClass} text-zinc-900 dark:text-zinc-100 break-keep`}>
+            <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-black ${titleLeadingClass} ${titleTrackingClass} text-zinc-900 dark:text-zinc-100 break-keep text-balance`}>
               {t.title}
             </h1>
             <p className="text-lg sm:text-xl font-bold text-[#E27D60] mt-3">

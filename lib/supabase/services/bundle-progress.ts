@@ -974,7 +974,93 @@ export async function recordBundleStudyAccess(
     console.error('Error recording bundle study access:', error);
     throw error;
   }
+}
 
+export async function recordBundleItemPlay(
+  userId: string,
+  bundleId: string,
+  bundleItemId: string,
+) {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: bundleItem, error: bundleItemError } = await supabase
+    .from('bundle_items')
+    .select('id')
+    .eq('id', bundleItemId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  if (bundleItemError || !bundleItem) {
+    throw new Error('Bundle item does not belong to the requested bundle.');
+  }
+
+  const { data: existingItem, error: existingItemError } = await supabase
+    .from('user_bundle_item_interactions')
+    .select('play_count, metadata')
+    .eq('user_id', userId)
+    .eq('bundle_item_id', bundleItemId)
+    .maybeSingle();
+
+  if (existingItemError) {
+    console.error('Error fetching bundle item interaction for play:', existingItemError);
+  }
+
+  const nextPlayCount = (Number(existingItem?.play_count) || 0) + 1;
+
+  const { error: upsertError } = await supabase
+    .from('user_bundle_item_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        bundle_item_id: bundleItemId,
+        play_count: nextPlayCount,
+        last_played_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_item_id',
+      },
+    );
+
+  if (upsertError) {
+    console.error('Error recording item play count:', upsertError);
+    throw upsertError;
+  }
+
+  const { data: existingBundleInteraction } = await supabase
+    .from('user_bundle_interactions')
+    .select('started_at')
+    .eq('user_id', userId)
+    .eq('bundle_id', bundleId)
+    .maybeSingle();
+
+  await supabase
+    .from('user_bundle_interactions')
+    .upsert(
+      {
+        user_id: userId,
+        bundle_id: bundleId,
+        is_started: true,
+        current_bundle_item_id: bundleItemId,
+        started_at: existingBundleInteraction?.started_at || now,
+        last_studied_at: now,
+        updated_at: now,
+      },
+      {
+        onConflict: 'user_id,bundle_id',
+      },
+    );
+
+  await safeRecordLearningDailyActivity({
+    userId,
+    activityType: 'bundle_study_access',
+    bundleId,
+    bundleItemId,
+  });
+
+  return { play_count: nextPlayCount, last_played_at: now };
 }
 
 export async function updateBundlePinnedState(

@@ -11,9 +11,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  CheckCircle2,
+  Headphones,
   Info,
   Layers,
   Lock,
+  RotateCcw,
   Star,
 } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
@@ -36,66 +39,94 @@ const copy = {
     estimate: '예상 시간',
     level: 'Level',
     cefr: 'CEFR',
-    progressTitle: '내 진행률',
+    progressTitle: '실전 마스터 달성률',
+    progressSubtitle: '퀴즈를 풀고 마스터리 스타를 모아 마스터 게이지를 완성해보세요',
     progressInfoLabel: '진행률 반영 기준 보기',
-    progressInfo: '문장 연습에서 한 번 이상 정답을 맞힌 문장을 학습한 문장으로 집계합니다. 단어 연습과 듣기는 문장 완료에 포함되지 않습니다.',
-    practiceStars: 'Sentence Stars',
+    progressInfo: '듣기로 문장을 귀에 익힌 뒤, 실전 퀴즈를 풀고 정답을 맞히면 마스터리 스타가 채워져요. 모든 스타를 모아 100% 마스터를 완성해보세요!',
+    starProgress: (earned: number, max: number) => `마스터리 스타 ${earned} / ${max}`,
+    practiceStars: '문장 마스터리 스타',
     saveBundle: '번들 저장',
     unsaveBundle: '번들 저장 해제',
     loginRequired: '번들을 저장하려면 로그인이 필요합니다.',
     saveFailed: '번들 저장 상태를 변경하지 못했습니다.',
-    completed: (done: number, total: number) => `학습한 문장 ${done} / ${total}`,
+    completed: (done: number, total: number) => `학습 완료 ${done} / ${total} 문장`,
+    listeningStream: '청취 진도',
+    listeningStep: (current: number, total: number, plays?: number) =>
+      plays && plays > 0
+        ? `${total}개 중 ${current}번째 문장 학습 중 (누적 ${plays}회 청취)`
+        : `${total}개 중 ${current}번째 문장 학습 중`,
+    listeningNotStarted: '아직 청취 기록이 없습니다',
+    listenStart: '듣기 시작',
+    listenContinue: '이어서 듣기',
+    listenAgain: '다시 듣기',
+    primaryStartListening: '🎧 듣기로 시작하기',
+    primaryContinueQuiz: '✍️ 퀴즈로 마스터하기',
+    primaryReviewQuiz: '🔄 복습 퀴즈 풀기',
+    secondaryQuiz: '✍️ 바로 퀴즈 풀기',
+    secondaryListen: (step: number) => `🎧 이어서 듣기 (${step}번 문장)`,
+    bundleCompletedBadge: '번들 마스터 완료!',
+    guestNotice: '로그인하면 나의 학습 진도와 마스터리 스타가 안전하게 저장됩니다.',
+    loginAction: '로그인하기',
     status: '상태',
     notStarted: '시작 전',
     inProgress: '진행 중',
     completedStatus: '완료',
-    remaining: '남은 항목',
-    remainingItems: (count: number) => `${count}개`,
-    estimatedLeft: '남은 시간',
-    minutes: (count: number) => `${count}분`,
+    currentLocation: '학습 위치',
+    currentStepLabel: (step: number) => `${step}번째 문장`,
     lastStudied: '최근 학습',
     noRecord: '-',
-    continue: 'Continue Learning',
-    start: 'Start Learning',
     premium: 'Premium',
     subscribe: '구독하고 학습하기',
     loginToAccess: '로그인하고 학습하기',
     premiumNotice: '구독 회원 전용 번들입니다.',
-    viewItems: 'View All Items',
-    practiceModes: 'Practice Modes',
+    viewItems: '전체 문장 목록 보기',
+    practiceModes: '실전 연습 모드',
     practiceModesInfoLabel: '연습 모드 설명 보기',
-    practiceModesInfo: '문장 연습에서 처음 정답을 맞히면 별을 획득합니다. 획득한 별은 유지되며, 단어 연습은 단어 숙련도에 반영됩니다.',
-    flashcards: 'Flashcards',
-    quickQuiz: 'Sentence Quiz',
-    scramble: 'Scramble',
-    wordFill: 'Word Fill',
+    practiceModesInfo: '문장 퀴즈를 맞히면 마스터리 스타가 채워져요. 스타를 모두 모아 100% 마스터에 도전해보세요!',
+    sentencePractice: '문장 연습',
+    wordPractice: '단어 연습',
   },
   en: {
     itemUnit: 'Items',
     estimate: 'Estimated',
     level: 'Level',
     cefr: 'CEFR',
-    progressTitle: 'My progress',
-    progressInfoLabel: 'View how progress is measured',
-    progressInfo: 'A sentence counts as practiced after a correct answer in a sentence practice mode. Word practice and listening do not complete sentences.',
+    progressTitle: 'Sentence Mastery',
+    progressSubtitle: 'Pass quizzes and collect stars to reach 100%',
+    progressInfoLabel: 'View how mastery is measured',
+    progressInfo: 'Listen to the sentences, then pass practice quizzes to earn Mastery Stars. Collect all stars to complete 100% bundle mastery!',
+    starProgress: (earned: number, max: number) => `Stars ${earned} / ${max}`,
     practiceStars: 'Sentence Stars',
     saveBundle: 'Save bundle',
     unsaveBundle: 'Remove saved bundle',
     loginRequired: 'Log in to save this bundle.',
     saveFailed: 'Failed to update the saved bundle.',
-    completed: (done: number, total: number) => `${done} / ${total} sentences practiced`,
+    completed: (done: number, total: number) => `${done} / ${total} sentences mastered`,
+    listeningStream: 'Listening Stream',
+    listeningStep: (current: number, total: number, plays?: number) =>
+      plays && plays > 0
+        ? `Listening to #${current} of ${total} (${plays} total plays)`
+        : `Listening to #${current} of ${total}`,
+    listeningNotStarted: 'No listening record yet',
+    listenStart: 'Start listening',
+    listenContinue: 'Continue listening',
+    listenAgain: 'Listen again',
+    primaryStartListening: '🎧 Start with Listening',
+    primaryContinueQuiz: '✍️ Master with Quizzes',
+    primaryReviewQuiz: '🔄 Review Practice',
+    secondaryQuiz: '✍️ Practice Quiz Directly',
+    secondaryListen: (step: number) => `🎧 Continue Listening (#${step})`,
+    bundleCompletedBadge: 'Bundle Mastered!',
+    guestNotice: 'Log in to track your learning progress and mastery stars.',
+    loginAction: 'Log in',
     status: 'Status',
     notStarted: 'Not started',
     inProgress: 'In progress',
     completedStatus: 'Completed',
-    remaining: 'Remaining',
-    remainingItems: (count: number) => `${count} items`,
-    estimatedLeft: 'Est. left',
-    minutes: (count: number) => `${count} min`,
+    currentLocation: 'Current Step',
+    currentStepLabel: (step: number) => `Sentence #${step}`,
     lastStudied: 'Last studied',
     noRecord: '-',
-    continue: 'Continue Learning',
-    start: 'Start Learning',
     premium: 'Premium',
     subscribe: 'Subscribe to learn',
     loginToAccess: 'Log in to learn',
@@ -103,13 +134,36 @@ const copy = {
     viewItems: 'View All Items',
     practiceModes: 'Practice Modes',
     practiceModesInfoLabel: 'View practice mode details',
-    practiceModesInfo: 'Earn permanent stars for first correct answers in sentence practice. Word practice builds word proficiency.',
-    flashcards: 'Flashcards',
-    quickQuiz: 'Sentence Quiz',
-    scramble: 'Scramble',
-    wordFill: 'Word Fill',
+    practiceModesInfo: 'Pass sentence quizzes to earn Mastery Stars. Collect all stars to complete 100% bundle mastery!',
+    sentencePractice: 'Sentence Practice',
+    wordPractice: 'Word Practice',
   },
 };
+
+const modeLabels: Record<'ko' | 'en', Record<string, string>> = {
+  ko: {
+    quiz: '문장 퀴즈',
+    scramble: '단어 배열',
+    wordfill: '빈칸 채우기',
+    flashcards: '문장 플래시카드',
+    spelling: '스펠링 연습',
+    word_quiz: '단어 퀴즈',
+    word_flashcards: '단어 플래시카드',
+  },
+  en: {
+    quiz: 'Sentence Quiz',
+    scramble: 'Sentence Scramble',
+    wordfill: 'Word Fill',
+    flashcards: 'Sentence Flashcards',
+    spelling: 'Spelling',
+    word_quiz: 'Word Quiz',
+    word_flashcards: 'Word Flashcards',
+  },
+};
+
+function getModeLabel(mode: string, language: 'ko' | 'en') {
+  return modeLabels[language]?.[mode] || PRACTICE_REGISTRY[mode as keyof typeof PRACTICE_REGISTRY]?.label || mode;
+}
 
 export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn, access }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
@@ -126,24 +180,65 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
     'Hola Start';
   const minutes = estimateBundleMinutes(items.length);
   const minuteLabel = language === 'en' ? `${minutes} min` : `${minutes}분`;
-  const hasStarted = progress.completedItems > 0 || !!progress.bundleInteraction?.is_started;
+  const currentItemIndex = items.findIndex((item) => item.id === progress.currentBundleItemId);
+  const currentItemStep = currentItemIndex >= 0 ? currentItemIndex + 1 : 1;
+  const totalPlayCount = progress.itemInteractions.reduce(
+    (sum, item) => sum + (Number(item.play_count) || 0),
+    0
+  );
+  const practiceStars = getBundleStarProgress(items, progress.itemInteractions, language);
+  const starProgressPercent = practiceStars.max > 0
+    ? Math.min(100, Math.round((practiceStars.earned / practiceStars.max) * 100))
+    : (progress.totalItems > 0 ? progress.progressPercent : 0);
+  const isCompleted = practiceStars.max > 0
+    ? practiceStars.earned >= practiceStars.max
+    : (progress.totalItems > 0 && progress.progressPercent >= 100);
+  const hasStarted = practiceStars.earned > 0 || progress.completedItems > 0 || Boolean(progress.bundleInteraction?.is_started);
+  const hasStudied = hasStarted || Boolean(progress.bundleInteraction?.last_studied_at);
   const remainingItems = Math.max(0, progress.totalItems - progress.completedItems);
   const estimatedLeftMinutes = estimateBundleMinutes(remainingItems);
-  const isCompleted = progress.totalItems > 0 && progress.progressPercent >= 100;
-  const statusLabel = isCompleted ? t.completedStatus : hasStarted ? t.inProgress : t.notStarted;
   const lastStudiedLabel = formatProgressDate(progress.bundleInteraction?.last_studied_at, language) || t.noRecord;
+  const currentLocationLabel = hasStudied ? t.currentStepLabel(currentItemStep) : t.notStarted;
   const backHref = bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
+
   const learnHref = progress.currentBundleItemId
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
     : `/bundles/${bundle.id}/learn`;
+  const quizHref = `/bundles/${bundle.id}/quiz`;
   const canAccessLearning = access.canView;
   const gatedHref = access.reason === 'login_required'
     ? `/auth/login?redirectTo=${encodeURIComponent(learnHref)}`
     : `/pricing?redirectTo=${encodeURIComponent(learnHref)}`;
-  const primaryHref = canAccessLearning ? learnHref : gatedHref;
-  const primaryLabel = canAccessLearning ? (hasStarted ? t.continue : t.start) : access.reason === 'login_required' ? t.loginToAccess : t.subscribe;
   const modeHref = (path: string) => canAccessLearning ? path : gatedHref;
-  const practiceStars = getBundleStarProgress(items, progress.itemInteractions, language);
+
+  let primaryActionHref = canAccessLearning ? learnHref : gatedHref;
+  let primaryActionLabel = canAccessLearning
+    ? t.primaryStartListening
+    : access.reason === 'login_required'
+    ? t.loginToAccess
+    : t.subscribe;
+
+  let secondaryActionHref: string | null = null;
+  let secondaryActionLabel: string | null = null;
+
+  if (canAccessLearning) {
+    if (isCompleted) {
+      primaryActionHref = quizHref;
+      primaryActionLabel = t.primaryReviewQuiz;
+      secondaryActionHref = learnHref;
+      secondaryActionLabel = t.listenAgain;
+    } else if (hasStudied) {
+      primaryActionHref = quizHref;
+      primaryActionLabel = t.primaryContinueQuiz;
+      secondaryActionHref = learnHref;
+      secondaryActionLabel = t.secondaryListen(currentItemStep);
+    } else {
+      primaryActionHref = learnHref;
+      primaryActionLabel = t.primaryStartListening;
+      secondaryActionHref = quizHref;
+      secondaryActionLabel = t.secondaryQuiz;
+    }
+  }
 
   const handleTogglePinned = async () => {
     if (!isLoggedIn) {
@@ -243,7 +338,18 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
       <main className="space-y-4 px-5 pb-8 pt-4 lg:px-0 lg:pt-0">
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.progressTitle}</h2>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.progressTitle}</h2>
+                {isCompleted && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {t.bundleCompletedBadge}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{t.progressSubtitle}</p>
+            </div>
             <button
               type="button"
               onClick={() => setShowProgressInfo((visible) => !visible)}
@@ -258,52 +364,132 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
               <Info className="h-4 w-4" />
             </button>
           </div>
-          {progress.totalItems > 0 && <>
-          <div className="mt-3 flex items-end justify-between gap-4">
-            <p className="text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-100">{t.completed(progress.completedItems, progress.totalItems)}</p>
-            <p className="text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{progress.progressPercent}%</p>
+
+          {practiceStars.max > 0 ? (
+            <div className="mt-4">
+              <div className="flex items-end justify-between gap-4 mb-2">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                  {t.starProgress(practiceStars.earned, practiceStars.max)}
+                </span>
+                <span className="text-sm font-extrabold tabular-nums text-amber-600 dark:text-amber-400">
+                  {starProgressPercent}%
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-500 transition-all duration-500"
+                  style={{ width: `${starProgressPercent}%` }}
+                />
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {practiceStars.modes.filter((mode) => mode.max > 0).map((mode) => (
+                  <span key={mode.mode} className="inline-flex items-center gap-1">
+                    <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                    <span>{getModeLabel(mode.mode, language)}</span>
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      {mode.earned}/{mode.max}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : progress.totalItems > 0 ? (
+            <div className="mt-4">
+              <div className="flex items-end justify-between gap-4 mb-2">
+                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {t.completed(progress.completedItems, progress.totalItems)}
+                </span>
+                <span className="text-sm font-extrabold tabular-nums text-[#2f7d4a] dark:text-emerald-400">
+                  {progress.progressPercent}%
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#4ca562] to-[#2f7d4a] dark:from-emerald-500 dark:to-emerald-400 transition-all duration-500"
+                  style={{ width: `${Math.min(100, progress.progressPercent)}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              {language === 'ko'
+                ? '획득 가능한 문장 별이 없습니다. 단어 연습은 단어 숙련도에 반영됩니다.'
+                : 'No sentence stars are available. Word practice builds word proficiency.'}
+            </p>
+          )}
+
+          {/* 청취 스트림 진도 카드 */}
+          <div className="mt-3.5 flex items-center justify-between rounded-xl border border-emerald-100 bg-[#f4faf5] px-3.5 py-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
+                <Headphones className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{t.listeningStream}</p>
+                <p className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                  {hasStudied ? t.listeningStep(currentItemStep, items.length, totalPlayCount) : t.listeningNotStarted}
+                </p>
+              </div>
+            </div>
+            <Link
+              href={learnHref}
+              className="shrink-0 text-xs font-bold text-[#2f7d4a] hover:underline dark:text-emerald-400"
+            >
+              {hasStudied ? t.listenContinue : t.listenStart} ➔
+            </Link>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-            <div className="h-full rounded-full bg-[#3f8d54] dark:bg-emerald-500" style={{ width: `${Math.min(100, progress.progressPercent)}%` }} />
-          </div>
-          </>}
-          {practiceStars.max > 0 ? <>
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
-            <span className="inline-flex items-center gap-2 text-sm font-semibold">
-              <Star className="h-4 w-4 fill-current" />
-              {t.practiceStars}
-            </span>
-            <span className="text-base font-bold tabular-nums">{practiceStars.earned} / {practiceStars.max}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-            {practiceStars.modes.filter(mode => mode.max > 0).map(mode => (
-              <span key={mode.mode}>{PRACTICE_REGISTRY[mode.mode].label} {mode.earned}/{mode.max}</span>
-            ))}
-          </div>
-          </> : <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{language === 'ko' ? '획득 가능한 문장 별이 없습니다. 단어 연습은 단어 숙련도에 반영됩니다.' : 'No sentence stars are available. Word practice builds word proficiency.'}</p>}
+
           {showProgressInfo && (
-            <div className="mt-3 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
-              <Info className="mt-1 h-4 w-4 shrink-0 text-[#2f7d4a] dark:text-emerald-400" />
+            <div className="mt-3.5 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3.5 py-3 text-sm font-medium leading-6 text-zinc-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-zinc-300">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#2f7d4a] dark:text-emerald-400" />
               <p>{t.progressInfo}</p>
             </div>
           )}
+
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <ProgressMeta label={t.status} value={statusLabel} />
-            <ProgressMeta label={t.remaining} value={t.remainingItems(remainingItems)} />
-            <ProgressMeta label={t.estimatedLeft} value={t.minutes(estimatedLeftMinutes)} />
+            <ProgressMeta label={t.currentLocation} value={currentLocationLabel} />
             <ProgressMeta label={t.lastStudied} value={lastStudiedLabel} />
+            <ProgressMeta label={t.estimate} value={minuteLabel} />
+            <ProgressMeta label={t.cefr} value={level.shortLabel} />
           </div>
+
+          {!isLoggedIn && (
+            <div className="mt-3.5 flex items-center justify-between rounded-xl border border-zinc-200/80 bg-zinc-50 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-800/50">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">{t.guestNotice}</p>
+              <Link
+                href={`/auth/login?redirectTo=${encodeURIComponent(learnHref)}`}
+                className="shrink-0 text-xs font-bold text-[#E27D60] hover:underline ml-2"
+              >
+                {t.loginAction}
+              </Link>
+            </div>
+          )}
+
+          {/* Primary Action Button */}
           <Link
-            href={primaryHref}
+            href={primaryActionHref}
             className="mt-5 flex h-12 w-full items-center justify-center rounded-lg bg-[#3f8d54] text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
-            {primaryLabel}
+            {primaryActionLabel}
           </Link>
+
+          {/* Secondary Action Button (Smart Recommendation) */}
+          {secondaryActionHref && (
+            <Link
+              href={secondaryActionHref}
+              className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50/60 text-sm font-semibold text-[#2f7d4a] transition hover:bg-emerald-100/70 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+            >
+              {secondaryActionLabel}
+            </Link>
+          )}
+
           {!canAccessLearning && (
             <p className="mt-2 rounded-lg bg-[#FBE9E2] px-3 py-2 text-center text-xs font-semibold leading-5 text-[#A94C3A] dark:bg-orange-950/30 dark:text-orange-200">
               {t.premiumNotice}
             </p>
           )}
+
           <Link
             href={modeHref(`/bundles/${bundle.id}/items`)}
             className="mt-2 flex h-11 w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
@@ -320,12 +506,22 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
             <Star className="mt-1 h-4 w-4 shrink-0 fill-current text-amber-500 dark:text-amber-300" />
             <p>{t.practiceModesInfo}</p>
           </div>
-          {(['sentence', 'word'] as const).map(target => (
+          {(['sentence', 'word'] as const).map((target) => (
             <div key={target} className="mb-4">
-              <h3 className="mb-2 text-sm font-semibold">{target === 'sentence' ? (language === 'ko' ? '문장 연습' : 'Sentence practice') : (language === 'ko' ? '단어 연습' : 'Word practice')}</h3>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {target === 'sentence' ? t.sentencePractice : t.wordPractice}
+              </h3>
               <div className="grid grid-cols-2 gap-2 lg:gap-3">
-                {PRACTICE_MODES.filter(mode => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target).map(mode => (
-                  <ModeLink key={mode} href={modeHref(`/bundles/${bundle.id}/${PRACTICE_REGISTRY[mode].path}`)} icon={<PracticeModeIcon mode={mode} className="h-5 w-5" />} label={PRACTICE_REGISTRY[mode].label} color={practiceModeColors[mode]} />
+                {PRACTICE_MODES.filter(
+                  (mode) => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target
+                ).map((mode) => (
+                  <ModeLink
+                    key={mode}
+                    href={modeHref(`/bundles/${bundle.id}/${PRACTICE_REGISTRY[mode].path}`)}
+                    icon={<PracticeModeIcon mode={mode} className="h-5 w-5" />}
+                    label={getModeLabel(mode, language)}
+                    color={practiceModeColors[mode]}
+                  />
                 ))}
               </div>
             </div>

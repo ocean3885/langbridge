@@ -27,7 +27,8 @@ const translations = {
     badge: '번들 카테고리',
     title: (
       <>
-        다양한 <span className="text-[#5B8A61]">번들</span>로 배우는 스페인어
+        <span className="inline-block">다양한 <span className="text-[#5B8A61]">번들</span>로</span>{' '}
+        <span className="inline-block">배우는 스페인어</span>
       </>
     ),
     description: '여행, 일상, 비즈니스까지. 상황에 맞는 번들을 선택하고 체계적으로 학습해보세요.',
@@ -119,10 +120,10 @@ export default function BundleCategoriesSection({
         </div>
 
         <div className="mx-auto mt-8 max-w-4xl text-center">
-          <h2 className="break-words text-3xl font-extrabold leading-tight tracking-tight text-[#1D1D1D] dark:text-zinc-100 sm:text-4xl md:text-5xl lg:text-6xl">
+          <h2 className="break-keep text-balance text-3xl font-extrabold leading-tight tracking-tight text-[#1D1D1D] dark:text-zinc-100 sm:text-4xl md:text-5xl lg:text-6xl">
             {t.title}
           </h2>
-          <p className="mt-4 break-words text-base leading-relaxed text-[#6F6F6F] dark:text-zinc-400 md:mt-6 md:text-lg">
+          <p className="mt-4 break-keep text-base leading-relaxed text-[#6F6F6F] dark:text-zinc-400 md:mt-6 md:text-lg">
             {t.description}
           </p>
         </div>

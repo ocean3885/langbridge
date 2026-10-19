@@ -18,6 +18,8 @@ type ItemActionsCopy = {
 export default function ItemActions({
   audioUrl,
   sentenceId,
+  bundleId,
+  bundleItemId,
   initialMemo,
   initialIsPinned,
   isLoggedIn,
@@ -25,6 +27,8 @@ export default function ItemActions({
 }: {
   audioUrl: string | null;
   sentenceId: number | null;
+  bundleId?: string;
+  bundleItemId?: string;
   initialMemo: string | null;
   initialIsPinned: boolean;
   isLoggedIn: boolean;
@@ -42,6 +46,20 @@ export default function ItemActions({
     if (!audioUrl) return;
     const audio = new Audio(audioUrl);
     audio.play().catch((error) => console.error('Audio play error:', error));
+    audio.onended = () => {
+      if (isLoggedIn && bundleId && bundleItemId) {
+        void fetch('/api/bundle-progress', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bundle_id: bundleId,
+            played_bundle_item_id: bundleItemId,
+          }),
+        }).then(() => {
+          router.refresh();
+        }).catch((err) => console.error('Failed to record audio play:', err));
+      }
+    };
   }
 
   function startEditing() {

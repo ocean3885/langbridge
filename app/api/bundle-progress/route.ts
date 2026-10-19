@@ -4,6 +4,7 @@ import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getBundle } from '@/lib/supabase/services/bundles';
 import {
+  recordBundleItemPlay,
   recordBundleItemPractice,
   recordBundlePracticeAccess,
   recordBundleStudyAccess,
@@ -72,15 +73,32 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { bundle_id, current_bundle_item_id, current_practice_mode, current_word_id, is_pinned } = body;
+    const {
+      bundle_id,
+      current_bundle_item_id,
+      current_practice_mode,
+      current_word_id,
+      is_pinned,
+      played_bundle_item_id,
+    } = body;
 
-    if (!bundle_id || (typeof is_pinned !== 'boolean' && typeof current_bundle_item_id !== 'string')) {
+    if (
+      !bundle_id ||
+      (typeof is_pinned !== 'boolean' &&
+        typeof current_bundle_item_id !== 'string' &&
+        typeof played_bundle_item_id !== 'string')
+    ) {
       return NextResponse.json({ error: '유효한 번들 진행 상태가 필요합니다.' }, { status: 400 });
     }
 
     const bundle = await getAccessibleBundle(String(bundle_id), user);
     if (!bundle) {
       return NextResponse.json({ error: '접근할 수 없는 번들입니다.' }, { status: 404 });
+    }
+
+    if (typeof played_bundle_item_id === 'string') {
+      const result = await recordBundleItemPlay(user.id, String(bundle_id), played_bundle_item_id);
+      return NextResponse.json({ success: true, ...result });
     }
 
     if (typeof current_bundle_item_id === 'string') {

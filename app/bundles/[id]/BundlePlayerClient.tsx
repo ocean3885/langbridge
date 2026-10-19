@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gauge,
+  Headphones,
   Languages,
   LetterText,
   Pause,
@@ -44,6 +45,7 @@ interface BundlePlayerClientProps {
   language?: 'ko' | 'en';
   user?: any;
   initialItemId?: string | null;
+  itemInteractions?: any[];
 }
 
 type Keyword = {
@@ -53,14 +55,35 @@ type Keyword = {
 
 const REPEAT_OPTIONS = [1, 2, 3, 5, Infinity];
 
+const modeLabels: Record<'ko' | 'en', Record<string, string>> = {
+  ko: {
+    quiz: '문장 퀴즈',
+    scramble: '단어 배열',
+    wordfill: '빈칸 채우기',
+    flashcards: '문장 플래시카드',
+    spelling: '스펠링 연습',
+    word_quiz: '단어 퀴즈',
+    word_flashcards: '단어 플래시카드',
+  },
+  en: {
+    quiz: 'Sentence Quiz',
+    scramble: 'Sentence Scramble',
+    wordfill: 'Word Fill',
+    flashcards: 'Sentence Flashcards',
+    spelling: 'Spelling',
+    word_quiz: 'Word Quiz',
+    word_flashcards: 'Word Flashcards',
+  },
+};
+
 const translations = {
   ko: {
     backToBundle: '뒤로',
     noItems: '등록된 학습 항목이 없습니다.',
     noImage: '이미지가 없습니다',
     practice: '연습 모드',
-    practiceInfo: 'Sentence Quiz, Scramble, Word Fill에서 처음 정답을 맞히면 별을 획득합니다. 획득한 별은 유지되며, 단어 연습은 단어 숙련도에 반영됩니다.',
-    viewItems: '전체 항목 보기',
+    practiceInfo: '문장 퀴즈를 맞히면 마스터리 스타가 채워져요. 스타를 모두 모아 100% 마스터에 도전해보세요!',
+    viewItems: '전체 문장 목록 보기',
     sentencePractice: '문장 연습',
     wordPractice: '단어 연습',
     keyWords: '핵심 단어',
@@ -81,13 +104,14 @@ const translations = {
     auto: '자동',
     infiniteRepeat: '무한 반복',
     repeatTimes: (n: number) => `${n}번 반복`,
+    playCount: (n: number) => `${n}회 청취`,
   },
   en: {
     backToBundle: 'Back',
     noItems: 'No learning items registered.',
     noImage: 'No image available',
     practice: 'Practice',
-    practiceInfo: 'Earn permanent stars for first correct answers in Sentence Quiz, Scramble, and Word Fill. Word practice builds word proficiency.',
+    practiceInfo: 'Pass quizzes to earn Mastery Stars. Collect all stars to complete 100% bundle mastery!',
     viewItems: 'View All Items',
     sentencePractice: 'Sentence practice',
     wordPractice: 'Word practice',
@@ -109,6 +133,7 @@ const translations = {
     auto: 'Auto',
     infiniteRepeat: 'Infinite repeat',
     repeatTimes: (n: number) => `Repeat ${n} times`,
+    playCount: (n: number) => `${n} plays`,
   },
 };
 
@@ -119,6 +144,7 @@ export default function BundlePlayerClient({
   language = 'ko',
   user,
   initialItemId = null,
+  itemInteractions = [],
 }: BundlePlayerClientProps) {
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -128,6 +154,15 @@ export default function BundlePlayerClient({
   const [showSource, setShowSource] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [playCounts, setPlayCounts] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    for (const item of itemInteractions || []) {
+      if (item.bundle_item_id) {
+        map[item.bundle_item_id] = Number(item.play_count) || 0;
+      }
+    }
+    return map;
+  });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef(false);
@@ -190,6 +225,25 @@ export default function BundlePlayerClient({
     playAudio();
   };
 
+  const recordPlayCount = (bundleItemId: string | undefined) => {
+    if (!user || !bundleItemId) return;
+
+    setPlayCounts((prev) => ({
+      ...prev,
+      [bundleItemId]: (prev[bundleItemId] || 0) + 1,
+    }));
+
+    void fetch('/api/bundle-progress', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bundle_id: bundle.id,
+        played_bundle_item_id: bundleItemId,
+      }),
+      keepalive: true,
+    }).catch((error) => console.error('Failed to record played bundle item:', error));
+  };
+
   const saveCurrentItem = (bundleItemId: string | undefined) => {
     if (!user || !bundleItemId) return;
 
@@ -222,6 +276,10 @@ export default function BundlePlayerClient({
   };
 
   const handleAudioEnded = () => {
+    if (currentItem?.id) {
+      recordPlayCount(currentItem.id);
+    }
+
     if (currentRepeat + 1 < repeatCount) {
       setCurrentRepeat((prev) => prev + 1);
       window.setTimeout(() => {
@@ -272,6 +330,15 @@ export default function BundlePlayerClient({
             <span>{level}</span>
             <span>·</span>
             <span>Est. {estimateBundleMinutes(items.length)} min</span>
+            {currentItem && (playCounts[currentItem.id] || 0) > 0 && (
+              <>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-[#2f7d4a] dark:text-emerald-400">
+                  <Headphones className="h-3.5 w-3.5" />
+                  {t.playCount(playCounts[currentItem.id])}
+                </span>
+              </>
+            )}
           </div>
         </section>
 
@@ -286,11 +353,19 @@ export default function BundlePlayerClient({
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 via-black/45 to-transparent px-8 py-6 text-center md:block">
-              {hasSpeakerInfo && (
-                <SpeakerLabel item={currentItem} variant="overlay" />
-              )}
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+                {hasSpeakerInfo && (
+                  <SpeakerLabel item={currentItem} variant="overlay" />
+                )}
+                {currentItem && (playCounts[currentItem.id] || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-0.5 text-xs font-semibold text-white">
+                    <Headphones className="h-3 w-3" />
+                    {t.playCount(playCounts[currentItem.id])}
+                  </span>
+                )}
+              </div>
               {showSource && (
-                <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-2xl font-black leading-snug text-white drop-shadow md:text-3xl`}>
+                <p className="text-2xl font-black leading-snug text-white drop-shadow md:text-3xl">
                   {getItemSource(currentItem)}
                 </p>
               )}
@@ -303,9 +378,17 @@ export default function BundlePlayerClient({
           </div>
 
           <div className="border-b border-zinc-100 bg-white px-4 py-5 text-center dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
-            {hasSpeakerInfo && (
-              <SpeakerLabel item={currentItem} variant="inline" />
-            )}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+              {hasSpeakerInfo && (
+                <SpeakerLabel item={currentItem} variant="inline" />
+              )}
+              {currentItem && (playCounts[currentItem.id] || 0) > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#f0f8f3] px-2.5 py-0.5 text-xs font-semibold text-[#2f7d4a] dark:bg-emerald-950/60 dark:text-emerald-300">
+                  <Headphones className="h-3 w-3" />
+                  {t.playCount(playCounts[currentItem.id])}
+                </span>
+              )}
+            </div>
             {showSource && (
               <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-xl font-extrabold leading-snug text-zinc-950 dark:text-zinc-50`}>
                 {getItemSource(currentItem)}
@@ -459,7 +542,8 @@ export default function BundlePlayerClient({
               <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-1 lg:gap-3">
                 {PRACTICE_MODES.filter(mode => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target).map(mode => {
                   const definition = PRACTICE_REGISTRY[mode];
-                  return <PracticeLink key={mode} href={`/bundles/${bundle.id}/${definition.path}`} icon={<PracticeModeIcon mode={mode} className="h-5 w-5 sm:h-6 sm:w-6" />} label={definition.label} tone={practiceModeColors[mode]} />;
+                  const modeLabel = language === 'ko' ? (modeLabels.ko[mode] || definition.label) : definition.label;
+                  return <PracticeLink key={mode} href={`/bundles/${bundle.id}/${definition.path}`} icon={<PracticeModeIcon mode={mode} className="h-5 w-5 sm:h-6 sm:w-6" />} label={modeLabel} tone={practiceModeColors[mode]} />;
                 })}
               </div>
             </div>
