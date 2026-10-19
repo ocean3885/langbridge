@@ -50,7 +50,7 @@ const copy = {
 
 export function SignUpForm({
   className,
-  language = 'en',
+  language = 'ko',
   ...props
 }: React.ComponentPropsWithoutRef<"div"> & { language?: DisplayLanguage }) {
   const t = copy[language];

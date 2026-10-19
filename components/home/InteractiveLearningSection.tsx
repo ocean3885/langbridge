@@ -16,7 +16,7 @@ interface InteractiveLearningSectionProps {
 
 const translations = {
     ko: {
-        badge: "Interactive Learning",
+        badge: "인터랙티브 학습",
         title: (
             <>
                 다양한 문제 유형으로
@@ -33,7 +33,7 @@ const translations = {
             </>
         ),
         card1: {
-            title: "문장 단어 배열 Quiz",
+            title: "단어 배열 퀴즈",
             desc: "단어를 올바른 순서로 배열하며 문장 구조를 자연스럽게 익혀요.",
         },
         card2: {
@@ -41,7 +41,7 @@ const translations = {
             desc: "문맥을 이해하고 빈칸을 채우며 실력을 탄탄하게 다져요.",
         },
         card3: {
-            title: "Word Flash Card",
+            title: "단어 플래시카드",
             desc: "단어를 반복해서 보고 익히며 오래 기억할 수 있도록 도와줘요.",
         },
         features: [
@@ -64,14 +64,14 @@ const translations = {
         ],
         previews: {
             quizPrompt: "저는 아침에 회의가 있어요.",
-            quizInstruction: "단어를 터치하여 문장을 완성하세요",
+            quizInstruction: "단어를 선택하여 문장을 완성하세요",
             blankFeedback: "✓ 정답이에요! café",
             blankTip: "Tip: Tomar는 '마시다'라는 뜻으로도 자주 쓰여요.",
             flashHint: "카드를 눌러 뒤집어 보세요",
             flashMeaning: "여행",
             flashExample: "¡Buen viaje! (즐거운 여행 되세요!)",
-            flashKnow: "알아요",
-            flashUnknown: "몰라요",
+            flashKnow: "알고 있어요",
+            flashUnknown: "아직 헷갈려요",
         },
     },
     en: {

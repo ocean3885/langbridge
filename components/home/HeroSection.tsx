@@ -8,7 +8,7 @@ interface HeroSectionProps {
 
 const translations = {
   ko: {
-    badge: "머릿속 지식을 '말할 수 있는 언어'로 바꾸는 시간",
+    badge: "진짜 입이 열리는 실전 스페인어",
     title: (
       <>
         우리의 <span className="text-[#E27D60]">일상</span>이<br />
@@ -19,13 +19,13 @@ const translations = {
     description: (
       <>
         일상 회화부터 몰입감 넘치는 숏 스토리까지, 다채로운 테마로 스페인어를 경험하세요.<br />
-        단순한 인풋을 넘어선 능동적인 훈련이 당신을 '진짜 말할 수 있는' 단계로 이끕니다.
+        단순히 눈으로 보는 것을 넘어, 직접 말하고 완성하는 훈련이 당신을 '진짜 말할 수 있는' 단계로 이끕니다.
       </>
     ),
     features: [
-      { title: 'Diverse Bundles', desc: '매일 업데이트되는 다채로운 테마의 학습 콘텐츠' },
-      { title: 'Active Learning', desc: '직접 문장을 완성하며 체득하는 아웃풋 중심 설계' },
-      { title: 'Step-by-Step', desc: '왕초보부터 고급까지 내 수준에 딱 맞는 맞춤형 구성' },
+      { title: '다채로운 번들', desc: '매일 업데이트되는 다채로운 테마의 학습 콘텐츠' },
+      { title: '능동적 실전 훈련', desc: '직접 문장을 완성하며 체득하는 능동적 실전 연습' },
+      { title: '맞춤형 단계별 학습', desc: '왕초보부터 고급까지 내 수준에 딱 맞는 맞춤형 구성' },
     ],
     primaryCta: '학습 시작하기',
     secondaryCta: '번들 둘러보기',
@@ -59,7 +59,8 @@ const translations = {
 
 export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps) {
   const t = translations[lang];
-  const titleLeadingClass = lang === 'ko' ? 'leading-[1.4] sm:leading-[1.34]' : 'leading-[1.2]';
+  const titleLeadingClass = lang === 'ko' ? 'leading-[1.48] sm:leading-[1.42]' : 'leading-[1.2]';
+  const titleTrackingClass = lang === 'ko' ? 'tracking-[-0.01em]' : 'tracking-tight';
 
   return (
     <section className="relative overflow-hidden px-6 pt-12 pb-8 sm:pt-20 sm:pb-12 transition-colors duration-300">
@@ -76,7 +77,7 @@ export default function HeroSection({ userCount, lang = 'ko' }: HeroSectionProps
           </div>
 
           <div>
-            <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-black ${titleLeadingClass} tracking-tight text-zinc-900 dark:text-zinc-100 break-keep`}>
+            <h1 className={`text-4xl sm:text-5xl lg:text-6xl font-black ${titleLeadingClass} ${titleTrackingClass} text-zinc-900 dark:text-zinc-100 break-keep`}>
               {t.title}
             </h1>
             <p className="text-lg sm:text-xl font-bold text-[#E27D60] mt-3">

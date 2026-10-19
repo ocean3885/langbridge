@@ -32,7 +32,7 @@ export async function getAppUserFromServer(): Promise<AppUser | null> {
 export async function getDisplayLanguage(): Promise<'ko' | 'en'> {
   const cookieStore = await cookies();
   const lang = cookieStore.get(LANG_COOKIE)?.value;
-  return (lang === 'ko' ? 'ko' : 'en');
+  return (lang === 'en' ? 'en' : 'ko');
 }
 
 export async function getAppUserFromRequest(

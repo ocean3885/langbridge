@@ -11,7 +11,7 @@ function SuccessContent() {
 
   const [status, setStatus] = useState<'verifying' | 'processing' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
-  const [language, setLanguage] = useState<'ko' | 'en'>('en');
+  const [language, setLanguage] = useState<'ko' | 'en'>('ko');
   const [paymentData, setPaymentData] = useState<{
     provider?: string;
     currentPeriodEnd?: string | null;
@@ -33,11 +33,11 @@ function SuccessContent() {
       .split('; ')
       .find((cookie) => cookie.startsWith('lb_display_language='))
       ?.split('=')[1];
-    setLanguage(languageCookie === 'ko' ? 'ko' : 'en');
+    setLanguage(languageCookie === 'en' ? 'en' : 'ko');
   }, []);
 
   useEffect(() => {
-    const paymentIsKorean = document.cookie.includes('lb_display_language=ko');
+    const paymentIsKorean = !document.cookie.includes('lb_display_language=en');
 
     if (provider === 'paddle') {
       if (!transactionId) {

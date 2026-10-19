@@ -24,7 +24,7 @@ import type { BundleCategoryRow, BundleRow, Language } from '@/app/bundles/types
 
 const translations = {
   ko: {
-    badge: '3. 번들 카테고리',
+    badge: '번들 카테고리',
     title: (
       <>
         다양한 <span className="text-[#5B8A61]">번들</span>로 배우는 스페인어
@@ -33,10 +33,10 @@ const translations = {
     description: '여행, 일상, 비즈니스까지. 상황에 맞는 번들을 선택하고 체계적으로 학습해보세요.',
     all: '전체',
     viewAll: '모든 번들 보기',
-    items: '항목',
+    items: '개 문장',
     moreBundles: {
       title: '더 많은 번들을 만나보세요!',
-      desc: 'LangBridge는 계속 새로운 번들을 추가하고 있어요.',
+      desc: 'HolaLingo는 계속 새로운 번들을 추가하고 있어요.',
     },
   },
   en: {
@@ -139,19 +139,8 @@ export default function BundleCategoriesSection({
             <Link
               key={getCategoryKey(category)}
               href={getCategoryHref(category, lang)}
-              className="flex max-w-full shrink-0 items-center gap-2 rounded-full border border-[#E8E3DC] bg-white px-5 py-2.5 text-sm font-bold text-[#555] transition-all duration-200 hover:border-[#C7D8C9] hover:bg-[#F7FBF7] hover:text-[#5B8A61] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:shrink"
+              className="flex max-w-full shrink-0 items-center rounded-full border border-[#E8E3DC] bg-white px-5 py-2.5 text-sm font-bold text-[#555] transition-all duration-200 hover:border-[#C7D8C9] hover:bg-[#F7FBF7] hover:text-[#5B8A61] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:shrink"
             >
-              {category.icon_image_url ? (
-                <Image
-                  src={category.icon_image_url}
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="h-5 w-5 rounded-full object-cover"
-                />
-              ) : (
-                <BookOpen className="h-4 w-4" />
-              )}
               <span className="truncate">{getCategoryTitle(category, lang)}</span>
             </Link>
           ))}
@@ -204,7 +193,7 @@ export default function BundleCategoriesSection({
                       <div className="flex items-center gap-5 text-sm font-medium text-[#777] dark:text-zinc-400">
                         <span className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-zinc-400" />
-                          {bundleItemCount(bundle)} {t.items}
+                          {bundleItemCount(bundle)}{lang === 'ko' ? t.items : ` ${t.items}`}
                         </span>
                         <span className="flex items-center gap-2">
                           <BarChart3 className="h-4 w-4 text-zinc-400" />

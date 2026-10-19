@@ -39,7 +39,7 @@ const previewStreakSummary: LearningStreakSummary = {
 
 export function StreakCard({
   summary = previewStreakSummary,
-  language = 'en',
+  language = 'ko',
 }: {
   summary?: LearningStreakSummary;
   language?: DisplayLanguage;

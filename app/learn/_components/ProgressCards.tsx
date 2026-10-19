@@ -80,7 +80,7 @@ const previewCopy = {
 
 export function GoalCard({
   summary = previewGoalSummary,
-  language = 'en',
+  language = 'ko',
   editable = false,
 }: {
   summary?: LearningGoalSummary;
@@ -220,7 +220,7 @@ export function GoalCard({
   );
 }
 
-export function MiniListCard({ language = 'en' }: { language?: DisplayLanguage }) {
+export function MiniListCard({ language = 'ko' }: { language?: DisplayLanguage }) {
   const t = previewCopy[language];
 
   return (
@@ -239,7 +239,7 @@ export function MiniListCard({ language = 'en' }: { language?: DisplayLanguage }
   );
 }
 
-export function ProgressChartCard({ language = 'en' }: { language?: DisplayLanguage }) {
+export function ProgressChartCard({ language = 'ko' }: { language?: DisplayLanguage }) {
   const t = previewCopy[language];
 
   return (

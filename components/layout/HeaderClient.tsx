@@ -52,7 +52,7 @@ const translations = {
   }
 };
 
-export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'en' }: Props) {
+export default function HeaderClient({ isLoggedIn, userEmail, isAdmin, language = 'ko' }: Props) {
   const t = translations[language];
   const userDisplayName = userEmail?.split('@')[0] || null;
   const supabase = createClient();

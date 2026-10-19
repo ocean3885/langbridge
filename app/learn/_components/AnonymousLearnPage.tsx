@@ -161,7 +161,7 @@ const anonymousCopy = {
   },
 };
 
-export function AnonymousLearnPage({ language = 'en' }: { language?: DisplayLanguage }) {
+export function AnonymousLearnPage({ language = 'ko' }: { language?: DisplayLanguage }) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100">
       <AnonymousHeroSection language={language} />

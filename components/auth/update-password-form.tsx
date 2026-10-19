@@ -42,7 +42,7 @@ const copy = {
 
 export function UpdatePasswordForm({
   className,
-  language = 'en',
+  language = 'ko',
   ...props
 }: React.ComponentPropsWithoutRef<"div"> & { language?: DisplayLanguage }) {
   const t = copy[language];
