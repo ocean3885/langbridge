@@ -353,17 +353,11 @@ export default function BundlePlayerClient({
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 via-black/45 to-transparent px-8 py-6 text-center md:block">
-              <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
-                {hasSpeakerInfo && (
+              {hasSpeakerInfo && (
+                <div className="mb-2">
                   <SpeakerLabel item={currentItem} variant="overlay" />
-                )}
-                {currentItem && (playCounts[currentItem.id] || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-0.5 text-xs font-semibold text-white">
-                    <Headphones className="h-3 w-3" />
-                    {t.playCount(playCounts[currentItem.id])}
-                  </span>
-                )}
-              </div>
+                </div>
+              )}
               {showSource && (
                 <p className="text-2xl font-black leading-snug text-white drop-shadow md:text-3xl">
                   {getItemSource(currentItem)}
@@ -378,19 +372,13 @@ export default function BundlePlayerClient({
           </div>
 
           <div className="border-b border-zinc-100 bg-white px-4 py-5 text-center dark:border-zinc-800 dark:bg-zinc-950 md:hidden">
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
-              {hasSpeakerInfo && (
+            {hasSpeakerInfo && (
+              <div className="mb-2">
                 <SpeakerLabel item={currentItem} variant="inline" />
-              )}
-              {currentItem && (playCounts[currentItem.id] || 0) > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#f0f8f3] px-2.5 py-0.5 text-xs font-semibold text-[#2f7d4a] dark:bg-emerald-950/60 dark:text-emerald-300">
-                  <Headphones className="h-3 w-3" />
-                  {t.playCount(playCounts[currentItem.id])}
-                </span>
-              )}
-            </div>
+              </div>
+            )}
             {showSource && (
-              <p className={`${hasSpeakerInfo ? 'mt-3' : ''} text-xl font-extrabold leading-snug text-zinc-950 dark:text-zinc-50`}>
+              <p className="text-xl font-extrabold leading-snug text-zinc-950 dark:text-zinc-50">
                 {getItemSource(currentItem)}
               </p>
             )}

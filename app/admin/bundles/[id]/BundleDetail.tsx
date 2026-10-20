@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowLeft, ArrowUp, Book, CheckCircle2, Copy, Edit2, ExternalLink, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Book, Check, CheckCircle2, CheckSquare, Copy, Edit2, ExternalLink, Filter, GripVertical, ImageIcon, Layout, Loader2, MessageCircle, RotateCcw, Save, Search, Sparkles, Square, Tag, Trash2, UploadCloud, Volume2, X } from 'lucide-react';
 import { bundleLevelOptions, getBundleLevelDisplay } from '@/lib/bundle-level';
 import { formatDate, getPublicUrl } from '@/lib/utils';
 import { updateBundle, deleteBundle, listCategories, listBundleTypes, updateBundleItemImage, deleteBundleItemsBulk, updateBundleItemsOrder, regenerateBundleItemSentenceTTS } from '@/lib/supabase/services/bundles';
@@ -14,14 +14,26 @@ import { defaultAdminTtsOptions } from '@/lib/admin-tts-options';
 import TTSSettingsFields from '@/components/admin/TTSSettingsFields';
 import BundleImageMapper from './BundleImageMapper';
 
+const BASIC_EXCLUDED_LEMMAS = new Set([
+  'yo', 'tú', 'tu', 'él', 'el', 'ella', 'ello', 'ellos', 'ellas', 'usted', 'ustedes',
+  'nosotros', 'nosotras', 'vosotros', 'vosotras',
+  'me', 'te', 'se', 'nos', 'os', 'le', 'les', 'lo', 'la', 'los', 'las',
+  'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'nuestro', 'nuestra', 'nuestros', 'nuestras',
+  'de', 'a', 'en', 'con', 'por', 'para', 'sin', 'sobre', 'un', 'una', 'unos', 'unas',
+  'y', 'e', 'o', 'u', 'que', 'pero', 'si', 'sí', 'no', 'muy', 'más',
+  'este', 'esta', 'estos', 'estas', 'esto', 'ese', 'esa', 'esos', 'esas', 'eso',
+]);
+
 export default function BundleDetail({ 
   bundle: initialBundle, 
   items, 
-  words = [] 
+  words = [],
+  initialStudyWordIds = []
 }: { 
   bundle: any; 
   items: any[]; 
-  words?: any[] 
+  words?: any[];
+  initialStudyWordIds?: number[];
 }) {
   const router = useRouter();
   const [bundle, setBundle] = useState(initialBundle);
@@ -68,6 +80,103 @@ export default function BundleDetail({
   const sortedWords = [...words].sort((a, b) =>
     String(a.word || '').localeCompare(String(b.word || ''), 'es', { sensitivity: 'base' })
   );
+
+  // Study Words State
+  const [studyWordIds, setStudyWordIds] = useState<number[]>(initialStudyWordIds || []);
+  const [isEditingStudyWords, setIsEditingStudyWords] = useState(false);
+  const [selectedWordIds, setSelectedWordIds] = useState<Set<number>>(() => new Set(initialStudyWordIds || []));
+  const [isSavingStudyWords, setIsSavingStudyWords] = useState(false);
+  const [wordFilter, setWordFilter] = useState<'all' | 'selected' | 'unselected'>('all');
+  const [wordSearch, setWordSearch] = useState('');
+
+  const handleStartEditWords = () => {
+    setSelectedWordIds(new Set(studyWordIds));
+    setIsEditingStudyWords(true);
+    setWordFilter('all');
+    setWordSearch('');
+  };
+
+  const handleCancelEditWords = () => {
+    setSelectedWordIds(new Set(studyWordIds));
+    setIsEditingStudyWords(false);
+    setWordFilter('all');
+    setWordSearch('');
+  };
+
+  const handleToggleWord = (wordId: number) => {
+    setSelectedWordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(wordId)) {
+        next.delete(wordId);
+      } else {
+        next.add(wordId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllWords = () => {
+    setSelectedWordIds(new Set(words.map((w: any) => w.id)));
+  };
+
+  const handleDeselectAllWords = () => {
+    setSelectedWordIds(new Set());
+  };
+
+  const handleExcludeBasicWords = () => {
+    setSelectedWordIds((prev) => {
+      const next = new Set(prev);
+      for (const w of words) {
+        const normalized = String(w.word || '').trim().toLowerCase();
+        if (BASIC_EXCLUDED_LEMMAS.has(normalized)) {
+          next.delete(w.id);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleSaveStudyWords = async () => {
+    setIsSavingStudyWords(true);
+    try {
+      const response = await fetch(`/api/admin/bundles/${bundle.id}/words`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordIds: Array.from(selectedWordIds) }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save study words');
+      }
+
+      const data = await response.json();
+      setStudyWordIds(data.selectedWordIds || Array.from(selectedWordIds));
+      setIsEditingStudyWords(false);
+      alert('학습 대상 단어가 성공적으로 저장되었습니다.');
+    } catch (err: any) {
+      console.error('Error saving study words:', err);
+      alert(`저장에 실패했습니다: ${err.message}`);
+    } finally {
+      setIsSavingStudyWords(false);
+    }
+  };
+
+  const displayedWords = sortedWords.filter((w) => {
+    if (wordSearch.trim()) {
+      const q = wordSearch.trim().toLowerCase();
+      const matchWord = String(w.word || '').toLowerCase().includes(q);
+      const matchMeaningKo = getMeaningDisplay(w.meaning_ko).toLowerCase().includes(q);
+      const matchMeaningEn = getMeaningDisplay(w.meaning_en).toLowerCase().includes(q);
+      if (!matchWord && !matchMeaningKo && !matchMeaningEn) return false;
+    }
+    const activeWordIds = isEditingStudyWords ? selectedWordIds : new Set(studyWordIds);
+    const isSelected = activeWordIds.has(w.id);
+    if (wordFilter === 'selected' && !isSelected) return false;
+    if (wordFilter === 'unselected' && isSelected) return false;
+    return true;
+  });
+
   const orderedSourceSentences = currentItems
     .map(item => item.sentences?.sentence?.trim())
     .filter((sentence): sentence is string => Boolean(sentence));
@@ -1087,22 +1196,41 @@ export default function BundleDetail({
                           )}
                           {sentenceWords.length > 0 && (
                             <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3">
-                              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase text-gray-400 dark:text-gray-500">
-                                <Book className="w-3 h-3" />
-                                연결 단어 {sentenceWords.length}
+                              <div className="mb-2 flex items-center justify-between text-[10px] font-black uppercase text-gray-400 dark:text-gray-500">
+                                <div className="flex items-center gap-1.5">
+                                  <Book className="w-3 h-3" />
+                                  연결 단어 {sentenceWords.length}
+                                </div>
+                                {studyWordIds.length > 0 && (
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                    학습 대상 {sentenceWords.filter((w: any) => studyWordIds.includes(w.id)).length}개
+                                  </span>
+                                )}
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {sentenceWords.map((word: any) => (
-                                  <Link
-                                    href={`/admin/words/${word.id}`}
-                                    key={word.id}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex max-w-full items-center rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 px-3 py-2 text-sm font-black text-gray-800 dark:text-gray-100 transition-colors hover:border-blue-100 dark:hover:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-300"
-                                    title={getMeaningDisplay(word.meaning_ko)}
-                                  >
-                                    {word.word}
-                                  </Link>
-                                ))}
+                                {sentenceWords.map((word: any) => {
+                                  const isStudyWord = studyWordIds.includes(word.id);
+                                  return (
+                                    <Link
+                                      href={`/admin/words/${word.id}`}
+                                      key={word.id}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`inline-flex max-w-full items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-black transition-colors ${
+                                        isStudyWord
+                                          ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100'
+                                          : 'border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:border-blue-100 hover:bg-blue-50 hover:text-blue-600'
+                                      }`}
+                                      title={getMeaningDisplay(word.meaning_ko)}
+                                    >
+                                      {word.word}
+                                      {isStudyWord && (
+                                        <span className="inline-flex items-center justify-center rounded-full bg-emerald-500 text-white text-[9px] px-1 py-0.2 leading-none font-bold">
+                                          학습
+                                        </span>
+                                      )}
+                                    </Link>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -1173,58 +1301,254 @@ export default function BundleDetail({
           </div>
         )}
 
-        {/* Key Vocabulary Section */}
+        {/* Key Vocabulary / Study Words Section */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-              <Book className="w-5 h-5 text-purple-500" />
-              핵심 어휘 ({sortedWords.length})
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <Book className="w-5 h-5 text-purple-500" />
+                  학습 대상 단어 관리
+                </h2>
+                {studyWordIds.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    학습 대상 {studyWordIds.length}개 / 후보 {words.length}개
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/80 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                    미선별 (전체 {words.length}개 출제 중)
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                번들 문장에 연결된 단어 중 실제 프랙티스(퀴즈/플래시카드/스펠링)에 출제할 핵심 단어군을 선별합니다.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {isEditingStudyWords ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditWords}
+                    disabled={isSavingStudyWords}
+                    className="px-3.5 py-2 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveStudyWords}
+                    disabled={isSavingStudyWords}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white shadow-sm hover:bg-emerald-500 transition disabled:opacity-50"
+                  >
+                    {isSavingStudyWords ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        선택 완료 ({selectedWordIds.size}개 저장)
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStartEditWords}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 text-white shadow-sm hover:bg-purple-500 transition"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  학습 단어 편집
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Edit Mode Control Toolbar */}
+          {isEditingStudyWords && (
+            <div className="rounded-2xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/20 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-sm font-bold text-purple-950 dark:text-purple-200">
+                  학습 단어로 등록할 단어를 클릭하거나 체크하세요 ({selectedWordIds.size} / {words.length}개 선택됨)
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExcludeBasicWords}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition"
+                    title="el, la, de, yo, sí 등 극초급 기능어 자동 제외"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    기본어 자동 제외
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllWords}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 transition"
+                  >
+                    전체 선택
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllWords}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 transition"
+                  >
+                    전체 해제
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Search & Filter Bar */}
+          {sortedWords.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 text-xs font-bold text-gray-600 dark:text-gray-300">
+                <button
+                  type="button"
+                  onClick={() => setWordFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    wordFilter === 'all'
+                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                      : 'hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  전체 ({sortedWords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWordFilter('selected')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    wordFilter === 'selected'
+                      ? 'bg-white dark:bg-gray-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                      : 'hover:text-emerald-600 dark:hover:text-emerald-400'
+                  }`}
+                >
+                  학습 대상 ({isEditingStudyWords ? selectedWordIds.size : studyWordIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWordFilter('unselected')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    wordFilter === 'unselected'
+                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                      : 'hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  미선택 ({sortedWords.length - (isEditingStudyWords ? selectedWordIds.size : studyWordIds.length)})
+                </button>
+              </div>
+
+              <div className="relative max-w-xs w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={wordSearch}
+                  onChange={(e) => setWordSearch(e.target.value)}
+                  placeholder="단어 또는 뜻 검색..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                />
+              </div>
+            </div>
+          )}
 
           {sortedWords.length === 0 ? (
             <div className="bg-white dark:bg-gray-900 p-12 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 text-center">
               <p className="text-gray-400 dark:text-gray-500 font-medium">연결된 단어가 없습니다.</p>
             </div>
+          ) : displayedWords.length === 0 ? (
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 text-center">
+              <p className="text-gray-400 dark:text-gray-500 text-sm">조건에 맞는 단어가 없습니다.</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {sortedWords.map((w) => (
-                <Link href={`/admin/words/${w.id}`} key={w.id} className="group">
-                  <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all h-full flex flex-col">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {displayedWords.map((w) => {
+                const isSelected = isEditingStudyWords
+                  ? selectedWordIds.has(w.id)
+                  : studyWordIds.includes(w.id);
+
+                return (
+                  <div
+                    key={w.id}
+                    onClick={() => {
+                      if (isEditingStudyWords) {
+                        handleToggleWord(w.id);
+                      }
+                    }}
+                    className={`bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border transition-all h-full flex flex-col ${
+                      isEditingStudyWords
+                        ? isSelected
+                          ? 'border-emerald-500 dark:border-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/20 cursor-pointer shadow-sm ring-1 ring-emerald-500/30'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 cursor-pointer opacity-75'
+                        : isSelected
+                        ? 'border-emerald-300 dark:border-emerald-800/80 shadow-sm'
+                        : 'border-gray-100 dark:border-gray-800/80 opacity-80'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2 sm:mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isEditingStudyWords && (
+                          <span className="shrink-0 text-emerald-600 dark:text-emerald-400">
+                            {isSelected ? (
+                              <CheckSquare className="w-5 h-5 fill-emerald-100 dark:fill-emerald-950 text-emerald-600" />
+                            ) : (
+                              <Square className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+                            )}
+                          </span>
+                        )}
+                        <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight truncate">
                           {w.word}
                         </span>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 shrink-0">
                           {(w.pos || []).map((p: string, i: number) => (
-                            <span key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                            <span key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">
                               {p}
                             </span>
                           ))}
                         </div>
                       </div>
-                      {w.audio_url && (
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            playAudio(w.audio_url);
-                          }}
-                          className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 rounded-lg transition-colors"
-                        >
-                          <Volume2 className="w-4 h-4" />
-                        </button>
-                      )}
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isEditingStudyWords && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isSelected
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {isSelected ? '✓ 학습 대상' : '후보'}
+                          </span>
+                        )}
+                        {w.audio_url && (
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              playAudio(w.audio_url);
+                            }}
+                            className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 rounded-lg transition-colors"
+                            title="발음 듣기"
+                          >
+                            <Volume2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-auto">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-bold">{getMeaningDisplay(w.meaning_ko)}</p>
+
+                    <div className="mt-auto pt-2 border-t border-gray-50 dark:border-gray-800/50">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">{getMeaningDisplay(w.meaning_ko)}</p>
                       {w.meaning_en && (
                         <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-0.5">{getMeaningDisplay(w.meaning_en)}</p>
                       )}
                     </div>
                   </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

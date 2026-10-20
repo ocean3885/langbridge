@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
-import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getBundle, listBundleItems, getBundleStudyWordIds } from '@/lib/supabase/services/bundles';
 import { listUserWordInteractions, type UserWordInteraction } from '@/lib/supabase/services/user-interactions';
 import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { getPublicUrl } from '@/lib/utils';
@@ -31,11 +31,12 @@ interface BundleSpellingPageProps {
 export default async function BundleSpellingPage({ params, searchParams }: BundleSpellingPageProps) {
   const { id } = await params;
   const { mode, count } = await searchParams;
-  const [bundle, items, language, user] = await Promise.all([
+  const [bundle, items, language, user, studyWordIds] = await Promise.all([
     getBundle(id),
     listBundleItems(id),
     getDisplayLanguage(),
     getAppUserFromServer(),
+    getBundleStudyWordIds(id),
   ]);
 
   if (!bundle) notFound();
@@ -47,7 +48,7 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
     redirect(access.reason === 'login_required' ? `/auth/login?redirectTo=${encodeURIComponent(redirectTo)}` : `/pricing?redirectTo=${encodeURIComponent(redirectTo)}`);
   }
 
-  const spellingItems: BundleSpellingItem[] = getPracticeWordTargets(items, 'spelling', language).map(({ word, bundleItemId, meaning, audioUrl }) => ({
+  const spellingItems: BundleSpellingItem[] = getPracticeWordTargets(items, 'spelling', language, studyWordIds).map(({ word, bundleItemId, meaning, audioUrl }) => ({
     id: String(word.id), progressId: String(word.id), bundleItemId, wordId: Number(word.id),
     word: word.word, meaning, langCode: word.lang_code || 'es', audioUrl: getPublicUrl(audioUrl),
   }));

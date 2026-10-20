@@ -4,7 +4,7 @@ import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { PRACTICE_REGISTRY, getPracticeWordTargets } from '@/lib/practice/registry';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
-import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getBundle, listBundleItems, getBundleStudyWordIds } from '@/lib/supabase/services/bundles';
 import { listUserWordInteractions } from '@/lib/supabase/services/user-interactions';
 import { listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import type { ReviewWordItem } from '@/lib/supabase/services/learning-review';
@@ -20,8 +20,12 @@ export interface BundleWordPracticePageProps {
 export default async function BundleWordPracticePage({ params, searchParams, practiceMode }: BundleWordPracticePageProps & { practiceMode: 'word_quiz' | 'word_flashcards' }) {
   const { id } = await params;
   const { mode, count } = await searchParams;
-  const [bundle, items, language, user] = await Promise.all([
-    getBundle(id), listBundleItems(id, true), getDisplayLanguage(), getAppUserFromServer(),
+  const [bundle, items, language, user, studyWordIds] = await Promise.all([
+    getBundle(id),
+    listBundleItems(id, true),
+    getDisplayLanguage(),
+    getAppUserFromServer(),
+    getBundleStudyWordIds(id),
   ]);
   if (!bundle) notFound();
   const definition = PRACTICE_REGISTRY[practiceMode];
@@ -31,7 +35,7 @@ export default async function BundleWordPracticePage({ params, searchParams, pra
     if (access.reason === 'unpublished') notFound();
     redirect(`${access.reason === 'login_required' ? '/auth/login' : '/pricing'}?redirectTo=${encodeURIComponent(basePath)}`);
   }
-  const targets = getPracticeWordTargets(items, practiceMode, language).map(target => ({ ...target, id: String(target.word.id) }));
+  const targets = getPracticeWordTargets(items, practiceMode, language, studyWordIds).map(target => ({ ...target, id: String(target.word.id) }));
   const [progress, interactions] = await Promise.all([
     getBundleProgressSummary(user?.id, bundle.id, items.length),
     user ? listUserWordInteractions(user.id, targets.map(target => target.word.id)) : Promise.resolve([]),

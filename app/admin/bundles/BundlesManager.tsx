@@ -23,6 +23,7 @@ export interface Bundle {
   access_level?: 'free' | 'premium' | null;
   created_at: string;
   updated_at: string;
+  study_words_count?: number;
   bundle_category?: {
     id: string;
     name: string;
@@ -62,6 +63,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedPublishStatus, setSelectedPublishStatus] = useState('all');
   const [selectedAccessLevel, setSelectedAccessLevel] = useState('all');
+  const [selectedStudyWordsStatus, setSelectedStudyWordsStatus] = useState<'all' | 'unspecified' | 'specified'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
@@ -72,6 +74,10 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
     setBundles(data as Bundle[]);
     setCurrentPage(1);
   };
+
+  const unspecifiedCount = useMemo(() => {
+    return bundles.filter((bundle) => (bundle.study_words_count || 0) === 0).length;
+  }, [bundles]);
 
   const categoryOptions = useMemo(() => {
     const categories = new Map<string, string>();
@@ -115,8 +121,21 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
       const matchesAccessLevel =
         selectedAccessLevel === 'all' ||
         (selectedAccessLevel === 'premium' ? bundle.access_level === 'premium' : bundle.access_level !== 'premium');
+      const matchesStudyWordsStatus =
+        selectedStudyWordsStatus === 'all' ||
+        (selectedStudyWordsStatus === 'unspecified'
+          ? (bundle.study_words_count || 0) === 0
+          : (bundle.study_words_count || 0) > 0);
 
-      return matchesSearch && matchesCategory && matchesType && matchesLevel && matchesPublishStatus && matchesAccessLevel;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesType &&
+        matchesLevel &&
+        matchesPublishStatus &&
+        matchesAccessLevel &&
+        matchesStudyWordsStatus
+      );
     });
   }, [
     bundles,
@@ -126,6 +145,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
     selectedLevel,
     selectedPublishStatus,
     selectedAccessLevel,
+    selectedStudyWordsStatus,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBundles.length / itemsPerPage));
@@ -146,6 +166,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
     setSelectedLevel('all');
     setSelectedPublishStatus('all');
     setSelectedAccessLevel('all');
+    setSelectedStudyWordsStatus('all');
     setCurrentPage(1);
   };
 
@@ -155,7 +176,8 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
     selectedType !== 'all' ||
     selectedLevel !== 'all' ||
     selectedPublishStatus !== 'all' ||
-    selectedAccessLevel !== 'all';
+    selectedAccessLevel !== 'all' ||
+    selectedStudyWordsStatus !== 'all';
 
   return (
     <div className="md:ml-64 p-4 md:p-8 pt-20 md:pt-8 bg-gray-50 dark:bg-background min-h-[calc(100vh-5rem)]">
@@ -223,7 +245,7 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <FilterSelect
             label="카테고리"
             value={selectedCategory}
@@ -289,18 +311,46 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
               { value: 'premium', label: '유료' },
             ]}
           />
+          <FilterSelect
+            label="학습 단어"
+            value={selectedStudyWordsStatus}
+            onChange={(value) => {
+              setSelectedStudyWordsStatus(value as any);
+              resetToFirstPage();
+            }}
+            options={[
+              { value: 'all', label: '전체 (모두)' },
+              { value: 'unspecified', label: `미지정 (${unspecifiedCount})` },
+              { value: 'specified', label: '지정 완료' },
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            조건에 맞는 번들 <span className="font-bold text-gray-900 dark:text-gray-100">{filteredBundles.length}</span>개
-            {filteredBundles.length > 0 && (
-              <span className="ml-1">
-                ({Math.min((Math.min(currentPage, totalPages) - 1) * itemsPerPage + 1, filteredBundles.length)}-
-                {Math.min(Math.min(currentPage, totalPages) * itemsPerPage, filteredBundles.length)} 표시)
-              </span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p>
+              조건에 맞는 번들 <span className="font-bold text-gray-900 dark:text-gray-100">{filteredBundles.length}</span>개
+              {filteredBundles.length > 0 && (
+                <span className="ml-1">
+                  ({Math.min((Math.min(currentPage, totalPages) - 1) * itemsPerPage + 1, filteredBundles.length)}-
+                  {Math.min(Math.min(currentPage, totalPages) * itemsPerPage, filteredBundles.length)} 표시)
+                </span>
+              )}
+            </p>
+            {unspecifiedCount > 0 && selectedStudyWordsStatus !== 'unspecified' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStudyWordsStatus('unspecified');
+                  resetToFirstPage();
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-xs font-bold text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 transition"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                단어 미지정 번들 {unspecifiedCount}개 모아보기
+              </button>
             )}
-          </p>
+          </div>
           {hasActiveFilters && (
             <button
               type="button"
@@ -382,14 +432,23 @@ export default function BundlesManager({ initialBundles }: { initialBundles: Bun
                   </p>
 
                   <div className="flex items-center justify-between pt-6 border-t border-gray-50 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <div className={`w-2 h-2 rounded-full ${bundle.is_published ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'}`} />
-                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                      {bundle.is_published ? '공개 중' : '비공개'}
-                    </span>
+                      <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
+                        {bundle.is_published ? '공개 중' : '비공개'}
+                      </span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${bundle.access_level === 'premium' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
                         {bundle.access_level === 'premium' ? '유료' : '무료'}
                       </span>
+                      {(bundle.study_words_count ?? 0) > 0 ? (
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                          단어 {bundle.study_words_count}개
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                          단어 미지정
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-gray-300 dark:text-gray-600">
                       {formatDate(bundle.created_at)}

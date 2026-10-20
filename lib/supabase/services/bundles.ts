@@ -31,7 +31,32 @@ export async function listBundles(options?: { publishedOnly?: boolean; limit?: n
     return [];
   }
 
-  return data ?? [];
+  // Fetch bundle_words counts per bundle
+  try {
+    const { data: studyWordRows } = await supabase
+      .from('bundle_words')
+      .select('bundle_id');
+
+    if (studyWordRows && studyWordRows.length > 0) {
+      const counts: Record<string, number> = {};
+      for (const row of studyWordRows) {
+        if (row.bundle_id) {
+          counts[row.bundle_id] = (counts[row.bundle_id] || 0) + 1;
+        }
+      }
+      return (data ?? []).map((b: any) => ({
+        ...b,
+        study_words_count: counts[b.id] || 0,
+      }));
+    }
+  } catch {
+    // If table doesn't exist yet, fall back
+  }
+
+  return (data ?? []).map((b: any) => ({
+    ...b,
+    study_words_count: 0,
+  }));
 }
 
 export async function countPublishedBundles(): Promise<number> {
@@ -1033,3 +1058,78 @@ export async function listBundleItemsWithDistractors(bundleId: string) {
 
   return data ?? [];
 }
+
+export async function getBundleStudyWordIds(bundleId: string): Promise<number[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_words')
+    .select('word_id')
+    .eq('bundle_id', bundleId)
+    .order('order_index', { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row: any) => Number(row.word_id)).filter(Boolean);
+}
+
+export async function getBundleStudyWords(bundleId: string, includeDistractors = false) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('bundle_words')
+    .select(`
+      word_id,
+      order_index,
+      words (
+        *${includeDistractors ? ', words_distractor(distractor, meaning_ko, meaning_en)' : ''}
+      )
+    `)
+    .eq('bundle_id', bundleId)
+    .order('order_index', { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data
+    .map((row: any) => row.words)
+    .filter((w: any) => Boolean(w?.id && w.word));
+}
+
+export async function updateBundleStudyWords(bundleId: string, wordIds: number[]): Promise<boolean> {
+  const supabase = createAdminClient();
+
+  const { error: deleteError } = await supabase
+    .from('bundle_words')
+    .delete()
+    .eq('bundle_id', bundleId);
+
+  if (deleteError) {
+    console.error('Error clearing bundle study words:', deleteError);
+    throw deleteError;
+  }
+
+  if (!wordIds || wordIds.length === 0) {
+    return true;
+  }
+
+  const uniqueWordIds = Array.from(new Set(wordIds));
+  const rows = uniqueWordIds.map((wordId, index) => ({
+    bundle_id: bundleId,
+    word_id: wordId,
+    order_index: index,
+  }));
+
+  const { error: insertError } = await supabase
+    .from('bundle_words')
+    .insert(rows);
+
+  if (insertError) {
+    console.error('Error inserting bundle study words:', insertError);
+    throw insertError;
+  }
+
+  return true;
+}
+

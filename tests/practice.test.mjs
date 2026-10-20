@@ -176,6 +176,22 @@ test('word target catalog deduplicates linked words and prefers directly include
   assert.equal(targets.find(target => target.word.id === 12).bundleItemId, 's1');
 });
 
+test('getPracticeWordTargets filters and respects order when selectedWordIds is provided', () => {
+  const { getPracticeWordTargets } = load('lib/practice/registry');
+  const items = [sentence, { id: 'direct', words: wordA }];
+  const targetsFiltered = getPracticeWordTargets(items, 'spelling', 'ko', [12]);
+  assert.equal(targetsFiltered.length, 1);
+  assert.equal(targetsFiltered[0].word.id, 12);
+
+  const targetsOrdered = getPracticeWordTargets(items, 'spelling', 'ko', [12, 11]);
+  assert.equal(targetsOrdered.length, 2);
+  assert.equal(targetsOrdered[0].word.id, 12);
+  assert.equal(targetsOrdered[1].word.id, 11);
+
+  assert.equal(getPracticeWordTargets(items, 'spelling', 'ko', []).length, 2);
+  assert.equal(getPracticeWordTargets(items, 'spelling', 'ko', null).length, 2);
+});
+
 test('word API accepts registered word modes and rejects sentence modes', async () => {
   const saved = [];
   const route = loadPracticeModules({

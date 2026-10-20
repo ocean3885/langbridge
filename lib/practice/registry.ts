@@ -132,18 +132,35 @@ function getLinkedWords(item: PracticeBundleItem): PracticeWord[] {
 }
 
 /** Canonical word targets: deduplicated across sentences, before session limits or sorting. */
-export function getPracticeWordTargets(items: PracticeBundleItem[], mode: PracticeMode, language: PracticeLanguage) {
+export function getPracticeWordTargets(
+  items: PracticeBundleItem[],
+  mode: PracticeMode,
+  language: PracticeLanguage,
+  selectedWordIds?: number[] | null,
+) {
   const definition: PracticeDefinition = PRACTICE_REGISTRY[mode];
   const byWordId = new Map<number, { word: PracticeWord; bundleItemId: string; audioUrl: string | null; meaning: string }>();
   // Prefer a directly included word over its occurrence in a sentence.
   const ordered = [...items.filter(item => item.words), ...items.filter(item => !item.words)];
+  const hasSelection = Array.isArray(selectedWordIds) && selectedWordIds.length > 0;
+  const allowedSet = hasSelection && selectedWordIds ? new Set(selectedWordIds.map(Number)) : null;
+
   for (const item of ordered) {
     if (!definition.isEligible(item, language)) continue;
     for (const word of definition.getWords?.(item) || []) {
+      const wordId = Number(word.id);
+      if (allowedSet && !allowedSet.has(wordId)) continue;
       const meaning = getPracticeWordMeaning(word, language);
-      if (!word.word || !meaning || byWordId.has(Number(word.id))) continue;
-      byWordId.set(Number(word.id), { word, bundleItemId: item.id, meaning, audioUrl: (item.words ? item.audio_url : null) || word.audio_url || null });
+      if (!word.word || !meaning || byWordId.has(wordId)) continue;
+      byWordId.set(wordId, { word, bundleItemId: item.id, meaning, audioUrl: (item.words ? item.audio_url : null) || word.audio_url || null });
     }
   }
-  return [...byWordId.values()];
+
+  const result = [...byWordId.values()];
+  if (hasSelection && selectedWordIds) {
+    const orderMap = new Map(selectedWordIds.map((id, idx) => [Number(id), idx]));
+    result.sort((a, b) => (orderMap.get(Number(a.word.id)) ?? 9999) - (orderMap.get(Number(b.word.id)) ?? 9999));
+  }
+  return result;
 }
+
