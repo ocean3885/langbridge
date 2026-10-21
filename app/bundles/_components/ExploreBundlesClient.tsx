@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { BundlesHero } from './BundlesHero';
 import { BundleRowCard } from './BundleRowCard';
 import { categoryStyles } from '../bundle-data';
-import { getCategoryKey, getCategoryTitle, getBundleTitle, getBundleDescription } from '../bundle-utils';
+import {
+  getCategoryKey,
+  getCategoryTitle,
+  getBundleTitle,
+  getBundleDescription,
+  slugifyCategory,
+  isCategorySlugMatch,
+} from '../bundle-utils';
 import type { BundleCategoryRow, BundleCopy, BundleProgressSnapshot, BundleRow, Language } from '../types';
 
 type BundleProgressStatus = 'in_progress' | 'not_started' | 'completed';
@@ -34,6 +41,7 @@ export function ExploreBundlesClient({
   isLoggedIn,
   copy,
   language,
+  initialCategory = 'all',
 }: {
   bundles: BundleRow[];
   categories: BundleCategoryRow[];
@@ -41,13 +49,55 @@ export function ExploreBundlesClient({
   isLoggedIn: boolean;
   copy: BundleCopy;
   language: Language;
+  initialCategory?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [selectedLevel, setSelectedLevel] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const handleCategoryChange = (catKey: string) => {
+    setActiveCategory(catKey);
+    setCurrentPage(1);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (catKey === 'all') {
+        url.searchParams.delete('category');
+      } else {
+        const matched = categories.find((c) => getCategoryKey(c) === catKey);
+        const slug = matched ? slugifyCategory(matched, language) : catKey;
+        url.searchParams.set('category', slug);
+      }
+      const newRelativePath = url.pathname + (url.search ? url.search : '');
+      window.history.pushState(null, '', newRelativePath);
+    }
+  };
+
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const catParam = params.get('category');
+      if (catParam) {
+        const matched = categories.find((c) => isCategorySlugMatch(c, catParam));
+        setActiveCategory(matched ? getCategoryKey(matched) : 'all');
+      } else {
+        setActiveCategory('all');
+      }
+      setCurrentPage(1);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [categories]);
 
   const itemsPerPage = 6;
 
@@ -176,10 +226,7 @@ export function ExploreBundlesClient({
           <div className="hidden flex-wrap items-center gap-2 md:flex">
             {/* "All" Tab */}
             <button
-              onClick={() => {
-                setActiveCategory('all');
-                setCurrentPage(1);
-              }}
+              onClick={() => handleCategoryChange('all')}
               className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
                 activeCategory === 'all'
                   ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
@@ -206,10 +253,7 @@ export function ExploreBundlesClient({
               return (
                 <button
                   key={catKey}
-                  onClick={() => {
-                    setActiveCategory(catKey);
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handleCategoryChange(catKey)}
                   className={`rounded-full px-4 py-2 text-xs font-semibold md:text-sm transition-all duration-200 ${
                     isActive
                       ? 'bg-[#4e8d53] text-white shadow-sm shadow-emerald-700/20'
@@ -238,10 +282,7 @@ export function ExploreBundlesClient({
               <select
                 id="bundle-category-filter"
                 value={activeCategory}
-                onChange={(e) => {
-                  setActiveCategory(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="h-10 w-full appearance-none rounded-lg border border-zinc-200 bg-white pl-3 pr-8 text-xs font-semibold text-zinc-700 shadow-sm outline-none transition-colors hover:bg-zinc-50 focus:border-[#559c63] focus:ring-1 focus:ring-[#559c63] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750"
                 aria-label={language === 'ko' ? '카테고리 필터' : 'Category filter'}
               >
@@ -367,6 +408,7 @@ export function ExploreBundlesClient({
                 progress={isLoggedIn ? progressByBundleId.get(bundle.id) || null : null}
                 isLoggedIn={isLoggedIn}
                 priority={index < 2}
+                onSelectCategory={handleCategoryChange}
               />
             );
           })

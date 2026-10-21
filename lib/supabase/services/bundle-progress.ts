@@ -1,7 +1,7 @@
 'use server';
 
 import { PRACTICE_REGISTRY, isBundlePracticeMode, isScoredPracticeMode, type PracticeMode, type PracticeDefinition, type PracticeBundleItem, getPracticeWordTargets } from '@/lib/practice/registry';
-import { calculateSentenceStars, hasEarnedPracticeStar } from '@/lib/practice/progress';
+import { calculateSentenceStars, hasEarnedPracticeStar, getBundleStarProgress } from '@/lib/practice/progress';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -33,6 +33,8 @@ export interface UserBundleInteraction {
   last_studied_at: string | null;
   memo: string | null;
   metadata: Record<string, unknown> | null;
+  earned_stars?: number;
+  max_stars?: number;
   created_at: string;
   updated_at: string;
 }
@@ -912,12 +914,85 @@ export async function listUserBundleInteractionsForBundles(
     .eq('user_id', userId)
     .in('bundle_id', bundleIds);
 
-  if (error) {
-    console.error('Error fetching user bundle interactions for bundles:', error);
+  if (error || !data || data.length === 0) {
+    if (error) {
+      console.error('Error fetching user bundle interactions for bundles:', error);
+    }
     return [];
   }
 
-  return (data || []) as UserBundleInteraction[];
+  const startedBundleIds = data
+    .filter((row) => row.is_started || row.last_studied_at || Number(row.progress_ratio || 0) > 0)
+    .map((row) => row.bundle_id);
+
+  if (startedBundleIds.length === 0) {
+    return data as UserBundleInteraction[];
+  }
+
+  try {
+    const [{ data: bundleItems }, { data: itemInteractions }] = await Promise.all([
+      supabase
+        .from('bundle_items')
+        .select(`
+          id,
+          bundle_id,
+          sentence_id,
+          sentences(
+            sentence,
+            translation,
+            translation_en,
+            word_sentence_map(
+              used_as,
+              words(id, word)
+            )
+          )
+        `)
+        .in('bundle_id', startedBundleIds)
+        .order('order_index', { ascending: true }),
+      supabase
+        .from('user_bundle_item_interactions')
+        .select('bundle_id, bundle_item_id, metadata, is_completed')
+        .eq('user_id', userId)
+        .in('bundle_id', startedBundleIds),
+    ]);
+
+    const itemsByBundleId = new Map<string, any[]>();
+    for (const item of (bundleItems as any[]) || []) {
+      const list = itemsByBundleId.get(item.bundle_id) || [];
+      list.push(item);
+      itemsByBundleId.set(item.bundle_id, list);
+    }
+
+    const interactionsByBundleId = new Map<string, any[]>();
+    for (const inter of (itemInteractions as any[]) || []) {
+      const list = interactionsByBundleId.get(inter.bundle_id) || [];
+      list.push(inter);
+      interactionsByBundleId.set(inter.bundle_id, list);
+    }
+
+    return data.map((interaction) => {
+      const items = itemsByBundleId.get(interaction.bundle_id) || [];
+      const inters = interactionsByBundleId.get(interaction.bundle_id) || [];
+      const practiceStars = getBundleStarProgress(items, inters, 'ko');
+
+      if (practiceStars.max > 0) {
+        const starRatio = practiceStars.earned / practiceStars.max;
+        const isCompleted = practiceStars.earned >= practiceStars.max;
+        return {
+          ...interaction,
+          progress_ratio: starRatio,
+          is_completed: isCompleted,
+          earned_stars: practiceStars.earned,
+          max_stars: practiceStars.max,
+        };
+      }
+
+      return interaction;
+    }) as UserBundleInteraction[];
+  } catch (err) {
+    console.error('Error calculating star progress in listUserBundleInteractionsForBundles:', err);
+    return data as UserBundleInteraction[];
+  }
 }
 
 export async function recordBundleStudyAccess(

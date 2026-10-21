@@ -3,8 +3,9 @@
 import { practiceModeColors } from '@/components/practice/practice-mode-colors';
 import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
 
-import { getBundleStarProgress } from '@/lib/practice/progress';
+import { getBundleStarProgress, type BundleWordProgress } from '@/lib/practice/progress';
 import { PRACTICE_REGISTRY, PRACTICE_MODES, isBundlePracticeMode } from '@/lib/practice/registry';
+import { getNextIncompletePracticeMode } from './practice-session';
 
 import { useState, type ReactNode } from 'react';
 import Image from 'next/image';
@@ -31,6 +32,7 @@ interface BundleDetailHubClientProps {
   progress: BundleProgressSummary;
   isLoggedIn: boolean;
   access: BundleAccessResult;
+  wordProgress?: BundleWordProgress;
 }
 
 const copy = {
@@ -60,9 +62,19 @@ const copy = {
     listenContinue: '이어서 듣기',
     listenAgain: '다시 듣기',
     primaryStartListening: '🎧 듣기로 시작하기',
-    primaryContinueQuiz: '✍️ 퀴즈로 마스터하기',
+    primaryContinueQuiz: '✍️ 퀴즈 풀기',
+    primaryContinueModes: {
+      quiz: '✍️ 퀴즈 풀기',
+      scramble: '✍️ 단어 배열',
+      wordfill: '✍️ 빈칸 채우기',
+    } as Record<string, string>,
     primaryReviewQuiz: '🔄 복습 퀴즈 풀기',
     secondaryQuiz: '✍️ 바로 퀴즈 풀기',
+    secondaryModes: {
+      quiz: '✍️ 바로 퀴즈 풀기',
+      scramble: '✍️ 단어 배열 바로 풀기',
+      wordfill: '✍️ 빈칸 채우기 바로 풀기',
+    } as Record<string, string>,
     secondaryListen: (step: number) => `🎧 이어서 듣기 (${step}번 문장)`,
     bundleCompletedBadge: '번들 마스터 완료!',
     guestNotice: '로그인하면 나의 학습 진도와 마스터리 스타가 안전하게 저장됩니다.',
@@ -112,9 +124,19 @@ const copy = {
     listenContinue: 'Continue listening',
     listenAgain: 'Listen again',
     primaryStartListening: '🎧 Start with Listening',
-    primaryContinueQuiz: '✍️ Master with Quizzes',
+    primaryContinueQuiz: '✍️ Practice Quiz',
+    primaryContinueModes: {
+      quiz: '✍️ Practice Quiz',
+      scramble: '✍️ Word Scramble',
+      wordfill: '✍️ Word Fill',
+    } as Record<string, string>,
     primaryReviewQuiz: '🔄 Review Practice',
     secondaryQuiz: '✍️ Practice Quiz Directly',
+    secondaryModes: {
+      quiz: '✍️ Practice Quiz Directly',
+      scramble: '✍️ Practice Scramble Directly',
+      wordfill: '✍️ Practice Word Fill Directly',
+    } as Record<string, string>,
     secondaryListen: (step: number) => `🎧 Continue Listening (#${step})`,
     bundleCompletedBadge: 'Bundle Mastered!',
     guestNotice: 'Log in to track your learning progress and mastery stars.',
@@ -165,7 +187,15 @@ function getModeLabel(mode: string, language: 'ko' | 'en') {
   return modeLabels[language]?.[mode] || PRACTICE_REGISTRY[mode as keyof typeof PRACTICE_REGISTRY]?.label || mode;
 }
 
-export default function BundleDetailHubClient({ bundle, items, language, progress, isLoggedIn, access }: BundleDetailHubClientProps) {
+export default function BundleDetailHubClient({
+  bundle,
+  items,
+  language,
+  progress,
+  isLoggedIn,
+  access,
+  wordProgress,
+}: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
   const [isUpdatingPinned, setIsUpdatingPinned] = useState(false);
@@ -205,6 +235,9 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
     : `/bundles/${bundle.id}/learn`;
   const quizHref = `/bundles/${bundle.id}/quiz`;
+  const nextPracticeMode = getNextIncompletePracticeMode(practiceStars.modes);
+  const nextPracticePath = PRACTICE_REGISTRY[nextPracticeMode]?.path || 'quiz';
+  const practiceHref = `/bundles/${bundle.id}/${nextPracticePath}`;
   const canAccessLearning = access.canView;
   const gatedHref = access.reason === 'login_required'
     ? `/auth/login?redirectTo=${encodeURIComponent(learnHref)}`
@@ -228,15 +261,15 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
       secondaryActionHref = learnHref;
       secondaryActionLabel = t.listenAgain;
     } else if (hasStudied) {
-      primaryActionHref = quizHref;
-      primaryActionLabel = t.primaryContinueQuiz;
+      primaryActionHref = practiceHref;
+      primaryActionLabel = t.primaryContinueModes[nextPracticeMode] || t.primaryContinueQuiz;
       secondaryActionHref = learnHref;
       secondaryActionLabel = t.secondaryListen(currentItemStep);
     } else {
       primaryActionHref = learnHref;
       primaryActionLabel = t.primaryStartListening;
-      secondaryActionHref = quizHref;
-      secondaryActionLabel = t.secondaryQuiz;
+      secondaryActionHref = practiceHref;
+      secondaryActionLabel = t.secondaryModes[nextPracticeMode] || t.secondaryQuiz;
     }
   }
 
@@ -420,24 +453,29 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           )}
 
           {/* 청취 스트림 진도 카드 */}
-          <div className="mt-3.5 flex items-center justify-between rounded-xl border border-emerald-100 bg-[#f4faf5] px-3.5 py-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
-                <Headphones className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{t.listeningStream}</p>
-                <p className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                  {hasStudied ? t.listeningStep(currentItemStep, items.length, totalPlayCount) : t.listeningNotStarted}
-                </p>
-              </div>
+          <div className="mt-3.5 flex items-center gap-3 rounded-xl border border-emerald-100 bg-[#f4faf5] p-3.5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
+              <Headphones className="h-5 w-5" />
             </div>
-            <Link
-              href={learnHref}
-              className="shrink-0 text-xs font-bold text-[#2f7d4a] hover:underline dark:text-emerald-400"
-            >
-              {hasStudied ? t.listenContinue : t.listenStart} ➔
-            </Link>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  {t.listeningStream}
+                </span>
+                {hasStudied && totalPlayCount > 0 && (
+                  <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
+                    {language === 'ko' ? `누적 ${totalPlayCount}회 청취` : `${totalPlayCount} plays`}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                {hasStudied
+                  ? (language === 'ko'
+                      ? `${items.length}개 중 ${currentItemStep}번째 문장 학습 중`
+                      : `Sentence ${currentItemStep} of ${items.length}`)
+                  : t.listeningNotStarted}
+              </p>
+            </div>
           </div>
 
           {showProgressInfo && (
@@ -508,9 +546,41 @@ export default function BundleDetailHubClient({ bundle, items, language, progres
           </div>
           {(['sentence', 'word'] as const).map((target) => (
             <div key={target} className="mb-4">
-              <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {target === 'sentence' ? t.sentencePractice : t.wordPractice}
-              </h3>
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <h3 className="min-w-0 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {target === 'sentence' ? t.sentencePractice : t.wordPractice}
+                </h3>
+                {target === 'word' && wordProgress && wordProgress.total > 0 && (
+                  isLoggedIn ? (
+                    <div
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition-colors ${
+                        wordProgress.completed >= wordProgress.total
+                          ? 'bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                          : wordProgress.completed > 0
+                          ? 'bg-emerald-50 text-[#2f7d4a] ring-1 ring-emerald-200/70 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/60'
+                          : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                      }`}
+                    >
+                      {wordProgress.completed >= wordProgress.total && (
+                        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                      <span className="tabular-nums font-extrabold">
+                        {wordProgress.completed} / {wordProgress.total}
+                      </span>
+                      <span>{language === 'ko' ? '단어 완료' : 'words'}</span>
+                      <span className="text-[11px] font-medium opacity-85">
+                        ({wordProgress.percent}%)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex shrink-0 items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                      <span>
+                        {language === 'ko' ? `총 ${wordProgress.total}단어` : `${wordProgress.total} words`}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 {PRACTICE_MODES.filter(
                   (mode) => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target

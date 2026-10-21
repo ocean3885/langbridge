@@ -33,8 +33,8 @@ function loadPracticeModules(mocks = {}) {
   return load;
 }
 const load = loadPracticeModules();
-const { getBundleStarProgress, hasEarnedPracticeStar } = load('lib/practice/progress');
-const { getPracticeModeStarProgress, filterPracticeItems } = load('app/bundles/[id]/practice-session');
+const { getBundleStarProgress, hasEarnedPracticeStar, calculateBundleWordProgress } = load('lib/practice/progress');
+const { getPracticeModeStarProgress, filterPracticeItems, getNextIncompletePracticeMode } = load('app/bundles/[id]/practice-session');
 const { getEligiblePracticeItems, isPracticeMode } = load('lib/practice/registry');
 const metadata = (mode, correct, last) => ({ practice_modes: { [mode]: { correct_count: correct, last_is_correct: last } } });
 const wordA = { id: 11, word: 'hola', meaning_ko: '안녕' };
@@ -80,6 +80,8 @@ function database() {
     const query = {
       select(_columns, options = {}) { countRequested = Boolean(options.count); head = Boolean(options.head); return query; },
       eq(key, value) { conditions.push(row => row[key] === value); return query; },
+      in(key, values) { conditions.push(row => Array.isArray(values) && values.includes(row[key])); return query; },
+      order() { return query; },
       not(key, _op, value) { conditions.push(row => value === null ? row[key] != null : row[key] !== value); return query; },
       gte(key, value) { conditions.push(row => row[key] >= value); return query; },
       maybeSingle() { single = true; return query; },
@@ -534,4 +536,154 @@ test('review scramble delegates to BundleScrambleClient and records results', as
     assert.equal(calls[0].bundle_id, 'b1');
     assert.equal(calls[0].bundle_item_id, 's1');
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test('getNextIncompletePracticeMode guides user through quiz -> scramble -> wordfill as modes are mastered', () => {
+  // 1. Initial state: quiz incomplete
+  const initialModes = [
+    { mode: 'quiz', earned: 0, max: 5 },
+    { mode: 'scramble', earned: 0, max: 5 },
+    { mode: 'wordfill', earned: 0, max: 5 },
+  ];
+  assert.equal(getNextIncompletePracticeMode(initialModes), 'quiz');
+
+  // 2. Quiz completed: recommends scramble
+  const quizDoneModes = [
+    { mode: 'quiz', earned: 5, max: 5 },
+    { mode: 'scramble', earned: 0, max: 5 },
+    { mode: 'wordfill', earned: 0, max: 5 },
+  ];
+  assert.equal(getNextIncompletePracticeMode(quizDoneModes), 'scramble');
+
+  // 3. Quiz & Scramble completed: recommends wordfill
+  const scrambleDoneModes = [
+    { mode: 'quiz', earned: 5, max: 5 },
+    { mode: 'scramble', earned: 5, max: 5 },
+    { mode: 'wordfill', earned: 2, max: 5 },
+  ];
+  assert.equal(getNextIncompletePracticeMode(scrambleDoneModes), 'wordfill');
+
+  // 4. Ineligible wordfill mode (max: 0): skips to fallback
+  const ineligibleWordFill = [
+    { mode: 'quiz', earned: 5, max: 5 },
+    { mode: 'scramble', earned: 5, max: 5 },
+    { mode: 'wordfill', earned: 0, max: 0 },
+  ];
+  assert.equal(getNextIncompletePracticeMode(ineligibleWordFill), 'quiz');
+
+  // 5. All completed: falls back to quiz
+  const allDoneModes = [
+    { mode: 'quiz', earned: 5, max: 5 },
+    { mode: 'scramble', earned: 5, max: 5 },
+    { mode: 'wordfill', earned: 5, max: 5 },
+  ];
+  assert.equal(getNextIncompletePracticeMode(allDoneModes), 'quiz');
+});
+
+test('calculateBundleWordProgress accurately calculates completion count and percentage', () => {
+  const wordTargets = [
+    { word: { id: 101 } },
+    { word: { id: 102 } },
+    { word: { id: 103 } },
+    { word: { id: 104 } },
+  ];
+
+  // 1. Empty targets
+  assert.deepEqual(calculateBundleWordProgress([], []), { total: 0, completed: 0, percent: 0 });
+
+  // 2. No user interactions (guest or untouched)
+  assert.deepEqual(calculateBundleWordProgress(wordTargets, []), { total: 4, completed: 0, percent: 0 });
+
+  // 3. Partial progress: 2 words completed (one via proficiency_level, one via correct_count)
+  const partialInteractions = [
+    { word_id: 101, proficiency_level: 2, correct_count: 3 },
+    { word_id: 102, proficiency_level: 0, correct_count: 1 },
+    { word_id: 103, proficiency_level: 0, correct_count: 0 },
+    // 104 has no interaction row
+  ];
+  assert.deepEqual(calculateBundleWordProgress(wordTargets, partialInteractions), {
+    total: 4,
+    completed: 2,
+    percent: 50,
+  });
+
+  // 4. All completed (100%)
+  const fullInteractions = [
+    { word_id: 101, proficiency_level: 1 },
+    { word_id: 102, proficiency_level: 3 },
+    { word_id: 103, correct_count: 1 },
+    { word_id: 104, proficiency_level: 5 },
+  ];
+  assert.deepEqual(calculateBundleWordProgress(wordTargets, fullInteractions), {
+    total: 4,
+    completed: 4,
+    percent: 100,
+  });
+});
+
+test('listUserBundleInteractionsForBundles aligns progress_ratio with Mastery Stars instead of simple sentence completion', async () => {
+  const { db, service } = serviceFixture();
+
+  // Initialize bundle interaction as started with 1 sentence item in b1
+  db.tables.user_bundle_interactions.push({
+    user_id: 'u1',
+    bundle_id: 'b1',
+    is_started: true,
+    is_completed: false,
+    progress_ratio: 0,
+    last_studied_at: new Date().toISOString(),
+  });
+
+  // 1. Before practicing: 0 stars
+  let [result] = await service.listUserBundleInteractionsForBundles('u1', ['b1']);
+  assert.equal(result.progress_ratio, 0);
+  assert.equal(result.is_completed, false);
+
+  // 2. Practice quiz: 1 star out of 3 eligible stars for s1 (quiz, scramble, wordfill)
+  await service.recordBundleItemPractice('u1', 'b1', 's1', 'quiz', true);
+  [result] = await service.listUserBundleInteractionsForBundles('u1', ['b1']);
+  // 1 / 3 = 0.3333333333333333
+  assert.ok(Math.abs(result.progress_ratio - 1 / 3) < 0.001);
+  assert.equal(result.earned_stars, 1);
+  assert.equal(result.max_stars, 3);
+  assert.equal(result.is_completed, false);
+
+  // 3. Practice scramble: 2 stars out of 3
+  await service.recordBundleItemPractice('u1', 'b1', 's1', 'scramble', true);
+  [result] = await service.listUserBundleInteractionsForBundles('u1', ['b1']);
+  // 2 / 3 = 0.6666666666666666
+  assert.ok(Math.abs(result.progress_ratio - 2 / 3) < 0.001);
+  assert.equal(result.earned_stars, 2);
+  assert.equal(result.max_stars, 3);
+  assert.equal(result.is_completed, false);
+
+  // 4. Practice wordfill: 3 stars out of 3 -> 100% completed!
+  await service.recordBundleItemPractice('u1', 'b1', 's1', 'wordfill', true, 11);
+  [result] = await service.listUserBundleInteractionsForBundles('u1', ['b1']);
+  assert.equal(result.progress_ratio, 1);
+  assert.equal(result.earned_stars, 3);
+  assert.equal(result.max_stars, 3);
+  assert.equal(result.is_completed, true);
+});
+
+test('getCategoryHref routes directly to /bundles with category query parameter', () => {
+  const { getCategoryHref, isCategorySlugMatch } = load('app/bundles/bundle-utils');
+  const categoryKo = { id: 2, name: '일상 대화', name_en: 'Daily Conversation' };
+
+  // 1. Korean slug
+  const hrefKo = getCategoryHref(categoryKo, 'ko');
+  assert.equal(hrefKo, '/bundles?category=%EC%9D%BC%EC%83%81-%EB%8C%80%ED%99%94');
+
+  // 2. English slug
+  const hrefEn = getCategoryHref(categoryKo, 'en');
+  assert.equal(hrefEn, '/bundles?category=daily-conversation');
+
+  // 3. Null safe fallback
+  assert.equal(getCategoryHref(null), '/bundles');
+
+  // 4. Matching works for slug, name, and id
+  assert.equal(isCategorySlugMatch(categoryKo, 'daily-conversation'), true);
+  assert.equal(isCategorySlugMatch(categoryKo, '일상-대화'), true);
+  assert.equal(isCategorySlugMatch(categoryKo, '2'), true);
+  assert.equal(isCategorySlugMatch(categoryKo, 'other'), false);
 });

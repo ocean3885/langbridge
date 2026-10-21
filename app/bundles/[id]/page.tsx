@@ -1,5 +1,8 @@
-import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
+import { getBundle, getBundleStudyWordIds, listBundleItems } from '@/lib/supabase/services/bundles';
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
+import { listUserWordInteractions } from '@/lib/supabase/services/user-interactions';
+import { getPracticeWordTargets } from '@/lib/practice/registry';
+import { calculateBundleWordProgress } from '@/lib/practice/progress';
 import Link from 'next/link';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getBundleAccess } from '@/lib/bundle-access';
@@ -31,10 +34,13 @@ const translations = {
 
 export default async function BundleDetailsPage({ params }: BundleDetailsPageProps) {
   const { id } = await params;
-  const bundle = await getBundle(id);
-  const items = await listBundleItems(id);
-  const user = await getAppUserFromServer();
-  const lang = await getDisplayLanguage();
+  const [bundle, items, user, lang, studyWordIds] = await Promise.all([
+    getBundle(id),
+    listBundleItems(id),
+    getAppUserFromServer(),
+    getDisplayLanguage(),
+    getBundleStudyWordIds(id),
+  ]);
   const t = translations[lang];
 
   if (!bundle) {
@@ -51,7 +57,25 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
   const access = await getBundleAccess(bundle, user);
   if (access.reason === 'unpublished') notFound();
 
-  const progress = await getBundleProgressSummary(user?.id, bundle.id, items.length);
+  const wordTargets = getPracticeWordTargets(items, 'spelling', lang, studyWordIds);
+  const wordIds = wordTargets.map((target) => target.word.id);
 
-  return <BundleDetailHubClient bundle={bundle} items={items} language={lang} progress={progress} isLoggedIn={Boolean(user)} access={access} />;
+  const [progress, userWordInteractions] = await Promise.all([
+    getBundleProgressSummary(user?.id, bundle.id, items.length),
+    user && wordIds.length > 0 ? listUserWordInteractions(user.id, wordIds) : Promise.resolve([]),
+  ]);
+
+  const wordProgress = calculateBundleWordProgress(wordTargets, userWordInteractions);
+
+  return (
+    <BundleDetailHubClient
+      bundle={bundle}
+      items={items}
+      language={lang}
+      progress={progress}
+      isLoggedIn={Boolean(user)}
+      access={access}
+      wordProgress={wordProgress}
+    />
+  );
 }

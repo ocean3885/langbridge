@@ -25,6 +25,7 @@ export type BundleRow = {
   access_level?: 'free' | 'premium' | null;
   bundle_category?: BundleCategoryRow | null;
   bundle_items?: Array<{ count: number }> | null;
+  study_words_count?: number | null;
 };
 
 export type BundleProgressSnapshot = {
@@ -32,6 +33,8 @@ export type BundleProgressSnapshot = {
   is_started: boolean;
   is_completed: boolean;
   progress_ratio: number;
+  earned_stars?: number;
+  max_stars?: number;
 };
 
 export type BundleCopy = {

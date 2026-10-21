@@ -52,8 +52,9 @@ export function slugifyCategory(category: BundleCategoryRow, language: Language 
   return slug || getCategoryKey(category);
 }
 
-export function getCategoryHref(category: BundleCategoryRow, language: Language = 'en') {
-  return `/bundles/category/${slugifyCategory(category, language)}`;
+export function getCategoryHref(category?: BundleCategoryRow | null, language: Language = 'en') {
+  if (!category) return '/bundles';
+  return `/bundles?category=${encodeURIComponent(slugifyCategory(category, language))}`;
 }
 
 export function isCategorySlugMatch(category: BundleCategoryRow, categorySlug: string) {

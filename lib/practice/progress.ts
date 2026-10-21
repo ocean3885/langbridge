@@ -42,3 +42,34 @@ export function getBundleStarProgress(
 export function getPracticeInteractionId(interaction: PracticeInteraction & { bundle_item_id?: string; word_id?: number }, mode: PracticeMode) {
   return PRACTICE_REGISTRY[mode].target === 'word' ? String(interaction.word_id) : interaction.bundle_item_id;
 }
+
+export interface BundleWordProgress {
+  total: number;
+  completed: number;
+  percent: number;
+}
+
+export function calculateBundleWordProgress(
+  wordTargets: { word: { id: number | string } }[],
+  userWordInteractions: { word_id: number | string; proficiency_level?: number | null; correct_count?: number | null }[],
+): BundleWordProgress {
+  const total = wordTargets.length;
+  if (total === 0) {
+    return { total: 0, completed: 0, percent: 0 };
+  }
+
+  const interactionByWordId = new Map(
+    userWordInteractions.map((item) => [Number(item.word_id), item])
+  );
+
+  const completed = wordTargets.filter((target) => {
+    const interaction = interactionByWordId.get(Number(target.word.id));
+    return Boolean(
+      interaction && (Number(interaction.proficiency_level || 0) > 0 || Number(interaction.correct_count || 0) > 0)
+    );
+  }).length;
+
+  const percent = Math.min(100, Math.round((completed / total) * 100));
+
+  return { total, completed, percent };
+}

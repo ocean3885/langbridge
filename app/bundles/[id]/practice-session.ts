@@ -85,3 +85,9 @@ export function getPracticeModeStarProgress<T extends PracticeItem>(
 function getPracticeItemProgressId(item: PracticeItem) {
   return item.progressId || item.id;
 }
+
+export function getNextIncompletePracticeMode(
+  modes: { mode: PracticeMode; earned: number; max: number }[],
+): PracticeMode {
+  return modes.find((mode) => mode.max > 0 && mode.earned < mode.max)?.mode || 'quiz';
+}
