@@ -25,6 +25,7 @@ export type BundleRow = {
   access_level?: 'free' | 'premium' | null;
   bundle_category?: BundleCategoryRow | null;
   bundle_items?: Array<{ count: number }> | null;
+  bundle_words?: Array<{ count: number }> | null;
   study_words_count?: number | null;
 };
 

@@ -153,6 +153,7 @@ export default function BundleDetail({
       const data = await response.json();
       setStudyWordIds(data.selectedWordIds || Array.from(selectedWordIds));
       setIsEditingStudyWords(false);
+      router.refresh();
       alert('학습 대상 단어가 성공적으로 저장되었습니다.');
     } catch (err: any) {
       console.error('Error saving study words:', err);

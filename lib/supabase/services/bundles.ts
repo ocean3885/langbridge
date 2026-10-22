@@ -12,7 +12,8 @@ export async function listBundles(options?: { publishedOnly?: boolean; limit?: n
       *,
       bundle_category(id, name, name_en, icon_image_url, category_image_url),
       bundle_type(id, name, code),
-      bundle_items(count)
+      bundle_items(count),
+      bundle_words(count)
     `)
     .order('created_at', { ascending: false });
 
@@ -24,36 +25,102 @@ export async function listBundles(options?: { publishedOnly?: boolean; limit?: n
     query = query.limit(options.limit);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching bundles:', error);
+    console.warn('Error fetching bundles with bundle_words(count), falling back to query without relation:', error);
+    let fallbackQuery = supabase
+      .from('bundle')
+      .select(`
+        *,
+        bundle_category(id, name, name_en, icon_image_url, category_image_url),
+        bundle_type(id, name, code),
+        bundle_items(count)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (options?.publishedOnly) {
+      fallbackQuery = fallbackQuery.eq('is_published', true);
+    }
+
+    if (options?.limit) {
+      fallbackQuery = fallbackQuery.limit(options.limit);
+    }
+
+    const fallbackRes = await fallbackQuery;
+    if (fallbackRes.error) {
+      console.error('Error fetching bundles:', fallbackRes.error);
+      return [];
+    }
+    data = fallbackRes.data;
+  }
+
+  if (!data || data.length === 0) {
     return [];
   }
 
-  // Fetch bundle_words counts per bundle
-  try {
-    const { data: studyWordRows } = await supabase
-      .from('bundle_words')
-      .select('bundle_id');
+  // Check if bundle_words relation count was successfully returned for the bundles
+  let hasValidRelationCounts = true;
+  for (const b of data as any[]) {
+    const relCount = Array.isArray(b.bundle_words) && b.bundle_words[0]
+      ? b.bundle_words[0].count
+      : (typeof b.bundle_words?.count === 'number' ? b.bundle_words.count : null);
 
-    if (studyWordRows && studyWordRows.length > 0) {
-      const counts: Record<string, number> = {};
+    if (typeof relCount !== 'number') {
+      hasValidRelationCounts = false;
+      break;
+    }
+  }
+
+  if (hasValidRelationCounts) {
+    return (data as any[]).map((b: any) => {
+      const relCount = Array.isArray(b.bundle_words) && b.bundle_words[0]
+        ? b.bundle_words[0].count
+        : (typeof b.bundle_words?.count === 'number' ? b.bundle_words.count : 0);
+      return {
+        ...b,
+        study_words_count: relCount ?? 0,
+      };
+    });
+  }
+
+  // Fallback: Fetch bundle_words counts with pagination to avoid the 1000-row PostgREST limit
+  try {
+    const counts: Record<string, number> = {};
+    const PAGE_SIZE = 1000;
+    let from = 0;
+
+    while (true) {
+      const { data: studyWordRows, error: wordsError } = await supabase
+        .from('bundle_words')
+        .select('bundle_id')
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (wordsError || !studyWordRows || studyWordRows.length === 0) {
+        break;
+      }
+
       for (const row of studyWordRows) {
         if (row.bundle_id) {
           counts[row.bundle_id] = (counts[row.bundle_id] || 0) + 1;
         }
       }
-      return (data ?? []).map((b: any) => ({
-        ...b,
-        study_words_count: counts[b.id] || 0,
-      }));
+
+      if (studyWordRows.length < PAGE_SIZE) {
+        break;
+      }
+      from += PAGE_SIZE;
     }
-  } catch {
-    // If table doesn't exist yet, fall back
+
+    return (data as any[]).map((b: any) => ({
+      ...b,
+      study_words_count: counts[b.id] || 0,
+    }));
+  } catch (err) {
+    console.error('Error in fallback fetching bundle_words counts:', err);
   }
 
-  return (data ?? []).map((b: any) => ({
+  return (data as any[]).map((b: any) => ({
     ...b,
     study_words_count: 0,
   }));
@@ -728,6 +795,19 @@ export async function createBundleWithItems(
         console.error('Error creating word sentence mappings:', mappingInsertError);
         await supabase.from('bundle').delete().eq('id', bundle.id);
         throw new Error('단어-문장 연결 생성에 실패했습니다.');
+      }
+    }
+
+    if (desiredWordIds.length > 0) {
+      try {
+        const bundleWordRows = desiredWordIds.map((wordId, index) => ({
+          bundle_id: bundle.id,
+          word_id: wordId,
+          order_index: index,
+        }));
+        await supabase.from('bundle_words').insert(bundleWordRows);
+      } catch (bwErr) {
+        console.error('Error inserting initial bundle_words:', bwErr);
       }
     }
   }

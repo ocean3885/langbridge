@@ -24,6 +24,7 @@ export interface Bundle {
   created_at: string;
   updated_at: string;
   study_words_count?: number;
+  bundle_words?: Array<{ count: number }> | null;
   bundle_category?: {
     id: string;
     name: string;

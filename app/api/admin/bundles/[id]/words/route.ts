@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAppUserFromRequest } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import {
@@ -74,6 +75,10 @@ export async function PUT(
       : [];
 
     await updateBundleStudyWords(id, wordIds);
+
+    revalidatePath('/admin/bundles');
+    revalidatePath(`/admin/bundles/${id}`);
+    revalidatePath(`/bundles/${id}`);
 
     return NextResponse.json({
       success: true,

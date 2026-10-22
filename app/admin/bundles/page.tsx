@@ -5,6 +5,8 @@ import { listBundles } from '@/lib/supabase/services/bundles';
 import AdminSidebar from '../AdminSidebar';
 import BundlesManager from './BundlesManager';
 
+export const dynamic = 'force-dynamic';
+
 export default async function BundlesPage() {
   const user = await getAppUserFromServer();
   const lang = await getDisplayLanguage();
