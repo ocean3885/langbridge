@@ -42,10 +42,10 @@ export function BundleRowCard({
   const isPremium = bundle.access_level === 'premium';
   const progressPercent = getProgressPercent(progress);
   const progressBadge = isLoggedIn ? getProgressBadge(progress, progressPercent, language) : null;
-  const progressLabel = language === 'ko' ? '마스터 달성률' : 'Mastery';
+  const progressLabel = language === 'ko' ? '전체 진행률' : 'Overall progress';
 
   const primaryButtonLabel = (() => {
-    if (progress?.is_completed || progressPercent >= 100) {
+    if (progress?.is_completed) {
       return language === 'ko' ? '다시 학습' : 'Review';
     }
     if (progress?.is_started || progressPercent > 0) {
@@ -231,9 +231,9 @@ function getProgressBadge(
   progressPercent: number,
   language: Language,
 ) {
-  if (progress?.is_completed || progressPercent >= 100) {
+  if (progress?.is_completed) {
     return {
-      label: language === 'ko' ? '완료' : 'Completed',
+      label: language === 'ko' ? '전체 완료' : 'Fully completed',
       className: 'bg-[#edf7ed] text-[#497a4d] dark:bg-green-950/90 dark:text-green-300',
     };
   }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function SentencesProgressPage() {
   const [user, language] = await Promise.all([getAppUserFromServer(), getDisplayLanguage()]);
-  if (!user) redirect('/auth/sign-in?redirectTo=/learn/progress/sentences');
+  if (!user) redirect('/auth/login?redirectTo=/learn/progress/sentences');
   const data = await getUserSentences(user.id);
   return <SentencesProgressClient initialData={data} language={language} />;
 }

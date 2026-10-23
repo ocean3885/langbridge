@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function WordsProgressPage() {
   const [user, language] = await Promise.all([getAppUserFromServer(), getDisplayLanguage()]);
-  if (!user) redirect('/auth/sign-in?redirectTo=/learn/progress/words');
+  if (!user) redirect('/auth/login?redirectTo=/learn/progress/words');
 
   const data = await getUserWords(user.id);
   const usageDetails = await listWordUsageDetails(data.words.map(word => word.wordId));

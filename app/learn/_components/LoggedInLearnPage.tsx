@@ -2,10 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
-  BookOpen,
   Compass,
-  HelpCircle,
-  Shuffle,
+  Play,
 } from 'lucide-react';
 import { StudyfullAsset } from '@/components/assets/CharacterBadges';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
@@ -13,7 +11,11 @@ import type { ActiveLearningBundle, LearningProficiencySummary, LearningProgress
 import type { LearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
 import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-preferences';
 import type { ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
-import { bundleItemCount, getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
+import { getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
+import { BundleLearningMetrics, getHomeLearningActionLabel } from './BundleLearningMetrics';
+import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
+import { practiceModeColors } from '@/components/practice/practice-mode-colors';
+import { PRACTICE_REGISTRY } from '@/lib/practice/registry';
 import { ActiveBundlesSection } from './ActiveBundlesSection';
 import { GoalCard } from './ProgressCards';
 import { ReviewNeededSection } from './ReviewNeededSection';
@@ -31,7 +33,7 @@ const continueLearningCopy = {
     completedItems: (completed: number, total: number) => `${completed} / ${total} 완료`,
     fallbackPreview: '이어서 학습을 시작해보세요.',
     continueLesson: '학습 계속하기',
-    emptyTitle: '첫 번들을 시작해보세요',
+    emptyTitle: '학습할 번들을 선택해보세요',
     emptyDescription: '학습 번들을 선택하면 진행 상황이 여기에 표시됩니다.',
     browseBundles: '번들 둘러보기',
     today: '오늘',
@@ -46,7 +48,7 @@ const continueLearningCopy = {
     completedItems: (completed: number, total: number) => `${completed} of ${total} completed`,
     fallbackPreview: 'Pick up where you left off.',
     continueLesson: 'Continue Lesson',
-    emptyTitle: 'Start your first bundle',
+    emptyTitle: 'Choose a bundle to learn',
     emptyDescription: 'Choose a lesson bundle and your progress will appear here.',
     browseBundles: 'Browse Bundles',
     today: 'Today',
@@ -81,7 +83,7 @@ const loggedInSectionCopy = {
     progressTitle: '학습 현황',
     learnedSentences: '학습한 문장',
     learnedWords: '학습한 단어',
-    completedBundles: '완료한 번들',
+    completedBundles: '전체 완료 번들',
     practiceAccuracy: '연습 정답률',
     viewDetailedProgress: '자세한 학습 현황 보기',
     viewAllBundles: '전체 번들 보기',
@@ -95,7 +97,7 @@ const loggedInSectionCopy = {
     progressTitle: 'Your Progress',
     learnedSentences: 'Sentences studied',
     learnedWords: 'Words studied',
-    completedBundles: 'Bundles Completed',
+    completedBundles: 'Fully completed bundles',
     practiceAccuracy: 'Practice Accuracy',
     viewDetailedProgress: 'View detailed progress',
     viewAllBundles: 'View all bundles',
@@ -196,14 +198,14 @@ function WelcomeSection({ name, language }: { name: string; language: DisplayLan
   );
 }
 
-function ContinueLearningSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
+export function ContinueLearningSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
   const t = continueLearningCopy[language];
 
   if (!recentBundle) {
     return <ContinueLearningEmptyState language={language} />;
   }
 
-  const { bundle, currentItem, interaction, progressPercent, totalItems, completedItems } = recentBundle;
+  const { bundle, currentItem, interaction, learning } = recentBundle;
   const categoryName = language === 'ko'
     ? bundle.bundle_category?.name || bundle.bundle_category?.name_en || bundle.bundle_type?.name || t.fallbackCategory
     : bundle.bundle_category?.name_en || bundle.bundle_category?.name || bundle.bundle_type?.name || t.fallbackCategory;
@@ -211,17 +213,18 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
     ? bundle.title || bundle.title_en || t.fallbackTitle
     : bundle.title_en || bundle.title || t.fallbackTitle;
   const imageSrc = bundle.thumbnail_url || '/images/bundle-fallback.webp';
-  const currentLabel = currentItem?.order_index != null
-    ? t.currentItem(currentItem.order_index + 1, Math.max(totalItems, currentItem.order_index + 1))
-    : t.completedItems(completedItems, totalItems);
+  const level = getBundleLevelDisplay(bundle.level, language);
+  const currentLabel = learning.sentenceCount > 0
+    ? learning.hasListened
+      ? (language === 'ko' ? `청취 위치 ${learning.currentStep}/${learning.sentenceCount}` : `Listening position ${learning.currentStep}/${learning.sentenceCount}`)
+      : (language === 'ko' ? '아직 청취 기록이 없습니다' : 'No listening history yet')
+    : (language === 'ko' ? '단어 연습 번들' : 'Word practice bundle');
   const sentencePreview =
     currentItem?.sentence?.sentence ||
     (language === 'ko' ? bundle.description || bundle.description_en : bundle.description_en || bundle.description) ||
     t.fallbackPreview;
   const lastStudiedLabel = formatRelativeStudyDate(interaction.last_studied_at, language);
-  const learnHref = interaction.current_bundle_item_id
-    ? `/bundles/${bundle.id}/learn?item=${interaction.current_bundle_item_id}`
-    : `/bundles/${bundle.id}/learn`;
+  const learnHref = learning.href;
 
   return (
     <section>
@@ -230,7 +233,7 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
       />
       <div className="mt-4 grid gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
-        <div className="relative aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
+        <Link href={`/bundles/${bundle.id}`} className="relative block aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
           <Image
             src={imageSrc}
             alt={title}
@@ -239,28 +242,35 @@ function ContinueLearningSection({ recentBundle, language }: { recentBundle: Rec
             className="object-cover"
             sizes="(max-width: 1024px) 100vw, (max-width: 1280px) 42vw, 520px"
           />
-        </div>
+        </Link>
         <div className="flex min-w-0 flex-col justify-center px-1 pb-2 pt-1 sm:px-2 lg:p-0 lg:pr-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-black uppercase tracking-widest text-[#4d8b4f]">{categoryName}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-md bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              {categoryName}
+            </span>
+            <span
+              className="rounded-md bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              title={level.label}
+            >
+              {level.shortLabel}
+            </span>
             {lastStudiedLabel && (
-              <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                {lastStudiedLabel}
+              <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                · {lastStudiedLabel}
               </span>
             )}
           </div>
-          <h2 className={`mt-4 ${getDisplayHeadingClass(language)} text-3xl`}>{title}</h2>
-          <p className="mt-3 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{currentLabel}</p>
-          <p className="mt-3 line-clamp-2 text-zinc-600 dark:text-zinc-300">{sentencePreview}</p>
-          <div className="mt-6 flex items-center gap-4">
-            <div className="h-2 flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
-              <div className="h-full rounded-full bg-[#63a464]" style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }} />
-            </div>
-            <span className="text-sm font-medium tabular-nums">{progressPercent}%</span>
-          </div>
-          <div className="mt-7 flex items-center justify-center gap-4 lg:justify-start">
-            <Link href={learnHref} className="rounded-full bg-[#63a464] px-7 py-3 text-sm font-bold text-white transition hover:bg-[#4e9250]">
-              {t.continueLesson}
+          <h2 className={`mt-3 ${getDisplayHeadingClass(language)} text-2xl sm:text-3xl font-bold`}><Link href={`/bundles/${bundle.id}`}>{title}</Link></h2>
+          <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{currentLabel}</p>
+          <p className="mt-2 line-clamp-2 text-sm sm:text-base leading-relaxed text-zinc-600 dark:text-zinc-300">{sentencePreview}</p>
+          <BundleLearningMetrics learning={learning} language={language} />
+          <div className="mt-6 flex items-center justify-center gap-4 lg:justify-start">
+            <Link
+              href={learnHref}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#3f9657] px-6 py-2.5 text-sm font-bold text-white shadow-xs transition hover:bg-[#2f7d4a] active:scale-95"
+            >
+              <Play className="h-4 w-4 fill-current" />
+              <span>{getHomeLearningActionLabel(learning.action, language)}</span>
             </Link>
           </div>
         </div>
@@ -296,7 +306,7 @@ function ContinueLearningEmptyState({ language }: { language: DisplayLanguage })
   );
 }
 
-function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language: DisplayLanguage }) {
+export function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language: DisplayLanguage }) {
   const t = loggedInSectionCopy[language];
 
   return (
@@ -317,25 +327,35 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
           const imageSrc = bundle.thumbnail_url || '/images/bundle-fallback.webp';
           const categoryName = getCategoryName(bundle, language);
           const level = getBundleLevelDisplay(bundle.level, language);
-          const itemCount = bundleItemCount(bundle);
-          const itemLabel = language === 'ko' ? `${itemCount}개 항목` : `${itemCount} items`;
+          const itemCount = bundle.sentence_count || 0;
+          const wordCount = bundle.study_words_count || 0;
+          const itemLabel = language === 'ko' ? `문장 ${itemCount}개 · 단어 ${wordCount}개` : `${itemCount} sentences · ${wordCount} words`;
 
           return (
             <Link
               key={bundle.id}
               href={`/bundles/${bundle.id}`}
-              className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
+              className="group flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:border-[#8bbf87] hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
             >
-              <div className="p-5">
-                <p className="text-xs font-black uppercase tracking-wide text-[#5a975d]">{categoryName}</p>
-                <h3 className={`mt-3 line-clamp-2 min-h-14 text-2xl leading-tight ${getDisplayHeadingClass(language)}`}>{title}</h3>
+              <div className="p-4 sm:p-5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    {categoryName}
+                  </span>
+                  <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                    {level.shortLabel}
+                  </span>
+                </div>
+                <h3 className="mt-2.5 line-clamp-2 min-h-12 text-lg sm:text-xl font-bold leading-snug text-zinc-900 group-hover:text-[#2f7d4a] dark:text-zinc-100 dark:group-hover:text-emerald-400 transition-colors">
+                  {title}
+                </h3>
               </div>
-              <div className="relative h-40">
-                <Image src={imageSrc} alt={title || ''} fill className="object-cover" sizes="(max-width: 1280px) 50vw, 260px" />
+              <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                <Image src={imageSrc} alt={title || ''} fill className="object-cover transition duration-300 group-hover:scale-105" sizes="(max-width: 1280px) 50vw, 260px" />
               </div>
-              <div className="flex items-center justify-between px-5 py-4 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>{level.label}</span>
-                <span>{itemLabel}</span>
+              <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                <span className="font-medium text-zinc-500">{level.label}</span>
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300">{itemLabel}</span>
               </div>
             </Link>
           );
@@ -345,12 +365,13 @@ function ExploreBundlesSection({ bundles, language }: { bundles: any[]; language
   );
 }
 
-function QuickPracticeSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
+export function QuickPracticeSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
   if (!recentBundle) return null;
 
   const t = loggedInSectionCopy[language];
   const title = getRecentBundleTitle(recentBundle, language);
-  const practiceItems = getQuickPracticeItems(recentBundle.bundle.id, language);
+  const practiceItems = recentBundle.learning.modes;
+  if (!practiceItems.length) return null;
 
   return (
     <section>
@@ -363,17 +384,17 @@ function QuickPracticeSection({ recentBundle, language }: { recentBundle: Recent
       <div className="mt-5 grid gap-5 md:grid-cols-3">
         {practiceItems.map((item) => (
           <Link
-            key={item.title}
+            key={item.mode}
             href={item.href}
             className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
           >
             <div className="flex min-w-0 items-center gap-4">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-full ${item.color}`}>
-                <item.icon className="h-7 w-7" />
+              <span className={`flex h-14 w-14 items-center justify-center rounded-full ${practiceModeColors[item.mode]}`}>
+                <PracticeModeIcon mode={item.mode} className="h-7 w-7" />
               </span>
               <span className="min-w-0">
-                <strong className="block truncate">{item.title}</strong>
-                <span className="line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{item.desc}</span>
+                <strong className="block truncate">{language === 'ko' ? quickModeLabels[item.mode] : PRACTICE_REGISTRY[item.mode].label}</strong>
+                <span className="line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{item.completed ? (language === 'ko' ? '복습하기' : 'Review again') : (language === 'ko' ? '이어서 연습하기' : 'Continue practicing')}</span>
               </span>
             </div>
             <ArrowRight className="h-5 w-5 shrink-0" />
@@ -390,58 +411,10 @@ function getRecentBundleTitle(recentBundle: RecentStudiedBundle, language: Displ
     : recentBundle.bundle.title_en || recentBundle.bundle.title || continueLearningCopy[language].fallbackTitle;
 }
 
-function getQuickPracticeItems(bundleId: string, language: DisplayLanguage) {
-  const copy = {
-    ko: [
-      {
-        title: 'Flashcards',
-        desc: '표현을 빠르게 복습',
-        href: `/bundles/${bundleId}/flashcards`,
-        icon: BookOpen,
-        color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
-      },
-      {
-        title: 'Sentence Quiz',
-        desc: '퀴즈로 이해도 확인',
-        href: `/bundles/${bundleId}/quiz`,
-        icon: HelpCircle,
-        color: 'bg-[#ede5fb] text-[#8564cf] dark:bg-violet-950/50 dark:text-violet-200',
-      },
-      {
-        title: 'Scramble',
-        desc: '문장 순서 맞추기',
-        href: `/bundles/${bundleId}/scramble`,
-        icon: Shuffle,
-        color: 'bg-[#fde8d5] text-[#c66f2e] dark:bg-orange-950/50 dark:text-orange-200',
-      },
-    ],
-    en: [
-      {
-        title: 'Flashcards',
-        desc: 'Review expressions',
-        href: `/bundles/${bundleId}/flashcards`,
-        icon: BookOpen,
-        color: 'bg-[#e5f0e4] text-[#5d9361] dark:bg-emerald-950/50 dark:text-emerald-200',
-      },
-      {
-        title: 'Sentence Quiz',
-        desc: 'Check understanding',
-        href: `/bundles/${bundleId}/quiz`,
-        icon: HelpCircle,
-        color: 'bg-[#ede5fb] text-[#8564cf] dark:bg-violet-950/50 dark:text-violet-200',
-      },
-      {
-        title: 'Scramble',
-        desc: 'Rebuild sentences',
-        href: `/bundles/${bundleId}/scramble`,
-        icon: Shuffle,
-        color: 'bg-[#fde8d5] text-[#c66f2e] dark:bg-orange-950/50 dark:text-orange-200',
-      },
-    ],
-  };
-
-  return copy[language];
-}
+const quickModeLabels = {
+  quiz: '문장 퀴즈', scramble: '스크램블', wordfill: '단어 채우기', spelling: '스펠링',
+  flashcards: '문장 플래시카드', word_quiz: '단어 퀴즈', word_flashcards: '단어 플래시카드',
+};
 
 function LearnSidebar({
   streakSummary,

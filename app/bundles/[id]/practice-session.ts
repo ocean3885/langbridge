@@ -20,6 +20,7 @@ export function filterPracticeItems<T extends PracticeItem>(
   interactions: SessionInteraction[],
   mode: PracticeSessionMode,
   practiceMode: PracticeMode,
+  completedWordIds?: readonly number[],
 ) {
   const interactionByItemId = new Map(interactions.map((interaction) => [getPracticeInteractionId(interaction, practiceMode), interaction]));
 
@@ -37,6 +38,11 @@ export function filterPracticeItems<T extends PracticeItem>(
     });
   }
 
+  if (mode === 'incomplete' && completedWordIds !== undefined && PRACTICE_REGISTRY[practiceMode].target === 'word') {
+    const completed = new Set(completedWordIds.map(String));
+    return items.filter(item => !completed.has(getPracticeItemProgressId(item)));
+  }
+
   if (mode === 'incomplete') {
     return items.filter((item) => {
       const interaction = interactionByItemId.get(getPracticeItemProgressId(item));
@@ -52,6 +58,7 @@ export function getPracticeSessionCounts<T extends PracticeItem>(
   interactions: SessionInteraction[],
   practiceMode: PracticeMode,
   currentPracticeItemId?: string | null,
+  completedWordIds?: readonly number[],
 ) {
   const canResume = Boolean(currentPracticeItemId && items.some((item) => getPracticeItemProgressId(item) === currentPracticeItemId));
 
@@ -60,7 +67,7 @@ export function getPracticeSessionCounts<T extends PracticeItem>(
     all: items.length,
     incorrect: filterPracticeItems(items, interactions, 'incorrect', practiceMode).length,
     correct: filterPracticeItems(items, interactions, 'correct', practiceMode).length,
-    incomplete: filterPracticeItems(items, interactions, 'incomplete', practiceMode).length,
+    incomplete: filterPracticeItems(items, interactions, 'incomplete', practiceMode, completedWordIds).length,
   } satisfies Record<PracticeSessionMode, number>;
 }
 

@@ -75,7 +75,7 @@ export default function PracticeSessionSelector({
     correct: counts.correct,
     incomplete: counts.incomplete,
   };
-  const initialScope = scopeCounts.incomplete > 0 ? 'incomplete' : 'all';
+  const initialScope = target === 'word' ? 'all' : scopeCounts.incomplete > 0 ? 'incomplete' : 'all';
   const [selectedScope, setSelectedScope] = useState<Exclude<PracticeSessionMode, 'resume'>>(initialScope);
   const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => getDefaultCount(counts[initialScope]));
   const availableCount = scopeCounts[selectedScope];
@@ -124,10 +124,17 @@ export default function PracticeSessionSelector({
           selectedScope={selectedScope}
           onSelect={setSelectedScope}
           counts={scopeCounts}
-          labels={t.modes}
+          labels={target === 'word' ? { ...t.modes, incomplete: language === 'ko' ? '이 번들 미완료' : 'Incomplete in this bundle' } : t.modes}
           emptyLabel={target === 'word' ? (language === 'ko' ? '단어 없음' : 'No words') : t.empty}
           itemLabel={target === 'word' ? count => language === 'ko' ? `${count}단어` : `${count} words` : t.items}
         />
+        {target === 'word' && (
+          <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            {language === 'ko'
+              ? '미완료는 이 번들에서 아직 맞히지 않은 단어입니다. 맞힌·틀린 항목은 이 연습 모드의 전체 학습 이력을 기준으로 합니다.'
+              : 'Incomplete means words not yet answered correctly in this bundle. Correct and missed sets use your overall history for this practice mode.'}
+          </p>
+        )}
         <PracticeCountSelector
           label={t.countLabel}
           totalCount={availableCount}

@@ -17,16 +17,16 @@ export default async function LearnPage() {
 
   const name = user.email?.split('@')[0] || 'Learner';
   const [recentBundle, streakSummary, goalSummary, progressSummary, proficiencySummary, activeBundles, reviewNeededSummary] = await Promise.all([
-    getRecentStudiedBundle(user.id),
+    getRecentStudiedBundle(user.id, language),
     getLearningStreakSummary(user.id),
     getTodayLearningGoalSummary(user.id),
     getLearningProgressSummary(user.id),
     getLearningProficiencySummary(user.id),
-    getActiveLearningBundles(user.id),
+    getActiveLearningBundles(user.id, 20, language),
     getReviewNeededSummary(user.id),
   ]);
   const recommendedBundleLimit = !recentBundle && activeBundles.length === 0 ? 6 : 3;
-  const recommendedBundles = await getRecommendedUnstudiedBundles(user.id, recommendedBundleLimit);
+  const recommendedBundles = await getRecommendedUnstudiedBundles(user.id, recommendedBundleLimit, language);
 
   return (
     <LoggedInLearnPage

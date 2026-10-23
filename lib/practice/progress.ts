@@ -73,3 +73,8 @@ export function calculateBundleWordProgress(
 
   return { total, completed, percent };
 }
+
+/** Each recorded listening event increments play_count, including repeat playback. */
+export function getTotalPlayCount(interactions: { play_count?: number | null }[]) {
+  return interactions.reduce((total, item) => total + (Number(item.play_count) || 0), 0);
+}

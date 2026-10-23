@@ -65,7 +65,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
     user && wordIds.length > 0 ? listUserWordInteractions(user.id, wordIds) : Promise.resolve([]),
   ]);
 
-  const wordProgress = calculateBundleWordProgress(wordTargets, userWordInteractions);
+  const wordProgress = progress.completion?.wordProgress || calculateBundleWordProgress(wordTargets, userWordInteractions);
 
   return (
     <BundleDetailHubClient

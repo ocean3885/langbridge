@@ -44,9 +44,9 @@ export default async function BundleWordPracticePage({ params, searchParams, pra
   const cursor = progress.currentPracticeItemIds[practiceMode];
   const effectiveMode = !user && !mode ? 'all' : mode;
   if (!isPracticeSessionMode(effectiveMode)) {
-    return <PracticeSessionSelector bundleId={bundle.id} title={title} modeName={definition.label} basePath={basePath} language={language} target="word" counts={getPracticeSessionCounts(targets, interactions, practiceMode, cursor)} />;
+    return <PracticeSessionSelector bundleId={bundle.id} title={title} modeName={definition.label} basePath={basePath} language={language} target="word" counts={getPracticeSessionCounts(targets, interactions, practiceMode, cursor, progress.completion?.completedWordIds || [])} />;
   }
-  let sessionTargets = filterPracticeItems(targets, interactions, effectiveMode, practiceMode);
+  let sessionTargets = filterPracticeItems(targets, interactions, effectiveMode, practiceMode, progress.completion?.completedWordIds || []);
   // Resume before applying the count so the saved word cannot fall outside the session.
   if (effectiveMode === 'resume' && cursor) {
     const index = sessionTargets.findIndex(target => target.id === cursor);

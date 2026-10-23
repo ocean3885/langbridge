@@ -1,8 +1,13 @@
 'use server';
 
 import { PRACTICE_REGISTRY, isBundlePracticeMode, isScoredPracticeMode, type PracticeMode, type PracticeDefinition, type PracticeBundleItem, getPracticeWordTargets } from '@/lib/practice/registry';
-import { calculateSentenceStars, hasEarnedPracticeStar, getBundleStarProgress } from '@/lib/practice/progress';
+import { calculateSentenceStars, hasEarnedPracticeStar } from '@/lib/practice/progress';
 
+import { getHomeBundleLearning, type HomeBundleLearning } from '@/lib/practice/bundle-home';
+import type { PracticeLanguage } from '@/lib/practice/registry';
+import { recordCompletedBundleWord } from './bundle-word-progress';
+import { loadBundleCompletion } from './bundle-completion';
+import type { BundleCompletion } from '@/lib/practice/bundle-completion';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   recordLearningDailyActivity,
@@ -59,6 +64,7 @@ export interface UserBundleItemInteraction {
 }
 
 export interface BundleProgressSummary {
+  completion?: BundleCompletion;
   bundleInteraction: UserBundleInteraction | null;
   itemInteractions: UserBundleItemInteraction[];
   totalItems: number;
@@ -72,6 +78,7 @@ export interface BundleProgressSummary {
 export type BundlePracticeMode = PracticeMode;
 
 export interface RecentStudiedBundle {
+  learning: HomeBundleLearning;
   interaction: UserBundleInteraction;
   bundle: {
     id: string;
@@ -112,6 +119,7 @@ export interface RecentLearningActivity {
     id: string;
     title: string;
     title_en: string | null;
+    level?: number | null;
     thumbnail_url: string | null;
     bundle_category?: {
       id: string;
@@ -130,6 +138,7 @@ export interface RecentLearningActivity {
 }
 
 export interface ActiveLearningBundle extends RecentLearningActivity {
+  learning: HomeBundleLearning;
   currentBundleItemId: string | null;
 }
 
@@ -459,34 +468,12 @@ async function getLearningProgressBundleCounts(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string,
 ): Promise<Pick<LearningProgressSummary, 'completedBundles' | 'activeBundles'>> {
-  const [
-    { count: completedBundles, error: completedError },
-    { count: activeBundles, error: activeError },
-  ] = await Promise.all([
-    supabase
-      .from('user_bundle_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_completed', true),
-    supabase
-      .from('user_bundle_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_started', true)
-      .eq('is_completed', false),
-  ]);
-
-  if (completedError) {
-    console.error('Error counting completed bundles:', completedError);
-  }
-
-  if (activeError) {
-    console.error('Error counting active bundles:', activeError);
-  }
-
+  const { data, error } = await supabase.from('user_bundle_interactions').select('bundle_id, is_started').eq('user_id', userId);
+  if (error) throw error;
+  const states = await loadBundleCompletion(userId, (data || []).map(row => String(row.bundle_id)));
   return {
-    completedBundles: completedBundles || 0,
-    activeBundles: activeBundles || 0,
+    completedBundles: (data || []).filter(row => states.get(String(row.bundle_id))?.isCompleted).length,
+    activeBundles: (data || []).filter(row => (row.is_started || Number(states.get(String(row.bundle_id))?.progressRatio) > 0) && !states.get(String(row.bundle_id))?.isCompleted).length,
   };
 }
 
@@ -509,7 +496,7 @@ function toLearningProgressSummary(
   };
 }
 
-export async function getRecentStudiedBundle(userId: string): Promise<RecentStudiedBundle | null> {
+export async function getRecentStudiedBundle(userId: string, language: PracticeLanguage = 'ko'): Promise<RecentStudiedBundle | null> {
   const supabase = createAdminClient();
 
   const { data: interactions, error: interactionError } = await supabase
@@ -531,8 +518,9 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
     return null;
   }
 
+  const completionById = await loadBundleCompletion(userId, bundleInteractions.map(row => row.bundle_id), language);
   for (const interaction of bundleInteractions) {
-    if (!interaction.bundle_id || interaction.is_completed) {
+    if (!interaction.bundle_id || completionById.get(interaction.bundle_id)?.isCompleted) {
       continue;
     }
 
@@ -601,11 +589,10 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
 
     const total = totalItems || 0;
     const completed = completedItems || 0;
-    const calculatedRatio = total > 0 ? completed / total : 0;
-    const progressRatio = Math.min(1, calculatedRatio);
+    const progressRatio = completionById.get(interaction.bundle_id)?.progressRatio || 0;
     const progressPercent = Math.round(progressRatio * 100);
 
-    if (progressPercent >= 100 || (total > 0 && completed >= total)) {
+    if (completionById.get(interaction.bundle_id)?.isCompleted) {
       continue;
     }
 
@@ -616,7 +603,8 @@ export async function getRecentStudiedBundle(userId: string): Promise<RecentStud
     } as unknown as RecentStudiedBundle['bundle'];
 
     return {
-      interaction: interaction as UserBundleInteraction,
+      learning: getHomeBundleLearning(interaction.bundle_id, completionById.get(interaction.bundle_id)!, interaction.current_bundle_item_id, language),
+      interaction: { ...interaction, is_completed: false, progress_ratio: progressRatio },
       bundle: normalizedBundle,
       currentItem: currentItem
         ? {
@@ -668,6 +656,7 @@ export async function getRecentLearningActivities(
     return [];
   }
 
+  const completionById = await loadBundleCompletion(userId, bundleIds);
   const [
     { data: bundles, error: bundleError },
     { data: itemRows, error: itemError },
@@ -730,11 +719,11 @@ export async function getRecentLearningActivities(
 
     const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
     const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
-    const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-    const progressRatio = Math.min(1, calculatedRatio);
+    const completion = completionById.get(interaction.bundle_id)!;
+    const progressRatio = completion.progressRatio;
 
     return [{
-      interaction,
+      interaction: { ...interaction, is_completed: completion.isCompleted, progress_ratio: progressRatio },
       bundle,
       totalItems,
       completedItems,
@@ -743,17 +732,14 @@ export async function getRecentLearningActivities(
   }).slice(0, limit);
 }
 
-export async function getActiveLearningBundles(userId: string, limit = 20): Promise<ActiveLearningBundle[]> {
+export async function getActiveLearningBundles(userId: string, limit = 20, language: PracticeLanguage = 'ko'): Promise<ActiveLearningBundle[]> {
   const supabase = createAdminClient();
 
   const { data: interactions, error: interactionError } = await supabase
     .from('user_bundle_interactions')
     .select('*')
     .eq('user_id', userId)
-    .eq('is_started', true)
-    .eq('is_completed', false)
-    .order('last_studied_at', { ascending: false, nullsFirst: false })
-    .limit(limit);
+    .order('last_studied_at', { ascending: false, nullsFirst: false });
 
   if (interactionError) {
     console.error('Error fetching active learning bundles:', interactionError);
@@ -767,6 +753,8 @@ export async function getActiveLearningBundles(userId: string, limit = 20): Prom
     return [];
   }
 
+  const completionById = await loadBundleCompletion(userId, bundleIds, language);
+
   const [
     { data: bundles, error: bundleError },
     { data: itemRows, error: itemError },
@@ -778,6 +766,7 @@ export async function getActiveLearningBundles(userId: string, limit = 20): Prom
         id,
         title,
         title_en,
+        level,
         thumbnail_url,
         bundle_category(id, name, name_en),
         bundle_type(id, name, code)
@@ -825,23 +814,23 @@ export async function getActiveLearningBundles(userId: string, limit = 20): Prom
 
   return bundleInteractions.flatMap((interaction) => {
     const bundle = bundleById.get(interaction.bundle_id);
-    if (!bundle) return [];
+    const completion = completionById.get(interaction.bundle_id)!;
+    if (!bundle || completion.isCompleted || (!interaction.is_started && completion.progressRatio === 0)) return [];
 
     const totalItems = totalByBundleId.get(interaction.bundle_id) || 0;
     const completedItems = completedByBundleId.get(interaction.bundle_id) || 0;
-    const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-    const progressRatio = Math.min(1, calculatedRatio);
-    if (progressRatio <= 0) return [];
+    const progressRatio = completionById.get(interaction.bundle_id)?.progressRatio || 0;
 
     return [{
-      interaction,
+      learning: getHomeBundleLearning(interaction.bundle_id, completion, interaction.current_bundle_item_id, language),
+      interaction: { ...interaction, is_completed: completion.isCompleted, progress_ratio: progressRatio },
       bundle,
       totalItems,
       completedItems,
       progressPercent: Math.round(progressRatio * 100),
       currentBundleItemId: interaction.current_bundle_item_id || null,
     }];
-  });
+  }).slice(0, limit);
 }
 
 export async function getBundleProgressSummary(
@@ -859,36 +848,19 @@ export async function getBundleProgressSummary(
   }
 
   const supabase = createAdminClient();
-  const [{ data: bundleInteraction, error: bundleError }, { data: itemInteractions, error: itemError }] =
-    await Promise.all([
-      supabase
-        .from('user_bundle_interactions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('bundle_id', bundleId)
-        .maybeSingle(),
-      supabase
-        .from('user_bundle_item_interactions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('bundle_id', bundleId),
-    ]);
-
-  if (bundleError) {
-    console.error('Error fetching user bundle interaction:', bundleError);
-  }
-
-  if (itemError) {
-    console.error('Error fetching user bundle item interactions:', itemError);
-  }
-
-  const interactions = (itemInteractions || []) as UserBundleItemInteraction[];
-  const completedItems = interactions.filter((item) => item.is_completed).length;
-  const calculatedRatio = totalItems > 0 ? completedItems / totalItems : 0;
-  const progressRatio = Math.min(1, calculatedRatio);
+  const [{ data: bundleInteraction, error: bundleError }, states] = await Promise.all([
+    supabase.from('user_bundle_interactions').select('*').eq('user_id', userId).eq('bundle_id', bundleId).maybeSingle(),
+    loadBundleCompletion(userId, [bundleId]),
+  ]);
+  if (bundleError) throw bundleError;
+  const { items: _items, interactions: rows, ...completion } = states.get(bundleId)!;
+  const interactions = rows as UserBundleItemInteraction[];
+  const completedItems = interactions.filter(item => item.is_completed).length;
+  const progressRatio = completion.progressRatio;
 
   return {
-    bundleInteraction: (bundleInteraction as UserBundleInteraction | null) || null,
+    completion,
+    bundleInteraction: bundleInteraction ? { ...bundleInteraction, is_completed: completion.isCompleted, progress_ratio: progressRatio, completed_at: completion.isCompleted ? bundleInteraction.completed_at : null } as UserBundleInteraction : null,
     itemInteractions: interactions,
     totalItems,
     completedItems,
@@ -921,77 +893,32 @@ export async function listUserBundleInteractionsForBundles(
     return [];
   }
 
-  const startedBundleIds = data
-    .filter((row) => row.is_started || row.last_studied_at || Number(row.progress_ratio || 0) > 0)
-    .map((row) => row.bundle_id);
+  const states = await loadBundleCompletion(userId, bundleIds);
+  return data.map(row => {
+    const state = states.get(String(row.bundle_id))!;
+    return { ...row, is_completed: state.isCompleted, progress_ratio: state.progressRatio, completed_at: state.isCompleted ? row.completed_at : null,
+      earned_stars: state.stars.earned, max_stars: state.stars.max } as UserBundleInteraction;
+  });
+}
 
-  if (startedBundleIds.length === 0) {
-    return data as UserBundleInteraction[];
-  }
-
-  try {
-    const [{ data: bundleItems }, { data: itemInteractions }] = await Promise.all([
-      supabase
-        .from('bundle_items')
-        .select(`
-          id,
-          bundle_id,
-          sentence_id,
-          sentences(
-            sentence,
-            translation,
-            translation_en,
-            word_sentence_map(
-              used_as,
-              words(id, word)
-            )
-          )
-        `)
-        .in('bundle_id', startedBundleIds)
-        .order('order_index', { ascending: true }),
-      supabase
-        .from('user_bundle_item_interactions')
-        .select('bundle_id, bundle_item_id, metadata, is_completed')
-        .eq('user_id', userId)
-        .in('bundle_id', startedBundleIds),
-    ]);
-
-    const itemsByBundleId = new Map<string, any[]>();
-    for (const item of (bundleItems as any[]) || []) {
-      const list = itemsByBundleId.get(item.bundle_id) || [];
-      list.push(item);
-      itemsByBundleId.set(item.bundle_id, list);
-    }
-
-    const interactionsByBundleId = new Map<string, any[]>();
-    for (const inter of (itemInteractions as any[]) || []) {
-      const list = interactionsByBundleId.get(inter.bundle_id) || [];
-      list.push(inter);
-      interactionsByBundleId.set(inter.bundle_id, list);
-    }
-
-    return data.map((interaction) => {
-      const items = itemsByBundleId.get(interaction.bundle_id) || [];
-      const inters = interactionsByBundleId.get(interaction.bundle_id) || [];
-      const practiceStars = getBundleStarProgress(items, inters, 'ko');
-
-      if (practiceStars.max > 0) {
-        const starRatio = practiceStars.earned / practiceStars.max;
-        const isCompleted = practiceStars.earned >= practiceStars.max;
-        return {
-          ...interaction,
-          progress_ratio: starRatio,
-          is_completed: isCompleted,
-          earned_stars: practiceStars.earned,
-          max_stars: practiceStars.max,
-        };
-      }
-
-      return interaction;
-    }) as UserBundleInteraction[];
-  } catch (err) {
-    console.error('Error calculating star progress in listUserBundleInteractionsForBundles:', err);
-    return data as UserBundleInteraction[];
+// Persist snapshots for existing user bundles. Reads still derive state so legacy rows
+// and content changes cannot override current completion.
+async function syncBundleCompletion(userId: string, bundleIds: string[]) {
+  const supabase = createAdminClient();
+  let query = supabase.from('user_bundle_interactions').select('*').eq('user_id', userId);
+  if (bundleIds) query = query.in('bundle_id', bundleIds);
+  const { data, error } = await query;
+  if (error) throw error;
+  const states = await loadBundleCompletion(userId, (data || []).map(row => String(row.bundle_id)));
+  for (const row of data || []) {
+    const state = states.get(String(row.bundle_id))!;
+    if (row.is_completed === state.isCompleted && Number(row.progress_ratio) === state.progressRatio && (state.isCompleted ? Boolean(row.completed_at) : !row.completed_at)) continue;
+    const { error: saveError } = await supabase.from('user_bundle_interactions').upsert({
+      user_id: userId, bundle_id: row.bundle_id,
+      is_completed: state.isCompleted, progress_ratio: state.progressRatio,
+      completed_at: state.isCompleted ? row.completed_at || new Date().toISOString() : null,
+    }, { onConflict: 'user_id,bundle_id' });
+    if (saveError) throw saveError;
   }
 }
 
@@ -1269,6 +1196,8 @@ export async function recordBundleItemPractice(
   if (definition.target === 'word') {
     await recordWordReviewResult(userId, wordId!, isCorrect, mode);
     await recordBundlePracticeAccess(userId, bundleId, mode, bundleItemId, wordId);
+    if (isCorrect) await recordCompletedBundleWord(userId, bundleId, wordId!);
+    await syncBundleCompletion(userId, [bundleId]);
     return getBundleProgressSummary(userId, bundleId, 0);
   }
   const supabase = createAdminClient();
@@ -1403,50 +1332,19 @@ export async function recordBundleItemPractice(
 
   if (definition.updatesRelatedWord && wordId) {
     await recordWordReviewResult(userId, wordId, isCorrect, mode, { countAttempt: false, recordActivity: false });
+    if (isCorrect) {
+      await recordBundlePracticeAccess(userId, bundleId, mode, bundleItemId);
+      await recordCompletedBundleWord(userId, bundleId, wordId);
+    }
   }
 
-  const [
-    { count: totalItems, error: totalError },
-    { count: completedItems, error: completedError },
-    { data: existingBundleInteraction, error: existingError },
-  ] = await Promise.all([
-    supabase
-      .from('bundle_items')
-      .select('id', { count: 'exact', head: true })
-      .not('sentence_id', 'is', null)
-      .eq('bundle_id', bundleId),
-    supabase
-      .from('user_bundle_item_interactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('bundle_id', bundleId)
-      .eq('is_completed', true),
-    supabase
-      .from('user_bundle_interactions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('bundle_id', bundleId)
-      .maybeSingle(),
-  ]);
-
-  if (totalError) {
-    console.error('Error counting bundle items:', totalError);
-    throw totalError;
-  }
-
-  if (completedError) {
-    console.error('Error counting completed bundle items:', completedError);
-    throw completedError;
-  }
-
-  if (existingError) {
-    console.error('Error fetching user bundle interaction:', existingError);
-  }
-
-  const total = totalItems || 0;
-  const completed = completedItems || 0;
-  const progressRatio = total > 0 ? Math.min(1, completed / total) : 0;
-  const isBundleCompleted = total > 0 && completed >= total;
+  const completion = (await loadBundleCompletion(userId, [bundleId])).get(bundleId)!;
+  const { data: existingBundleInteraction, error: existingError } = await supabase
+    .from('user_bundle_interactions').select('*').eq('user_id', userId).eq('bundle_id', bundleId).maybeSingle();
+  if (existingError) throw existingError;
+  const total = completion.items.filter(item => item.sentence_id != null).length;
+  const progressRatio = completion.progressRatio;
+  const isBundleCompleted = completion.isCompleted;
   const currentPracticeItemIds = {
     ...normalizePracticeItemIds(existingBundleInteraction?.current_practice_item_ids),
     [mode]: bundleItemId,
@@ -1463,7 +1361,7 @@ export async function recordBundleItemPractice(
         progress_ratio: progressRatio,
         current_practice_item_ids: currentPracticeItemIds,
         started_at: existingBundleInteraction?.started_at || now,
-        completed_at: isBundleCompleted ? existingBundleInteraction?.completed_at || now : existingBundleInteraction?.completed_at || null,
+        completed_at: isBundleCompleted ? existingBundleInteraction?.completed_at || now : null,
         last_studied_at: now,
         updated_at: now,
       },
@@ -1656,6 +1554,7 @@ export async function recordWordReviewResult(
     console.error('Error upserting word interaction in review:', wordUpsertError);
     throw wordUpsertError;
   }
+
 
   // Also record to user_learning_daily_activity to count streaks and daily goals
   const isFirstEver = !existingWordInteraction?.last_reviewed_at;

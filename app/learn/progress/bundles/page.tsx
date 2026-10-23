@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function BundlesProgressPage() {
   const [user, language] = await Promise.all([getAppUserFromServer(), getDisplayLanguage()]);
-  if (!user) redirect('/auth/sign-in?redirectTo=/learn/progress/bundles');
-  const data = await getUserBundles(user.id);
+  if (!user) redirect('/auth/login?redirectTo=/learn/progress/bundles');
+  const data = await getUserBundles(user.id, language);
   return <BundlesProgressClient initialData={data} language={language} />;
 }

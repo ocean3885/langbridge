@@ -1,5 +1,8 @@
 'use server';
 
+import { loadBundleCompletion } from './bundle-completion';
+import { getHomeBundleLearning } from '@/lib/practice/bundle-home';
+import type { PracticeLanguage } from '@/lib/practice/registry';
 import { createAdminClient } from '../admin';
 import { generateTTS } from '@/lib/tts';
 import { deleteFileFromPublicUrl } from './storage';
@@ -1036,14 +1039,14 @@ export async function updateBundleItemsOrder(bundleId: string, orderedItemIds: s
   return true;
 }
 
-export async function getRecommendedUnstudiedBundles(userId: string, limit: number = 3) {
+export async function getRecommendedUnstudiedBundles(userId: string, limit: number = 3, language: PracticeLanguage = 'ko') {
   const supabase = createAdminClient();
   
   // 1. Get bundle IDs where the user has made real progress.
   const [{ data: interactions }, { data: completedItems }] = await Promise.all([
     supabase
       .from('user_bundle_interactions')
-      .select('bundle_id, progress_ratio, is_completed, is_started, last_studied_at, current_bundle_item_id')
+      .select('bundle_id, is_started, last_studied_at, current_bundle_item_id')
       .eq('user_id', userId),
     supabase
       .from('user_bundle_item_interactions')
@@ -1055,11 +1058,9 @@ export async function getRecommendedUnstudiedBundles(userId: string, limit: numb
   const studiedBundleIds = Array.from(new Set([
     ...(interactions || [])
       .filter((interaction) =>
-        interaction.is_completed ||
         interaction.is_started ||
         Boolean(interaction.last_studied_at) ||
-        Boolean(interaction.current_bundle_item_id) ||
-        Number(interaction.progress_ratio) > 0
+        Boolean(interaction.current_bundle_item_id)
       )
       .map((interaction) => interaction.bundle_id),
     ...(completedItems || []).map((item) => item.bundle_id),
@@ -1088,7 +1089,11 @@ export async function getRecommendedUnstudiedBundles(userId: string, limit: numb
     return [];
   }
   
-  return data;
+  const completions = await loadBundleCompletion(userId, (data || []).map(bundle => String(bundle.id)), language);
+  return (data || []).map(bundle => {
+    const learning = getHomeBundleLearning(String(bundle.id), completions.get(String(bundle.id))!, null, language);
+    return { ...bundle, sentence_count: learning.sentenceCount, study_words_count: learning.totalWords };
+  });
 }
 
 export async function listBundleItemsWithDistractors(bundleId: string) {

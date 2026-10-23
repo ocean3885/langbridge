@@ -3,7 +3,9 @@
 import { practiceModeColors } from '@/components/practice/practice-mode-colors';
 import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
 
-import { getBundleStarProgress, type BundleWordProgress } from '@/lib/practice/progress';
+import { getBundleListeningState } from '@/lib/practice/bundle-listening';
+import { calculateBundleCompletion } from '@/lib/practice/bundle-completion';
+import { getBundleStarProgress, getTotalPlayCount, type BundleWordProgress } from '@/lib/practice/progress';
 import { PRACTICE_REGISTRY, PRACTICE_MODES, isBundlePracticeMode } from '@/lib/practice/registry';
 import { getNextIncompletePracticeMode } from './practice-session';
 
@@ -44,7 +46,7 @@ const copy = {
     progressTitle: '실전 마스터 달성률',
     progressSubtitle: '퀴즈를 풀고 마스터리 스타를 모아 마스터 게이지를 완성해보세요',
     progressInfoLabel: '진행률 반영 기준 보기',
-    progressInfo: '듣기로 문장을 귀에 익힌 뒤, 실전 퀴즈를 풀고 정답을 맞히면 마스터리 스타가 채워져요. 모든 스타를 모아 100% 마스터를 완성해보세요!',
+    progressInfo: '문장 연습의 스타를 모두 모으면 문장 완료, 모든 학습 단어를 한 번 이상 맞히면 단어 완료예요. 제공되는 학습을 모두 마치면 전체 완료가 됩니다. 단어 완료는 이 번들에서 직접 맞힌 기록으로 계산해요.',
     starProgress: (earned: number, max: number) => `마스터리 스타 ${earned} / ${max}`,
     practiceStars: '문장 마스터리 스타',
     saveBundle: '번들 저장',
@@ -68,7 +70,7 @@ const copy = {
       scramble: '✍️ 단어 배열',
       wordfill: '✍️ 빈칸 채우기',
     } as Record<string, string>,
-    primaryReviewQuiz: '🔄 복습 퀴즈 풀기',
+    primaryReviewQuiz: '🔄 복습 퀴즈 풀기', primaryWords: '단어 연습하기', reviewWords: '단어 복습하기',
     secondaryQuiz: '✍️ 바로 퀴즈 풀기',
     secondaryModes: {
       quiz: '✍️ 바로 퀴즈 풀기',
@@ -76,13 +78,14 @@ const copy = {
       wordfill: '✍️ 빈칸 채우기 바로 풀기',
     } as Record<string, string>,
     secondaryListen: (step: number) => `🎧 이어서 듣기 (${step}번 문장)`,
-    bundleCompletedBadge: '번들 마스터 완료!',
+    bundleCompletedBadge: '전체 완료!',
     guestNotice: '로그인하면 나의 학습 진도와 마스터리 스타가 안전하게 저장됩니다.',
     loginAction: '로그인하기',
     status: '상태',
     notStarted: '시작 전',
     inProgress: '진행 중',
-    completedStatus: '완료',
+    completedStatus: '전체 완료', sentenceCompleted: '문장 완료', wordCompleted: '단어 완료',
+    totalPlays: '누적 청취',
     currentLocation: '학습 위치',
     currentStepLabel: (step: number) => `${step}번째 문장`,
     lastStudied: '최근 학습',
@@ -106,7 +109,7 @@ const copy = {
     progressTitle: 'Sentence Mastery',
     progressSubtitle: 'Pass quizzes and collect stars to reach 100%',
     progressInfoLabel: 'View how mastery is measured',
-    progressInfo: 'Listen to the sentences, then pass practice quizzes to earn Mastery Stars. Collect all stars to complete 100% bundle mastery!',
+    progressInfo: 'Collect all sentence stars to complete sentences. Answer each study word correctly at least once to complete words, within this bundle. Learning history from other bundles is shown separately. Finish all available learning to complete the bundle.',
     starProgress: (earned: number, max: number) => `Stars ${earned} / ${max}`,
     practiceStars: 'Sentence Stars',
     saveBundle: 'Save bundle',
@@ -130,7 +133,7 @@ const copy = {
       scramble: '✍️ Word Scramble',
       wordfill: '✍️ Word Fill',
     } as Record<string, string>,
-    primaryReviewQuiz: '🔄 Review Practice',
+    primaryReviewQuiz: '🔄 Review Practice', primaryWords: 'Practice words', reviewWords: 'Review words',
     secondaryQuiz: '✍️ Practice Quiz Directly',
     secondaryModes: {
       quiz: '✍️ Practice Quiz Directly',
@@ -138,13 +141,14 @@ const copy = {
       wordfill: '✍️ Practice Word Fill Directly',
     } as Record<string, string>,
     secondaryListen: (step: number) => `🎧 Continue Listening (#${step})`,
-    bundleCompletedBadge: 'Bundle Mastered!',
+    bundleCompletedBadge: 'Fully completed!',
     guestNotice: 'Log in to track your learning progress and mastery stars.',
     loginAction: 'Log in',
     status: 'Status',
     notStarted: 'Not started',
     inProgress: 'In progress',
-    completedStatus: 'Completed',
+    completedStatus: 'Fully completed', sentenceCompleted: 'Sentences complete', wordCompleted: 'Words complete',
+    totalPlays: 'Total Plays',
     currentLocation: 'Current Step',
     currentStepLabel: (step: number) => `Sentence #${step}`,
     lastStudied: 'Last studied',
@@ -210,25 +214,27 @@ export default function BundleDetailHubClient({
     'Hola Start';
   const minutes = estimateBundleMinutes(items.length);
   const minuteLabel = language === 'en' ? `${minutes} min` : `${minutes}분`;
-  const currentItemIndex = items.findIndex((item) => item.id === progress.currentBundleItemId);
-  const currentItemStep = currentItemIndex >= 0 ? currentItemIndex + 1 : 1;
-  const totalPlayCount = progress.itemInteractions.reduce(
-    (sum, item) => sum + (Number(item.play_count) || 0),
-    0
-  );
+  const listeningItems = items.filter(item => item.sentence_id != null || item.sentences?.sentence);
+  const listening = getBundleListeningState(listeningItems, progress.itemInteractions, progress.currentBundleItemId);
+  const currentItemStep = listening.currentStep || 1;
+  const totalPlayCount = getTotalPlayCount(progress.itemInteractions);
   const practiceStars = getBundleStarProgress(items, progress.itemInteractions, language);
   const starProgressPercent = practiceStars.max > 0
     ? Math.min(100, Math.round((practiceStars.earned / practiceStars.max) * 100))
     : (progress.totalItems > 0 ? progress.progressPercent : 0);
-  const isCompleted = practiceStars.max > 0
-    ? practiceStars.earned >= practiceStars.max
-    : (progress.totalItems > 0 && progress.progressPercent >= 100);
-  const hasStarted = practiceStars.earned > 0 || progress.completedItems > 0 || Boolean(progress.bundleInteraction?.is_started);
+  const completion = progress.completion || calculateBundleCompletion(items, progress.itemInteractions, [], [], language);
+  const isCompleted = completion.isCompleted;
+  const completionLabel = isCompleted ? t.completedStatus : completion.sentenceCompleted ? t.sentenceCompleted
+    : completion.wordCompleted ? t.wordCompleted : t.inProgress;
+  const hasStarted = completion.wordProgress.completed > 0 || practiceStars.earned > 0 || progress.completedItems > 0 || Boolean(progress.bundleInteraction?.is_started);
   const hasStudied = hasStarted || Boolean(progress.bundleInteraction?.last_studied_at);
   const remainingItems = Math.max(0, progress.totalItems - progress.completedItems);
   const estimatedLeftMinutes = estimateBundleMinutes(remainingItems);
   const lastStudiedLabel = formatProgressDate(progress.bundleInteraction?.last_studied_at, language) || t.noRecord;
   const currentLocationLabel = hasStudied ? t.currentStepLabel(currentItemStep) : t.notStarted;
+  const totalPlayLabel = totalPlayCount > 0
+    ? (language === 'ko' ? `${totalPlayCount}회` : `${totalPlayCount} plays`)
+    : t.noRecord;
   const backHref = bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
 
   const learnHref = progress.currentBundleItemId
@@ -256,15 +262,18 @@ export default function BundleDetailHubClient({
 
   if (canAccessLearning) {
     if (isCompleted) {
-      primaryActionHref = quizHref;
-      primaryActionLabel = t.primaryReviewQuiz;
-      secondaryActionHref = learnHref;
-      secondaryActionLabel = t.listenAgain;
+      primaryActionHref = practiceStars.max > 0 ? quizHref : `/bundles/${bundle.id}/spelling`;
+      primaryActionLabel = practiceStars.max > 0 ? t.primaryReviewQuiz : t.reviewWords;
+      secondaryActionHref = progress.totalItems > 0 ? learnHref : null;
+      secondaryActionLabel = progress.totalItems > 0 ? (listening.hasListened ? t.listenAgain : t.listenStart) : null;
+    } else if (completion.wordProgress.total > 0 && (completion.sentenceCompleted || practiceStars.max === 0)) {
+      primaryActionHref = `/bundles/${bundle.id}/spelling`;
+      primaryActionLabel = t.primaryWords;
     } else if (hasStudied) {
       primaryActionHref = practiceHref;
       primaryActionLabel = t.primaryContinueModes[nextPracticeMode] || t.primaryContinueQuiz;
       secondaryActionHref = learnHref;
-      secondaryActionLabel = t.secondaryListen(currentItemStep);
+      secondaryActionLabel = listening.hasListened ? t.secondaryListen(currentItemStep) : t.listenStart;
     } else {
       primaryActionHref = learnHref;
       primaryActionLabel = t.primaryStartListening;
@@ -462,17 +471,22 @@ export default function BundleDetailHubClient({
                 <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                   {t.listeningStream}
                 </span>
-                {hasStudied && totalPlayCount > 0 && (
-                  <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums">
-                    {language === 'ko' ? `누적 ${totalPlayCount}회 청취` : `${totalPlayCount} plays`}
+                {listening.hasListened ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/90 px-2 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {t.inProgress}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                    {t.notStarted}
                   </span>
                 )}
               </div>
               <p className="mt-0.5 text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {hasStudied
+                {listening.hasListened
                   ? (language === 'ko'
-                      ? `${items.length}개 중 ${currentItemStep}번째 문장 학습 중`
-                      : `Sentence ${currentItemStep} of ${items.length}`)
+                      ? `${listeningItems.length}개 중 ${currentItemStep}번째 문장 학습 중`
+                      : `Sentence ${currentItemStep} of ${listeningItems.length}`)
                   : t.listeningNotStarted}
               </p>
             </div>
@@ -486,7 +500,7 @@ export default function BundleDetailHubClient({
           )}
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <ProgressMeta label={t.currentLocation} value={currentLocationLabel} />
+            <ProgressMeta label={t.totalPlays} value={totalPlayLabel} />
             <ProgressMeta label={t.lastStudied} value={lastStudiedLabel} />
             <ProgressMeta label={t.estimate} value={minuteLabel} />
             <ProgressMeta label={t.cefr} value={level.shortLabel} />
@@ -581,6 +595,11 @@ export default function BundleDetailHubClient({
                   )
                 )}
               </div>
+              {target === 'word' && isLoggedIn && completion.knownWordsCount > 0 && (
+                <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  {language === 'ko' ? `이전에 학습한 단어 ${completion.knownWordsCount}개 포함` : `Includes ${completion.knownWordsCount} previously studied words`}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 {PRACTICE_MODES.filter(
                   (mode) => isBundlePracticeMode(mode) && PRACTICE_REGISTRY[mode].target === target

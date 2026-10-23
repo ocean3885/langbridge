@@ -70,13 +70,13 @@ export default async function BundleSpellingPage({ params, searchParams }: Bundl
         modeName="Spelling Scramble"
         basePath={`/bundles/${bundle.id}/spelling`}
         language={language}
-        counts={getPracticeSessionCounts(practiceSpellingItems, wordInteractions, 'spelling', progress.currentPracticeItemIds.spelling)}
+        counts={getPracticeSessionCounts(practiceSpellingItems, wordInteractions, 'spelling', progress.currentPracticeItemIds.spelling, progress.completion?.completedWordIds || [])}
         target="word"
       />
     );
   }
 
-  const filteredItems = filterPracticeItems(practiceSpellingItems, wordInteractions, effectiveMode, 'spelling');
+  const filteredItems = filterPracticeItems(practiceSpellingItems, wordInteractions, effectiveMode, 'spelling', progress.completion?.completedWordIds || []);
   const sessionItems = limitPracticeItems(filteredItems, count);
   const wordUsageDetails = await listWordUsageDetails(sessionItems.map((item) => item.wordId));
   const initialItemId =
