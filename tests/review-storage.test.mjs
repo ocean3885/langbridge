@@ -136,6 +136,31 @@ test('general word review updates shared knowledge once without completing bundl
  } finally{await db.close();}
 });
 
+test('bundle word review marks word as completed for the bundle and updates bundle interaction atomically', async () => {
+  const db = await fixture();
+  try {
+    const bundleId = '30000000-0000-4000-8000-000000000001';
+    await db.exec(`INSERT INTO bundle(id) VALUES ('${bundleId}');`);
+    const items = [{ id: '20000000-0000-4000-8000-000000000002', words: { id: 1, word: 'hola', meaning_ko: '안녕' } }];
+    const load = loadModules({
+      '@/lib/supabase/admin': { createAdminClient: () => databaseClient(db) },
+      '@/lib/bundle-access': { getBundleAccess: async () => ({ canView: true }) },
+      './bundle-completion': {
+        loadBundleCompletion: async () => new Map([[bundleId, { items, interactions: [], selectedWordIds: [1] }]]),
+      },
+    });
+    const { saveReviewResult } = load('lib/supabase/services/review-results');
+    const result = { ...payload, bundleId };
+    await saveReviewResult({ id: 'u1' }, result);
+    const word = await snapshot(db);
+    assert.equal(word.correct_count, 2);
+    assert.equal(word.metadata.standalone_correct_count, 1);
+    const bundle = (await db.query('SELECT * FROM user_bundle_interactions')).rows[0];
+    assert.deepEqual(bundle.metadata.completed_word_ids, [1]);
+    assert.equal(bundle.is_completed, true);
+  } finally { await db.close(); }
+});
+
 
 test('session telemetry is idempotent and counts only committed first assessments', async()=>{
  const db=await fixture();

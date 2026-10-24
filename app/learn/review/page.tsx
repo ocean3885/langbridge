@@ -2,19 +2,23 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, MessagesSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/learning-review';
+import { getReviewBundlesSummary, getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/learning-review';
 import { getReviewPlan } from '@/lib/learning/review-recommendation';
 import { defaultSentenceReviewMode, REVIEW_MAX_COUNT } from '@/lib/learning/review-session';
 import ProgressMobileMenu from '../progress/ProgressMobileMenu';
 import ProgressSidebar from '../progress/ProgressSidebar';
 import { NextReviewTime } from './_components/NextReviewTime';
+import ReviewBundlesSection from './_components/ReviewBundlesSection';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReviewPage() {
   const [user, language] = await Promise.all([getAppUserFromServer(), getDisplayLanguage()]);
   if (!user) redirect('/auth/login?redirectTo=/learn/review');
-  const summary = await getReviewNeededSummary(user.id);
+  const [summary, reviewBundles] = await Promise.all([
+    getReviewNeededSummary(user.id),
+    getReviewBundlesSummary(user.id),
+  ]);
   const plan = getReviewPlan(summary);
   const ko = language === 'ko';
   const mode = plan?.type === 'sentences' ? defaultSentenceReviewMode(await getReviewSentences(user.id, REVIEW_MAX_COUNT, 'review', false), language) : 'quiz';
@@ -59,6 +63,7 @@ export default async function ReviewPage() {
             </div>)}
           </div>
         </section>
+        <ReviewBundlesSection bundles={reviewBundles} language={language} />
         <p className="mt-6 text-sm leading-6 text-zinc-500">{ko ? '완료한 번들의 항목도 기억을 유지하도록 복습 시점에 다시 나타납니다.' : 'Items from completed bundles can return when their next review is due.'}</p>
       </section>
     </div>

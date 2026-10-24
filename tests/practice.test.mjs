@@ -266,20 +266,23 @@ function reviewFixture(overrides = {}, cap = 73, failTable = null) {
   const db = { from(table) {
     const filters = [];
     let start = 0, end = cap - 1;
+    let single = false;
     const q = {
       select() { return q; },
       eq(k, v) { filters.push(r => r[k] === v); return q; },
       gte(k, v) { filters.push(r => r[k] >= v); return q; },
       lt(k, v) { filters.push(r => r[k] < v); return q; },
-      in(k, v) { filters.push(r => v.includes(r[k])); return q; },
+      in(k, v) { filters.push(r => Array.isArray(v) && v.includes(r[k])); return q; },
       not(k, _op, v) { filters.push(r => r[k] !== v); return q; },
+      or(_expr) { return q; },
       order() { return q; },
       range(a, b) { start = a; end = Math.min(b, a + cap - 1); return q; },
+      maybeSingle() { single = true; return q; },
       then(resolve, reject) {
         if (table === failTable) return Promise.resolve({ data: null, error: new Error('database unavailable') }).then(resolve, reject);
         const source = tables[table] || (table === 'sentences' ? tables.user_sentence_interactions.map(r => r.sentences) : table === 'words' ? tables.user_word_interactions.map(r => r.words) : []);
         const data = source.filter(Boolean).filter(r => filters.every(f => f(r))).sort((a, b) => String(a.id).localeCompare(String(b.id))).slice(start, end + 1);
-        return Promise.resolve({ data, error: null }).then(resolve, reject);
+        return Promise.resolve({ data: single ? (data[0] || null) : data, error: null }).then(resolve, reject);
       },
     };
     return q;
@@ -384,6 +387,36 @@ test('pinning a bundle alone does not make it a sentence result destination', as
   tables.user_bundle_interactions = [{ id: 'pin', user_id: 'u1', bundle_id: 'b1', is_started: false, last_studied_at: null }];
   assert.equal((await service.getReviewSentences('u1')).length, 0);
   assert.equal((await service.getReviewNeededSummary('u1')).availableSentences, 0);
+});
+
+test('bundle review isolates words to bundles where they were actually practiced or completed', async () => {
+  const { service, tables } = reviewFixture();
+  // Both bundles contain word 11
+  tables.bundle_words = [
+    { bundle_id: 'b1', word_id: 11 },
+    { bundle_id: 'b2', word_id: 11 },
+  ];
+  // User only studied/completed word 11 in b1
+  tables.user_bundle_interactions = [
+    { id: 'hb1', user_id: 'u1', bundle_id: 'b1', last_studied_at: '2020-01-01T00:00:00Z', metadata: { completed_word_ids: [11] } },
+    { id: 'hb2', user_id: 'u1', bundle_id: 'b2', last_studied_at: '2020-01-01T00:00:00Z', metadata: {} },
+  ];
+  tables.user_bundle_item_interactions = [];
+
+  // Bundle b1 has word 11 due for review
+  const b1Words = await service.getReviewWords('u1', 20, 'review', 'b1');
+  assert.equal(b1Words.length, 1);
+  assert.equal(b1Words[0].id, 11);
+
+  // Bundle b2 contains word 11 in catalog, but user never studied word 11 in b2 -> 0 due words!
+  const b2Words = await service.getReviewWords('u1', 20, 'review', 'b2');
+  assert.equal(b2Words.length, 0);
+
+  const b1Summary = await service.getBundleReviewSummary('u1', 'b1');
+  assert.equal(b1Summary.availableWords, 1);
+
+  const b2Summary = await service.getBundleReviewSummary('u1', 'b2');
+  assert.equal(b2Summary.availableWords, 0);
 });
 
 const { buildScrambleQuestion, isScrambleAnswerCorrect, normalizeScrambleWords } = load('lib/practice/scramble');

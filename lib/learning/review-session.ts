@@ -41,17 +41,18 @@ export function reviewWordFillMaps(item: ReviewSentenceItem) {
   return getWordFillMapCandidates(item.sentence, maps).filter(map => Number.isSafeInteger(map.word_id) && map.word_id > 0);
 }
 
-export function sentenceReviewItems(items: ReviewSentenceItem[], mode: SentenceReviewMode, language: PracticeLanguage) {
+export function sentenceReviewItems(items: ReviewSentenceItem[], mode: SentenceReviewMode, language: PracticeLanguage, optionPool?: ReviewSentenceItem[]) {
   if (mode === 'wordfill') return items.filter(item => reviewWordFillMaps(item).length > 0);
   if (mode === 'quiz') {
+    const pool = optionPool && optionPool.length > 0 ? optionPool : items;
     const translation = (item: ReviewSentenceItem) => (language === 'en' ? item.translation_en : item.translation) || item.translation;
-    return items.filter(item => items.some(other => other.id !== item.id && translation(other) !== translation(item)));
+    return items.filter(item => pool.some(other => other.id !== item.id && translation(other) !== translation(item)));
   }
   return items;
 }
 
-export function defaultSentenceReviewMode(items: ReviewSentenceItem[], language: PracticeLanguage): SentenceReviewMode {
-  return sentenceReviewItems(items, 'quiz', language).length === items.length && items.length > 0 ? 'quiz' : 'scramble';
+export function defaultSentenceReviewMode(items: ReviewSentenceItem[], language: PracticeLanguage, optionPool?: ReviewSentenceItem[]): SentenceReviewMode {
+  return sentenceReviewItems(items, 'quiz', language, optionPool).length === items.length && items.length > 0 ? 'quiz' : 'scramble';
 }
 
 export function parseReviewSettings(params: { mode?: string; count?: string; start?: string }, type: 'words' | 'sentences') {

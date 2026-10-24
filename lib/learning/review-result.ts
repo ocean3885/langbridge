@@ -19,7 +19,11 @@ export function validReviewResult(value: unknown): value is ReviewResult {
   const positive = (n: unknown) => Number.isSafeInteger(n) && Number(n) > 0;
   if (!uuid.test(v.sessionId || '') || !uuid.test(v.attemptId || '') || typeof v.correct !== 'boolean'
     || typeof v.targetId !== 'string' || !/^[1-9][0-9]*$/.test(v.targetId) || !positive(Number(v.targetId))) return false;
-  if (v.type === 'words') return ['word_quiz', 'word_flashcards', 'spelling'].includes(v.mode) && !v.bundleId && !v.bundleItemId && !v.wordId;
+  if (v.type === 'words') {
+    return ['word_quiz', 'word_flashcards', 'spelling'].includes(v.mode)
+      && (!v.bundleId || uuid.test(v.bundleId))
+      && !v.bundleItemId && !v.wordId;
+  }
   return v.type === 'sentences' && ['quiz', 'scramble', 'wordfill'].includes(v.mode)
     && uuid.test(v.bundleId || '') && uuid.test(v.bundleItemId || '') && (v.mode === 'wordfill' ? positive(v.wordId) : !v.wordId);
 }

@@ -35,6 +35,12 @@ interface BundleDetailHubClientProps {
   isLoggedIn: boolean;
   access: BundleAccessResult;
   wordProgress?: BundleWordProgress;
+  reviewSummary?: {
+    availableSentences: number;
+    availableWords: number;
+    availableTotal: number;
+    nextReviewAt: string | null;
+  };
 }
 
 const copy = {
@@ -199,6 +205,7 @@ export default function BundleDetailHubClient({
   isLoggedIn,
   access,
   wordProgress,
+  reviewSummary,
 }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
@@ -515,6 +522,46 @@ export default function BundleDetailHubClient({
               >
                 {t.loginAction}
               </Link>
+            </div>
+          )}
+
+          {/* Bundle Review Due Banner */}
+          {canAccessLearning && reviewSummary && reviewSummary.availableTotal > 0 && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-[#2f7d4a] dark:text-emerald-400 shrink-0" />
+                  <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                    {language === 'ko' ? '복습 대기 항목이 있습니다' : 'Reviews are due for this bundle'}
+                  </h3>
+                </div>
+                <span className="rounded-full bg-[#3f8d54] px-2 py-0.5 text-xs font-bold text-white">
+                  {language === 'ko' ? `총 ${reviewSummary.availableTotal}개` : `${reviewSummary.availableTotal} total`}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                {language === 'ko'
+                  ? `문장 ${reviewSummary.availableSentences}개 · 단어 ${reviewSummary.availableWords}개가 복습 대기 중입니다.`
+                  : `${reviewSummary.availableSentences} sentences and ${reviewSummary.availableWords} words are ready for review.`}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {reviewSummary.availableSentences > 0 && (
+                  <Link
+                    href={`/learn/review/sentences?bundleId=${bundle.id}&returnTo=/bundles/${bundle.id}`}
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[#3f8d54] px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#347946]"
+                  >
+                    {language === 'ko' ? `문장 복습 (${reviewSummary.availableSentences})` : `Review Sentences (${reviewSummary.availableSentences})`}
+                  </Link>
+                )}
+                {reviewSummary.availableWords > 0 && (
+                  <Link
+                    href={`/learn/review/words?bundleId=${bundle.id}&returnTo=/bundles/${bundle.id}`}
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3.5 text-xs font-bold text-[#2f7d4a] shadow-sm transition hover:bg-emerald-50 dark:border-emerald-700 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-zinc-800"
+                  >
+                    {language === 'ko' ? `단어 복습 (${reviewSummary.availableWords})` : `Review Words (${reviewSummary.availableWords})`}
+                  </Link>
+                )}
+              </div>
             </div>
           )}
 

@@ -56,6 +56,25 @@ export async function saveReviewResult(user: { id: string; email?: string | null
       const localDay = (date: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(date));
       deltas.dailyWords = Number(!primary.last_reviewed_at || localDay(primary.last_reviewed_at) !== localDay(now));
       deltas.masteredWords = Number(primary.proficiency_level < 5 && result.proficiency_level >= 5);
+      if (payload.bundleId) {
+        const { data: bundle, error } = await db.from('bundle').select('id, is_published, access_level').eq('id', payload.bundleId).maybeSingle();
+        if (error) throw error;
+        if (!bundle || !(await getBundleAccess(bundle, user)).canView) throw new ReviewWriteError('This bundle is no longer accessible.', 403);
+        const bundleBefore = await read('user_bundle_interactions', 'bundle_id', payload.bundleId);
+        let metadata = bundleBefore?.metadata || {};
+        if (correct) {
+          metadata = { ...metadata, completed_word_ids: [...new Set([...getCompletedBundleWordIds(metadata), Number(payload.targetId)])] };
+        }
+        const state = (await loadBundleCompletion(user.id, [payload.bundleId])).get(payload.bundleId)!;
+        const completion = calculateBundleCompletion(state.items, state.interactions, [], state.selectedWordIds, 'ko', metadata);
+        add('user_bundle_interactions', payload.bundleId, bundleBefore, {
+          metadata, is_started: true,
+          started_at: bundleBefore?.started_at || now, last_studied_at: now, updated_at: now,
+          current_practice_item_ids: bundleBefore?.current_practice_item_ids || {},
+          is_completed: completion.isCompleted, progress_ratio: completion.progressRatio,
+          completed_at: completion.isCompleted ? bundleBefore?.completed_at || now : null,
+        });
+      }
     } else {
       const { data: bundle, error } = await db.from('bundle').select('id, is_published, access_level').eq('id', payload.bundleId!).maybeSingle();
       if (error) throw error;

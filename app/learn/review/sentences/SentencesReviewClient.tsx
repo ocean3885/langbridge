@@ -90,7 +90,11 @@ export default function SentencesReviewClient({
   const t = copy[language];
   const isLearning = sessionKind === 'learning';
   const returnHref = isLearning ? '/learn/progress/sentences' : returnTo || '/learn/review';
-  const returnLabel = isLearning || returnTo ? t.backToLearn : t.backToReview;
+  const returnLabel = returnTo?.startsWith('/bundles/')
+    ? (language === 'ko' ? '번들로 돌아가기' : 'Back to bundle')
+    : isLearning || returnTo === '/learn/progress/sentences'
+    ? t.backToLearn
+    : t.backToReview;
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 

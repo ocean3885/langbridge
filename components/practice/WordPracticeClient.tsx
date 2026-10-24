@@ -163,7 +163,13 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   const t = copy[language];
   const isLearning = sessionKind === 'learning';
   const returnHref = bundleSession ? `/bundles/${bundleSession.bundleId}/${bundleSession.mode === 'word_quiz' ? 'word-quiz' : 'word-flashcards'}` : isLearning ? '/learn/progress/words' : returnTo || '/learn/review';
-  const returnLabel = bundleSession ? (language === 'ko' ? '문제 다시 선택' : 'Change Set') : isLearning || returnTo ? t.backToLearn : t.backToReview;
+  const returnLabel = bundleSession
+    ? (language === 'ko' ? '문제 다시 선택' : 'Change Set')
+    : returnTo?.startsWith('/bundles/')
+    ? (language === 'ko' ? '번들로 돌아가기' : 'Back to bundle')
+    : isLearning || returnTo === '/learn/progress/words'
+    ? t.backToLearn
+    : t.backToReview;
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 

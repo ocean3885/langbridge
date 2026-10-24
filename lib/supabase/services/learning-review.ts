@@ -6,6 +6,7 @@ import { getBundleAccess } from '@/lib/bundle-access';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getReviewDueAt, isReviewDue } from '@/lib/learning/review-schedule';
+import { getCompletedBundleWordIds } from '@/lib/practice/bundle-word-progress';
 
 export interface ReviewNeededSummary {
   sentences: number;
@@ -232,10 +233,66 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
   };
 }
 
-export async function getReviewSentences(userId: string, limit = 20, scope: Scope = 'review', details = true): Promise<ReviewSentenceItem[]> {
+async function getBundleTargetWordIds(bundleId: string): Promise<Set<number>> {
+  const db = createAdminClient();
+  const { data: selected } = await db.from('bundle_words').select('word_id').eq('bundle_id', bundleId);
+  const selectedIds = (selected || []).map(r => Number(r.word_id)).filter(Boolean);
+  if (selectedIds.length > 0) {
+    return new Set(selectedIds);
+  }
+  const { data: items } = await db.from('bundle_items')
+    .select('word_id, sentences(word_sentence_map(word_id))')
+    .eq('bundle_id', bundleId);
+  const ids = new Set<number>();
+  for (const item of items || []) {
+    if (item.word_id) ids.add(Number(item.word_id));
+    const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
+    for (const map of sentence?.word_sentence_map || []) {
+      if (map.word_id) ids.add(Number(map.word_id));
+    }
+  }
+  return ids;
+}
+
+async function getStudiedWordIdsForBundle(userId: string, bundleId: string): Promise<Set<number>> {
+  const db = createAdminClient();
+  const [bundleInteractionRes, itemInteractionsRes] = await Promise.all([
+    db.from('user_bundle_interactions').select('metadata').eq('user_id', userId).eq('bundle_id', bundleId).maybeSingle(),
+    db.from('user_bundle_item_interactions')
+      .select('bundle_item_id, last_practiced_at, is_completed, last_played_at')
+      .eq('user_id', userId).eq('bundle_id', bundleId),
+  ]);
+
+  const studiedWordIds = new Set<number>();
+  const completedIds = getCompletedBundleWordIds(bundleInteractionRes.data?.metadata);
+  for (const id of completedIds) studiedWordIds.add(id);
+
+  const practicedItemIds = (itemInteractionsRes.data || [])
+    .filter(row => row.last_practiced_at || row.is_completed || row.last_played_at)
+    .map(row => row.bundle_item_id);
+
+  if (practicedItemIds.length > 0) {
+    const { data: bundleItems } = await db.from('bundle_items')
+      .select('word_id, sentences(word_sentence_map(word_id))')
+      .in('id', practicedItemIds);
+
+    for (const item of bundleItems || []) {
+      if (item.word_id) studiedWordIds.add(Number(item.word_id));
+      const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
+      for (const map of sentence?.word_sentence_map || []) {
+        if (map.word_id) studiedWordIds.add(Number(map.word_id));
+      }
+    }
+  }
+
+  return studiedWordIds;
+}
+
+export async function getReviewSentences(userId: string, limit = 20, scope: Scope = 'review', details = true, bundleId?: string): Promise<ReviewSentenceItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   const { candidates, now } = await sentenceCatalog(userId);
-  const items = candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  const filtered = bundleId ? candidates.filter(row => row.item.bundle_id === bundleId) : candidates;
+  const items = filtered.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
   if (!details || !items.length) return items;
   const data = await readAll<{ id: number; word_sentence_map: ReviewSentenceWordMap[] }>((from, to) => createAdminClient().from('sentences')
     .select('id, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en)))')
@@ -244,14 +301,279 @@ export async function getReviewSentences(userId: string, limit = 20, scope: Scop
   return items.map(item => ({ ...item, word_maps: (byId.get(item.id) || []) as ReviewSentenceWordMap[] }));
 }
 
-
-export async function getReviewWords(userId: string, limit = 20, scope: Scope = 'review'): Promise<ReviewWordItem[]> {
+export async function getReviewWords(userId: string, limit = 20, scope: Scope = 'review', bundleId?: string): Promise<ReviewWordItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   const { candidates, now } = await wordCatalog(userId);
-  const items = candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  let pool = candidates;
+  if (bundleId) {
+    const [bundleWordIds, studiedWordIds] = await Promise.all([
+      getBundleTargetWordIds(bundleId),
+      getStudiedWordIdsForBundle(userId, bundleId),
+    ]);
+    pool = candidates.filter(row => bundleWordIds.has(row.item.id) && studiedWordIds.has(row.item.id));
+  }
+  const items = pool.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
   if (!items.length) return items;
   const data = await readAll<{ id: number; words_distractor: NonNullable<ReviewWordItem['distractors']> }>((from, to) => createAdminClient().from('words').select('id, words_distractor(distractor, meaning_ko, meaning_en)')
     .in('id', items.map(item => item.id)).order('id').range(from, to));
   const byId = new Map((data || []).map(row => [Number(row.id), row.words_distractor]));
   return items.map(item => ({ ...item, distractors: byId.get(item.id) || [] }));
+}
+
+export async function getReviewSentenceOptionPool(userId: string, limit = 40): Promise<ReviewSentenceItem[]> {
+  const { candidates } = await sentenceCatalog(userId);
+  return candidates.slice(0, limit).map(row => row.item);
+}
+
+export async function getReviewWordOptionPool(userId: string, limit = 40): Promise<ReviewWordItem[]> {
+  const { candidates } = await wordCatalog(userId);
+  const items = candidates.slice(0, limit).map(row => row.item);
+  if (!items.length) return items;
+  const data = await readAll<{ id: number; words_distractor: NonNullable<ReviewWordItem['distractors']> }>((from, to) => createAdminClient().from('words').select('id, words_distractor(distractor, meaning_ko, meaning_en)')
+    .in('id', items.map(item => item.id)).order('id').range(from, to));
+  const byId = new Map((data || []).map(row => [Number(row.id), row.words_distractor]));
+  return items.map(item => ({ ...item, distractors: byId.get(item.id) || [] }));
+}
+
+export async function getBundleReviewSummary(userId: string, bundleId: string): Promise<{
+  availableSentences: number;
+  availableWords: number;
+  availableTotal: number;
+  nextReviewAt: string | null;
+}> {
+  const [sentences, words, bundleWordIds, studiedWordIds] = await Promise.all([
+    sentenceCatalog(userId),
+    wordCatalog(userId),
+    getBundleTargetWordIds(bundleId),
+    getStudiedWordIdsForBundle(userId, bundleId),
+  ]);
+  const dueSentences = sentences.candidates
+    .filter(row => row.item.bundle_id === bundleId)
+    .filter(row => inScope(row.interaction, 'review', sentences.now));
+  const dueWords = words.candidates
+    .filter(row => bundleWordIds.has(row.item.id) && studiedWordIds.has(row.item.id))
+    .filter(row => inScope(row.interaction, 'review', words.now));
+
+  const future = [
+    ...sentences.candidates.filter(row => row.item.bundle_id === bundleId),
+    ...words.candidates.filter(row => bundleWordIds.has(row.item.id)),
+  ]
+    .filter(row => row.interaction.proficiency_level > 0 || row.interaction.incorrect_count > 0)
+    .map(row => getReviewDueAt(row.interaction))
+    .filter((date): date is Date => Boolean(date && date.getTime() > Math.max(sentences.now.getTime(), words.now.getTime())))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return {
+    availableSentences: dueSentences.length,
+    availableWords: dueWords.length,
+    availableTotal: dueSentences.length + dueWords.length,
+    nextReviewAt: future[0]?.toISOString() || null,
+  };
+}
+
+export interface ReviewDueBundle {
+  id: string;
+  title: string;
+  title_en: string | null;
+  category_name: string;
+  category_name_en: string | null;
+  category_icon: string | null;
+  availableSentences: number;
+  availableWords: number;
+  availableTotal: number;
+  mostUrgentDueAt: string | null;
+  hasIncorrect: boolean;
+  lowestLevel: number;
+  lastStudiedAt: string | null;
+}
+
+export async function getReviewBundlesSummary(userId: string): Promise<ReviewDueBundle[]> {
+  const db = createAdminClient();
+  const [sentences, words, userBundleInteractions, practicedItemInteractions] = await Promise.all([
+    sentenceCatalog(userId),
+    wordCatalog(userId),
+    readAll<{ bundle_id: string; last_studied_at: string | null; is_started: boolean; started_at: string | null; metadata: any }>((from, to) =>
+      db.from('user_bundle_interactions').select('bundle_id, last_studied_at, is_started, started_at, metadata').eq('user_id', userId).order('id').range(from, to)
+    ),
+    readAll<{ bundle_id: string; bundle_item_id: string }>((from, to) =>
+      db.from('user_bundle_item_interactions')
+        .select('bundle_id, bundle_item_id')
+        .eq('user_id', userId)
+        .or('last_practiced_at.not.is.null,is_completed.eq.true,last_played_at.not.is.null')
+        .order('id')
+        .range(from, to)
+    ),
+  ]);
+
+  const dueSentences = sentences.candidates.filter(row => inScope(row.interaction, 'review', sentences.now));
+  const dueWords = words.candidates.filter(row => inScope(row.interaction, 'review', words.now));
+
+  if (!dueSentences.length && !dueWords.length) {
+    return [];
+  }
+
+  const studiedBundleIds = new Set(
+    userBundleInteractions
+      .filter(row => row.is_started || row.started_at || row.last_studied_at)
+      .map(row => row.bundle_id)
+  );
+  for (const s of dueSentences) {
+    if (s.item.bundle_id) studiedBundleIds.add(s.item.bundle_id);
+  }
+
+  const bundleIds = [...studiedBundleIds];
+  if (!bundleIds.length) return [];
+
+  const bundlesData: any[] = [];
+  for (let i = 0; i < bundleIds.length; i += 100) {
+    const slice = bundleIds.slice(i, i + 100);
+    const { data } = await db
+      .from('bundle')
+      .select('id, title, title_en, is_published, access_level, bundle_category(name, name_en, icon_image_url)')
+      .in('id', slice)
+      .eq('is_published', true);
+    if (data) bundlesData.push(...data);
+  }
+
+  const user = { id: userId };
+  const accessibleBundles = [];
+  for (const bundle of bundlesData) {
+    const access = await getBundleAccess(bundle, user);
+    if (access.canView) accessibleBundles.push(bundle);
+  }
+
+  const accessibleBundleIds = accessibleBundles.map(b => b.id);
+  if (!accessibleBundleIds.length) return [];
+
+  // Group practiced bundle item IDs by bundle
+  const practicedItemsByBundle = new Map<string, string[]>();
+  for (const row of practicedItemInteractions) {
+    const bId = String(row.bundle_id);
+    const list = practicedItemsByBundle.get(bId) || [];
+    list.push(row.bundle_item_id);
+    practicedItemsByBundle.set(bId, list);
+  }
+
+  const allPracticedItemIds = practicedItemInteractions.map(r => r.bundle_item_id);
+
+  const [selectedWordsRes, bundleItemsRes, practicedBundleItemsRes] = await Promise.all([
+    db.from('bundle_words').select('bundle_id, word_id').in('bundle_id', accessibleBundleIds),
+    db.from('bundle_items').select('bundle_id, word_id, sentences(word_sentence_map(word_id))').in('bundle_id', accessibleBundleIds),
+    allPracticedItemIds.length > 0
+      ? db.from('bundle_items').select('id, bundle_id, word_id, sentences(word_sentence_map(word_id))').in('id', allPracticedItemIds.slice(0, 500))
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const selectedWordsByBundle = new Map<string, number[]>();
+  for (const row of selectedWordsRes.data || []) {
+    const bId = String(row.bundle_id);
+    const list = selectedWordsByBundle.get(bId) || [];
+    if (row.word_id) list.push(Number(row.word_id));
+    selectedWordsByBundle.set(bId, list);
+  }
+
+  const itemWordsByBundle = new Map<string, Set<number>>();
+  for (const item of bundleItemsRes.data || []) {
+    const bId = String(item.bundle_id);
+    const set = itemWordsByBundle.get(bId) || new Set<number>();
+    if (item.word_id) set.add(Number(item.word_id));
+    const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
+    for (const map of sentence?.word_sentence_map || []) {
+      if (map.word_id) set.add(Number(map.word_id));
+    }
+    itemWordsByBundle.set(bId, set);
+  }
+
+  // Map words from practiced sentences for each bundle
+  const wordsFromPracticedSentencesByBundle = new Map<string, Set<number>>();
+  for (const item of (practicedBundleItemsRes.data || []) as any[]) {
+    const bId = String(item.bundle_id);
+    const set = wordsFromPracticedSentencesByBundle.get(bId) || new Set<number>();
+    if (item.word_id) set.add(Number(item.word_id));
+    const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
+    for (const map of sentence?.word_sentence_map || []) {
+      if (map.word_id) set.add(Number(map.word_id));
+    }
+    wordsFromPracticedSentencesByBundle.set(bId, set);
+  }
+
+  const lastStudiedByBundle = new Map(userBundleInteractions.map(r => [r.bundle_id, r.last_studied_at]));
+  const metadataByBundle = new Map(userBundleInteractions.map(r => [r.bundle_id, r.metadata]));
+  const dueWordMap = new Map(dueWords.map(w => [w.item.id, w]));
+
+  const result: ReviewDueBundle[] = [];
+
+  for (const bundle of accessibleBundles) {
+    const bId = bundle.id;
+    const bDueSentences = dueSentences.filter(s => s.item.bundle_id === bId);
+
+    const selectedWords = selectedWordsByBundle.get(bId) || [];
+    const targetWordSet = selectedWords.length > 0 ? new Set(selectedWords) : (itemWordsByBundle.get(bId) || new Set<number>());
+
+    // Only count words that were actually practiced/completed in this bundle!
+    const bundleMetadata = metadataByBundle.get(bId);
+    const completedWordIds = new Set(getCompletedBundleWordIds(bundleMetadata));
+    const sentenceWords = wordsFromPracticedSentencesByBundle.get(bId) || new Set<number>();
+
+    const bDueWords: typeof dueWords = [];
+    for (const wordId of targetWordSet) {
+      const match = dueWordMap.get(wordId);
+      // Word must be due AND must have been practiced/completed within this bundle
+      if (match && (completedWordIds.has(wordId) || sentenceWords.has(wordId))) {
+        bDueWords.push(match);
+      }
+    }
+
+    const availableSentences = bDueSentences.length;
+    const availableWords = bDueWords.length;
+    const availableTotal = availableSentences + availableWords;
+
+    if (availableTotal === 0) continue;
+
+    const allDueRows = [...bDueSentences, ...bDueWords];
+    const hasIncorrect = allDueRows.some(r => r.interaction.metadata?.last_practice_is_correct === false);
+    const lowestLevel = Math.min(...allDueRows.map(r => r.interaction.proficiency_level));
+
+    const dueDates = allDueRows
+      .map(r => getReviewDueAt(r.interaction))
+      .filter((d): d is Date => Boolean(d))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const category = single(bundle.bundle_category);
+
+    result.push({
+      id: bId,
+      title: bundle.title || '',
+      title_en: bundle.title_en || null,
+      category_name: category?.name || '',
+      category_name_en: category?.name_en || null,
+      category_icon: category?.icon_image_url || null,
+      availableSentences,
+      availableWords,
+      availableTotal,
+      mostUrgentDueAt: dueDates[0]?.toISOString() || null,
+      hasIncorrect,
+      lowestLevel,
+      lastStudiedAt: lastStudiedByBundle.get(bId) || null,
+    });
+  }
+
+  return result.sort((a, b) => {
+    if (a.mostUrgentDueAt && b.mostUrgentDueAt) {
+      const cmp = a.mostUrgentDueAt.localeCompare(b.mostUrgentDueAt);
+      if (cmp !== 0) return cmp;
+    } else if (a.mostUrgentDueAt || b.mostUrgentDueAt) {
+      return a.mostUrgentDueAt ? -1 : 1;
+    }
+    if (a.hasIncorrect !== b.hasIncorrect) {
+      return a.hasIncorrect ? -1 : 1;
+    }
+    if (a.lowestLevel !== b.lowestLevel) {
+      return a.lowestLevel - b.lowestLevel;
+    }
+    if (a.availableTotal !== b.availableTotal) {
+      return b.availableTotal - a.availableTotal;
+    }
+    return (b.lastStudiedAt || '').localeCompare(a.lastStudiedAt || '');
+  });
 }
