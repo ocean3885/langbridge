@@ -68,7 +68,7 @@ export function StreakCard({
         <Flame className="h-5 w-5 text-[#df7c38]" />
         {t.dayStreak(summary.currentStreak)}
       </h3>
-      <div className="mt-6 grid grid-cols-7 gap-2 text-center text-xs text-zinc-600 dark:text-zinc-400">
+      <div className="mt-6 grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs text-zinc-600 dark:text-zinc-400">
         {weekDates.map((day, index) => {
           const isToday = index === todayIndex;
           const markerClass = day.active
@@ -81,7 +81,7 @@ export function StreakCard({
             <div key={day.date} className="space-y-3">
               <span>{formatWeekday(day.date, language)}</span>
               <span
-                className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full ${markerClass}`}
+                className={`mx-auto flex h-7 w-7 max-w-full items-center justify-center rounded-full ${markerClass}`}
                 aria-label={`${formatDisplayDate(day.date, language)} ${day.active ? t.completed : t.notCompleted}`}
               >
                 {day.active && <Check className="h-4 w-4" />}

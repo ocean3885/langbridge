@@ -133,8 +133,8 @@ export function LoggedInLearnPage({
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-7 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-9">
+    <div className="mx-auto grid min-w-0 max-w-7xl grid-cols-1 gap-7 px-2 pb-10 text-[#1f1b18] dark:text-zinc-100 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="min-w-0 space-y-9">
         <WelcomeSection name={name} language={language} />
         <MobileTodaySummary
           streakSummary={streakSummary}
@@ -192,7 +192,7 @@ function MobileTodaySummary({
 function WelcomeSection({ name, language }: { name: string; language: DisplayLanguage }) {
   return (
     <section>
-      <h1 className="font-serif text-4xl font-semibold sm:text-5xl">¡Buenos dias, {name}!</h1>
+      <h1 className="break-words font-serif text-4xl font-semibold sm:text-5xl">¡Buenos dias, {name}!</h1>
       <p className="mt-4 text-zinc-600 dark:text-zinc-300">{welcomeDescription[language]}</p>
     </section>
   );
@@ -232,7 +232,7 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
         title={t.sectionTitle}
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
       />
-      <div className="mt-4 grid gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
+      <div className="mt-4 grid grid-cols-1 gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
         <Link href={`/bundles/${bundle.id}`} className="relative block aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
           <Image
             src={imageSrc}
@@ -260,7 +260,7 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
               </span>
             )}
           </div>
-          <h2 className={`mt-3 ${getDisplayHeadingClass(language)} text-2xl sm:text-3xl font-bold`}><Link href={`/bundles/${bundle.id}`}>{title}</Link></h2>
+          <h2 className={`mt-3 break-words ${getDisplayHeadingClass(language)} text-2xl sm:text-3xl font-bold`}><Link href={`/bundles/${bundle.id}`}>{title}</Link></h2>
           <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{currentLabel}</p>
           <p className="mt-2 line-clamp-2 text-sm sm:text-base leading-relaxed text-zinc-600 dark:text-zinc-300">{sentencePreview}</p>
           <BundleLearningMetrics learning={learning} language={language} />
@@ -381,19 +381,19 @@ export function QuickPracticeSection({ recentBundle, language }: { recentBundle:
         <strong className="font-bold text-zinc-800 dark:text-zinc-100">"{title}"</strong>{' '}
         {t.quickPracticeDescriptionSuffix}
       </p>
-      <div className="mt-5 grid gap-5 md:grid-cols-3">
+      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-5">
         {practiceItems.map((item) => (
           <Link
             key={item.mode}
             href={item.href}
-            className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
           >
             <div className="flex min-w-0 items-center gap-4">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-full ${practiceModeColors[item.mode]}`}>
+              <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${practiceModeColors[item.mode]}`}>
                 <PracticeModeIcon mode={item.mode} className="h-7 w-7" />
               </span>
               <span className="min-w-0">
-                <strong className="block truncate">{language === 'ko' ? quickModeLabels[item.mode] : PRACTICE_REGISTRY[item.mode].label}</strong>
+                <strong className="block break-words">{language === 'ko' ? quickModeLabels[item.mode] : PRACTICE_REGISTRY[item.mode].label}</strong>
                 <span className="line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{item.completed ? (language === 'ko' ? '복습하기' : 'Review again') : (language === 'ko' ? '이어서 연습하기' : 'Continue practicing')}</span>
               </span>
             </div>

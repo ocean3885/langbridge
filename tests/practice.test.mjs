@@ -277,7 +277,8 @@ function reviewFixture(overrides = {}, cap = 73, failTable = null) {
       range(a, b) { start = a; end = Math.min(b, a + cap - 1); return q; },
       then(resolve, reject) {
         if (table === failTable) return Promise.resolve({ data: null, error: new Error('database unavailable') }).then(resolve, reject);
-        const data = tables[table].filter(r => filters.every(f => f(r))).sort((a, b) => a.id.localeCompare(b.id)).slice(start, end + 1);
+        const source = tables[table] || (table === 'sentences' ? tables.user_sentence_interactions.map(r => r.sentences) : table === 'words' ? tables.user_word_interactions.map(r => r.words) : []);
+        const data = source.filter(Boolean).filter(r => filters.every(f => f(r))).sort((a, b) => String(a.id).localeCompare(String(b.id))).slice(start, end + 1);
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
@@ -1020,6 +1021,7 @@ test('home cards render matching metrics, correct actions and actual content cou
   });
   const { ContinueLearningSection, QuickPracticeSection, ExploreBundlesSection } = ui('app/learn/_components/LoggedInLearnPage');
   const { ActiveBundlesSection } = ui('app/learn/_components/ActiveBundlesSection');
+  const { RecentBundleCard } = ui('app/learn/progress/RecentBundleCard');
   const { getHomeBundleLearning } = load('lib/practice/bundle-home');
   const { calculateBundleCompletion } = load('lib/practice/bundle-completion');
   const items = [sentence];
@@ -1028,8 +1030,8 @@ test('home cards render matching metrics, correct actions and actual content cou
   const learning = getHomeBundleLearning('b1', { ...completion, items, interactions }, null);
   const bundle = { id: 'b1', title: 'Test bundle', level: 1 };
   const recentBundle = { bundle, learning, interaction: { id: 'i1', last_studied_at: null }, currentItem: null };
-  for (const Component of [ContinueLearningSection, ActiveBundlesSection]) {
-    const html = renderToStaticMarkup(React.createElement(Component, { recentBundle, bundles: [recentBundle], language: 'ko' }));
+  for (const Component of [ContinueLearningSection, ActiveBundlesSection, RecentBundleCard]) {
+    const html = renderToStaticMarkup(React.createElement(Component, { recentBundle, item: recentBundle, bundles: [recentBundle], language: 'ko' }));
     assert.ok(html.includes('문장 완료'));
     assert.ok(html.includes('문장 스타'));
     assert.ok(html.includes('단어 완료'));
@@ -1073,4 +1075,47 @@ test('home recommendations report sentence and eligible unique word counts', asy
   assert.equal((await services.getRecommendedUnstudiedBundles('u1')).length, 1);
   db.tables.user_bundle_interactions[0].is_started = true;
   assert.equal((await services.getRecommendedUnstudiedBundles('u1')).length, 0);
+});
+
+
+test('review selection preserves priority before shuffling and validates mode eligibility', () => {
+  const { selectReviewItems, sentenceReviewItems, defaultSentenceReviewMode, reviewPriority, compareReviewPriority, parseReviewSettings } = load('lib/learning/review-session');
+  const pool = Array.from({ length: 50 }, (_, i) => i);
+  for (const count of [0,1,9,10,40,41]) assert.deepEqual(selectReviewItems(pool, count).sort((a,b)=>a-b), pool.slice(0,Math.min(count,40)));
+  assert.equal(selectReviewItems(pool, 'all').length, 40);
+  const a = { id:1, sentence:'hola amigo', translation:'안녕', word_maps:[] };
+  const b = { ...a, id:2, translation:'친구' };
+  assert.equal(defaultSentenceReviewMode([a], 'ko'), 'scramble');
+  assert.equal(defaultSentenceReviewMode([a,{...b,translation:'안녕'}], 'ko'), 'scramble');
+  assert.equal(defaultSentenceReviewMode([a,b], 'ko'), 'quiz');
+  assert.equal(sentenceReviewItems([a], 'wordfill', 'ko').length, 0);
+  const valid = {...a,word_maps:[{word_id:11,used_as:'hola',words:wordA}]};
+  assert.equal(sentenceReviewItems([valid], 'wordfill', 'ko').length, 1);
+  assert.equal(sentenceReviewItems([{...valid,sentence:'adios'}], 'wordfill', 'ko').length, 0);
+  assert.ok(compareReviewPriority(reviewPriority({proficiency_level:1,last_reviewed_at:'2020-01-01'}),reviewPriority({proficiency_level:1,last_reviewed_at:'2021-01-01'}))<0);
+  assert.equal(parseReviewSettings({mode:'bad',count:'99999',start:'true'},'words').autoStart,false);
+  assert.deepEqual(parseReviewSettings({mode:'spelling',count:'20',start:'1'},'words'),{mode:'spelling',count:20,autoStart:true});
+});
+
+test('review recommendation uses the same due priority as the session instead of the largest backlog', () => {
+  const { getReviewPlan } = load('lib/learning/review-recommendation');
+  const summary={availableTotal:101,availableWords:100,availableSentences:1,lowestWordLevel:1,lowestSentenceLevel:2,
+    firstWord:{dueAt:'2026-10-24',incorrect:false,level:1},firstSentence:{dueAt:'2026-10-23',incorrect:true,level:2}};
+  assert.deepEqual(getReviewPlan(summary),{type:'sentences',count:1,reason:'incorrect'});
+  assert.equal(getReviewPlan({...summary,availableTotal:0}),null);
+});
+
+test('review answers validate mode and retain proficiency and metadata semantics', () => {
+  const { validReviewResult, nextReviewProficiency }=load('lib/learning/review-result');
+  const payload={sessionId:'10000000-0000-4000-8000-000000000001',attemptId:'20000000-0000-4000-8000-000000000001',type:'words',targetId:'11',mode:'word_quiz',correct:true};
+  assert.equal(validReviewResult(payload),true);
+  for (const targetId of ['01', '1.0', ' 1', '1e2', '0', '-1']) assert.equal(validReviewResult({...payload,targetId}),false);
+  assert.equal(validReviewResult({...payload,mode:'flashcards'}),false);
+  assert.equal(validReviewResult({...payload,correct:'true'}),false);
+  assert.equal(validReviewResult({...payload,wordId:11}),false);
+  const before={proficiency_level:2,streak_count:2,correct_count:3,metadata:{unrelated:'keep'}};
+  const correct=nextReviewProficiency(before,'word_quiz',true,'2026-10-24T00:00:00Z');
+  assert.equal(correct.proficiency_level,2); assert.equal(correct.streak_count,3); assert.equal(correct.metadata.unrelated,'keep');
+  const wrong=nextReviewProficiency(before,'word_quiz',false,'2026-10-24T00:00:00Z');
+  assert.equal(wrong.proficiency_level,1); assert.equal(wrong.streak_count,0); assert.equal(wrong.metadata.last_practice_is_correct,false);
 });

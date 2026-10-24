@@ -1,62 +1,65 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, MessagesSquare, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, MessagesSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getReviewNeededSummary } from '@/lib/supabase/services/learning-review';
-import { getReviewHref, getReviewRecommendation } from '@/lib/learning/review-recommendation';
+import { getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/learning-review';
+import { getReviewPlan } from '@/lib/learning/review-recommendation';
+import { defaultSentenceReviewMode, REVIEW_MAX_COUNT } from '@/lib/learning/review-session';
 import ProgressMobileMenu from '../progress/ProgressMobileMenu';
 import ProgressSidebar from '../progress/ProgressSidebar';
+import { NextReviewTime } from './_components/NextReviewTime';
 
 export const dynamic = 'force-dynamic';
 
-const copy = {
-  ko: {
-    back: 'Overview로 돌아가기', title: 'Review', description: '지금 복습할 항목을 확인하고 바로 시작하세요.',
-    queue: '지금 복습할 항목', breakdown: (sentences: number, words: number) => `문장 ${sentences}개 · 단어 ${words}개`,
-    recommendation: '추천 복습', recommendType: (type: string, count: number) => `${type} ${count}개를 먼저 복습해보세요.`,
-    sentences: '문장 복습', words: '단어 복습', startSentences: '문장 복습 시작', startWords: '단어 복습 시작', start: '복습하기', sentenceNoun: '문장', wordNoun: '단어',
-    dueCount: (count: number, type: 'sentences' | 'words') => `복습할 ${type === 'sentences' ? '문장' : '단어'} ${count}개`, none: '복습할 항목 없음',
-    allDone: '지금 복습할 항목이 없습니다.', allDoneBody: '새로운 학습을 이어가거나 학습 현황을 확인해보세요.', browse: '학습 번들 보기',
-    byType: '유형별 복습',
-    byTypeDescription: '조금씩 복습해도 좋아요. 문장이나 단어를 골라 시작해보세요.',
-  },
-  en: {
-    back: 'Back to Overview', title: 'Review', description: 'See what is due and start reviewing right away.',
-    queue: 'Due for review', breakdown: (sentences: number, words: number) => `${sentences} sentences · ${words} words`,
-    recommendation: 'Recommended', recommendType: (type: string, count: number) => `Review ${count} ${count === 1 ? type.replace(/s$/, '') : type} first.`,
-    sentences: 'Sentence review', words: 'Word review', startSentences: 'Start sentence review', startWords: 'Start word review', start: 'Review', sentenceNoun: 'sentences', wordNoun: 'words',
-    dueCount: (count: number, type: 'sentences' | 'words') => `${count} ${count === 1 ? (type === 'sentences' ? 'sentence' : 'word') : type} to review`, none: 'Nothing due',
-    allDone: 'There is nothing to review right now.', allDoneBody: 'Continue learning something new or check your progress.', browse: 'Explore bundles',
-    byType: 'Review by type',
-    byTypeDescription: 'A little review goes a long way. Choose sentences or words to get started.',
-  },
-};
-
 export default async function ReviewPage() {
   const [user, language] = await Promise.all([getAppUserFromServer(), getDisplayLanguage()]);
-  if (!user) redirect('/auth/sign-in?redirectTo=/learn/review');
+  if (!user) redirect('/auth/login?redirectTo=/learn/review');
   const summary = await getReviewNeededSummary(user.id);
-  const t = copy[language];
-  const recommendation = getReviewRecommendation(summary);
-  const recommendedCount = recommendation === 'words' ? summary.availableWords : summary.availableSentences;
-  const recommendedTitle = recommendation === 'words' ? t.wordNoun : t.sentenceNoun;
-  const otherCount = recommendation === 'words' ? summary.availableSentences : summary.availableWords;
-  const recommendedHref = recommendation ? getReviewHref(recommendation, otherCount) : '/bundles';
-  const reviewTypes = [
-    { type: 'sentences' as const, icon: MessagesSquare, title: t.sentences, count: summary.availableSentences, tone: 'text-[#2f7d4a] bg-[#e7f4e8]' },
-    { type: 'words' as const, icon: BookOpen, title: t.words, count: summary.availableWords, tone: 'text-[#4676cc] bg-[#edf3ff]' },
-  ];
+  const plan = getReviewPlan(summary);
+  const ko = language === 'ko';
+  const mode = plan?.type === 'sentences' ? defaultSentenceReviewMode(await getReviewSentences(user.id, REVIEW_MAX_COUNT, 'review', false), language) : 'quiz';
+  const reason = plan?.reason === 'first'
+    ? ko ? '학습한 항목의 첫 복습을 시작해보세요.' : 'Start the first review of items you have studied.'
+    : plan?.reason === 'incorrect'
+      ? ko ? '복습 시점이 된 항목 중 최근 틀린 항목부터 확인해요.' : 'Revisit recently missed items that are due for review.'
+      : ko ? '복습 예정 시각이 먼저 지난 항목부터 확인해요.' : 'Start with the items that have waited longest for review.';
+  const noun = plan?.type === 'words' ? ko ? '단어' : 'words' : ko ? '문장' : 'sentences';
+  const modes = { quiz: ko ? '퀴즈' : 'Quiz', scramble: ko ? '스크램블' : 'Scramble', wordfill: ko ? '단어 채우기' : 'Word Fill', flashcards: ko ? '다시 보기' : 'Read again' };
 
   return <main className="mx-auto max-w-7xl px-0 pb-10 text-zinc-950 dark:text-zinc-100 lg:px-2">
     <ProgressMobileMenu language={language} activeIndex={4} />
-    <div className="grid min-h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-zinc-950 lg:grid-cols-[238px_minmax(0,1fr)] lg:rounded-xl lg:border lg:border-zinc-200 lg:dark:border-zinc-800">
+    <div className="grid min-h-[calc(100vh-140px)] grid-cols-1 overflow-hidden bg-white dark:bg-zinc-950 lg:grid-cols-[238px_minmax(0,1fr)] lg:rounded-xl lg:border lg:border-zinc-200 lg:dark:border-zinc-800">
       <ProgressSidebar language={language} activeIndex={4} />
       <section className="min-w-0 px-4 py-7 sm:px-8 lg:px-10">
-        <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link>
-        <div className="mt-4"><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div>
-        <section className="mt-7 border-y border-zinc-200 py-6 dark:border-zinc-800"><div className="flex items-center gap-4"><span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#fff0ec] text-[#e95c3e]"><RotateCcw className="h-5 w-5" /></span><div><p className="text-sm font-semibold text-zinc-500">{t.queue}</p><p className="mt-0.5 text-3xl font-bold tabular-nums">{summary.availableTotal}</p><p className="mt-1 text-sm text-zinc-500">{t.breakdown(summary.availableSentences, summary.availableWords)}</p></div></div></section>
-        {summary.availableTotal > 0 && recommendation ? <section className="mt-7 border border-[#b9d9bf] bg-[#f5fbf6] p-5 dark:border-emerald-900 dark:bg-emerald-950/20 sm:flex sm:items-center sm:justify-between sm:gap-6"><div><p className="text-xs font-bold text-[#2f7d4a] dark:text-emerald-300">{t.recommendation}</p><h2 className="mt-2 text-xl font-bold">{t.recommendType(recommendedTitle, recommendedCount)}</h2></div><Link href={recommendedHref} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#3f9657] px-5 text-sm font-bold text-white hover:bg-[#2f7d4a] sm:mt-0 sm:w-auto">{recommendation === 'words' ? t.startWords : t.startSentences}<ArrowRight className="h-4 w-4" /></Link></section> : <section className="mt-7 border border-zinc-200 px-5 py-10 text-center dark:border-zinc-800"><CheckCircle2 className="mx-auto h-8 w-8 text-[#3f9657]" /><h2 className="mt-3 text-lg font-bold">{t.allDone}</h2><p className="mt-2 text-sm text-zinc-500">{t.allDoneBody}</p><Link href="/bundles" className="mt-5 inline-flex min-h-10 items-center justify-center rounded-md bg-[#3f9657] px-4 text-sm font-bold text-white">{t.browse}</Link></section>}
-        <section className="mt-8"><h2 className="text-lg font-bold">{t.byType}</h2>{summary.availableTotal > 0 && <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{t.byTypeDescription}</p>}<div className="mt-4 border-y border-zinc-200 dark:border-zinc-800">{reviewTypes.map(type => { const remainingCount = type.type === 'words' ? summary.availableSentences : summary.availableWords; return <div key={type.type} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-4 border-b border-zinc-100 py-5 last:border-0 dark:border-zinc-800"><span className={`flex h-10 w-10 items-center justify-center rounded-md ${type.tone}`}><type.icon className="h-5 w-5" /></span><div><h3 className="font-bold">{type.title}</h3><p className="mt-1 text-sm text-zinc-500">{type.count ? t.dueCount(type.count, type.type) : t.none}</p></div>{type.count > 0 ? <Link href={getReviewHref(type.type, remainingCount)} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-zinc-200 px-4 text-sm font-bold hover:border-[#8bbf87] hover:text-[#2f7d4a] dark:border-zinc-700">{t.start}<ArrowRight className="h-4 w-4" /></Link> : null}</div>; })}</div></section>
+        <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm text-zinc-500"><ArrowLeft className="h-4 w-4" />{ko ? '학습 현황으로' : 'Back to overview'}</Link>
+        <h1 className="mt-4 text-3xl font-bold sm:text-4xl">{ko ? '복습' : 'Review'}</h1>
+        <p className="mt-3 text-sm text-zinc-500">{ko ? '짧게 복습하고, 배운 내용을 오래 기억하세요.' : 'A short review helps you remember what you have learned.'}</p>
+        {plan ? <section className="mt-7 rounded-xl border border-green-200 bg-green-50 p-5 dark:border-green-900 dark:bg-green-950/20 sm:p-7">
+          <p className="text-sm font-bold text-green-700 dark:text-green-300">{ko ? '추천 복습' : 'Recommended review'} · {modes[mode]}</p>
+          <h2 className="mt-3 text-2xl font-bold">{ko ? `${noun} ${plan.count}개부터 시작하세요` : `Start with ${plan.count} ${noun}`}</h2>
+          <p className="mt-3 text-sm leading-6">{reason}</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link prefetch={false} href={`/learn/review/${plan.type}?start=1&count=10&mode=${mode}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#3f9657] px-5 py-3 text-sm font-bold text-white hover:bg-[#2f7d4a]">{ko ? `${plan.count}개 복습 시작` : `Review ${plan.count} items`}<ArrowRight className="h-4 w-4 shrink-0" /></Link>
+            <Link prefetch={false} href={`/learn/review/${plan.type}?mode=${mode}`} className="inline-flex min-h-11 items-center rounded-lg border border-green-300 px-5 text-sm font-semibold dark:border-green-800">{ko ? '설정 변경' : 'Change settings'}</Link>
+          </div>
+        </section> : <section className="mt-7 rounded-xl border border-zinc-200 p-7 dark:border-zinc-800">
+          <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <h2 className="mt-4 text-xl font-bold">{ko ? '지금 예정된 복습은 없습니다' : 'No reviews are due right now'}</h2>
+          <p className="mt-3 text-sm text-zinc-500">{summary.nextReviewAt ? (ko ? '다음 복습 시점에 다시 확인해주세요.' : 'Come back at your next scheduled review.') : (ko ? '학습한 항목의 복습 시점이 되면 이곳에 표시됩니다.' : 'Items appear here when they are ready for review.')}</p>
+          <NextReviewTime value={summary.nextReviewAt} language={language} />
+          <Link href="/bundles" className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-[#3f9657] px-5 text-sm font-bold text-white">{ko ? '학습 번들 보기' : 'Explore bundles'}</Link>
+        </section>}
+        <section className="mt-7">
+          <h2 className="text-lg font-bold">{ko ? `복습 대기 ${summary.availableTotal}개` : `${summary.availableTotal} items due`}</h2>
+          <p className="mt-2 text-sm text-zinc-500">{ko ? '문장이나 단어를 직접 골라 복습할 수도 있어요.' : 'You can also choose a review type below.'}</p>
+          <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            {[{ type: 'words', title: ko ? '단어 복습' : 'Word review', count: summary.availableWords, Icon: BookOpen }, { type: 'sentences', title: ko ? '문장 복습' : 'Sentence review', count: summary.availableSentences, Icon: MessagesSquare }].map(({ type, title, count, Icon }) => <div key={type} className="flex flex-wrap items-center gap-3 py-5">
+              <Icon className="h-6 w-6 shrink-0 text-green-600" /><div className="min-w-0 flex-1"><h3 className="font-bold">{title}</h3><p className="mt-1 text-sm text-zinc-500">{count ? ko ? `${count}개 대기` : `${count} due` : ko ? '현재 대기 없음' : 'Nothing due'}</p></div>
+              {count > 0 && <Link prefetch={false} href={`/learn/review/${type}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-zinc-200 px-4 text-sm font-bold dark:border-zinc-700">{ko ? '선택' : 'Choose'}</Link>}
+            </div>)}
+          </div>
+        </section>
+        <p className="mt-6 text-sm leading-6 text-zinc-500">{ko ? '완료한 번들의 항목도 기억을 유지하도록 복습 시점에 다시 나타납니다.' : 'Items from completed bundles can return when their next review is due.'}</p>
       </section>
     </div>
   </main>;

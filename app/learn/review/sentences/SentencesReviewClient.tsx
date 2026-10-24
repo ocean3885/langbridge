@@ -6,13 +6,17 @@ import { ArrowLeft } from 'lucide-react';
 import { PracticeCountSelector, type PracticeCountValue } from '@/components/practice/PracticeCountSelector';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/learning-review';
 import { getPublicUrl } from '@/lib/utils';
+import type { ReviewControls } from '@/lib/learning/review-controls';
+import { reviewWordFillMaps, sentenceReviewItems, selectReviewItems, defaultSentenceReviewMode } from '@/lib/learning/review-session';
 import { formatWordMeaning } from '@/lib/word-meaning';
-import BundleQuizClient, { type QuizItem } from '@/app/bundles/[id]/quiz/BundleQuizClient';
+import BundleQuizClient from '@/app/bundles/[id]/quiz/BundleQuizClient';
 import BundleScrambleClient, { type ScrambleItem } from '@/app/bundles/[id]/scramble/BundleScrambleClient';
 import BundleFlashcardsClient, { type FlashcardItem } from '@/app/bundles/[id]/flashcards/BundleFlashcardsClient';
 import BundleWordFillClient, { type WordFillItem } from '@/app/bundles/[id]/wordfill/BundleWordFillClient';
 
 interface SentencesReviewClientProps {
+  reviewControls?: ReviewControls;
+  optionItems?: ReviewSentenceItem[];
   initialItems: ReviewSentenceItem[];
   availableReviewCount: number;
   language: 'ko' | 'en';
@@ -76,6 +80,8 @@ const copy = {
 
 export default function SentencesReviewClient({
   initialItems,
+  reviewControls,
+  optionItems = initialItems,
   availableReviewCount,
   language,
   sessionKind = 'review',
@@ -88,22 +94,34 @@ export default function SentencesReviewClient({
   const isEnglish = language === 'en';
   const headingClass = getReviewHeadingClass(language);
 
-  const [step, setStep] = useState<'setup' | 'practice'>('setup');
+  const [step, setStep] = useState<'setup' | 'practice'>(reviewControls ? 'practice' : 'setup');
   const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => (initialItems.length >= 10 ? 10 : 'all'));
-  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'flashcards' | 'wordfill'>('quiz');
-  const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>([]);
+  const [selectedMode, setSelectedMode] = useState<'quiz' | 'scramble' | 'flashcards' | 'wordfill'>(reviewControls ? reviewControls.mode as 'quiz' | 'scramble' | 'flashcards' | 'wordfill' : defaultSentenceReviewMode(initialItems, language));
+  const [activeItems, setActiveItems] = useState<ReviewSentenceItem[]>(reviewControls ? initialItems : []);
 
+  const wordFillItems = useMemo(() => sentenceReviewItems(activeItems, 'wordfill', language).map(item => buildReviewWordFillItem(item, language)), [activeItems, language]);
+  const wordFillOptions = useMemo(() => sentenceReviewItems(optionItems, 'wordfill', language).map(item => buildReviewWordFillItem(item, language)), [optionItems, language]);
+  const quizItems = useMemo(() => activeItems.map(item => ({ id: item.bundle_item_id, sentence: item.sentence,
+    translation: (language === 'en' ? item.translation_en : item.translation) || item.translation,
+    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null })), [activeItems, language]);
+  const quizOptions = useMemo(() => optionItems.map(item => ({ id: item.bundle_item_id, sentence: item.sentence,
+    translation: (language === 'en' ? item.translation_en : item.translation) || item.translation,
+    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null })), [optionItems, language]);
+
+  const eligibleItems = sentenceReviewItems(initialItems, selectedMode, language);
   const showAllCountOption = availableReviewCount <= initialItems.length;
   const sessionTitle = isLearning ? t.learningTitle : t.title;
 
   const startSession = () => {
-    const shuffled = shuffle(initialItems);
+    const shuffled = eligibleItems;
+    if (!shuffled.length) return;
     const count = selectedCount === 'all' ? shuffled.length : Math.min(selectedCount, shuffled.length);
-    setActiveItems(shuffled.slice(0, count));
+    setActiveItems(selectReviewItems(shuffled, count));
     setStep('practice');
   };
 
   const restart = () => {
+    if (reviewControls) { reviewControls.onFinish(); return; }
     setStep('setup');
   };
 
@@ -160,7 +178,7 @@ export default function SentencesReviewClient({
               label={isLearning ? t.learningSetupCount : t.setupCount}
               selectedCount={selectedCount}
               onSelect={setSelectedCount}
-              totalCount={initialItems.length}
+              totalCount={eligibleItems.length}
               showAll={showAllCountOption}
               allLabel={t.allCount}
             />
@@ -180,6 +198,8 @@ export default function SentencesReviewClient({
                 return (
                   <button
                     key={mode.id}
+                    aria-pressed={active}
+                    disabled={!sentenceReviewItems(initialItems, mode.id as 'quiz' | 'scramble' | 'flashcards' | 'wordfill', language).length}
                     onClick={() => setSelectedMode(mode.id as any)}
                     className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${
                       active
@@ -195,6 +215,7 @@ export default function SentencesReviewClient({
           </div>
 
           <button
+            disabled={!eligibleItems.length}
             onClick={startSession}
             className="w-full rounded-xl bg-[#3f8d54] py-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946] dark:bg-emerald-600 dark:hover:bg-emerald-500"
           >
@@ -209,33 +230,20 @@ export default function SentencesReviewClient({
 
   // Mode: Sentence Quiz
   if (selectedMode === 'quiz') {
-    const quizItems: QuizItem[] = activeItems.map((item) => ({
-      id: item.bundle_item_id,
-      sentence: item.sentence,
-      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
-      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
-    }));
-
-    const allOptionItems: QuizItem[] = initialItems.map((item) => ({
-      id: item.bundle_item_id,
-      sentence: item.sentence,
-      translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
-      audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
-    }));
-
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
         <BundleQuizClient
           title={sessionTitle}
           headerEyebrow={t.modeQuiz}
           items={quizItems}
-          optionItems={allOptionItems}
+          optionItems={quizOptions}
           language={language}
           isLoggedIn={true}
           onBack={restart}
+          onFinish={reviewControls?.onFinish}
           onRecordResult={(bundleItemId, isCorrect) => {
             const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
-            if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'quiz', isCorrect);
+            if (item) { if (reviewControls) reviewControls.onRecord(item.bundle_item_id, isCorrect); else recordPracticeResult(item.bundle_id, item.bundle_item_id, 'quiz', isCorrect); }
           }}
         />
       </div>
@@ -261,9 +269,10 @@ export default function SentencesReviewClient({
           language={language}
           isLoggedIn={true}
           onBack={restart}
+          onFinish={reviewControls?.onFinish}
           onRecordResult={(bundleItemId, isCorrect) => {
             const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
-            if (item) recordPracticeResult(item.bundle_id, item.bundle_item_id, 'scramble', isCorrect);
+            if (item) { if (reviewControls) reviewControls.onRecord(item.bundle_item_id, isCorrect); else recordPracticeResult(item.bundle_id, item.bundle_item_id, 'scramble', isCorrect); }
           }}
         />
       </div>
@@ -295,72 +304,6 @@ export default function SentencesReviewClient({
 
   // Mode: WordFill
   if (selectedMode === 'wordfill') {
-    const buildWordFillItem = (item: ReviewSentenceItem): WordFillItem => {
-      const maps = item.word_maps || [];
-      const candidates = maps
-        .map((m) => {
-          const word = Array.isArray(m.words) ? m.words[0] : m.words;
-          return {
-            mapId: m.id,
-            used_as: m.used_as,
-            word_id: m.word_id,
-            words: word,
-          };
-        })
-        .filter((m) => m.words && m.words.word);
-
-      let targetWord = '';
-      let targetMeaning = '';
-      let usedAs = '';
-      let wordId = 0;
-      let distractors: Array<{ word: string; meaning: string }> = [];
-
-      if (candidates.length > 0) {
-        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-        targetWord = chosen.words!.word;
-        targetMeaning =
-          formatWordMeaning(isEnglish ? chosen.words!.meaning_en : chosen.words!.meaning_ko)
-          || formatWordMeaning(chosen.words!.meaning_ko)
-          || formatWordMeaning(chosen.words!.meaning_en)
-          || '';
-        usedAs = chosen.used_as || targetWord;
-        wordId = chosen.word_id;
-        distractors = (chosen.words!.words_distractor || [])
-          .map((d) => ({
-            word: d.distractor,
-            meaning:
-              formatWordMeaning(isEnglish ? d.meaning_en : d.meaning_ko)
-              || formatWordMeaning(d.meaning_ko)
-              || formatWordMeaning(d.meaning_en)
-              || '',
-          }))
-          .filter(
-            (d) =>
-              d.word.toLowerCase().trim() !== targetWord.toLowerCase().trim() &&
-              d.word.toLowerCase().trim() !== usedAs.toLowerCase().trim()
-          );
-      } else {
-        const wordsInSentence = item.sentence.replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ\s]/g, '').split(/\s+/).filter((w) => w.length >= 3);
-        usedAs = wordsInSentence[0] || item.sentence.split(' ')[0] || '';
-        targetWord = usedAs;
-        targetMeaning = item.translation;
-      }
-
-      return {
-        id: item.bundle_item_id,
-        sentence: item.sentence,
-        translation: (isEnglish ? item.translation_en : item.translation) || item.translation,
-        audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
-        targetWord,
-        targetMeaning,
-        usedAs,
-        wordId,
-        distractors,
-      };
-    };
-
-    const wordFillItems = activeItems.map(buildWordFillItem);
-    const allOptionItems = initialItems.map(buildWordFillItem);
 
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
@@ -368,14 +311,16 @@ export default function SentencesReviewClient({
           title={sessionTitle}
           headerEyebrow={t.modeWordfill}
           items={wordFillItems}
-          optionItems={allOptionItems}
+          optionItems={wordFillOptions}
           wordUsageDetails={[]}
           language={language}
           isLoggedIn={true}
           onBack={restart}
+          onFinish={reviewControls?.onFinish}
           onRecordResult={(bundleItemId, isCorrect, wordId) => {
             const item = activeItems.find((it) => it.bundle_item_id === bundleItemId) || initialItems.find((it) => it.bundle_item_id === bundleItemId);
             if (item) {
+              if (reviewControls) { reviewControls.onRecord(item.bundle_item_id, isCorrect, wordId); return; }
               void fetch('/api/bundle-progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -397,15 +342,6 @@ export default function SentencesReviewClient({
   return null;
 }
 
-function shuffle<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 function getReviewHeadingClass(language: 'ko' | 'en') {
   return language === 'ko' ? 'font-sans font-bold' : 'font-serif font-semibold';
 }
@@ -421,4 +357,19 @@ function recordPracticeResult(bundleId: string, bundleItemId: string, mode: 'qui
       is_correct: isCorrect,
     }),
   });
+}
+
+function buildReviewWordFillItem(item: ReviewSentenceItem, language: 'ko' | 'en'): WordFillItem {
+  const chosen = reviewWordFillMaps(item)[0];
+  if (!chosen) throw new Error('Word Fill requires a linked word present in the sentence.');
+  const word = chosen.words;
+  const meaning = formatWordMeaning(language === 'en' ? word.meaning_en : word.meaning_ko)
+    || formatWordMeaning(word.meaning_ko) || formatWordMeaning(word.meaning_en) || '';
+  return { id: item.bundle_item_id, sentence: item.sentence,
+    translation: (language === 'en' ? item.translation_en : item.translation) || item.translation,
+    audioUrl: item.audio_url ? getPublicUrl(item.audio_url) : null,
+    targetWord: word.word, targetMeaning: meaning, usedAs: chosen.used_as || word.word, wordId: chosen.word_id,
+    distractors: (word.words_distractor || []).map(d => ({ word: d.distractor,
+      meaning: formatWordMeaning(language === 'en' ? d.meaning_en : d.meaning_ko) || formatWordMeaning(d.meaning_ko) || formatWordMeaning(d.meaning_en) || '' })),
+  };
 }

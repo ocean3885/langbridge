@@ -35,6 +35,7 @@ export interface BundleWordFillClientProps {
   initialItemId?: string | null;
   isLoggedIn: boolean;
   backHref?: string;
+  onFinish?: () => void;
   onBack?: () => void;
   onRecordResult?: (itemId: string, isCorrect: boolean, wordId: number) => void;
   onRecordCurrentItem?: (itemId: string) => void;
@@ -99,6 +100,7 @@ export default function BundleWordFillClient({
   isLoggedIn,
   backHref,
   onBack,
+  onFinish,
   onRecordResult,
   onRecordCurrentItem,
   headerEyebrow,
@@ -215,6 +217,7 @@ export default function BundleWordFillClient({
   const goNext = () => {
     if (index + 1 >= items.length) {
       setFinished(true);
+      onFinish?.();
       return;
     }
     setIndex((value) => value + 1);

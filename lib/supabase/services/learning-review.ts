@@ -1,6 +1,7 @@
 'use server';
 
 import { cache } from 'react';
+import { compareReviewPriority, reviewPriority, REVIEW_DEFAULT_COUNT, type ReviewPriority } from '@/lib/learning/review-session';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -17,6 +18,8 @@ export interface ReviewNeededSummary {
   lowestSentenceLevel: number | null;
   lowestWordLevel: number | null;
   nextReviewAt: string | null;
+  firstSentence?: ReviewPriority | null;
+  firstWord?: ReviewPriority | null;
 }
 
 export interface ReviewSentenceWordMap {
@@ -68,7 +71,7 @@ export interface ReviewWordItem {
   distractors?: Array<{ distractor: string; meaning_ko: string | null; meaning_en: string | null }>;
 }
 
-const REVIEW_RECOMMENDATION_LIMIT = 20;
+const REVIEW_RECOMMENDATION_LIMIT = REVIEW_DEFAULT_COUNT;
 const PAGE_SIZE = 500;
 type Scope = 'review' | 'unstarted';
 type Interaction = {
@@ -109,10 +112,7 @@ function inScope(row: Interaction, scope: Scope, now: Date) {
 }
 
 function prioritize<T>(candidates: Candidate<T>[]) {
-  return candidates.sort((a, b) =>
-    a.interaction.proficiency_level - b.interaction.proficiency_level
-    || b.interaction.incorrect_count - a.interaction.incorrect_count
-    || (a.interaction.last_reviewed_at || '').localeCompare(b.interaction.last_reviewed_at || '')
+  return candidates.sort((a, b) => compareReviewPriority(reviewPriority(a.interaction), reviewPriority(b.interaction))
     || a.interaction.id.localeCompare(b.interaction.id));
 }
 
@@ -123,7 +123,7 @@ const sentenceCatalog = cache(async (userId: string) => {
   const [interactions, allItemHistory, allBundleHistory] = await Promise.all([
     readAll<Interaction & { sentence_id: number; sentences: SentenceContent | SentenceContent[] | null }>((from, to) => db
       .from('user_sentence_interactions')
-      .select('id, sentence_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, sentences(id, sentence, translation, translation_en, audio_url, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en))))')
+      .select('id, sentence_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, sentences(id, sentence, translation, translation_en, audio_url)')
       .eq('user_id', userId).gte('proficiency_level', 0).lt('proficiency_level', 5).order('id').range(from, to)),
     readAll<{ id: string; bundle_id: string; bundle_item_id: string; last_practiced_at: string | null; last_played_at: string | null }>((from, to) => db
       .from('user_bundle_item_interactions').select('id, bundle_id, bundle_item_id, last_practiced_at, last_played_at')
@@ -189,7 +189,7 @@ const wordCatalog = cache(async (userId: string) => {
   type Word = Pick<ReviewWordItem, 'id' | 'word' | 'lang_code' | 'pos' | 'audio_url'> & { meaning_ko: unknown; meaning_en: unknown; words_distractor?: ReviewWordItem['distractors'] };
   const rows = await readAll<Interaction & { word_id: number; words: Word | Word[] | null }>((from, to) => db
     .from('user_word_interactions')
-    .select('id, word_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, words(id, word, lang_code, meaning_ko, meaning_en, pos, audio_url, words_distractor(distractor, meaning_ko, meaning_en))')
+    .select('id, word_id, proficiency_level, incorrect_count, streak_count, last_reviewed_at, metadata, words(id, word, lang_code, meaning_ko, meaning_en, pos, audio_url)')
     .eq('user_id', userId).gte('proficiency_level', 0).lt('proficiency_level', 5).order('id').range(from, to));
   const candidates: Candidate<ReviewWordItem>[] = [];
   for (const row of rows) {
@@ -227,17 +227,31 @@ export async function getReviewNeededSummary(userId: string): Promise<ReviewNeed
     availableTotal: dueSentences.length + dueWords.length,
     lowestSentenceLevel: lowest(dueSentences), lowestWordLevel: lowest(dueWords),
     nextReviewAt: future[0]?.toISOString() || null,
+    firstSentence: dueSentences[0] ? reviewPriority(dueSentences[0].interaction) : null,
+    firstWord: dueWords[0] ? reviewPriority(dueWords[0].interaction) : null,
   };
 }
 
-export async function getReviewSentences(userId: string, limit = 20, scope: Scope = 'review'): Promise<ReviewSentenceItem[]> {
+export async function getReviewSentences(userId: string, limit = 20, scope: Scope = 'review', details = true): Promise<ReviewSentenceItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   const { candidates, now } = await sentenceCatalog(userId);
-  return candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  const items = candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  if (!details || !items.length) return items;
+  const data = await readAll<{ id: number; word_sentence_map: ReviewSentenceWordMap[] }>((from, to) => createAdminClient().from('sentences')
+    .select('id, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en)))')
+    .in('id', items.map(item => item.id)).order('id').range(from, to));
+  const byId = new Map((data || []).map(row => [Number(row.id), row.word_sentence_map]));
+  return items.map(item => ({ ...item, word_maps: (byId.get(item.id) || []) as ReviewSentenceWordMap[] }));
 }
+
 
 export async function getReviewWords(userId: string, limit = 20, scope: Scope = 'review'): Promise<ReviewWordItem[]> {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   const { candidates, now } = await wordCatalog(userId);
-  return candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  const items = candidates.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
+  if (!items.length) return items;
+  const data = await readAll<{ id: number; words_distractor: NonNullable<ReviewWordItem['distractors']> }>((from, to) => createAdminClient().from('words').select('id, words_distractor(distractor, meaning_ko, meaning_en)')
+    .in('id', items.map(item => item.id)).order('id').range(from, to));
+  const byId = new Map((data || []).map(row => [Number(row.id), row.words_distractor]));
+  return items.map(item => ({ ...item, distractors: byId.get(item.id) || [] }));
 }

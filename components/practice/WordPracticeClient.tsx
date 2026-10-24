@@ -12,9 +12,11 @@ import { useSpellingScramble } from '@/components/practice/useSpellingScramble';
 import { WordInfoSheet } from '@/components/words/WordInfoSheet';
 import type { ReviewWordItem } from '@/lib/supabase/services/learning-review';
 import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
+import type { ReviewControls } from '@/lib/learning/review-controls';
 import { getPublicUrl } from '@/lib/utils';
 
 interface WordsReviewClientProps {
+  reviewControls?: ReviewControls;
   initialItems: ReviewWordItem[];
   wordUsageDetails: WordUsageDetail[];
   availableReviewCount: number;
@@ -157,7 +159,7 @@ const copy = {
   },
 };
 
-export default function WordPracticeClient({ initialItems, wordUsageDetails, availableReviewCount, language, sessionKind = 'review', returnTo, nextTo, bundleSession, optionItems }: WordsReviewClientProps) {
+export default function WordPracticeClient({ initialItems, wordUsageDetails, availableReviewCount, language, sessionKind = 'review', returnTo, nextTo, bundleSession, optionItems, reviewControls }: WordsReviewClientProps) {
   const t = copy[language];
   const isLearning = sessionKind === 'learning';
   const returnHref = bundleSession ? `/bundles/${bundleSession.bundleId}/${bundleSession.mode === 'word_quiz' ? 'word-quiz' : 'word-flashcards'}` : isLearning ? '/learn/progress/words' : returnTo || '/learn/review';
@@ -166,10 +168,10 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   const headingClass = getReviewHeadingClass(language);
 
   // State
-  const [step, setStep] = useState<'setup' | 'practice' | 'finished'>(bundleSession ? 'practice' : 'setup');
+  const [step, setStep] = useState<'setup' | 'practice' | 'finished'>(bundleSession || reviewControls ? 'practice' : 'setup');
   const [selectedCount, setSelectedCount] = useState<PracticeCountValue>(() => initialItems.length >= 10 ? 10 : 'all');
-  const [selectedMode, setSelectedMode] = useState<'quiz' | 'spelling' | 'flashcard'>(bundleSession ? (bundleSession.mode === 'word_quiz' ? 'quiz' : 'flashcard') : 'quiz');
-  const [activeItems, setActiveItems] = useState<ReviewWordItem[]>(bundleSession ? initialItems : []);
+  const [selectedMode, setSelectedMode] = useState<'quiz' | 'spelling' | 'flashcard'>(reviewControls ? reviewControls.mode as 'quiz' | 'spelling' | 'flashcard' : bundleSession ? (bundleSession.mode === 'word_quiz' ? 'quiz' : 'flashcard') : 'quiz');
+  const [activeItems, setActiveItems] = useState<ReviewWordItem[]>(bundleSession || reviewControls ? initialItems : []);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   
   // Game Practice States
@@ -255,6 +257,7 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   }, [bundleSession, currentItem, step]);
 
   const recordResult = (wordId: number, isCorrect: boolean, mode: 'quiz' | 'spelling' | 'flashcards') => {
+    if (reviewControls) return reviewControls.onRecord(wordId, isCorrect);
     if (!bundleSession) return recordWordResult(wordId, isCorrect, mode);
     if (!bundleSession.isLoggedIn) return;
     void fetch('/api/bundle-progress', {
@@ -346,6 +349,7 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   // Next Question
   const goNext = () => {
     if (currentIndex + 1 >= activeItems.length) {
+      if (reviewControls) { reviewControls.onFinish(); return; }
       setStep('finished');
       return;
     }

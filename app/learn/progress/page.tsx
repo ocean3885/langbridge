@@ -1,4 +1,5 @@
-import Image from 'next/image';
+import { RecentBundleCard } from './RecentBundleCard';
+import { BundleLearningMetrics, getHomeLearningActionLabel } from '../_components/BundleLearningMetrics';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -24,7 +25,6 @@ import {
   getLearningProgressSummary,
   getRecentLearningActivities,
   type ActiveLearningBundle,
-  type RecentLearningActivity,
 } from '@/lib/supabase/services/bundle-progress';
 import { getReviewNeededSummary, type ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
@@ -58,11 +58,9 @@ const copy = {
     sentenceType: '문장',
     wordType: '단어',
     continueRecommendation: '최근 학습을 이어가세요.',
-    bundleProgress: (completed: number, total: number, percent: number) => `${completed} / ${total} 완료 · ${percent}%`,
     newRecommendation: '새로운 학습을 시작해보세요.',
     newRecommendationBody: '관심 있는 번들을 골라 첫 학습을 시작할 수 있어요.',
     startReview: '복습 시작',
-    continueLearning: '계속 학습',
     browseBundles: '번들 둘러보기',
     learningRecord: '학습 기록',
     learningRecordHint: '지금까지의 연습 결과와 학습 활동을 확인해보세요.',
@@ -73,11 +71,9 @@ const copy = {
     activeBundles: '진행 중인 번들',
     recentTitle: '최근 학습한 번들',
     viewAllBundles: '전체 보기',
-    continue: '계속하기',
     tip: 'TIP',
     tipText: '매일 꾸준히 학습하면 실력이 더 빠르게 성장해요! 오늘도 화이팅!',
     emptyRecent: '아직 학습한 번들이 없습니다.',
-    itemProgress: (completed: number, total: number) => `${completed} / ${total}`,
   },
   en: {
     loginRequired: 'Login is required.',
@@ -103,11 +99,9 @@ const copy = {
     sentenceType: 'Sentences',
     wordType: 'Words',
     continueRecommendation: 'Continue your latest lesson.',
-    bundleProgress: (completed: number, total: number, percent: number) => `${completed} / ${total} complete · ${percent}%`,
     newRecommendation: 'Start something new.',
     newRecommendationBody: 'Choose a bundle that interests you and begin your first lesson.',
     startReview: 'Start review',
-    continueLearning: 'Continue learning',
     browseBundles: 'Explore bundles',
     learningRecord: 'Learning record',
     learningRecordHint: 'See your practice results and learning activity so far.',
@@ -118,11 +112,9 @@ const copy = {
     activeBundles: 'Active bundles',
     recentTitle: 'Recently studied bundles',
     viewAllBundles: 'View all',
-    continue: 'Continue',
     tip: 'TIP',
     tipText: 'Small daily practice helps your skill grow faster. Keep going today!',
     emptyRecent: 'No recently studied bundles yet.',
-    itemProgress: (completed: number, total: number) => `${completed} / ${total}`,
   },
 };
 
@@ -149,12 +141,12 @@ export default async function LearnProgressPage() {
   const [progressSummary, proficiencySummary, activeBundles, recentActivities, reviewSummary] = await Promise.all([
     getLearningProgressSummary(user.id),
     getLearningProficiencySummary(user.id),
-    getActiveLearningBundles(user.id, 6),
-    getRecentLearningActivities(user.id, { limit: 6 }),
+    getActiveLearningBundles(user.id, 6, language),
+    getRecentLearningActivities(user.id, { limit: 3, language }),
     getReviewNeededSummary(user.id),
   ]);
 
-  const recentBundles = mergeRecentBundles(activeBundles, recentActivities).slice(0, 3);
+  const recentBundles = recentActivities;
   const featuredBundle = activeBundles[0] || null;
 
   return (
@@ -249,7 +241,7 @@ export default async function LearnProgressPage() {
                 {t.emptyRecent}
               </div>
             ) : (
-              <div className="mt-5 grid gap-5 lg:grid-cols-3">
+              <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-5">
                 {recentBundles.map((item) => (
                   <RecentBundleCard key={item.bundle.id} item={item} language={language} />
                 ))}
@@ -337,11 +329,7 @@ function TodayRecommendation({
   const reviewType = recommendation === 'words' ? t.wordType : t.sentenceType;
   const bundleTitle = featuredBundle ? getBundleTitle(featuredBundle.bundle, language) : '';
   const category = featuredBundle ? getCategoryName(featuredBundle.bundle, language) : '';
-  const bundleHref = featuredBundle
-    ? featuredBundle.currentBundleItemId
-      ? `/bundles/${featuredBundle.bundle.id}/learn?item=${featuredBundle.currentBundleItemId}`
-      : `/bundles/${featuredBundle.bundle.id}/learn`
-    : '/bundles';
+  const bundleHref = featuredBundle?.learning.href || '/bundles';
   const href = recommendation ? getReviewHref(recommendation, otherCount) : bundleHref;
   const headline = hasReview
     ? t.reviewRecommendation(reviewType, recommendedCount)
@@ -351,9 +339,9 @@ function TodayRecommendation({
   const description = hasReview
     ? t.reviewBreakdown(reviewSummary.availableSentences, reviewSummary.availableWords)
     : featuredBundle
-      ? `${category ? `${category} · ` : ''}${bundleTitle} · ${t.bundleProgress(featuredBundle.completedItems, featuredBundle.totalItems, featuredBundle.progressPercent)}`
+      ? `${category ? `${category} · ` : ''}${bundleTitle}`
       : t.newRecommendationBody;
-  const action = hasReview ? t.startReview : featuredBundle ? t.continueLearning : t.browseBundles;
+  const action = hasReview ? t.startReview : featuredBundle ? getHomeLearningActionLabel(featuredBundle.learning.action, language) : t.browseBundles;
   const ActionIcon = hasReview ? RotateCcw : Send;
 
   return (
@@ -375,6 +363,7 @@ function TodayRecommendation({
         <div className="min-w-0">
           <h3 className="text-base font-bold sm:text-lg">{headline}</h3>
           <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{description}</p>
+          {!hasReview && featuredBundle && <BundleLearningMetrics learning={featuredBundle.learning} language={language} />}
         </div>
         <Link href={href} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#3f9657] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#2f7f45] sm:justify-self-end">
           {action}
@@ -414,54 +403,6 @@ function LearningRecordCard({ language, summary }: { language: DisplayLanguage; 
   );
 }
 
-function RecentBundleCard({ item, language }: { item: ActiveLearningBundle | RecentLearningActivity; language: DisplayLanguage }) {
-  const t = copy[language];
-  const title = getBundleTitle(item.bundle, language);
-  const category = getCategoryName(item.bundle, language);
-  const href = 'currentBundleItemId' in item && item.currentBundleItemId
-    ? `/bundles/${item.bundle.id}/learn?item=${item.currentBundleItemId}`
-    : `/bundles/${item.bundle.id}/learn`;
-
-  return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="grid grid-cols-[84px_1fr] gap-4">
-        <div className="relative aspect-square overflow-hidden rounded-md bg-[#f3ede3] dark:bg-zinc-800">
-          <Image
-            src={item.bundle.thumbnail_url || '/images/bundle-fallback.webp'}
-            alt={title}
-            fill
-            className="object-cover"
-            sizes="84px"
-          />
-        </div>
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 text-base font-bold leading-6">{title}</h3>
-          <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{category}</p>
-        </div>
-      </div>
-      <div className="mt-5 flex items-center gap-3">
-        <span className="text-sm font-bold tabular-nums text-zinc-600 dark:text-zinc-400">{t.itemProgress(item.completedItems, item.totalItems)}</span>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-          <div className="h-full rounded-full bg-[#3f9657]" style={{ width: `${clampPercent(item.progressPercent)}%` }} />
-        </div>
-        <span className="text-sm font-bold tabular-nums">{clampPercent(item.progressPercent)}%</span>
-      </div>
-      <Link href={href} className="mt-5 inline-flex w-full justify-center rounded-md border border-zinc-200 px-4 py-2.5 text-sm font-bold text-[#2f7f45] transition hover:border-[#8bbf87] hover:bg-[#f8fcf7] dark:border-zinc-700 dark:text-emerald-300">
-        {t.continue}
-      </Link>
-    </article>
-  );
-}
-
-function mergeRecentBundles(active: ActiveLearningBundle[], recent: RecentLearningActivity[]) {
-  const merged = new Map<string, ActiveLearningBundle | RecentLearningActivity>();
-  for (const item of active) merged.set(item.bundle.id, item);
-  for (const item of recent) {
-    if (!merged.has(item.bundle.id)) merged.set(item.bundle.id, item);
-  }
-  return Array.from(merged.values());
-}
-
 function getProficiencyDetails(
   distribution: { learning: number; familiar: number; almostMastered: number; mastered: number },
   t: typeof copy.ko,
@@ -472,10 +413,6 @@ function getProficiencyDetails(
     { label: t.proficiencyAlmostMastered, value: distribution.almostMastered },
     { label: t.proficiencyMastered, value: distribution.mastered },
   ];
-}
-
-function clampPercent(value: number) {
-  return Math.min(100, Math.max(0, Math.round(Number.isFinite(value) ? value : 0)));
 }
 
 function formatCount(value: number) {

@@ -114,6 +114,7 @@ export interface RecentStudiedBundle {
 }
 
 export interface RecentLearningActivity {
+  learning: HomeBundleLearning;
   interaction: UserBundleInteraction;
   bundle: {
     id: string;
@@ -138,7 +139,6 @@ export interface RecentLearningActivity {
 }
 
 export interface ActiveLearningBundle extends RecentLearningActivity {
-  learning: HomeBundleLearning;
   currentBundleItemId: string | null;
 }
 
@@ -624,7 +624,7 @@ export async function getRecentStudiedBundle(userId: string, language: PracticeL
 
 export async function getRecentLearningActivities(
   userId: string,
-  options: { excludeBundleId?: string | null; limit?: number } = {},
+  options: { excludeBundleId?: string | null; limit?: number; language?: PracticeLanguage } = {},
 ): Promise<RecentLearningActivity[]> {
   const supabase = createAdminClient();
   const limit = Math.max(1, Math.min(options.limit || 4, 12));
@@ -656,7 +656,7 @@ export async function getRecentLearningActivities(
     return [];
   }
 
-  const completionById = await loadBundleCompletion(userId, bundleIds);
+  const completionById = await loadBundleCompletion(userId, bundleIds, options.language);
   const [
     { data: bundles, error: bundleError },
     { data: itemRows, error: itemError },
@@ -723,6 +723,7 @@ export async function getRecentLearningActivities(
     const progressRatio = completion.progressRatio;
 
     return [{
+      learning: getHomeBundleLearning(interaction.bundle_id, completion, interaction.current_bundle_item_id, options.language),
       interaction: { ...interaction, is_completed: completion.isCompleted, progress_ratio: progressRatio },
       bundle,
       totalItems,

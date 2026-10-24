@@ -14,7 +14,7 @@ export async function loadBundleCompletion(userId: string, bundleIds: string[], 
       if (!data || data.length < 1000) return rows;
     }
   }
-  if (!bundleIds.length) return new Map<string, ReturnType<typeof calculateBundleCompletion> & { items: any[]; interactions: any[] }>();
+  if (!bundleIds.length) return new Map<string, ReturnType<typeof calculateBundleCompletion> & { items: any[]; interactions: any[]; selectedWordIds: number[] }>();
   const [items, interactions, bundles, selections] = await Promise.all([
     read(() => supabase.from('bundle_items').select('id, bundle_id, sentence_id, order_index, words(id, word, meaning_ko, meaning_en), sentences(sentence, translation, translation_en, word_sentence_map(used_as, words(id, word, meaning_ko, meaning_en)))').in('bundle_id', bundleIds).order('id')),
     read(() => supabase.from('user_bundle_item_interactions').select('*').eq('user_id', userId).in('bundle_id', bundleIds).order('bundle_item_id')),
@@ -47,6 +47,6 @@ export async function loadBundleCompletion(userId: string, bundleIds: string[], 
     const bundleItems = itemGroups.get(id) || [];
     const bundleInteractions = interactionGroups.get(id) || [];
     const selected = (selectionGroups.get(id) || []).map(row => Number(row.word_id));
-    return [id, { ...calculateBundleCompletion(bundleItems, bundleInteractions, words, selected, language, bundles.find(row => String(row.bundle_id) === id)?.metadata), items: bundleItems, interactions: bundleInteractions }];
+    return [id, { ...calculateBundleCompletion(bundleItems, bundleInteractions, words, selected, language, bundles.find(row => String(row.bundle_id) === id)?.metadata), items: bundleItems, interactions: bundleInteractions, selectedWordIds: selected }];
   }));
 }

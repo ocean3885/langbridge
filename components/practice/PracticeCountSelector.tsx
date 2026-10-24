@@ -31,6 +31,7 @@ export function PracticeCountSelector({
           <button
             key={option}
             type="button"
+            aria-pressed={selectedCount === option}
             onClick={() => onSelect(option)}
             className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
               selectedCount === option
@@ -44,6 +45,7 @@ export function PracticeCountSelector({
         {showAll && totalCount > 0 && (
           <button
             type="button"
+            aria-pressed={selectedCount === 'all'}
             onClick={() => onSelect('all')}
             className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
               selectedCount === 'all'
