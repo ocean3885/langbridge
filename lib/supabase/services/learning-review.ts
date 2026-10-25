@@ -273,15 +273,12 @@ async function getStudiedWordIdsForBundle(userId: string, bundleId: string): Pro
 
   if (practicedItemIds.length > 0) {
     const { data: bundleItems } = await db.from('bundle_items')
-      .select('word_id, sentences(word_sentence_map(word_id))')
+      .select('word_id')
       .in('id', practicedItemIds);
 
+    // Sentence activity does not establish practice of each word in the sentence.
     for (const item of bundleItems || []) {
       if (item.word_id) studiedWordIds.add(Number(item.word_id));
-      const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
-      for (const map of sentence?.word_sentence_map || []) {
-        if (map.word_id) studiedWordIds.add(Number(map.word_id));
-      }
     }
   }
 
@@ -356,7 +353,7 @@ export async function getBundleReviewSummary(userId: string, bundleId: string): 
 
   const future = [
     ...sentences.candidates.filter(row => row.item.bundle_id === bundleId),
-    ...words.candidates.filter(row => bundleWordIds.has(row.item.id)),
+    ...words.candidates.filter(row => bundleWordIds.has(row.item.id) && studiedWordIds.has(row.item.id)),
   ]
     .filter(row => row.interaction.proficiency_level > 0 || row.interaction.incorrect_count > 0)
     .map(row => getReviewDueAt(row.interaction))
@@ -460,7 +457,7 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
     db.from('bundle_words').select('bundle_id, word_id').in('bundle_id', accessibleBundleIds),
     db.from('bundle_items').select('bundle_id, word_id, sentences(word_sentence_map(word_id))').in('bundle_id', accessibleBundleIds),
     allPracticedItemIds.length > 0
-      ? db.from('bundle_items').select('id, bundle_id, word_id, sentences(word_sentence_map(word_id))').in('id', allPracticedItemIds.slice(0, 500))
+      ? db.from('bundle_items').select('id, bundle_id, word_id').in('id', allPracticedItemIds.slice(0, 500))
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -484,17 +481,13 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
     itemWordsByBundle.set(bId, set);
   }
 
-  // Map words from practiced sentences for each bundle
-  const wordsFromPracticedSentencesByBundle = new Map<string, Set<number>>();
+  // Only direct word items establish word activity; sentence mappings do not.
+  const practicedWordsByBundle = new Map<string, Set<number>>();
   for (const item of (practicedBundleItemsRes.data || []) as any[]) {
     const bId = String(item.bundle_id);
-    const set = wordsFromPracticedSentencesByBundle.get(bId) || new Set<number>();
+    const set = practicedWordsByBundle.get(bId) || new Set<number>();
     if (item.word_id) set.add(Number(item.word_id));
-    const sentence: any = Array.isArray(item.sentences) ? item.sentences[0] : item.sentences;
-    for (const map of sentence?.word_sentence_map || []) {
-      if (map.word_id) set.add(Number(map.word_id));
-    }
-    wordsFromPracticedSentencesByBundle.set(bId, set);
+    practicedWordsByBundle.set(bId, set);
   }
 
   const lastStudiedByBundle = new Map(userBundleInteractions.map(r => [r.bundle_id, r.last_studied_at]));
@@ -513,13 +506,13 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
     // Only count words that were actually practiced/completed in this bundle!
     const bundleMetadata = metadataByBundle.get(bId);
     const completedWordIds = new Set(getCompletedBundleWordIds(bundleMetadata));
-    const sentenceWords = wordsFromPracticedSentencesByBundle.get(bId) || new Set<number>();
+    const practicedWords = practicedWordsByBundle.get(bId) || new Set<number>();
 
     const bDueWords: typeof dueWords = [];
     for (const wordId of targetWordSet) {
       const match = dueWordMap.get(wordId);
       // Word must be due AND must have been practiced/completed within this bundle
-      if (match && (completedWordIds.has(wordId) || sentenceWords.has(wordId))) {
+      if (match && (completedWordIds.has(wordId) || practicedWords.has(wordId))) {
         bDueWords.push(match);
       }
     }

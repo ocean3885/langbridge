@@ -37,6 +37,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { estimateBundleMinutes } from '../bundle-utils';
+import BundleAchievementSummary from './_components/BundleAchievementSummary';
+import type { BundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 
 interface BundlePlayerClientProps {
   bundle: any;
@@ -46,6 +48,7 @@ interface BundlePlayerClientProps {
   user?: any;
   initialItemId?: string | null;
   itemInteractions?: any[];
+  progress: BundleProgressSummary;
 }
 
 type Keyword = {
@@ -145,6 +148,7 @@ export default function BundlePlayerClient({
   user,
   initialItemId = null,
   itemInteractions = [],
+  progress,
 }: BundlePlayerClientProps) {
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -513,7 +517,8 @@ export default function BundlePlayerClient({
         </section>
       </main>
 
-      <aside className="px-3 pb-4 sm:px-0 sm:pb-0">
+      <aside className="min-w-0 space-y-4 px-3 pb-4 sm:px-0 sm:pb-0">
+        <BundleAchievementSummary bundleId={bundle.id} items={items} progress={progress} language={language} isLoggedIn={Boolean(user)} />
         <section className="rounded-[18px] border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-bold text-zinc-950 dark:text-zinc-50 sm:text-lg">{t.practice}</h2>

@@ -27,7 +27,6 @@ const copy = {
     scopeLabel: '풀 문제 선택',
     countLabel: '문제 수',
     start: '시작하기',
-    resume: '이어서 학습하기',
     items: (count: number) => `${count}문장`,
     allItems: (count: number) => `전체 ${count}`,
     empty: '문장 없음',
@@ -44,7 +43,6 @@ const copy = {
     scopeLabel: 'Choose practice set',
     countLabel: 'Question count',
     start: 'Start',
-    resume: 'Resume practice',
     items: (count: number) => `${count} sentences`,
     allItems: (count: number) => `All ${count}`,
     empty: 'No sentences',
@@ -103,12 +101,6 @@ export default function PracticeSessionSelector({
           <h1 className="truncate text-lg font-black text-zinc-950 dark:text-zinc-50">{title}</h1>
         </div>
       </header>
-
-      {counts.resume > 0 && (
-        <Link href={`${basePath}?mode=resume`} className="rounded-xl border border-emerald-200 px-4 py-3 text-center text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:text-emerald-300">
-          {t.resume}
-        </Link>
-      )}
 
       {starProgress && <div className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
         <span className="inline-flex items-center gap-2 text-sm font-bold">

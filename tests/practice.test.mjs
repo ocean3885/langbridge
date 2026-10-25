@@ -419,6 +419,51 @@ test('bundle review isolates words to bundles where they were actually practiced
   assert.equal(b2Summary.availableWords, 0);
 });
 
+for (const activity of ['last_played_at', 'last_practiced_at', 'is_completed']) {
+  test(`bundle word reviews do not inherit sentence ${activity}`, async () => {
+    const { service, tables } = reviewFixture();
+    tables.bundle = [{ id: 'b1', title: 'Bundle', is_published: true, access_level: 'free' }];
+    tables.bundle_words = [{ bundle_id: 'b1', word_id: 11 }];
+    tables.bundle_items[0].sentences = { word_sentence_map: [{ word_id: 11 }] };
+    tables.user_bundle_item_interactions = [{
+      id: 'hi1', user_id: 'u1', bundle_id: 'b1', bundle_item_id: 'item1',
+      [activity]: activity === 'is_completed' ? true : '2020-01-01T00:00:00Z',
+    }];
+
+    assert.equal((await service.getBundleReviewSummary('u1', 'b1')).availableWords, 0);
+    assert.deepEqual(await service.getReviewWords('u1', 20, 'review', 'b1'), []);
+    assert.equal((await service.getReviewBundlesSummary('u1'))[0].availableWords, 0);
+    assert.equal((await service.getReviewNeededSummary('u1')).availableWords, 1);
+
+    // Explicit completion in this bundle still qualifies the word.
+    tables.user_bundle_interactions[0].metadata = { completed_word_ids: [11] };
+    assert.equal((await service.getBundleReviewSummary('u1', 'b1')).availableWords, 1);
+    assert.equal((await service.getReviewWords('u1', 20, 'review', 'b1')).length, 1);
+    assert.equal((await service.getReviewBundlesSummary('u1'))[0].availableWords, 1);
+
+    // Future schedules must use the same bundle-specific eligibility.
+    tables.user_sentence_interactions = [];
+    tables.user_word_interactions[0].last_reviewed_at = new Date().toISOString();
+    assert.ok((await service.getBundleReviewSummary('u1', 'b1')).nextReviewAt);
+    tables.user_bundle_interactions[0].metadata = {};
+    assert.equal((await service.getBundleReviewSummary('u1', 'b1')).nextReviewAt, null);
+  });
+}
+
+test('bundle word reviews retain activity on direct word items', async () => {
+  const { service, tables } = reviewFixture();
+  tables.bundle = [{ id: 'b1', title: 'Bundle', is_published: true, access_level: 'free' }];
+  tables.bundle_words = [{ bundle_id: 'b1', word_id: 11 }];
+  tables.bundle_items.push({ id: 'word-item', bundle_id: 'b1', word_id: 11 });
+  tables.user_bundle_item_interactions.push({
+    id: 'word-history', user_id: 'u1', bundle_id: 'b1', bundle_item_id: 'word-item',
+    last_practiced_at: '2020-01-01T00:00:00Z',
+  });
+  assert.equal((await service.getBundleReviewSummary('u1', 'b1')).availableWords, 1);
+  assert.equal((await service.getReviewWords('u1', 20, 'review', 'b1')).length, 1);
+  assert.equal((await service.getReviewBundlesSummary('u1'))[0].availableWords, 1);
+});
+
 const { buildScrambleQuestion, isScrambleAnswerCorrect, normalizeScrambleWords } = load('lib/practice/scramble');
 
 test('scramble beginners get groups and a fixed first piece; familiar sentences use words', () => {
