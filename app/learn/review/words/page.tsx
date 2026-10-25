@@ -18,6 +18,7 @@ export default async function WordsReviewPage({ searchParams }: { searchParams: 
     return url === '/learn/review' ||
       url.startsWith('/learn/review?') ||
       url === '/learn/progress/words' ||
+      url === '/learn/progress/sentences' ||
       url.startsWith('/bundles/');
   };
   const safeReturnTo = isAllowedReturnTo(returnTo) ? returnTo : (bundleId ? `/bundles/${bundleId}` : undefined);

@@ -58,6 +58,18 @@ export function defaultSentenceReviewMode(items: ReviewSentenceItem[], language:
 export function parseReviewSettings(params: { mode?: string; count?: string; start?: string }, type: 'words' | 'sentences') {
   const modes = type === 'words' ? ['quiz', 'spelling', 'flashcard'] : ['quiz', 'scramble', 'wordfill', 'flashcards'];
   return { mode: modes.includes(params.mode || '') ? params.mode! : 'quiz',
-    count: REVIEW_COUNTS.includes(Number(params.count)) ? Number(params.count) : REVIEW_DEFAULT_COUNT,
+    count: Number.isInteger(Number(params.count)) && Number(params.count) >= 1 && Number(params.count) <= REVIEW_MAX_COUNT ? Number(params.count) : REVIEW_DEFAULT_COUNT,
     autoStart: params.start === '1' };
+}
+
+export function buildSentenceReviewSession(items: ReviewSentenceItem[], language: PracticeLanguage, optionPool?: ReviewSentenceItem[]) {
+  const modes: SentenceReviewMode[] = ['quiz', 'scramble', 'wordfill', 'flashcards'];
+  const counts = {} as Record<SentenceReviewMode, number>;
+  const selected = new Set<number>();
+  for (const mode of modes) {
+    const eligible = sentenceReviewItems(items, mode, language, optionPool);
+    counts[mode] = eligible.length;
+    eligible.slice(0, REVIEW_MAX_COUNT).forEach(item => selected.add(item.id));
+  }
+  return { items: items.filter(item => selected.has(item.id)), counts };
 }

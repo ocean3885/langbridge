@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Clock3,
+  Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Clock3,
   Filter, MessageSquareText, Play, Search, Target, Volume2, X,
 } from 'lucide-react';
 import ProgressMobileMenu from '../ProgressMobileMenu';
@@ -18,17 +18,17 @@ const PAGE_SIZE = 15;
 
 const copy = {
   ko: {
-    back: 'Overview로 돌아가기', title: 'Sentences', description: '학습한 문장의 숙련도와 복습 상태를 확인하세요.',
-    startLearning: '새로 익히기', startReview: '복습하기', total: '학습한 문장', due: '복습 필요', mastered: '숙달한 문장', accuracy: '전체 정확도', noAttempts: '기록 없음',
-    distribution: '숙련도 분포', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`, level: '레벨', levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '숙달'],
+    title: 'Sentences', description: '학습한 문장의 숙련도와 복습 상태를 확인하세요.',
+    startLearning: '새로 익히기', startReview: '복습하기', total: '학습한 문장', due: '복습 필요', mastered: '마스터한 문장', accuracy: '전체 정확도', noAttempts: '기록 없음',
+    distribution: '숙련도 분포', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`, level: '레벨', levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '마스터'],
     mySentences: '내 문장', results: (n: number) => `${n}개 문장`, search: '문장이나 번역 검색', status: '상태', sort: '정렬', all: '전체', pinned: '핀한 문장', hasMemo: '메모 있음',
-    priority: '복습 우선', recent: '최근 학습', mistakes: '오답 많은 순', alphabetical: '문장순', now: '지금 복습', upcoming: '예정', complete: '숙달', notScheduled: '일정 없음', never: '아직 없음',
+    priority: '복습 우선', recent: '최근 학습', mistakes: '오답 많은 순', alphabetical: '문장순', now: '지금 복습', upcoming: '예정', complete: '마스터', notScheduled: '일정 없음', never: '아직 없음',
     listen: '문장 듣기', details: '문장 상세', translation: '번역', proficiency: '숙련도', correct: '정답', incorrect: '오답', streak: '연속 정답', lastStudy: '마지막 학습', nextReview: '다음 복습', bundles: '연결된 번들', keyWords: '핵심 단어', noBundles: '연결된 번들이 없습니다.', noWords: '연결된 단어가 없습니다.',
     memo: '학습 메모', memoPlaceholder: '이 문장에 대한 학습 메모를 남겨보세요.', save: '저장', saving: '저장 중', saved: '저장됨', saveFailed: '저장하지 못했습니다.', close: '닫기',
     emptyTitle: '조건에 맞는 문장이 없습니다.', emptyBody: '검색어나 필터를 바꾸어 확인해보세요.', emptyAllTitle: '아직 학습한 문장이 없습니다.', emptyAllBody: '문장 학습이나 문제풀이를 시작하면 여기에 기록됩니다.', browse: '학습 번들 보기', previous: '이전', next: '다음',
   },
   en: {
-    back: 'Back to Overview', title: 'Sentences', description: 'See the proficiency and review status of the sentences you have studied.',
+    title: 'Sentences', description: 'See the proficiency and review status of the sentences you have studied.',
     startLearning: 'Learn new', startReview: 'Review now', total: 'Learned sentences', due: 'Review due', mastered: 'Mastered', accuracy: 'Overall accuracy', noAttempts: 'No attempts',
     distribution: 'Proficiency distribution', attempts: (c: number, i: number) => `${c} correct · ${i} incorrect`, level: 'Level', levels: ['Not started', 'Learning', 'Getting familiar', 'Familiar', 'Advanced', 'Mastered'],
     mySentences: 'My sentences', results: (n: number) => `${n} sentences`, search: 'Search sentences or translations', status: 'Status', sort: 'Sort', all: 'All', pinned: 'Pinned', hasMemo: 'Has memo',
@@ -90,8 +90,7 @@ export default function SentencesProgressClient({ initialData, language }: { ini
         <ProgressSidebar language={language} activeIndex={2} />
         <section className="min-w-0">
           <header className="border-b border-zinc-200 px-4 py-6 dark:border-zinc-800 sm:px-8 lg:px-10">
-            <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link>
-            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div>
               <div className="flex">
                 <ActionLink href="/learn/review/sentences?returnTo=/learn/progress/sentences" enabled={initialData.summary.due > 0} icon={Play} label={`${t.startReview}${initialData.summary.due ? ` (${initialData.summary.due})` : ''}`} />

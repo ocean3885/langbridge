@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import BundleDetailHubClient from './BundleDetailHubClient';
 
 interface BundleDetailsPageProps {
+  searchParams: Promise<{ from?: string | string[] }>;
   params: Promise<{
     id: string;
   }>;
@@ -33,8 +34,9 @@ const translations = {
   }
 };
 
-export default async function BundleDetailsPage({ params }: BundleDetailsPageProps) {
+export default async function BundleDetailsPage({ params, searchParams }: BundleDetailsPageProps) {
   const { id } = await params;
+  const { from } = await searchParams;
   const [bundle, items, user, lang, studyWordIds] = await Promise.all([
     getBundle(id),
     listBundleItems(id),
@@ -74,6 +76,7 @@ export default async function BundleDetailsPage({ params }: BundleDetailsPagePro
       bundle={bundle}
       items={items}
       language={lang}
+      fromLearn={from === 'learn'}
       progress={progress}
       isLoggedIn={Boolean(user)}
       access={access}

@@ -14,7 +14,7 @@ const mocks={
   'next/link': `import React from 'react'; export default function Link({prefetch,children,...props}) { return <a {...props}>{children}</a> }`,
   'next/image': `import React from 'react'; export default function Image({fill,priority,quality,unoptimized,...props}) { return <img {...props}/> }`,
   '@/lib/auth/app-user': `export async function getAppUserFromServer(){return {id:'fixture'}}; export async function getDisplayLanguage(){return 'ko'}`,
-  '@/lib/supabase/services/learning-review': `export async function getReviewNeededSummary(){return {availableTotal:32,availableWords:24,availableSentences:8,lowestWordLevel:1,lowestSentenceLevel:1,firstWord:{dueAt:'2026-10-23',incorrect:true,level:1},firstSentence:{dueAt:'2026-10-24',incorrect:false,level:1},nextReviewAt:null}}; export async function getReviewSentences(){return []}`,
+  '@/lib/supabase/services/learning-review': `export async function getReviewNeededSummary(){return {availableTotal:32,availableWords:24,availableSentences:8,lowestWordLevel:1,lowestSentenceLevel:1,firstWord:{dueAt:'2026-10-23',incorrect:true,level:1},firstSentence:{dueAt:'2026-10-24',incorrect:false,level:1},nextReviewAt:null}}; export async function getReviewSentences(){return []}; export async function getReviewBundlesSummary(){return []}`,
   'next/navigation': `export function redirect(){ throw Error('Unexpected redirect') }`,
 };
 await build({stdin:{contents:`import React,{StrictMode} from 'react';import {createRoot} from 'react-dom/client';
@@ -22,7 +22,7 @@ import ReviewSessionClient from './app/learn/review/_components/ReviewSessionCli
 import ReviewPage from './app/learn/review/page';
 const p=new URLSearchParams(location.search),type=p.get('type')||(location.pathname.endsWith('/sentences')?'sentences':'words');
 const items=type==='words'?[{id:1,word:'hola',meaning_ko:'안녕',meaning_en:'hello',audio_url:null,proficiency_level:1,incorrect_count:0,streak_count:1,pos:[],lang_code:'es'}]:[{id:1,sentence:'Hola amigo',translation:'안녕 친구',translation_en:'Hello friend',audio_url:null,proficiency_level:1,incorrect_count:0,streak_count:1,bundle_id:'30000000-0000-4000-8000-000000000001',bundle_item_id:'40000000-0000-4000-8000-000000000001',word_maps:[]}];
-const el=p.has('home')?await ReviewPage():<ReviewSessionClient type={type} returnTo={p.get('returnTo')||undefined} items={items} availableCount={1} language={p.get('lang')||'ko'} settings={{mode:p.get('mode')||'quiz',count:10,autoStart:p.get('start')==='1'}}/>;
+const el=p.has('home')?await ReviewPage():<ReviewSessionClient type={type} bundleId={p.get('bundleId')||undefined} returnTo={p.get('returnTo')||undefined} items={items} availableCount={1} language={p.get('lang')||'ko'} settings={{mode:p.get('mode')||'quiz',count:10,autoStart:p.get('start')==='1'}}/>;
 createRoot(document.getElementById('root')).render(<StrictMode>{el}</StrictMode>);`,resolveDir:root,loader:'tsx'},bundle:true,format:'esm',outfile:path.join(dir,'app.js'),jsx:'automatic',define:{'process.env.NODE_ENV':'"development"','process.env.NEXT_PUBLIC_SUPABASE_URL':'""','process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY':'""'},plugins:[{name:'fixtures',setup(b){b.onResolve({filter:/.*/},args=>Object.hasOwn(mocks,args.path)?{path:args.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],loader:'jsx',resolveDir:root}));}}]});
 await writeFile(path.join(dir,'input.css'),await readFile(path.join(root,'app/globals.css')));
 execFileSync(path.join(root,'node_modules/.bin/tailwindcss'),['-c',path.join(root,'tailwind.config.ts'),'-i',path.join(dir,'input.css'),'-o',path.join(dir,'style.css')],{stdio:'pipe'});
@@ -49,7 +49,7 @@ try {
  let requests=[]; let failFirst=false;
  await page.route('**/api/review/sessions',route=>route.fulfill({json:{saved:true}}));
  await page.route('**/api/review/results',async route=>{requests.push(route.request().postDataJSON());if(failFirst){failFirst=false;return route.fulfill({status:503,json:{error:'temporary'}});}await route.fulfill({json:{saved:true}});});
- await page.route('**/api/review/summary',route=>route.fulfill({json:{availableTotal:2,availableWords:1,availableSentences:1,nextReviewAt:null}}));
+ await page.route('**/api/review/summary?**',route=>route.fulfill({json:{availableTotal:2,availableWords:1,availableSentences:1,nextReviewAt:null,modeCounts:{quiz:0,scramble:1,wordfill:0,flashcards:1}}}));
  for(const width of [320,375,768,1024,1280]){
   await page.setViewportSize({width,height:900});await page.goto(`${base}/?home=1`);await page.getByRole('heading',{name:'복습',exact:true}).waitFor();await page.evaluate(()=>document.fonts.ready);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`home overflow at ${width}`);
@@ -64,27 +64,51 @@ try {
  failFirst=true; await page.getByRole('button',{name:'안녕',exact:true}).click();await page.getByRole('button',{name:'저장 다시 시도'}).waitFor();
  await page.getByRole('button',{name:'저장 다시 시도'}).click();await page.waitForFunction(()=>!document.body.textContent.includes('저장 다시 시도'));
  assert.equal(requests.length,2);assert.deepEqual(requests[0],requests[1]);
- await page.getByRole('button',{name:'세션 마치기',exact:true}).click();await page.getByRole('link',{name:'문장 복습',exact:true}).waitFor();
- assert.ok((await page.locator('body').textContent()).includes('첫 시도: 1개 중 1개 정답'));
+ await page.getByRole('button',{name:'여기까지 하기',exact:true}).click();await page.getByRole('link',{name:'문장 복습',exact:true}).waitFor();
+ assert.ok((await page.locator('body').textContent()).includes('1개 중 1개를 처음에 맞혔어요.'));
  assert.equal(await page.getByRole('link',{name:'학습 현황으로',exact:true}).getAttribute('href'),'/learn/progress/words');
- assert.ok((await page.getByRole('link',{name:'다음 1개',exact:true}).getAttribute('href')).includes('returnTo=%2Flearn%2Fprogress%2Fwords'));
- await page.getByRole('link',{name:'문장 복습',exact:true}).click();await page.getByRole('button',{name:'세션 마치기',exact:true}).waitFor();
+ assert.ok((await page.getByRole('link',{name:'1개 더 복습하기',exact:true}).getAttribute('href')).includes('returnTo=%2Flearn%2Fprogress%2Fwords'));
+ await page.getByRole('link',{name:'문장 복습',exact:true}).click();await page.getByRole('button',{name:'여기까지 하기',exact:true}).waitFor();
  assert.ok(page.url().includes('/sentences'));
  // An incorrect self-assessment can be rehearsed without a second saved answer.
  await page.goto(`${base}/?mode=flashcard&start=1`);
  await page.getByRole('button',{name:/hola.*es/}).click();
  await page.getByRole('button',{name:'아직 잘 몰라요',exact:true}).click();
- await page.getByRole('button',{name:'세션 마치기',exact:true}).click();
- await page.getByRole('button',{name:'틀린 항목 다시 보기',exact:true}).waitFor();
+ await page.getByRole('button',{name:'여기까지 하기',exact:true}).click();
+ await page.getByRole('button',{name:'틀린 표현 다시 보기',exact:true}).waitFor();
  const beforeRehearsal=requests.length;
- await page.getByRole('button',{name:'틀린 항목 다시 보기',exact:true}).click();
+ await page.getByRole('button',{name:'틀린 표현 다시 보기',exact:true}).click();
  await page.getByRole('button',{name:/hola.*es/}).click();
  await page.getByRole('button',{name:'알고 있어요',exact:true}).click();
- await page.getByRole('button',{name:'세션 마치기',exact:true}).click();
+ await page.getByRole('button',{name:'여기까지 하기',exact:true}).click();
  assert.equal(requests.length,beforeRehearsal);
+ assert.ok((await page.getByRole('link',{name:'1개 더 복습하기',exact:true}).getAttribute('href')).includes('mode=flashcard'));
+ await page.getByRole('heading',{name:'헷갈렸던 표현을 모두 다시 연습했어요'}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'틀린 표현 다시 보기',exact:true}).count(),0);
+ // Bundle sessions refresh the same scope and do not offer unrelated reviews.
+ await page.route('**/api/review/summary?*bundleId=*',route=>route.fulfill({json:{availableTotal:0,availableWords:0,availableSentences:0,nextReviewAt:null}}));
+ await page.goto(`${base}/?start=1&bundleId=30000000-0000-4000-8000-000000000001`);
+ await page.getByRole('button',{name:'안녕',exact:true}).click();
+ await page.getByRole('button',{name:'여기까지 하기',exact:true}).click();
+ await page.getByText('지금 할 복습을 모두 마쳤어요!',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'문장 복습',exact:true}).count(),0);
+ // A pending save blocks navigation; completion becomes available once saved.
+ let releaseSave;
+ await page.route('**/api/review/results',async route=>{await new Promise(resolve=>{releaseSave=resolve;});await route.fulfill({json:{saved:true}});});
+ await page.goto(`${base}/?start=1&returnTo=/learn/progress/words`);
+ await page.getByRole('button',{name:'안녕',exact:true}).click();
+ await page.getByText('답변 1개 저장 중…',{exact:true}).waitFor();
+ const beforeUrl=page.url();
+ await page.getByRole('link',{name:'학습 현황으로',exact:true}).dispatchEvent('click');
+ assert.equal(page.url(),beforeUrl);
+ await page.getByRole('button',{name:'여기까지 하기',exact:true}).click();
+ await page.getByRole('heading',{name:'1개 복습했어요!',exact:true}).waitFor();
+ await page.waitForTimeout(100);
+ releaseSave();
+ await page.getByRole('link',{name:'학습 현황으로',exact:true}).waitFor();
  // Read-only sentence cards never post an assessment.
- const saved=requests.length;await page.goto(`${base}/?type=sentences&mode=flashcards&start=1`);await page.getByRole('button',{name:'세션 마치기',exact:true}).click();
- await page.getByRole('heading',{name:'이번 세션 결과'}).waitFor();assert.equal(requests.length,saved);
+ const saved=requests.length;await page.goto(`${base}/?type=sentences&mode=flashcards&start=1`);await page.getByRole('button',{name:'읽기 마치기',exact:true}).click();
+ await page.getByRole('heading',{name:'가볍게 읽기를 마쳤어요'}).waitFor();assert.equal(requests.length,saved);
  // Single sentence cannot become a quiz containing only the answer.
  await page.goto(`${base}/?type=sentences`);await page.getByRole('heading',{name:'문장 복습',exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'문장 퀴즈',exact:true}).isDisabled(),true);

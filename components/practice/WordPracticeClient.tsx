@@ -369,6 +369,7 @@ export default function WordPracticeClient({ initialItems, wordUsageDetails, ava
   };
 
   const restart = () => {
+    if (reviewControls) { reviewControls.onFinish(); return; }
     setIsCorrect(null);
     setIsAnswered(false);
     setIsRetryAttempt(false);

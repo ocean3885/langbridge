@@ -28,10 +28,11 @@ export function getReviewRecommendation(summary: ReviewRecommendationSummary): R
   return wordLevel < sentenceLevel ? 'words' : 'sentences';
 }
 
-export function getReviewHref(type: ReviewType, otherCount: number) {
+export function getReviewHref(type: ReviewType, otherCount: number, returnTo?: string) {
   const base = `/learn/review/${type}`;
   const other = type === 'words' ? 'sentences' : 'words';
-  return otherCount > 0 ? `${base}?nextTo=/learn/review/${other}` : base;
+  const href = otherCount > 0 ? `${base}?nextTo=/learn/review/${other}` : base;
+  return returnTo ? `${href}${href.includes('?') ? '&' : '?'}returnTo=${encodeURIComponent(returnTo)}` : href;
 }
 
 export function getReviewPlan(summary: ReviewRecommendationSummary) {

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, ChevronDown, ChevronUp, Flame, MessagesSquare } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, BookOpen, ChevronDown, ChevronUp, Sparkles, MessagesSquare } from 'lucide-react';
 import type { ReviewDueBundle } from '@/lib/supabase/services/learning-review';
 
 interface ReviewBundlesSectionProps {
@@ -31,108 +32,86 @@ export default function ReviewBundlesSection({ bundles, language }: ReviewBundle
               {ko ? '번들별 복습' : 'Bundle Review'}
             </h2>
             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800 dark:bg-green-950/80 dark:text-green-300">
-              {ko ? `${bundles.length}개 번들 대기` : `${bundles.length} bundles`}
+              {ko ? `${bundles.length}개 번들` : `${bundles.length} bundles`}
             </span>
           </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {bundles.length >= 4
-              ? (ko
-                ? '복습할 번들이 많을 때는 가장 급한 번들부터 하루 1~2개씩 가볍게 확인해보세요.'
-                : 'When many bundles are due, start light with 1–2 of the most urgent each day.')
-              : (ko
-                ? '학습했던 번들 단위로 모아서 복습할 수 있어요.'
-                : 'Review expressions and words grouped by the bundle you studied.')}
+            {ko ? '기억을 되살리고 싶은 번들을 골라 가볍게 복습해보세요.' : 'Pick a bundle and refresh what you’ve learned.'}
           </p>
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         {visibleBundles.map((bundle, index) => {
           const isTopUrgent = index === 0;
           const title = (ko ? bundle.title : bundle.title_en) || bundle.title;
           const categoryName = (ko ? bundle.category_name : bundle.category_name_en) || bundle.category_name;
-          const hasBoth = bundle.availableSentences > 0 && bundle.availableWords > 0;
-          const primaryType = bundle.availableSentences >= bundle.availableWords ? 'sentences' : 'words';
+          const actions = [
+            { type: 'sentences', count: bundle.availableSentences, Icon: MessagesSquare, label: ko ? '문장 복습' : 'Review sentences' },
+            { type: 'words', count: bundle.availableWords, Icon: BookOpen, label: ko ? '단어 복습' : 'Review words' },
+          ].filter(action => action.count > 0);
 
           return (
-            <div
+            <article
               key={bundle.id}
-              className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${
+              className={`group flex min-w-0 flex-col overflow-hidden rounded-2xl border shadow-sm transition-shadow hover:shadow-md ${
                 isTopUrgent
-                  ? 'border-green-300 bg-gradient-to-br from-green-50/70 to-white shadow-sm dark:border-green-800 dark:from-green-950/30 dark:to-zinc-900'
-                  : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700'
+                  ? 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/20'
+                  : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'
               }`}
             >
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                    {categoryName || (ko ? '일반' : 'General')}
-                  </span>
-                  {isTopUrgent && (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                      <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                      {ko ? '가장 시급한 복습' : 'Most urgent'}
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="mt-2.5 text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  <Link
-                    href={`/bundles/${bundle.id}`}
-                    className="hover:text-green-700 hover:underline dark:hover:text-green-400"
-                  >
-                    {title}
-                  </Link>
-                </h3>
-
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  {bundle.availableSentences > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2.5 py-1 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      <MessagesSquare className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                      {ko ? `문장 ${bundle.availableSentences}개` : `${bundle.availableSentences} sentences`}
-                    </span>
-                  )}
-                  {bundle.availableWords > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2.5 py-1 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      <BookOpen className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                      {ko ? `단어 ${bundle.availableWords}개` : `${bundle.availableWords} words`}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                {hasBoth ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      prefetch={false}
-                      href={`/learn/review/sentences?bundleId=${bundle.id}&returnTo=/learn/review`}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-[#3f9657] px-3 text-xs font-bold text-white transition hover:bg-[#2f7d4a]"
-                    >
-                      {ko ? `문장 (${bundle.availableSentences})` : `Sentences (${bundle.availableSentences})`}
-                    </Link>
-                    <Link
-                      prefetch={false}
-                      href={`/learn/review/words?bundleId=${bundle.id}&returnTo=/learn/review`}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                    >
-                      {ko ? `단어 (${bundle.availableWords})` : `Words (${bundle.availableWords})`}
-                    </Link>
+              <div className="flex-1 p-4 pb-3">
+                <Link href={`/bundles/${bundle.id}`} className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                    <Image src={bundle.thumbnail_url || '/images/bundle-fallback.webp'} alt="" fill sizes="56px" className="object-cover transition-transform duration-300 group-hover:scale-105" />
                   </div>
-                ) : (
-                  <Link
-                    prefetch={false}
-                    href={`/learn/review/${primaryType}?bundleId=${bundle.id}&returnTo=/learn/review`}
-                    className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-[#3f9657] px-4 text-xs font-bold text-white transition hover:bg-[#2f7d4a]"
-                  >
-                    {ko
-                      ? `${primaryType === 'sentences' ? '문장' : '단어'} ${bundle.availableTotal}개 복습 시작`
-                      : `Review ${bundle.availableTotal} ${primaryType === 'sentences' ? 'sentences' : 'words'}`}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                )}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                      <span className="font-medium text-zinc-500 dark:text-zinc-400">{categoryName || (ko ? '일반' : 'General')}</span>
+                      {isTopUrgent && <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                        <Sparkles className="h-3 w-3" aria-hidden="true" />
+                        {ko ? '먼저 복습해보세요' : 'Start here'}
+                      </span>}
+                    </div>
+                    <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-zinc-900 transition-colors hover:text-emerald-700 dark:text-zinc-100 dark:hover:text-emerald-300">{title}</h3>
+                  </div>
+                </Link>
+                <div className="mt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {bundle.availableSentences > 0 && (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100/70 px-2 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
+                        <MessagesSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                        {ko ? `문장 ${bundle.availableSentences}개` : `${bundle.availableSentences} sentences`}
+                      </span>
+                    )}
+                    {bundle.availableWords > 0 && (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-200">
+                        <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                        {ko ? `단어 ${bundle.availableWords}개` : `${bundle.availableWords} words`}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+              <div className="mx-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 border-t border-zinc-200/70 py-3 dark:border-zinc-800">
+                {actions.map(({ type, Icon, label }) => (
+                  <Link key={type} prefetch={false}
+                    href={`/learn/review/${type}?bundleId=${bundle.id}&returnTo=/learn/review`}
+                    className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
+                      actions.length === 1
+                        ? 'bg-[#3f9657] text-white hover:bg-[#2f7d4a]'
+                        : type === 'sentences'
+                          ? 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60'
+                          : 'border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/60'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {label}
+                    {actions.length === 1 && <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                  </Link>
+                ))}
+              </div>
+            </article>
           );
         })}
       </div>
@@ -142,7 +121,8 @@ export default function ReviewBundlesSection({ bundles, language }: ReviewBundle
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            aria-expanded={expanded}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-bold text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             {expanded ? (
               <>

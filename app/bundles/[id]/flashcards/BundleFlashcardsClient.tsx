@@ -20,6 +20,7 @@ export interface BundleFlashcardsClientProps {
   isLoggedIn: boolean;
   backHref?: string;
   onBack?: () => void;
+  onFinish?: () => void;
   onRecordCurrentItem?: (itemId: string) => void;
   headerEyebrow?: string;
 }
@@ -54,6 +55,7 @@ export default function BundleFlashcardsClient({
   isLoggedIn,
   backHref,
   onBack,
+  onFinish,
   onRecordCurrentItem,
   headerEyebrow,
 }: BundleFlashcardsClientProps) {
@@ -163,9 +165,15 @@ export default function BundleFlashcardsClient({
         <button onClick={playAudio} disabled={!current.audioUrl} className="rounded-full bg-zinc-950 p-4 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500">
           <Volume2 className="h-5 w-5" />
         </button>
-        <button onClick={goNext} disabled={index === items.length - 1} className="rounded-lg px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800">
-          Next <ChevronRight className="inline h-4 w-4" />
-        </button>
+        {index === items.length - 1 && onFinish ? (
+          <button onClick={onFinish} className="rounded-lg bg-[#3f9657] px-4 py-3 text-sm font-bold text-white">
+            {language === 'ko' ? '읽기 마치기' : 'Finish reading'}
+          </button>
+        ) : (
+          <button onClick={goNext} disabled={index === items.length - 1} className="rounded-lg px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800">
+            {language === 'ko' ? '다음' : 'Next'} <ChevronRight className="inline h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <button onClick={() => { setIndex(0); setFlipped(false); }} className="mx-auto inline-flex items-center gap-2 text-sm font-bold text-zinc-500 transition hover:text-[#2f7d4a] dark:text-zinc-400 dark:hover:text-emerald-400">

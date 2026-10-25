@@ -301,6 +301,7 @@ export default function SentencesReviewClient({
           language={language}
           isLoggedIn={true}
           onBack={restart}
+          onFinish={reviewControls?.onFinish}
         />
       </div>
     );

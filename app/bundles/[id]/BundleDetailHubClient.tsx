@@ -28,6 +28,7 @@ import type { BundleProgressSummary } from '@/lib/supabase/services/bundle-progr
 import type { BundleAccessResult } from '@/lib/bundle-access';
 
 interface BundleDetailHubClientProps {
+  fromLearn?: boolean;
   bundle: any;
   items: any[];
   language: 'ko' | 'en';
@@ -206,6 +207,7 @@ export default function BundleDetailHubClient({
   access,
   wordProgress,
   reviewSummary,
+  fromLearn = false,
 }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
   const [isPinned, setIsPinned] = useState(Boolean(progress.bundleInteraction?.is_pinned));
@@ -242,7 +244,7 @@ export default function BundleDetailHubClient({
   const totalPlayLabel = totalPlayCount > 0
     ? (language === 'ko' ? `${totalPlayCount}회` : `${totalPlayCount} plays`)
     : t.noRecord;
-  const backHref = bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
+  const backHref = fromLearn ? '/learn' : bundle.bundle_category ? getCategoryHref(bundle.bundle_category, language) : '/bundles';
 
   const learnHref = progress.currentBundleItemId
     ? `/bundles/${bundle.id}/learn?item=${progress.currentBundleItemId}`
@@ -329,7 +331,7 @@ export default function BundleDetailHubClient({
           <Link
             href={backHref}
             className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            aria-label="Back"
+            aria-label={fromLearn ? (language === 'ko' ? '학습 홈으로 돌아가기' : 'Back to learning') : (language === 'ko' ? '뒤로가기' : 'Back')}
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>

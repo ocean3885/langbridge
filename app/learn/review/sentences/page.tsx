@@ -2,7 +2,7 @@ import ReviewSessionClient from '../_components/ReviewSessionClient';
 import { parseReviewSettings, REVIEW_MAX_COUNT } from '@/lib/learning/review-session';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
-import { getBundleReviewSummary, getReviewNeededSummary, getReviewSentenceOptionPool, getReviewSentences } from '@/lib/supabase/services/learning-review';
+import { getBundleReviewSummary, getReviewNeededSummary, getReviewSentenceOptionPool, getSentenceReviewSession, getReviewSentences } from '@/lib/supabase/services/learning-review';
 import SentencesReviewClient from './SentencesReviewClient';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,7 @@ export default async function SentencesReviewPage({ searchParams }: { searchPara
     return url === '/learn/review' ||
       url.startsWith('/learn/review?') ||
       url === '/learn/progress/sentences' ||
+      url === '/learn/progress/words' ||
       url.startsWith('/bundles/');
   };
   const safeReturnTo = isAllowedReturnTo(returnTo) ? returnTo : (bundleId ? `/bundles/${bundleId}` : undefined);
@@ -38,7 +39,8 @@ export default async function SentencesReviewPage({ searchParams }: { searchPara
     bundleId ? getBundleReviewSummary(user.id, bundleId) : getReviewNeededSummary(user.id),
     getReviewSentenceOptionPool(user.id, 40),
   ]);
-  const reviewItems = await getReviewSentences(
+  const session = sessionKind === 'review' ? await getSentenceReviewSession(user.id, language, bundleId, optionPool) : null;
+  const reviewItems = session?.items ?? await getReviewSentences(
     user.id,
     sessionKind === 'learning' ? REVIEW_MAX_COUNT : Math.min(reviewNeededSummary.availableSentences, REVIEW_MAX_COUNT),
     sessionKind === 'learning' ? 'unstarted' : 'review',
@@ -50,6 +52,7 @@ export default async function SentencesReviewPage({ searchParams }: { searchPara
     return (
       <ReviewSessionClient
         type="sentences"
+        modeCounts={session?.counts}
         items={reviewItems}
         availableCount={reviewNeededSummary.availableSentences}
         language={language}

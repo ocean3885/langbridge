@@ -1,3 +1,5 @@
+import { getLearningStreakSummary } from '@/lib/supabase/services/learning-daily-activity';
+import { RecentActivitySection } from './RecentActivitySection';
 import { RecentBundleCard } from './RecentBundleCard';
 import { BundleLearningMetrics, getHomeLearningActionLabel } from '../_components/BundleLearningMetrics';
 import Link from 'next/link';
@@ -38,20 +40,21 @@ const copy = {
     loginRequired: '로그인이 필요합니다.',
     goToLogin: '로그인 페이지로 이동',
     learnHome: 'Learn 홈',
-    title: 'Overview',
-    description: '현재 학습 현황을 확인하고 오늘의 학습을 계획해보세요.',
+    title: '학습 현황',
+    description: '차곡차곡 쌓인 학습 기록을 살펴보세요.',
     share: '공유',
     completedBundles: '완료한 번들',
-    completedBundleBasis: '모든 항목을 완료한 번들',
+    completedBundleBasis: '끝까지 학습한 번들이에요',
     learnedSentences: '학습한 문장',
     learnedWords: '학습한 단어',
     reviewNeeded: '복습 필요',
+    noAttempts: '기록 없음',
     sentenceWordCount: (sentences: number, words: number) => `문장 ${sentences} · 단어 ${words}`,
     proficiencyLearning: '학습중',
     proficiencyFamiliar: '익숙함',
     proficiencyAlmostMastered: '숙련',
-    proficiencyMastered: '숙달',
-    todayTitle: '오늘의 학습',
+    proficiencyMastered: '마스터',
+    todayTitle: '지금 추천하는 학습',
     todaySubtitle: '지금 가장 필요한 학습을 추천해드려요.',
     reviewRecommendation: (type: string, count: number) => `${type} ${count}개를 먼저 복습해보세요.`,
     reviewBreakdown: (sentences: number, words: number) => `문장 ${sentences}개 · 단어 ${words}개 복습 필요`,
@@ -62,8 +65,8 @@ const copy = {
     newRecommendationBody: '관심 있는 번들을 골라 첫 학습을 시작할 수 있어요.',
     startReview: '복습 시작',
     browseBundles: '번들 둘러보기',
-    learningRecord: '학습 기록',
-    learningRecordHint: '지금까지의 연습 결과와 학습 활동을 확인해보세요.',
+    learningRecord: '누적 학습 기록',
+    learningRecordHint: '지금까지 쌓아온 연습 기록이에요.',
     practiceAccuracy: '연습 정답률',
     correctAnswers: '총 정답',
     incorrectAnswers: '총 오답',
@@ -80,19 +83,20 @@ const copy = {
     goToLogin: 'Go to Login Page',
     learnHome: 'Learn Home',
     title: 'Overview',
-    description: "Check your progress and plan today's study.",
+    description: "See how far you’ve come with your learning.",
     share: 'Share',
     completedBundles: 'Completed bundles',
-    completedBundleBasis: 'Bundles with every item completed',
+    completedBundleBasis: 'Bundles you’ve finished learning',
     learnedSentences: 'Sentences studied',
     learnedWords: 'Words studied',
     reviewNeeded: 'Review needed',
+    noAttempts: 'No attempts',
     sentenceWordCount: (sentences: number, words: number) => `Sentences ${sentences} · Words ${words}`,
     proficiencyLearning: 'Learning',
     proficiencyFamiliar: 'Familiar',
     proficiencyAlmostMastered: 'Advanced',
     proficiencyMastered: 'Mastered',
-    todayTitle: "Today's Study",
+    todayTitle: 'Recommended next',
     todaySubtitle: 'Here is the most useful thing to study next.',
     reviewRecommendation: (type: string, count: number) => `Review ${count} ${type.toLowerCase()} first.`,
     reviewBreakdown: (sentences: number, words: number) => `${sentences} sentences · ${words} words due`,
@@ -103,8 +107,8 @@ const copy = {
     newRecommendationBody: 'Choose a bundle that interests you and begin your first lesson.',
     startReview: 'Start review',
     browseBundles: 'Explore bundles',
-    learningRecord: 'Learning record',
-    learningRecordHint: 'See your practice results and learning activity so far.',
+    learningRecord: 'Lifetime learning record',
+    learningRecordHint: 'Here’s the practice you’ve put in so far.',
     practiceAccuracy: 'Practice accuracy',
     correctAnswers: 'Correct answers',
     incorrectAnswers: 'Incorrect answers',
@@ -138,12 +142,13 @@ export default async function LearnProgressPage() {
     );
   }
 
-  const [progressSummary, proficiencySummary, activeBundles, recentActivities, reviewSummary] = await Promise.all([
+  const [progressSummary, proficiencySummary, activeBundles, recentActivities, reviewSummary, streakSummary] = await Promise.all([
     getLearningProgressSummary(user.id),
     getLearningProficiencySummary(user.id),
     getActiveLearningBundles(user.id, 6, language),
     getRecentLearningActivities(user.id, { limit: 3, language }),
     getReviewNeededSummary(user.id),
+    getLearningStreakSummary(user.id),
   ]);
 
   const recentBundles = recentActivities;
@@ -187,6 +192,7 @@ export default async function LearnProgressPage() {
               value={formatCount(progressSummary.completedBundles)}
               suffix={language === 'ko' ? '개' : ''}
               footer={t.completedBundleBasis}
+              href="/learn/progress/bundles"
             />
             <OverviewCard
               icon={MessagesSquare}
@@ -195,6 +201,7 @@ export default async function LearnProgressPage() {
               value={formatCount(proficiencySummary.sentences.total)}
               suffix={language === 'ko' ? '개' : ''}
               details={getProficiencyDetails(proficiencySummary.sentences, t)}
+              href="/learn/progress/sentences"
             />
             <OverviewCard
               icon={BookOpen}
@@ -203,6 +210,7 @@ export default async function LearnProgressPage() {
               value={formatCount(proficiencySummary.words.total)}
               suffix={language === 'ko' ? '개' : ''}
               details={getProficiencyDetails(proficiencySummary.words, t)}
+              href="/learn/progress/words"
             />
             <OverviewCard
               icon={RotateCcw}
@@ -221,6 +229,8 @@ export default async function LearnProgressPage() {
             featuredBundle={featuredBundle}
           />
 
+          <RecentActivitySection summary={streakSummary} language={language} />
+
           <section className="mt-7">
             <LearningRecordCard
               language={language}
@@ -231,7 +241,7 @@ export default async function LearnProgressPage() {
           <section className="mt-9">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold tracking-tight">{t.recentTitle}</h2>
-              <Link href="/bundles" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2f7f45] hover:underline dark:text-emerald-300">
+              <Link href="/learn/progress/bundles" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2f7f45] hover:underline dark:text-emerald-300">
                 {t.viewAllBundles}
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -303,9 +313,8 @@ function OverviewCard({
             </div>
           ))}
         </dl>
-      ) : footer ? (
-        <p className="mt-3 hidden text-xs leading-5 text-zinc-600 dark:text-zinc-400 sm:block sm:text-sm lg:mt-4 lg:leading-6">{footer}</p>
       ) : null}
+      {footer && <p className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-400 lg:mt-4">{footer}</p>}
     </article>
   );
 
@@ -330,7 +339,7 @@ function TodayRecommendation({
   const bundleTitle = featuredBundle ? getBundleTitle(featuredBundle.bundle, language) : '';
   const category = featuredBundle ? getCategoryName(featuredBundle.bundle, language) : '';
   const bundleHref = featuredBundle?.learning.href || '/bundles';
-  const href = recommendation ? getReviewHref(recommendation, otherCount) : bundleHref;
+  const href = recommendation ? getReviewHref(recommendation, otherCount, '/learn/progress') : bundleHref;
   const headline = hasReview
     ? t.reviewRecommendation(reviewType, recommendedCount)
     : featuredBundle
@@ -377,7 +386,7 @@ function TodayRecommendation({
 function LearningRecordCard({ language, summary }: { language: DisplayLanguage; summary: Awaited<ReturnType<typeof getLearningProgressSummary>> }) {
   const t = copy[language];
   const rows = [
-    { label: t.practiceAccuracy, value: `${summary.practiceAccuracyPercent}%`, icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300' },
+    { label: t.practiceAccuracy, value: summary.totalCorrectCount + summary.totalIncorrectCount > 0 ? `${summary.practiceAccuracyPercent}%` : t.noAttempts, icon: BarChart3, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300' },
     { label: t.correctAnswers, value: formatCount(summary.totalCorrectCount), icon: CheckCircle2, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' },
     { label: t.incorrectAnswers, value: formatCount(summary.totalIncorrectCount), icon: XCircle, tone: 'bg-rose-50 text-rose-500 dark:bg-rose-950/60 dark:text-rose-300' },
     { label: t.earnedStars, value: formatCount(summary.earnedStars), icon: Star, tone: 'bg-amber-50 text-amber-500 dark:bg-amber-950/60 dark:text-amber-300' },

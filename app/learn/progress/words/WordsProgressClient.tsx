@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Bookmark,
@@ -32,21 +31,21 @@ const PAGE_SIZE = 20;
 
 const copy = {
   ko: {
-    back: 'Overview로 돌아가기', title: 'Words', description: '학습한 단어의 숙련도와 복습 상태를 확인하세요.',
-    startReview: '복습하기', startLearning: '새로 익히기', total: '학습한 단어', due: '복습 필요', mastered: '숙달한 단어', accuracy: '전체 정확도',
+    title: 'Words', description: '학습한 단어의 숙련도와 복습 상태를 확인하세요.',
+    startReview: '복습하기', startLearning: '새로 익히기', total: '학습한 단어', due: '복습 필요', mastered: '마스터한 단어', accuracy: '전체 정확도',
     noAttempts: '기록 없음', distribution: '숙련도 분포', allWords: '내 단어', result: (n: number) => `${n}개 단어`,
     search: '단어나 뜻 검색', status: '상태', pos: '품사', sort: '정렬', all: '전체', pinned: '핀한 단어', hasMemo: '메모 있음',
     priority: '복습 우선', recent: '최근 학습', mistakes: '오답 많은 순', alphabetical: '가나다순',
     word: '단어', proficiency: '숙련도', score: '정답률', review: '복습 상태', lastStudy: '마지막 학습', actions: '작업',
-    now: '지금 복습', today: '오늘 복습', upcoming: '예정', complete: '숙달', notScheduled: '일정 없음', never: '아직 없음',
+    now: '지금 복습', today: '오늘 복습', upcoming: '예정', complete: '마스터', notScheduled: '일정 없음', never: '아직 없음',
     details: '단어 상세', usedForm: '사용 형태', meaning: '뜻', examples: '사용된 문장', noExamples: '아직 연결된 문장이 없습니다.', close: '닫기', posLabel: '품사',
     editMemo: '메모', memoPlaceholder: '이 단어에 대한 학습 메모를 남겨보세요.', save: '저장', saving: '저장 중', saved: '저장됨', saveFailed: '저장하지 못했습니다.',
     emptyTitle: '조건에 맞는 단어가 없습니다.', emptyBody: '검색어나 필터를 바꾸어 확인해보세요.', emptyAllTitle: '아직 학습한 단어가 없습니다.', emptyAllBody: '단어 중심 학습이나 복습을 시작하면 여기에 기록됩니다.', browse: '학습 번들 보기',
     previous: '이전', next: '다음', listen: '단어 듣기', level: '레벨', attempts: (c: number, i: number) => `정답 ${c} · 오답 ${i}`,
-    levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '숙달'],
+    levels: ['시작 전', '학습중', '익숙해지는 중', '익숙함', '숙련', '마스터'],
   },
   en: {
-    back: 'Back to Overview', title: 'Words', description: 'See the proficiency and review status of the words you have studied.',
+    title: 'Words', description: 'See the proficiency and review status of the words you have studied.',
     startReview: 'Review now', startLearning: 'Learn new', total: 'Learned words', due: 'Review due', mastered: 'Mastered', accuracy: 'Overall accuracy',
     noAttempts: 'No attempts', distribution: 'Proficiency distribution', allWords: 'My words', result: (n: number) => `${n} words`,
     search: 'Search words or meanings', status: 'Status', pos: 'Part of speech', sort: 'Sort', all: 'All', pinned: 'Pinned', hasMemo: 'Has memo',
@@ -141,8 +140,7 @@ export default function WordsProgressClient({
         <ProgressSidebar language={language} activeIndex={1} />
         <section className="min-w-0">
         <header className="border-b border-zinc-200 px-4 py-6 dark:border-zinc-800 sm:px-8 lg:px-10">
-          <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div>
             <div className="flex">
               <Link href="/learn/review/words?returnTo=/learn/progress/words" aria-disabled={initialData.summary.due === 0} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-bold text-white ${initialData.summary.due ? 'bg-[#3f9657] hover:bg-[#2f7d4a]' : 'pointer-events-none bg-zinc-300 dark:bg-zinc-700'}`}><Play className="h-4 w-4" />{t.startReview}{initialData.summary.due > 0 && ` (${initialData.summary.due})`}</Link>

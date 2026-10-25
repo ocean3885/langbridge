@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, CircleGauge,
+  ArrowRight, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, CircleGauge,
   Clock3, Filter, FolderOpen, Layers3, Play, RotateCcw, Search, X,
 } from 'lucide-react';
 import ProgressMobileMenu from '../ProgressMobileMenu';
@@ -21,7 +21,7 @@ const PAGE_SIZE = 12;
 
 const copy = {
   ko: {
-    back: 'Overview로 돌아가기', title: 'Bundles', description: '학습 중이거나 완료한 번들의 진행 상황을 확인하세요.', explore: '새 번들 찾기',
+    title: 'Bundles', description: '학습중이거나 완료한 번들의 진행 상황을 확인하세요.', explore: '새 번들 찾기',
     total: '내 번들', active: '학습중', completed: '전체 완료', average: '스타 달성률', averageHelp: '번들별 스타 달성률의 평균입니다. 스타 대상이 없는 번들은 제외합니다.', continueTitle: '이어서 학습', continue: '이어서 학습', start: '학습 시작', details: '상세 보기',
     myBundles: '내 번들 목록', results: (n: number) => `${n}개 번들`, search: '번들 제목이나 설명 검색', status: '상태', category: '카테고리', level: '난이도', sort: '정렬', all: '전체', pinned: '저장한 번들',
     saved: '시작 전', inProgress: '학습중', sentenceCompleted: '문장 완료', wordCompleted: '단어 완료', completedStatus: '전체 완료', recent: '최근 학습순', oldest: '오래된 학습순', highProgress: '달성률 높은 순', lowProgress: '달성률 낮은 순',
@@ -39,7 +39,7 @@ const copy = {
     wordsLabel: '단어 학습', knownWords: (n: number) => `이전에 학습한 단어 ${n}개 포함`,
   },
   en: {
-    back: 'Back to Overview', title: 'Bundles', description: 'Track bundles you are learning or have completed.', explore: 'Explore bundles',
+    title: 'Bundles', description: 'Track bundles you are learning or have completed.', explore: 'Explore bundles',
     total: 'My bundles', active: 'In progress', completed: 'Fully completed', average: 'Star achievement', averageHelp: 'Average star achievement across bundles with star targets.', continueTitle: 'Continue learning', continue: 'Continue', start: 'Start', details: 'View details',
     myBundles: 'My bundle list', results: (n: number) => `${n} bundles`, search: 'Search bundle titles or descriptions', status: 'Status', category: 'Category', level: 'Level', sort: 'Sort', all: 'All', pinned: 'Saved bundles',
     saved: 'Not started', inProgress: 'In progress', sentenceCompleted: 'Sentences complete', wordCompleted: 'Words complete', completedStatus: 'Fully completed', recent: 'Recently studied', oldest: 'Oldest studied', highProgress: 'Highest achievement', lowProgress: 'Lowest achievement',
@@ -100,7 +100,7 @@ export default function BundlesProgressClient({ initialData, language }: { initi
     <div className="grid min-h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-zinc-950 lg:grid-cols-[238px_minmax(0,1fr)] lg:rounded-xl lg:border lg:border-zinc-200 lg:dark:border-zinc-800">
       <ProgressSidebar language={language} activeIndex={3} />
       <section className="min-w-0">
-        <header className="border-b border-zinc-200 px-4 py-6 dark:border-zinc-800 sm:px-8 lg:px-10"><Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-[#2f7d4a] dark:text-zinc-400"><ArrowLeft className="h-4 w-4" />{t.back}</Link><div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div><Link href="/bundles" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#3f9657] px-5 text-sm font-bold text-white hover:bg-[#2f7d4a]"><FolderOpen className="h-4 w-4" />{t.explore}</Link></div></header>
+        <header className="border-b border-zinc-200 px-4 py-6 dark:border-zinc-800 sm:px-8 lg:px-10"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-bold sm:text-4xl">{t.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{t.description}</p></div><Link href="/bundles" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#3f9657] px-5 text-sm font-bold text-white hover:bg-[#2f7d4a]"><FolderOpen className="h-4 w-4" />{t.explore}</Link></div></header>
         <div className="px-4 py-6 sm:px-8 lg:px-10">
           <section className="grid grid-cols-2 gap-3 xl:grid-cols-4"><SummaryItem icon={Layers3} label={t.total} value={initialData.summary.total} tone="green" /><SummaryItem icon={Clock3} label={t.active} value={initialData.summary.active} tone="coral" /><SummaryItem icon={CheckCircle2} label={t.completed} value={initialData.summary.completed} tone="blue" /><SummaryItem icon={CircleGauge} label={t.average} description={t.averageHelp} value={`${initialData.summary.averageStarAchievement}%`} tone="amber" /></section>
           <section className="mt-8"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">{t.myBundles}</h2><span className="text-sm font-medium text-zinc-500">{t.results(filtered.length)}</span></div>

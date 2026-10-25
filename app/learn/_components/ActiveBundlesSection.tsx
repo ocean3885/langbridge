@@ -17,6 +17,7 @@ const copy = {
     viewAll: '전체 보기',
     collapse: '접기',
     continue: '계속하기',
+    bundleDetails: '번들 상세',
     completedItems: (completed: number, total: number) => `${completed} / ${total} 완료`,
     emptyTitle: '진행 중인 번들이 없습니다',
     emptyDescription: '관심 있는 번들을 선택하고 학습을 시작하면 여기에 표시됩니다.',
@@ -33,6 +34,7 @@ const copy = {
     viewAll: 'View all',
     collapse: 'Collapse',
     continue: 'Continue',
+    bundleDetails: 'Bundle details',
     completedItems: (completed: number, total: number) => `${completed} of ${total} completed`,
     emptyTitle: 'No active bundles yet',
     emptyDescription: 'Start learning from a bundle and it will appear here.',
@@ -123,7 +125,7 @@ function ActiveBundleRow({
   const imageSrc = item.bundle.thumbnail_url || '/images/bundle-fallback.webp';
   const lastStudied = formatRelativeStudyDate(item.interaction.last_studied_at, language);
   const level = getBundleLevelDisplay(item.bundle.level, language);
-  const href = item.learning.href;
+  const href = item.learning.action === 'details' ? `/bundles/${item.bundle.id}?from=learn` : item.learning.href;
 
   return (
     <article
@@ -131,7 +133,7 @@ function ActiveBundleRow({
     >
       {/* Left Thumbnail + Content */}
       <div className="flex flex-1 min-w-0 items-start sm:items-center gap-3.5 sm:gap-4">
-        <Link href={`/bundles/${item.bundle.id}`} className="relative block aspect-[16/10] w-24 sm:w-28 md:w-32 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
+        <Link href={`/bundles/${item.bundle.id}?from=learn`} className="relative block aspect-[16/10] w-24 sm:w-28 md:w-32 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
           <Image
             src={imageSrc}
             alt={title}
@@ -158,17 +160,26 @@ function ActiveBundleRow({
             )}
           </div>
           <h3 className="mt-1 truncate text-base sm:text-lg font-bold text-zinc-900 group-hover:text-[#2f7d4a] dark:text-zinc-100 dark:group-hover:text-emerald-400 transition-colors">
-            <Link href={`/bundles/${item.bundle.id}`}>{title}</Link>
+            <Link href={`/bundles/${item.bundle.id}?from=learn`}>{title}</Link>
           </h3>
           <BundleLearningMetrics learning={item.learning} language={language} />
         </div>
       </div>
 
-      {/* Right: Continue button */}
-      <Link href={href} className="inline-flex shrink-0 min-h-9 items-center justify-center gap-1.5 self-end sm:self-center rounded-lg bg-[#3f9657] px-4 py-2 text-xs font-bold text-white shadow-xs transition group-hover:bg-[#2f7d4a] active:scale-95 whitespace-nowrap">
-        <Play className="h-3.5 w-3.5 fill-current" />
-        <span>{getHomeLearningActionLabel(item.learning.action, language)}</span>
-      </Link>
+      <div className="flex shrink-0 flex-wrap justify-end gap-2 sm:flex-col">
+        <Link href={href} className="inline-flex shrink-0 min-h-9 items-center justify-center gap-1.5 rounded-lg bg-[#3f9657] px-4 py-2 text-xs font-bold text-white shadow-xs transition group-hover:bg-[#2f7d4a] active:scale-95 whitespace-nowrap">
+          <Play className="h-3.5 w-3.5 fill-current" />
+          <span>{getHomeLearningActionLabel(item.learning.action, language)}</span>
+        </Link>
+        {item.learning.action !== 'details' && (
+          <Link
+            href={`/bundles/${item.bundle.id}?from=learn`}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-zinc-200 px-4 py-2 text-xs font-bold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            {t.bundleDetails}
+          </Link>
+        )}
+      </div>
     </article>
   );
 }

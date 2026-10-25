@@ -13,9 +13,6 @@ import type { LearningGoalSummary } from '@/lib/supabase/services/learning-goal-
 import type { ReviewNeededSummary } from '@/lib/supabase/services/learning-review';
 import { getBundleTitle, getCategoryName } from '../../bundles/bundle-utils';
 import { BundleLearningMetrics, getHomeLearningActionLabel } from './BundleLearningMetrics';
-import { PracticeModeIcon } from '@/components/practice/PracticeModeIcon';
-import { practiceModeColors } from '@/components/practice/practice-mode-colors';
-import { PRACTICE_REGISTRY } from '@/lib/practice/registry';
 import { ActiveBundlesSection } from './ActiveBundlesSection';
 import { GoalCard } from './ProgressCards';
 import { ReviewNeededSection } from './ReviewNeededSection';
@@ -33,6 +30,8 @@ const continueLearningCopy = {
     completedItems: (completed: number, total: number) => `${completed} / ${total} 완료`,
     fallbackPreview: '이어서 학습을 시작해보세요.',
     continueLesson: '학습 계속하기',
+    bundleDetails: '번들 상세',
+    practiceHint: '다양한 연습 모드는 번들 상세에서 선택할 수 있어요.',
     emptyTitle: '학습할 번들을 선택해보세요',
     emptyDescription: '학습 번들을 선택하면 진행 상황이 여기에 표시됩니다.',
     browseBundles: '번들 둘러보기',
@@ -48,6 +47,8 @@ const continueLearningCopy = {
     completedItems: (completed: number, total: number) => `${completed} of ${total} completed`,
     fallbackPreview: 'Pick up where you left off.',
     continueLesson: 'Continue Lesson',
+    bundleDetails: 'Bundle details',
+    practiceHint: 'Choose from available practice modes on the bundle details page.',
     emptyTitle: 'Choose a bundle to learn',
     emptyDescription: 'Choose a lesson bundle and your progress will appear here.',
     browseBundles: 'Browse Bundles',
@@ -77,9 +78,6 @@ const loggedInSectionCopy = {
   ko: {
     todaySummary: '오늘 학습 요약',
     exploreBundles: '새로운 번들 탐색하기',
-    quickPractice: '빠른 연습',
-    quickPracticeDescriptionPrefix: '최근 학습하던',
-    quickPracticeDescriptionSuffix: '번들로 돌아가 가볍게 복습해 보세요.',
     progressTitle: '학습 현황',
     learnedSentences: '학습한 문장',
     learnedWords: '학습한 단어',
@@ -91,9 +89,6 @@ const loggedInSectionCopy = {
   en: {
     todaySummary: "Today's Summary",
     exploreBundles: 'Explore More Bundles',
-    quickPractice: 'Quick Practice',
-    quickPracticeDescriptionPrefix: 'Jump back into',
-    quickPracticeDescriptionSuffix: 'with a short practice session.',
     progressTitle: 'Your Progress',
     learnedSentences: 'Sentences studied',
     learnedWords: 'Words studied',
@@ -149,7 +144,6 @@ export function LoggedInLearnPage({
           language={language}
         />
         {recommendedBundles.length > 0 && <ExploreBundlesSection bundles={recommendedBundles} language={language} />}
-        <QuickPracticeSection recentBundle={recentBundle} language={language} />
       </div>
 
       <LearnSidebar
@@ -224,7 +218,7 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
     (language === 'ko' ? bundle.description || bundle.description_en : bundle.description_en || bundle.description) ||
     t.fallbackPreview;
   const lastStudiedLabel = formatRelativeStudyDate(interaction.last_studied_at, language);
-  const learnHref = learning.href;
+  const learnHref = learning.action === 'details' ? `/bundles/${bundle.id}?from=learn` : learning.href;
 
   return (
     <section>
@@ -233,7 +227,7 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
         titleClassName={`${getDisplayHeadingClass(language)} text-2xl`}
       />
       <div className="mt-4 grid grid-cols-1 gap-5 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-center lg:gap-7">
-        <Link href={`/bundles/${bundle.id}`} className="relative block aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
+        <Link href={`/bundles/${bundle.id}?from=learn`} className="relative block aspect-video overflow-hidden rounded-lg bg-[#f3ede3] dark:bg-zinc-800">
           <Image
             src={imageSrc}
             alt={title}
@@ -260,11 +254,11 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
               </span>
             )}
           </div>
-          <h2 className={`mt-3 break-words ${getDisplayHeadingClass(language)} text-2xl sm:text-3xl font-bold`}><Link href={`/bundles/${bundle.id}`}>{title}</Link></h2>
+          <h2 className={`mt-3 break-words ${getDisplayHeadingClass(language)} text-2xl sm:text-3xl font-bold`}><Link href={`/bundles/${bundle.id}?from=learn`}>{title}</Link></h2>
           <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">{currentLabel}</p>
           <p className="mt-2 line-clamp-2 text-sm sm:text-base leading-relaxed text-zinc-600 dark:text-zinc-300">{sentencePreview}</p>
           <BundleLearningMetrics learning={learning} language={language} />
-          <div className="mt-6 flex items-center justify-center gap-4 lg:justify-start">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <Link
               href={learnHref}
               className="inline-flex items-center gap-2 rounded-lg bg-[#3f9657] px-6 py-2.5 text-sm font-bold text-white shadow-xs transition hover:bg-[#2f7d4a] active:scale-95"
@@ -272,7 +266,17 @@ export function ContinueLearningSection({ recentBundle, language }: { recentBund
               <Play className="h-4 w-4 fill-current" />
               <span>{getHomeLearningActionLabel(learning.action, language)}</span>
             </Link>
+            {learning.action !== 'details' && (
+              <Link
+                href={`/bundles/${bundle.id}?from=learn`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-200 px-5 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {t.bundleDetails}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
           </div>
+          {learning.modes.length > 0 && <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{t.practiceHint}</p>}
         </div>
       </div>
     </section>
@@ -334,7 +338,7 @@ export function ExploreBundlesSection({ bundles, language }: { bundles: any[]; l
           return (
             <Link
               key={bundle.id}
-              href={`/bundles/${bundle.id}`}
+              href={`/bundles/${bundle.id}?from=learn`}
               className="group flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs transition hover:border-[#8bbf87] hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
             >
               <div className="p-4 sm:p-5">
@@ -364,57 +368,6 @@ export function ExploreBundlesSection({ bundles, language }: { bundles: any[]; l
     </section>
   );
 }
-
-export function QuickPracticeSection({ recentBundle, language }: { recentBundle: RecentStudiedBundle | null; language: DisplayLanguage }) {
-  if (!recentBundle) return null;
-
-  const t = loggedInSectionCopy[language];
-  const title = getRecentBundleTitle(recentBundle, language);
-  const practiceItems = recentBundle.learning.modes;
-  if (!practiceItems.length) return null;
-
-  return (
-    <section>
-      <h2 className={`${getDisplayHeadingClass(language)} text-2xl`}>{t.quickPractice}</h2>
-      <p className="mt-2 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">
-        {t.quickPracticeDescriptionPrefix}{' '}
-        <strong className="font-bold text-zinc-800 dark:text-zinc-100">"{title}"</strong>{' '}
-        {t.quickPracticeDescriptionSuffix}
-      </p>
-      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-5">
-        {practiceItems.map((item) => (
-          <Link
-            key={item.mode}
-            href={item.href}
-            className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 dark:hover:bg-zinc-800"
-          >
-            <div className="flex min-w-0 items-center gap-4">
-              <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${practiceModeColors[item.mode]}`}>
-                <PracticeModeIcon mode={item.mode} className="h-7 w-7" />
-              </span>
-              <span className="min-w-0">
-                <strong className="block break-words">{language === 'ko' ? quickModeLabels[item.mode] : PRACTICE_REGISTRY[item.mode].label}</strong>
-                <span className="line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">{item.completed ? (language === 'ko' ? '복습하기' : 'Review again') : (language === 'ko' ? '이어서 연습하기' : 'Continue practicing')}</span>
-              </span>
-            </div>
-            <ArrowRight className="h-5 w-5 shrink-0" />
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function getRecentBundleTitle(recentBundle: RecentStudiedBundle, language: DisplayLanguage) {
-  return language === 'ko'
-    ? recentBundle.bundle.title || recentBundle.bundle.title_en || continueLearningCopy[language].fallbackTitle
-    : recentBundle.bundle.title_en || recentBundle.bundle.title || continueLearningCopy[language].fallbackTitle;
-}
-
-const quickModeLabels = {
-  quiz: '문장 퀴즈', scramble: '스크램블', wordfill: '단어 채우기', spelling: '스펠링',
-  flashcards: '문장 플래시카드', word_quiz: '단어 퀴즈', word_flashcards: '단어 플래시카드',
-};
 
 function LearnSidebar({
   streakSummary,

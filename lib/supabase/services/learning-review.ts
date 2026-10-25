@@ -1,7 +1,7 @@
 'use server';
 
 import { cache } from 'react';
-import { compareReviewPriority, reviewPriority, REVIEW_DEFAULT_COUNT, type ReviewPriority } from '@/lib/learning/review-session';
+import { buildSentenceReviewSession, compareReviewPriority, reviewPriority, REVIEW_DEFAULT_COUNT, type ReviewPriority } from '@/lib/learning/review-session';
 import { getBundleAccess } from '@/lib/bundle-access';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -291,9 +291,12 @@ export async function getReviewSentences(userId: string, limit = 20, scope: Scop
   const filtered = bundleId ? candidates.filter(row => row.item.bundle_id === bundleId) : candidates;
   const items = filtered.filter(row => inScope(row.interaction, scope, now)).slice(0, Math.floor(limit)).map(row => row.item);
   if (!details || !items.length) return items;
-  const data = await readAll<{ id: number; word_sentence_map: ReviewSentenceWordMap[] }>((from, to) => createAdminClient().from('sentences')
-    .select('id, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en)))')
-    .in('id', items.map(item => item.id)).order('id').range(from, to));
+  const data: { id: number; word_sentence_map: ReviewSentenceWordMap[] }[] = [];
+  for (let offset = 0; offset < items.length; offset += 100) {
+    data.push(...await readAll<{ id: number; word_sentence_map: ReviewSentenceWordMap[] }>((from, to) => createAdminClient().from('sentences')
+      .select('id, word_sentence_map(id, used_as, word_id, words(id, word, meaning_ko, meaning_en, pos, words_distractor(distractor, meaning_ko, meaning_en)))')
+      .in('id', items.slice(offset, offset + 100).map(item => item.id)).order('id').range(from, to)));
+  }
   const byId = new Map((data || []).map(row => [Number(row.id), row.word_sentence_map]));
   return items.map(item => ({ ...item, word_maps: (byId.get(item.id) || []) as ReviewSentenceWordMap[] }));
 }
@@ -370,6 +373,7 @@ export async function getBundleReviewSummary(userId: string, bundleId: string): 
 
 export interface ReviewDueBundle {
   id: string;
+  thumbnail_url: string | null;
   title: string;
   title_en: string | null;
   category_name: string;
@@ -426,7 +430,7 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
     const slice = bundleIds.slice(i, i + 100);
     const { data } = await db
       .from('bundle')
-      .select('id, title, title_en, is_published, access_level, bundle_category(name, name_en, icon_image_url)')
+      .select('id, title, title_en, thumbnail_url, is_published, access_level, bundle_category(name, name_en, icon_image_url)')
       .in('id', slice)
       .eq('is_published', true);
     if (data) bundlesData.push(...data);
@@ -538,6 +542,7 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
       id: bId,
       title: bundle.title || '',
       title_en: bundle.title_en || null,
+      thumbnail_url: bundle.thumbnail_url || null,
       category_name: category?.name || '',
       category_name_en: category?.name_en || null,
       category_icon: category?.icon_image_url || null,
@@ -569,4 +574,9 @@ export async function getReviewBundlesSummary(userId: string): Promise<ReviewDue
     }
     return (b.lastStudiedAt || '').localeCompare(a.lastStudiedAt || '');
   });
+}
+
+export async function getSentenceReviewSession(userId: string, language: 'ko' | 'en', bundleId?: string, optionPool?: ReviewSentenceItem[]) {
+  const items = await getReviewSentences(userId, Number.MAX_SAFE_INTEGER, 'review', true, bundleId);
+  return buildSentenceReviewSession(items, language, optionPool);
 }

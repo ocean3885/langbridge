@@ -1040,6 +1040,10 @@ test('new bundle detail renders zero local words and a listening start action de
     isLoggedIn: true, access: { canView: true }, wordProgress: completion.wordProgress,
   };
   const html = renderToStaticMarkup(React.createElement(Detail, props));
+  assert.ok(html.includes('href="/bundles"'));
+  const fromLearnHtml = renderToStaticMarkup(React.createElement(Detail, { ...props, fromLearn: true }));
+  assert.ok(fromLearnHtml.includes('href="/learn"'));
+  assert.ok(!fromLearnHtml.includes('href="/bundles"'));
   assert.ok(html.includes('듣기로 시작하기'));
   assert.ok(html.includes('아직 청취 기록이 없습니다'));
   assert.ok(html.includes('이전에 학습한 단어 1개 포함'));
@@ -1097,7 +1101,7 @@ test('home cards render matching metrics, correct actions and actual content cou
     './StreakCard': { StreakCard: () => null },
     './ReviewNeededSection': { ReviewNeededSection: () => null },
   });
-  const { ContinueLearningSection, QuickPracticeSection, ExploreBundlesSection } = ui('app/learn/_components/LoggedInLearnPage');
+  const { ContinueLearningSection, ExploreBundlesSection } = ui('app/learn/_components/LoggedInLearnPage');
   const { ActiveBundlesSection } = ui('app/learn/_components/ActiveBundlesSection');
   const { RecentBundleCard } = ui('app/learn/progress/RecentBundleCard');
   const { getHomeBundleLearning } = load('lib/practice/bundle-home');
@@ -1119,12 +1123,10 @@ test('home cards render matching metrics, correct actions and actual content cou
     assert.ok(!html.includes('width:75%'));
     assert.ok(html.includes('이전에 학습한 단어 1개 포함'));
     assert.ok(html.includes('href="/bundles/b1/spelling"'));
-    assert.ok(html.includes('href="/bundles/b1"'));
+    assert.ok(html.includes(Component === RecentBundleCard ? 'href="/bundles/b1"' : 'href="/bundles/b1?from=learn"'));
     assert.ok(!html.includes('이어서 듣기'));
+    if (Component !== RecentBundleCard) assert.ok(html.includes('번들 상세'));
   }
-  const quick = renderToStaticMarkup(React.createElement(QuickPracticeSection, { recentBundle, language: 'ko' }));
-  assert.ok(quick.indexOf('/spelling') < quick.indexOf('/quiz'));
-  assert.ok(quick.includes('복습하기'));
   const explore = renderToStaticMarkup(React.createElement(ExploreBundlesSection, { bundles: [{ ...bundle, sentence_count: 1, study_words_count: 2, bundle_items: [{ count: 99 }] }], language: 'ko' }));
   assert.ok(explore.includes('문장 1개 · 단어 2개'));
   assert.ok(!explore.includes('99개 문장'));

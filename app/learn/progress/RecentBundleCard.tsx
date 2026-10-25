@@ -10,6 +10,11 @@ export function RecentBundleCard({ item, language }: { item: RecentLearningActiv
   const title = getBundleTitle(item.bundle, language);
   const category = getCategoryName(item.bundle, language);
   const { learning } = item;
+  const lastStudied = item.interaction.last_studied_at;
+  const date = lastStudied ? new Date(lastStudied) : null;
+  const dateLabel = date && !Number.isNaN(date.getTime())
+    ? new Intl.DateTimeFormat(language === 'ko' ? 'ko-KR' : 'en', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'short', day: 'numeric' }).format(date)
+    : null;
 
   return (
     <article className="flex min-w-0 flex-col rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -28,6 +33,7 @@ export function RecentBundleCard({ item, language }: { item: RecentLearningActiv
           <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{category}</p>
         </div>
       </div>
+      {dateLabel && <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{language === 'ko' ? '최근 학습' : 'Last studied'} · <time dateTime={lastStudied!}>{dateLabel}</time></p>}
       <div className="mb-5"><BundleLearningMetrics learning={learning} language={language} /></div>
       <Link href={learning.href} className="mt-auto inline-flex w-full justify-center rounded-md border border-zinc-200 px-4 py-2.5 text-sm font-bold text-[#2f7f45] transition hover:border-[#8bbf87] hover:bg-[#f8fcf7] dark:border-zinc-700 dark:text-emerald-300">
         {getHomeLearningActionLabel(learning.action, language)}

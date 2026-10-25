@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, MessagesSquare } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle2, MessagesSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { getReviewBundlesSummary, getReviewNeededSummary, getReviewSentences } from '@/lib/supabase/services/learning-review';
@@ -35,8 +35,7 @@ export default async function ReviewPage() {
     <div className="grid min-h-[calc(100vh-140px)] grid-cols-1 overflow-hidden bg-white dark:bg-zinc-950 lg:grid-cols-[238px_minmax(0,1fr)] lg:rounded-xl lg:border lg:border-zinc-200 lg:dark:border-zinc-800">
       <ProgressSidebar language={language} activeIndex={4} />
       <section className="min-w-0 px-4 py-7 sm:px-8 lg:px-10">
-        <Link href="/learn/progress" className="inline-flex items-center gap-2 text-sm text-zinc-500"><ArrowLeft className="h-4 w-4" />{ko ? '학습 현황으로' : 'Back to overview'}</Link>
-        <h1 className="mt-4 text-3xl font-bold sm:text-4xl">{ko ? '복습' : 'Review'}</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">{ko ? '복습' : 'Review'}</h1>
         <p className="mt-3 text-sm text-zinc-500">{ko ? '짧게 복습하고, 배운 내용을 오래 기억하세요.' : 'A short review helps you remember what you have learned.'}</p>
         {plan ? <section className="mt-7 rounded-xl border border-green-200 bg-green-50 p-5 dark:border-green-900 dark:bg-green-950/20 sm:p-7">
           <p className="text-sm font-bold text-green-700 dark:text-green-300">{ko ? '추천 복습' : 'Recommended review'} · {modes[mode]}</p>
