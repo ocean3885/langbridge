@@ -12,12 +12,16 @@ export function normalizeScrambleWords(sentence: string) {
     .filter(Boolean);
 }
 
+export function isScrambleEligibleSentence(sentence: string) {
+  return normalizeScrambleWords(sentence).length >= 2;
+}
+
 export function buildScrambleQuestion(sentence: string, proficiencyLevel = 0) {
   const words = normalizeScrambleWords(sentence);
   const beginner = !Number.isFinite(proficiencyLevel) || proficiencyLevel < 2;
   const maxPieces = beginner ? 6 : 8;
-  // Keep at least two pieces when possible. Short sentences remain individual words.
-  const desiredPieces = beginner ? Math.ceil(words.length / 2) : words.length;
+  // Keep short sentences (<= 4 words) as individual words and at least 4 pieces when grouping longer sentences.
+  const desiredPieces = beginner ? Math.max(4, Math.ceil(words.length / 2)) : words.length;
   const pieceCount = Math.min(words.length, maxPieces, Math.max(2, desiredPieces));
   const tokens: AdaptiveScrambleToken[] = [];
   for (let index = 0; index < pieceCount; index++) {
@@ -25,8 +29,8 @@ export function buildScrambleQuestion(sentence: string, proficiencyLevel = 0) {
     const to = Math.floor((index + 1) * words.length / pieceCount);
     tokens.push({ id: index, text: words.slice(from, to).join(' ') });
   }
-  // Never supply the entire answer for a one-word sentence.
-  const fixedTokens = beginner && tokens.length > 1 ? tokens.slice(0, 1) : [];
+  // Only reveal the first piece when enough selectable pieces remain (at least 3 selectable pieces).
+  const fixedTokens = beginner && tokens.length >= 4 ? tokens.slice(0, 1) : [];
   return {
     tokens,
     fixedTokens,

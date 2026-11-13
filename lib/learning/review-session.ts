@@ -1,6 +1,7 @@
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { getReviewDueAt, type ReviewDueInteraction } from './review-schedule';
 import { getWordFillMapCandidates, type PracticeLanguage } from '@/lib/practice/registry';
+import { isScrambleEligibleSentence } from '@/lib/practice/scramble';
 import type { ReviewSentenceItem } from '@/lib/supabase/services/learning-review';
 
 export const REVIEW_DEFAULT_COUNT = 10;
@@ -43,6 +44,7 @@ export function reviewWordFillMaps(item: ReviewSentenceItem) {
 
 export function sentenceReviewItems(items: ReviewSentenceItem[], mode: SentenceReviewMode, language: PracticeLanguage, optionPool?: ReviewSentenceItem[]) {
   if (mode === 'wordfill') return items.filter(item => reviewWordFillMaps(item).length > 0);
+  if (mode === 'scramble') return items.filter(item => isScrambleEligibleSentence(item.sentence));
   if (mode === 'quiz') {
     const pool = optionPool && optionPool.length > 0 ? optionPool : items;
     const translation = (item: ReviewSentenceItem) => (language === 'en' ? item.translation_en : item.translation) || item.translation;
@@ -52,7 +54,10 @@ export function sentenceReviewItems(items: ReviewSentenceItem[], mode: SentenceR
 }
 
 export function defaultSentenceReviewMode(items: ReviewSentenceItem[], language: PracticeLanguage, optionPool?: ReviewSentenceItem[]): SentenceReviewMode {
-  return sentenceReviewItems(items, 'quiz', language, optionPool).length === items.length && items.length > 0 ? 'quiz' : 'scramble';
+  if (sentenceReviewItems(items, 'quiz', language, optionPool).length === items.length && items.length > 0) return 'quiz';
+  if (sentenceReviewItems(items, 'scramble', language, optionPool).length > 0) return 'scramble';
+  if (sentenceReviewItems(items, 'wordfill', language, optionPool).length > 0) return 'wordfill';
+  return 'flashcards';
 }
 
 export function parseReviewSettings(params: { mode?: string; count?: string; start?: string }, type: 'words' | 'sentences') {

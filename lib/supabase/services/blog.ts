@@ -41,6 +41,13 @@ export type BlogPost = {
   canonicalUrl?: string;
 };
 
+export type LinkedBlogPostSummary = {
+  slug: string;
+  title: string;
+  description: string;
+  readingMinutes: number;
+};
+
 export type BlogPromptContext = {
   categories: {
     slug: string;
@@ -411,6 +418,68 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
   }
 
   return data ? mapBlogPost(data as unknown as BlogPostRow) : null;
+}
+
+export async function getLinkedBlogPostSummary(slug: string | null | undefined): Promise<LinkedBlogPostSummary | null> {
+  const normalizedSlug = typeof slug === 'string' ? slug.trim() : '';
+  if (!normalizedSlug) return null;
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('slug, title, description, reading_minutes, status')
+    .eq('slug', normalizedSlug)
+    .eq('status', 'published')
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    slug: data.slug,
+    title: data.title,
+    description: data.description,
+    readingMinutes: data.reading_minutes ?? 3,
+  };
+}
+
+export async function getPublishedBundleByBlogSlug(slug: string, preferredBundleId?: string | null): Promise<{
+  id: string;
+  title: string;
+  title_en: string | null;
+  description: string | null;
+  description_en: string | null;
+} | null> {
+  const normalizedSlug = typeof slug === 'string' ? slug.trim() : '';
+  if (!normalizedSlug) return null;
+
+  const supabase = createAdminClient();
+
+  if (preferredBundleId) {
+    const { data: preferred } = await supabase
+      .from('bundle')
+      .select('id, title, title_en, description, description_en')
+      .eq('id', preferredBundleId)
+      .eq('is_published', true)
+      .maybeSingle();
+    if (preferred) return preferred;
+  }
+
+  const { data, error } = await supabase
+    .from('bundle')
+    .select('id, title, title_en, description, description_en')
+    .eq('blog_post_slug', normalizedSlug)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
 }
 
 export async function getAdminBlogPosts(): Promise<AdminBlogPostListItem[]> {

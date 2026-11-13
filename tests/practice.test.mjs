@@ -517,12 +517,44 @@ test('scramble never supplies the whole answer and rejects empty questions', () 
     assert.equal(question.tokens.length, 0);
     assert.equal(isScrambleAnswerCorrect(question, []), false);
   }
-  for (const text of ['¡Hola!', 'Buenos días', 'Me gusta café']) {
+  for (const text of ['¡Hola!', 'Buenos días', 'Me gusta café', 'Yo quiero tomar café']) {
     const question = buildScrambleQuestion(text, 0);
     assert.ok(question.selectableTokens.length > 0);
     assert.equal(isScrambleAnswerCorrect(question, []), false);
     assert.equal(isScrambleAnswerCorrect(question, question.selectableTokens), true);
   }
+  // Short sentences (<= 4 words) are not grouped and always leave at least 2 selectable tokens (3+ for 3-4 word sentences).
+  const twoWords = buildScrambleQuestion('Buenos días', 0);
+  assert.equal(twoWords.grouped, false);
+  assert.deepEqual(twoWords.fixedTokens, []);
+  assert.deepEqual(twoWords.selectableTokens.map(t => t.text), ['buenos', 'días']);
+
+  const threeWords = buildScrambleQuestion('Me gusta café', 0);
+  assert.equal(threeWords.grouped, false);
+  assert.deepEqual(threeWords.fixedTokens, []);
+  assert.deepEqual(threeWords.selectableTokens.map(t => t.text), ['me', 'gusta', 'café']);
+
+  const fourWords = buildScrambleQuestion('Yo quiero tomar café', 0);
+  assert.equal(fourWords.grouped, false);
+  assert.deepEqual(fourWords.fixedTokens.map(t => t.text), ['yo']);
+  assert.deepEqual(fourWords.selectableTokens.map(t => t.text), ['quiero', 'tomar', 'café']);
+
+  // 1-word sentences are excluded from scramble eligibility in bundle practice and review.
+  const oneWordItem = { id: 's-one', sentences: { sentence: '¡Hola!', translation: '안녕!' } };
+  const twoWordItem = { id: 's-two', sentences: { sentence: 'Buenos días', translation: '좋은 아침' } };
+  assert.deepEqual(getEligiblePracticeItems([oneWordItem, twoWordItem], 'scramble', 'ko'), [twoWordItem]);
+  const { sentenceReviewItems } = load('lib/learning/review-session');
+  assert.deepEqual(
+    sentenceReviewItems(
+      [
+        { id: 1, sentence: '¡Hola!', translation: '안녕!', word_maps: [] },
+        { id: 2, sentence: 'Buenos días', translation: '좋은 아침', word_maps: [] },
+      ],
+      'scramble',
+      'ko',
+    ).map(item => item.id),
+    [2],
+  );
 });
 
 // Exercise client event handlers with a minimal hook runner (no DOM or network).
@@ -790,7 +822,7 @@ test('bundle list uses the same mastery stars and listening totals as bundle det
   ];
   const items = [
     { ...sentence, bundle_id: 'b1' },
-    { id: 's2', bundle_id: 'b1', sentences: { sentence: 'adios', translation_en: 'goodbye' } },
+    { id: 's2', bundle_id: 'b1', sentences: { sentence: 'hasta luego', translation_en: 'goodbye' } },
   ];
   const tables = {
     user_bundle_interactions: [{ bundle_id: 'b1', is_started: true, is_completed: true }, { bundle_id: 'b2' }],
@@ -958,7 +990,7 @@ test('completion loader exhausts item pages and does not borrow another user’s
   const loader = loadPracticeModules({ '@/lib/supabase/admin': { createAdminClient: () => db } })('lib/supabase/services/bundle-completion');
   db.tables.bundle_items = Array.from({ length: 1001 }, (_, index) => ({
     id: `item-${index}`, bundle_id: 'b1', sentence_id: index,
-    sentences: { sentence: 'hola', translation: '안녕' },
+    sentences: { sentence: 'hola amigo', translation: '안녕' },
   }));
   db.tables.user_bundle_item_interactions = db.tables.bundle_items.map(item => ({
     user_id: 'u1', bundle_id: 'b1', bundle_item_id: item.id,
@@ -1084,7 +1116,7 @@ test('home actions separate listening history from word progress and prioritize 
   assert.equal(wordsOnly.sentenceCount, 0);
   assert.equal(wordsOnly.totalWords, 1);
   assert.deepEqual(wordsOnly.modes.map(mode => mode.mode).sort(), ['spelling', 'word_flashcards', 'word_quiz']);
-  const sentenceOnly = getHomeBundleLearning('b3', state([{ id: 's3', sentences: { sentence: 'adios', translation: '안녕' } }]), null);
+  const sentenceOnly = getHomeBundleLearning('b3', state([{ id: 's3', sentences: { sentence: 'hasta luego', translation: '안녕' } }]), null);
   assert.deepEqual(sentenceOnly.modes.map(mode => mode.mode).sort(), ['flashcards', 'quiz', 'scramble']);
   const empty = getHomeBundleLearning('b4', state([]), null);
   assert.equal(empty.action, 'details');

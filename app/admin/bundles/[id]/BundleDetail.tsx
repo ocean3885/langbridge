@@ -28,12 +28,14 @@ export default function BundleDetail({
   bundle: initialBundle, 
   items, 
   words = [],
-  initialStudyWordIds = []
+  initialStudyWordIds = [],
+  blogPosts = []
 }: { 
   bundle: any; 
   items: any[]; 
   words?: any[];
   initialStudyWordIds?: number[];
+  blogPosts?: { slug: string; title: string; status: string }[];
 }) {
   const router = useRouter();
   const [bundle, setBundle] = useState(initialBundle);
@@ -58,6 +60,7 @@ export default function BundleDetail({
   const [isRegeneratingItemAudio, setIsRegeneratingItemAudio] = useState(false);
   const [itemTtsOptions, setItemTtsOptions] = useState(defaultAdminTtsOptions);
   const [isSentenceListCopied, setIsSentenceListCopied] = useState(false);
+  const [isBlogPromptCopied, setIsBlogPromptCopied] = useState(false);
   
   // Edit Form State
   const [editForm, setEditForm] = useState({
@@ -71,7 +74,8 @@ export default function BundleDetail({
     category_id: initialBundle.category_id,
     type_id: initialBundle.type_id,
     image_url: initialBundle.image_url || '',
-    thumbnail_url: initialBundle.thumbnail_url || ''
+    thumbnail_url: initialBundle.thumbnail_url || '',
+    blog_post_slug: initialBundle.blog_post_slug || ''
   });
 
   const [itemMappings, setItemMappings] = useState<{ [key: string]: string | null }>(
@@ -265,7 +269,8 @@ export default function BundleDetail({
       category_id: bundle.category_id,
       type_id: bundle.type_id,
       image_url: bundle.image_url || '',
-      thumbnail_url: bundle.thumbnail_url || ''
+      thumbnail_url: bundle.thumbnail_url || '',
+      blog_post_slug: bundle.blog_post_slug || ''
     });
     setItemMappings(buildMappingsFromItems(currentItems));
     setIsEditing(false);
@@ -392,7 +397,8 @@ export default function BundleDetail({
       const updated = await updateBundle(bundle.id, {
         ...editForm,
         title_en: editForm.title_en || null,
-        description_en: editForm.description_en || null
+        description_en: editForm.description_en || null,
+        blog_post_slug: editForm.blog_post_slug?.trim() || null
       });
       
       // 2. 각 아이템 이미지 업데이트 (변경된 것만)
@@ -519,6 +525,49 @@ export default function BundleDetail({
       window.setTimeout(() => setIsSentenceListCopied(false), 1800);
     } catch (error) {
       alert('클립보드 복사에 실패했습니다.');
+    }
+  };
+
+  const handleCopyBlogExplanationPrompt = async () => {
+    const sentenceLines = currentItems
+      .map((item, idx) => {
+        const es = item.sentences?.sentence?.trim();
+        const ko = item.sentences?.translation?.trim();
+        if (!es) return null;
+        return `${idx + 1}. ${es}${ko ? ` (${ko})` : ''}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    if (!sentenceLines) {
+      alert('번들에 포함된 문장이 없습니다.');
+      return;
+    }
+
+    const promptText = `HolaLingo 학습 번들 「${bundle.title}」의 문장·문법 상세 해설 블로그 글 JSON을 생성해줘.
+
+번들 정보:
+- 번들 ID: ${bundle.id}
+- 제목: ${bundle.title}${bundle.title_en ? ` (${bundle.title_en})` : ''}
+- 설명: ${bundle.description || '스페인어 회화 표현 묶음'}
+- 레벨: ${getBundleLevelDisplay(bundle.level, 'ko').label}
+- 학습 이동 링크: /bundles/${bundle.id}
+
+포함된 문장 목록:
+${sentenceLines}
+
+작성 가이드:
+1. 이 번들에 등장하는 핵심 문법/어순 패턴(동사 변화, 전치사, 대명사 위치 등)을 초보자 눈높이에서 명확히 정리해줘.
+2. 각 문장별로 왜 이런 어순과 표현이 쓰였는지 쪼개서 설명해줘 (Scramble 어순 배열과 빈칸 채우기 연습에 도움이 되도록).
+3. content는 {"format": "markdown", "body": "..."} 형식을 사용하고, 마크다운 표와 인용구를 적절히 활용해 가독성을 높여줘.
+4. 블로그 JSON 스키마(slug, title, description, category, tags, readingMinutes, status: "published", seoTitle, seoDescription, canonicalUrl, content)에 맞춰 순수 JSON만 출력해줘.`;
+
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setIsBlogPromptCopied(true);
+      window.setTimeout(() => setIsBlogPromptCopied(false), 1800);
+    } catch {
+      alert('프롬프트 복사에 실패했습니다.');
     }
   };
 
@@ -738,6 +787,33 @@ export default function BundleDetail({
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">연결된 문법·문장 해설 블로그 (Blog Post Slug)</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select
+                      value={editForm.blog_post_slug || ''}
+                      onChange={(e) => setEditForm({ ...editForm, blog_post_slug: e.target.value })}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">연결된 블로그 글 없음</option>
+                      {blogPosts.map((post) => (
+                        <option key={post.slug} value={post.slug}>
+                          [{post.status === 'published' ? '발행됨' : post.status}] {post.title} ({post.slug})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={editForm.blog_post_slug || ''}
+                      onChange={(e) => setEditForm({ ...editForm, blog_post_slug: e.target.value })}
+                      placeholder="또는 블로그 slug 직접 입력 (예: spanish-cafe-order-grammar)"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-400 dark:focus:border-blue-500 outline-none transition-all font-mono text-xs text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 ml-1">
+                    연결된 블로그 글이 있으면 번들 상세 페이지 및 학습 플레이어에서 문법·표현 해설 링크가 표시됩니다.
+                  </p>
+                </div>
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-bold text-gray-700 ml-1">썸네일 이미지</label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-1">
                     {/* Preview */}
@@ -912,6 +988,42 @@ export default function BundleDetail({
                   <div className="flex flex-col">
                     <span className="text-gray-400 dark:text-gray-500 font-bold mb-1 uppercase tracking-widest text-[10px]">언어</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">Spanish</span>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-gray-50 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest text-[10px]">문장·문법 해설 블로그:</span>
+                    {bundle.blog_post_slug ? (
+                      <Link
+                        href={`/blog/${bundle.blog_post_slug}?bundleId=${bundle.id}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        <span>
+                          {blogPosts.find((p) => p.slug === bundle.blog_post_slug)?.title || `/blog/${bundle.blog_post_slug}`}
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-gray-400 dark:text-gray-500">미연결 (우측 상단 수정 버튼에서 연결 가능)</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyBlogExplanationPrompt()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition"
+                    >
+                      {isBlogPromptCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {isBlogPromptCopied ? '해설 프롬프트 복사됨' : '해설 블로그 프롬프트 복사'}
+                    </button>
+                    <Link
+                      href="/admin/blog"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    >
+                      블로그 관리
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
                   </div>
                 </div>
               </div>

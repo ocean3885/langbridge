@@ -15,6 +15,7 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
   Gauge,
   Headphones,
   Languages,
@@ -29,6 +30,7 @@ import { PRACTICE_MODES, PRACTICE_REGISTRY, isBundlePracticeMode } from '@/lib/p
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { WordUsageBadges } from '@/components/words/WordUsageBadges';
 import type { WordUsageDetail } from '@/lib/supabase/services/word-sentence-map';
+import type { LinkedBlogPostSummary } from '@/lib/supabase/services/blog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +51,7 @@ interface BundlePlayerClientProps {
   initialItemId?: string | null;
   itemInteractions?: any[];
   progress: BundleProgressSummary;
+  linkedBlogPost?: LinkedBlogPostSummary | null;
 }
 
 type Keyword = {
@@ -102,12 +105,16 @@ const translations = {
     first: '첫 문장',
     last: '마지막 문장',
     listen: '듣기',
+    pause: '일시정지',
     slow: '느리게',
     repeat: '반복',
     auto: '자동',
     infiniteRepeat: '무한 반복',
     repeatTimes: (n: number) => `${n}번 반복`,
     playCount: (n: number) => `${n}회 청취`,
+    grammarGuideTitle: '문장·문법 상세 해설',
+    grammarGuideSub: '이 번들의 문장 구조와 표현 뉘앙스를 블로그 해설로 자세히 살펴보세요.',
+    grammarGuideOpen: '해설 보기',
   },
   en: {
     backToBundle: 'Back',
@@ -131,12 +138,16 @@ const translations = {
     first: 'First sentence',
     last: 'Last sentence',
     listen: 'Listen',
+    pause: 'Pause',
     slow: 'Slow',
     repeat: 'Repeat',
     auto: 'Auto',
     infiniteRepeat: 'Infinite repeat',
     repeatTimes: (n: number) => `Repeat ${n} times`,
     playCount: (n: number) => `${n} plays`,
+    grammarGuideTitle: 'Grammar & Sentence Guide',
+    grammarGuideSub: 'Read detailed grammar notes and expression nuances for this bundle.',
+    grammarGuideOpen: 'Read Guide',
   },
 };
 
@@ -149,6 +160,7 @@ export default function BundlePlayerClient({
   initialItemId = null,
   itemInteractions = [],
   progress,
+  linkedBlogPost = null,
 }: BundlePlayerClientProps) {
   const initialIndex = initialItemId ? Math.max(0, items.findIndex((item) => item.id === initialItemId)) : 0;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -158,6 +170,8 @@ export default function BundlePlayerClient({
   const [showSource, setShowSource] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [screenFeedback, setScreenFeedback] = useState<'play' | 'pause' | null>(null);
+  const feedbackTimeoutRef = useRef<number | null>(null);
   const [playCounts, setPlayCounts] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
     for (const item of itemInteractions || []) {
@@ -228,6 +242,28 @@ export default function BundlePlayerClient({
     }
     playAudio();
   };
+
+  const handleScreenClick = () => {
+    if (!audioSrc) return;
+    if (typeof window !== 'undefined' && window.getSelection()?.toString()) return;
+    const nextState = isPlaying ? 'pause' : 'play';
+    togglePlay();
+    setScreenFeedback(nextState);
+    if (feedbackTimeoutRef.current) {
+      window.clearTimeout(feedbackTimeoutRef.current);
+    }
+    feedbackTimeoutRef.current = window.setTimeout(() => {
+      setScreenFeedback(null);
+    }, 550);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const recordPlayCount = (bundleItemId: string | undefined) => {
     if (!user || !bundleItemId) return;
@@ -347,13 +383,39 @@ export default function BundlePlayerClient({
         </section>
 
         <section className="px-0 md:px-7">
-          <div className="relative aspect-video overflow-hidden bg-zinc-950 md:rounded-t-[10px]">
+          <div
+            role={audioSrc ? 'button' : undefined}
+            tabIndex={audioSrc ? 0 : -1}
+            aria-label={audioSrc ? (isPlaying ? t.pause : t.listen) : undefined}
+            onClick={handleScreenClick}
+            onKeyDown={(event) => {
+              if (!audioSrc) return;
+              if (event.key === ' ' || event.key === 'Enter') {
+                event.preventDefault();
+                handleScreenClick();
+              }
+            }}
+            className={`group relative aspect-video overflow-hidden bg-zinc-950 md:rounded-t-[10px] ${
+              audioSrc ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2f8f53]' : ''
+            }`}
+          >
             {imageSrc ? (
               <Image src={imageSrc} alt={getItemSource(currentItem) || title} fill priority className="object-cover" sizes="(max-width: 1280px) 100vw, 1020px" />
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-zinc-500 dark:text-zinc-400">
                 <BookOpen className="mb-3 h-12 w-12 opacity-50" />
                 <span className="text-sm font-bold">{t.noImage}</span>
+              </div>
+            )}
+            {audioSrc && screenFeedback && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="flex h-16 w-16 animate-ping items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm [animation-duration:550ms] [animation-iteration-count:1]">
+                  {screenFeedback === 'play' ? (
+                    <Play className="ml-1 h-7 w-7 fill-current" />
+                  ) : (
+                    <Pause className="h-7 w-7 fill-current" />
+                  )}
+                </span>
               </div>
             )}
             <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 via-black/45 to-transparent px-8 py-6 text-center md:block">
@@ -514,6 +576,35 @@ export default function BundlePlayerClient({
             </div>
           </div>
 
+          {linkedBlogPost && (
+            <Link
+              href={`/blog/${linkedBlogPost.slug}?bundleId=${bundle.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-4 rounded-xl border border-emerald-200/80 bg-[#f4faf5] p-4 shadow-sm transition hover:border-emerald-300 hover:bg-[#ebf6ee] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#dff1e5] text-[#2f8f53] dark:bg-emerald-900/60 dark:text-emerald-300">
+                  <BookOpen className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2f8f53] dark:text-emerald-300">
+                    {t.grammarGuideTitle}
+                  </span>
+                  <p className="mt-0.5 truncate text-sm font-bold text-zinc-950 group-hover:text-[#2f8f53] dark:text-zinc-50 dark:group-hover:text-emerald-300 sm:text-base">
+                    {linkedBlogPost.title}
+                  </p>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-zinc-600 dark:text-zinc-400">
+                    {linkedBlogPost.description || t.grammarGuideSub}
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#2f8f53] px-3 py-2 text-xs font-bold text-white shadow-sm transition group-hover:bg-[#287b48] dark:bg-emerald-600 dark:group-hover:bg-emerald-500">
+                <span>{t.grammarGuideOpen}</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          )}
         </section>
       </main>
 

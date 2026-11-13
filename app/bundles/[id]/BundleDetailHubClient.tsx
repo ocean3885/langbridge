@@ -14,7 +14,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
+  ChevronRight,
+  Clock3,
   Headphones,
   Info,
   Layers,
@@ -26,6 +29,7 @@ import { getBundleLevelDisplay } from '@/lib/bundle-level';
 import { estimateBundleMinutes, getBundleDescription, getBundleTitle, getCategoryHref } from '../bundle-utils';
 import type { BundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import type { BundleAccessResult } from '@/lib/bundle-access';
+import type { LinkedBlogPostSummary } from '@/lib/supabase/services/blog';
 
 interface BundleDetailHubClientProps {
   fromLearn?: boolean;
@@ -42,6 +46,7 @@ interface BundleDetailHubClientProps {
     availableTotal: number;
     nextReviewAt: string | null;
   };
+  linkedBlogPost?: LinkedBlogPostSummary | null;
 }
 
 const copy = {
@@ -107,6 +112,8 @@ const copy = {
     practiceModesInfo: '문장 퀴즈를 맞히면 마스터리 스타가 채워져요. 스타를 모두 모아 100% 마스터에 도전해보세요!',
     sentencePractice: '문장 연습',
     wordPractice: '단어 연습',
+    grammarGuideBadge: '문장·문법 상세 해설',
+    grammarGuideCta: '블로그 해설 읽기',
   },
   en: {
     itemUnit: 'Items',
@@ -170,6 +177,8 @@ const copy = {
     practiceModesInfo: 'Pass sentence quizzes to earn Mastery Stars. Collect all stars to complete 100% bundle mastery!',
     sentencePractice: 'Sentence Practice',
     wordPractice: 'Word Practice',
+    grammarGuideBadge: 'Grammar & Sentence Guide',
+    grammarGuideCta: 'Read Guide',
   },
 };
 
@@ -207,6 +216,7 @@ export default function BundleDetailHubClient({
   access,
   wordProgress,
   reviewSummary,
+  linkedBlogPost = null,
   fromLearn = false,
 }: BundleDetailHubClientProps) {
   const [showProgressInfo, setShowProgressInfo] = useState(false);
@@ -597,6 +607,37 @@ export default function BundleDetailHubClient({
           >
             {t.viewItems}
           </Link>
+
+          {linkedBlogPost && (
+            <Link
+              href={`/blog/${linkedBlogPost.slug}?bundleId=${bundle.id}`}
+              className="group mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200/80 bg-[#f4faf5] p-3.5 transition hover:border-emerald-300 hover:bg-[#ebf6ee] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
+                  <BookOpen className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-[#2f7d4a] dark:text-emerald-300">
+                      {t.grammarGuideBadge}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                      <Clock3 className="h-3 w-3" />
+                      {language === 'ko' ? `${linkedBlogPost.readingMinutes}분` : `${linkedBlogPost.readingMinutes}m`}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-sm font-bold text-zinc-900 group-hover:text-[#2f7d4a] dark:text-zinc-100 dark:group-hover:text-emerald-300">
+                    {linkedBlogPost.title}
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-bold text-[#2f7d4a] dark:text-emerald-300">
+                <span className="hidden sm:inline">{t.grammarGuideCta}</span>
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          )}
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">

@@ -1,4 +1,5 @@
 import { formatWordMeaning } from '@/lib/word-meaning';
+import { isScrambleEligibleSentence } from './scramble';
 
 /** Shared by the server and client. Keep database/UI dependencies out of this module. */
 export type PracticeTarget = 'sentence' | 'word';
@@ -58,6 +59,10 @@ function hasTranslatedSentence(item: PracticeBundleItem, language: PracticeLangu
   return Boolean(sentence?.sentence && getPracticeSentenceTranslation(item, language));
 }
 
+function isScrambleEligible(item: PracticeBundleItem, language: PracticeLanguage) {
+  return hasTranslatedSentence(item, language) && isScrambleEligibleSentence(item.sentences?.sentence || '');
+}
+
 export const PRACTICE_REGISTRY = {
   quiz: {
     target: 'sentence', availableIn: 'bundle', achievement: 'stars', result: 'correctness', stars: 1,
@@ -65,7 +70,7 @@ export const PRACTICE_REGISTRY = {
   },
   scramble: {
     target: 'sentence', availableIn: 'bundle', achievement: 'stars', result: 'correctness', stars: 1,
-    updatesRelatedWord: false, label: 'Scramble', path: 'scramble', isEligible: hasTranslatedSentence,
+    updatesRelatedWord: false, label: 'Scramble', path: 'scramble', isEligible: isScrambleEligible,
   },
   wordfill: {
     target: 'sentence', availableIn: 'bundle', achievement: 'stars', result: 'correctness', stars: 1,

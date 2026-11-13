@@ -2,6 +2,7 @@ import { getBundle, getBundleStudyWordIds, listBundleItems } from '@/lib/supabas
 import { getBundleProgressSummary } from '@/lib/supabase/services/bundle-progress';
 import { listUserWordInteractions } from '@/lib/supabase/services/user-interactions';
 import { getBundleReviewSummary } from '@/lib/supabase/services/learning-review';
+import { getLinkedBlogPostSummary } from '@/lib/supabase/services/blog';
 import { getPracticeWordTargets } from '@/lib/practice/registry';
 import { calculateBundleWordProgress } from '@/lib/practice/progress';
 import Link from 'next/link';
@@ -63,10 +64,11 @@ export default async function BundleDetailsPage({ params, searchParams }: Bundle
   const wordTargets = getPracticeWordTargets(items, 'spelling', lang, studyWordIds);
   const wordIds = wordTargets.map((target) => target.word.id);
 
-  const [progress, userWordInteractions, reviewSummary] = await Promise.all([
+  const [progress, userWordInteractions, reviewSummary, linkedBlogPost] = await Promise.all([
     getBundleProgressSummary(user?.id, bundle.id, items.length),
     user && wordIds.length > 0 ? listUserWordInteractions(user.id, wordIds) : Promise.resolve([]),
     user ? getBundleReviewSummary(user.id, bundle.id) : Promise.resolve({ availableSentences: 0, availableWords: 0, availableTotal: 0, nextReviewAt: null }),
+    getLinkedBlogPostSummary(bundle.blog_post_slug),
   ]);
 
   const wordProgress = progress.completion?.wordProgress || calculateBundleWordProgress(wordTargets, userWordInteractions);
@@ -82,6 +84,7 @@ export default async function BundleDetailsPage({ params, searchParams }: Bundle
       access={access}
       wordProgress={wordProgress}
       reviewSummary={reviewSummary}
+      linkedBlogPost={linkedBlogPost}
     />
   );
 }

@@ -34,7 +34,9 @@ export default function ReviewSessionClient({ type, items, availableCount, langu
     : (ko ? '복습 목록으로' : 'Back to review');
   const sentenceOptionPool = type === 'sentences' && optionPool.length > 0 ? (optionPool as ReviewSentenceItem[]) : undefined;
   const poolItems = optionPool.length > 0 ? optionPool : items;
-  const resolvedMode = type === 'sentences' && settings.mode === 'quiz' ? (sentenceReviewItems(items as ReviewSentenceItem[], 'quiz', language, sentenceOptionPool).length ? 'quiz' : 'scramble') : settings.mode;
+  const resolvedMode = type === 'sentences' && !sentenceReviewItems(items as ReviewSentenceItem[], settings.mode as SentenceReviewMode, language, sentenceOptionPool).length
+    ? (['quiz', 'scramble', 'wordfill', 'flashcards'] as SentenceReviewMode[]).find(m => sentenceReviewItems(items as ReviewSentenceItem[], m, language, sentenceOptionPool).length > 0) || settings.mode
+    : settings.mode;
   const [mode, setMode] = useState(resolvedMode);
   const [count, setCount] = useState<PracticeCountValue>(availableCount <= items.length && items.length <= settings.count ? 'all' : Math.min(items.length, settings.count));
   const [phase, setPhase] = useState<'setup' | 'practice' | 'finished'>('setup');

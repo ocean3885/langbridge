@@ -4,6 +4,7 @@ import { getBundleAccess } from '@/lib/bundle-access';
 import { getBundleProgressSummary, recordBundleStudyAccess } from '@/lib/supabase/services/bundle-progress';
 import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listWordsForSentences, listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
+import { getLinkedBlogPostSummary } from '@/lib/supabase/services/blog';
 import BundlePlayerClient from '../BundlePlayerClient';
 
 interface BundleLearnPageProps {
@@ -30,9 +31,10 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
 
   const items = await listBundleItems(id);
   const sentenceIds = items.filter((bundleItem) => bundleItem.sentence_id).map((bundleItem) => bundleItem.sentence_id as number);
-  const [progress, mappedWords] = await Promise.all([
+  const [progress, mappedWords, linkedBlogPost] = await Promise.all([
     getBundleProgressSummary(user?.id, bundle.id, items.length),
     listWordsForSentences(sentenceIds),
+    getLinkedBlogPostSummary(bundle.blog_post_slug),
   ]);
   const wordUsageDetails = await listWordUsageDetails(mappedWords.map((word) => word.word_id));
   const wordsBySentenceId = mappedWords.reduce((groups, word) => {
@@ -67,6 +69,7 @@ export default async function BundleLearnPage({ params, searchParams }: BundleLe
         initialItemId={initialItemId}
         itemInteractions={progress.itemInteractions}
         progress={progress}
+        linkedBlogPost={linkedBlogPost}
       />
     </div>
   );

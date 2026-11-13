@@ -2,23 +2,36 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, CalendarDays, Clock3 } from 'lucide-react';
-import { getBlogPost } from '@/lib/supabase/services/blog';
+import { ArrowLeft, CalendarDays, Clock3, Headphones } from 'lucide-react';
+import { getBlogPost, getPublishedBundleByBlogSlug } from '@/lib/supabase/services/blog';
 import { getDisplayLanguage } from '@/lib/auth/app-user';
 import { absoluteUrl } from '@/lib/site-url';
 
 type Props = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ bundleId?: string }>;
 };
 
 const blogPostCopy = {
   ko: {
     backToBlog: '블로그로 돌아가기',
+    backToBundle: '학습 번들로 돌아가기',
     minRead: '분 읽기',
+    bundleCtaBadge: '연결된 실전 회화 번들',
+    bundleCtaTitle: (title: string) => `방금 읽은 문장들, '${title}' 번들에서 직접 듣고 연습해보세요`,
+    bundleCtaBody: '원어민 음성을 반복 청취하고 문장 퀴즈·단어 배열 연습으로 표현을 완전히 내 것으로 만들 수 있습니다.',
+    bundleCtaPrimary: '🎧 번들 듣기 시작하기',
+    bundleCtaSecondary: '번들 상세 보기',
   },
   en: {
     backToBlog: 'Back to Blog',
+    backToBundle: 'Back to Bundle',
     minRead: 'min read',
+    bundleCtaBadge: 'Linked Learning Bundle',
+    bundleCtaTitle: (title: string) => `Listen and practice these sentences in "${title}"`,
+    bundleCtaBody: 'Listen to native audio repeatedly and master each expression with interactive quizzes and word scramble.',
+    bundleCtaPrimary: '🎧 Start Listening',
+    bundleCtaSecondary: 'View Bundle Details',
   },
 };
 
@@ -244,11 +257,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BlogPostPage({ params }: Props) {
+export default async function BlogPostPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const [post, language] = await Promise.all([
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const preferredBundleId = typeof resolvedSearchParams.bundleId === 'string' ? resolvedSearchParams.bundleId : null;
+  const [post, language, linkedBundle] = await Promise.all([
     getBlogPost(slug),
     getDisplayLanguage(),
+    getPublishedBundleByBlogSlug(slug, preferredBundleId),
   ]);
 
   if (!post) {
@@ -256,6 +272,9 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   const copy = blogPostCopy[language];
+  const linkedBundleTitle = linkedBundle
+    ? (language === 'en' ? linkedBundle.title_en || linkedBundle.title : linkedBundle.title || linkedBundle.title_en)
+    : null;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -289,13 +308,24 @@ export default async function BlogPostPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <Link
-        href="/blog"
-        className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
-      >
-        <ArrowLeft size={16} />
-        {copy.backToBlog}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/blog"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
+        >
+          <ArrowLeft size={16} />
+          {copy.backToBlog}
+        </Link>
+        {linkedBundle && linkedBundleTitle && (
+          <Link
+            href={`/bundles/${linkedBundle.id}`}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-[#f4faf5] px-3.5 py-1.5 text-xs font-bold text-[#2f7d4a] transition hover:bg-[#e7f4ea] dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+          >
+            <Headphones size={14} />
+            <span>{copy.backToBundle}: {linkedBundleTitle}</span>
+          </Link>
+        )}
+      </div>
 
       <header className="mt-8">
         <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{post.category}</p>
@@ -364,6 +394,35 @@ export default async function BlogPostPage({ params }: Props) {
             </Link>
           </section>
         </>
+      )}
+
+      {linkedBundle && linkedBundleTitle && (
+        <section className="mt-12 rounded-2xl border border-emerald-200 bg-gradient-to-br from-[#f4faf5] to-white p-6 shadow-sm dark:border-emerald-900/60 dark:from-emerald-950/40 dark:to-zinc-950 sm:p-8">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dff1e5] px-3 py-1 text-xs font-bold text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
+            <Headphones size={14} />
+            {copy.bundleCtaBadge}
+          </span>
+          <h2 className="mt-3 text-xl font-black tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-2xl">
+            {copy.bundleCtaTitle(linkedBundleTitle)}
+          </h2>
+          <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+            {copy.bundleCtaBody}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/bundles/${linkedBundle.id}/learn`}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-[#3f8d54] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#347946]"
+            >
+              {copy.bundleCtaPrimary}
+            </Link>
+            <Link
+              href={`/bundles/${linkedBundle.id}`}
+              className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-200 bg-white px-5 text-sm font-bold text-[#2f7d4a] transition hover:bg-emerald-50 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-zinc-800"
+            >
+              {copy.bundleCtaSecondary}
+            </Link>
+          </div>
+        </section>
       )}
 
       <nav className="mt-12 border-t border-zinc-200 pt-6 dark:border-zinc-800" aria-label="Blog post footer navigation">

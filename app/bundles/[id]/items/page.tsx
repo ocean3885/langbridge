@@ -7,7 +7,7 @@ import { getBundle, listBundleItems } from '@/lib/supabase/services/bundles';
 import { listUserSentenceInteractions } from '@/lib/supabase/services/user-interactions';
 import { listWordsForSentences, listWordUsageDetails } from '@/lib/supabase/services/word-sentence-map';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { calculateSentenceStars, getBundleStarProgress } from '@/lib/practice/progress';
+import { getBundleStarProgress } from '@/lib/practice/progress';
 import { formatWordMeaning } from '@/lib/word-meaning';
 import { getPublicUrl } from '@/lib/utils';
 import { WordUsageBadges } from '@/components/words/WordUsageBadges';
@@ -185,8 +185,14 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
             const words = item.sentence_id ? wordsBySentenceId.get(item.sentence_id) || [] : [];
             const itemProgress = itemProgressMap.get(item.id);
             const playCount = Number(itemProgress?.play_count) || 0;
-            const earnedStars = calculateSentenceStars((itemProgress?.metadata as Record<string, unknown>) || null);
-            const isMastered = earnedStars >= 3 || Boolean(itemProgress?.is_completed);
+            const itemStars = getBundleStarProgress(
+              [item],
+              itemProgress ? [{ bundle_item_id: item.id, metadata: (itemProgress.metadata as Record<string, unknown>) || null }] : [],
+              language,
+            );
+            const earnedStars = itemStars.earned;
+            const maxItemStars = itemStars.max;
+            const isMastered = (maxItemStars > 0 && earnedStars >= maxItemStars) || Boolean(itemProgress?.is_completed);
             const isRecentPlayback = currentListeningItemId === item.id;
 
             return (
@@ -217,10 +223,10 @@ export default async function BundleItemsPage({ params }: BundleItemsPageProps) 
                             {t.mastered}
                           </span>
                         )}
-                        {earnedStars > 0 && (
+                        {earnedStars > 0 && maxItemStars > 0 && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200/60 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
                             <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                            {earnedStars}/3
+                            {earnedStars}/{maxItemStars}
                           </span>
                         )}
                         {playCount > 0 && (
