@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { getAppUserFromServer, getDisplayLanguage } from '@/lib/auth/app-user';
 import { isSuperAdmin } from '@/lib/auth/super-admin';
 import { getBundle, listBundleItems, getBundleWords, getBundleStudyWordIds } from '@/lib/supabase/services/bundles';
-import { getAdminBlogPosts } from '@/lib/supabase/services/blog';
+import { getBlogPromptContext } from '@/lib/supabase/services/blog';
 import AdminSidebar from '../../AdminSidebar';
 import BundleDetail from './BundleDetail';
 
@@ -27,17 +27,24 @@ export default async function BundleDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
   
-  const [items, words, studyWordIds, blogPosts] = await Promise.all([
+  const [items, words, studyWordIds, blogPromptContext] = await Promise.all([
     listBundleItems(id),
     getBundleWords(id),
     getBundleStudyWordIds(id),
-    getAdminBlogPosts(),
+    getBlogPromptContext(),
   ]);
   
   return (
     <>
       <AdminSidebar userEmail={user.email ?? ''} language={lang} />
-      <BundleDetail bundle={bundle} items={items} words={words} initialStudyWordIds={studyWordIds} blogPosts={blogPosts} />
+      <BundleDetail
+        bundle={bundle}
+        items={items}
+        words={words}
+        initialStudyWordIds={studyWordIds}
+        blogPosts={blogPromptContext.posts}
+        blogCategories={blogPromptContext.categories}
+      />
     </>
   );
 }
