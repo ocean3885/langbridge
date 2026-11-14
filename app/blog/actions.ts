@@ -50,6 +50,8 @@ type BlogPostJson = {
   og_image_url?: unknown;
   canonicalUrl?: unknown;
   canonical_url?: unknown;
+  bundleId?: unknown;
+  bundle_id?: unknown;
   content?: unknown;
 };
 
@@ -336,6 +338,7 @@ function normalizeBlogPostInput(input: BlogPostJson) {
     seoDescription: getNullableString(input.seoDescription) ?? getNullableString(input.seo_description),
     ogImageUrl: getNullableString(input.ogImageUrl) ?? getNullableString(input.og_image_url),
     canonicalUrl: getNullableString(input.canonicalUrl) ?? getNullableString(input.canonical_url),
+    bundleId: normalizeUuid(input.bundleId ?? input.bundle_id),
   };
 }
 
@@ -456,6 +459,20 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
     const supabase = createAdminClient();
     const categoryId = normalized.categoryId ?? (await upsertCategory(supabase, normalized.category));
 
+    let imageUrl = normalized.imageUrl;
+    let ogImageUrl = normalized.ogImageUrl;
+
+    if (normalized.bundleId && (!imageUrl || !ogImageUrl)) {
+      const { data: bundleRow } = await supabase
+        .from('bundle')
+        .select('image_url, thumbnail_url')
+        .eq('id', normalized.bundleId)
+        .maybeSingle();
+      const fallbackBundleImage = bundleRow?.image_url || bundleRow?.thumbnail_url || null;
+      if (!imageUrl) imageUrl = fallbackBundleImage;
+      if (!ogImageUrl) ogImageUrl = fallbackBundleImage;
+    }
+
     const { data: post, error: postError } = await supabase
       .from('blog_posts')
       .insert({
@@ -466,11 +483,11 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
         status: normalized.status,
         published_at: normalized.publishedAt,
         category_id: categoryId,
-        image_url: normalized.imageUrl,
+        image_url: imageUrl,
         reading_minutes: normalized.readingMinutes,
         seo_title: normalized.seoTitle,
         seo_description: normalized.seoDescription,
-        og_image_url: normalized.ogImageUrl,
+        og_image_url: ogImageUrl,
         canonical_url: normalized.canonicalUrl,
         author_id: user.id,
       })
@@ -482,6 +499,21 @@ export async function createBlogPostFromJsonAction(jsonText: string): Promise<Bl
     }
 
     await replacePostTags(supabase, post.id, normalized.tags);
+
+    if (normalized.bundleId) {
+      const { error: bundleUpdateError } = await supabase
+        .from('bundle')
+        .update({ blog_post_slug: post.slug })
+        .eq('id', normalized.bundleId);
+
+      if (bundleUpdateError) {
+        console.error('Failed to auto-link bundle to blog post:', bundleUpdateError.message);
+      } else {
+        revalidatePath(`/bundles/${normalized.bundleId}`);
+        revalidatePath(`/bundles/${normalized.bundleId}/learn`);
+        revalidatePath(`/admin/bundles/${normalized.bundleId}`);
+      }
+    }
 
     revalidatePath('/blog');
     revalidatePath(`/blog/${post.slug}`);
@@ -521,6 +553,21 @@ export async function updateBlogPostFromJsonAction(
     }
 
     const categoryId = normalized.categoryId ?? (await upsertCategory(supabase, normalized.category));
+
+    let imageUrl = normalized.imageUrl;
+    let ogImageUrl = normalized.ogImageUrl;
+
+    if (normalized.bundleId && (!imageUrl || !ogImageUrl)) {
+      const { data: bundleRow } = await supabase
+        .from('bundle')
+        .select('image_url, thumbnail_url')
+        .eq('id', normalized.bundleId)
+        .maybeSingle();
+      const fallbackBundleImage = bundleRow?.image_url || bundleRow?.thumbnail_url || null;
+      if (!imageUrl) imageUrl = fallbackBundleImage;
+      if (!ogImageUrl) ogImageUrl = fallbackBundleImage;
+    }
+
     const { data: updatedPost, error: updateError } = await supabase
       .from('blog_posts')
       .update({
@@ -531,11 +578,11 @@ export async function updateBlogPostFromJsonAction(
         status: normalized.status,
         published_at: normalized.publishedAt,
         category_id: categoryId,
-        image_url: normalized.imageUrl,
+        image_url: imageUrl,
         reading_minutes: normalized.readingMinutes,
         seo_title: normalized.seoTitle,
         seo_description: normalized.seoDescription,
-        og_image_url: normalized.ogImageUrl,
+        og_image_url: ogImageUrl,
         canonical_url: normalized.canonicalUrl,
       })
       .eq('id', existingPost.id)
@@ -547,6 +594,21 @@ export async function updateBlogPostFromJsonAction(
     }
 
     await replacePostTags(supabase, updatedPost.id, normalized.tags);
+
+    if (normalized.bundleId) {
+      const { error: bundleUpdateError } = await supabase
+        .from('bundle')
+        .update({ blog_post_slug: updatedPost.slug })
+        .eq('id', normalized.bundleId);
+
+      if (bundleUpdateError) {
+        console.error('Failed to auto-link bundle to blog post:', bundleUpdateError.message);
+      } else {
+        revalidatePath(`/bundles/${normalized.bundleId}`);
+        revalidatePath(`/bundles/${normalized.bundleId}/learn`);
+        revalidatePath(`/admin/bundles/${normalized.bundleId}`);
+      }
+    }
 
     revalidatePath('/blog');
     revalidatePath(`/blog/${originalSlug}`);

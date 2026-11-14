@@ -394,6 +394,39 @@ export default function BundleDetailHubClient({
           <Stat label={t.estimate} value={minuteLabel} />
           <Stat label={t.cefr} value={level.shortLabel} />
         </div>
+
+        {linkedBlogPost && (
+          <div className="relative z-20 mx-5 mb-5 mt-3.5 lg:mx-8 lg:mb-7 lg:mt-5">
+            <Link
+              href={`/blog/${linkedBlogPost.slug}?bundleId=${bundle.id}`}
+              className="group flex items-center justify-between gap-3 rounded-2xl border border-emerald-200/80 bg-[#f4faf5] p-3.5 transition hover:border-emerald-300 hover:bg-[#ebf6ee] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50 lg:px-5 lg:py-4"
+            >
+              <div className="flex min-w-0 items-center gap-3.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
+                  <BookOpen className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-[#2f7d4a] dark:text-emerald-300">
+                      {t.grammarGuideBadge}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <Clock3 className="h-3 w-3" />
+                      {language === 'ko' ? `${linkedBlogPost.readingMinutes}분 읽기` : `${linkedBlogPost.readingMinutes} min read`}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-sm font-bold text-zinc-900 group-hover:text-[#2f7d4a] dark:text-zinc-100 dark:group-hover:text-emerald-300 lg:text-base">
+                    {linkedBlogPost.title}
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-white/90 px-3 py-2 text-xs font-bold text-[#2f7d4a] shadow-sm ring-1 ring-emerald-200/70 transition group-hover:bg-white dark:bg-zinc-900/80 dark:text-emerald-300 dark:ring-emerald-800/60">
+                <span className="hidden sm:inline">{t.grammarGuideCta}</span>
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          </div>
+        )}
       </div>
 
       <main className="space-y-4 px-5 pb-8 pt-4 lg:px-0 lg:pt-0">
@@ -607,37 +640,6 @@ export default function BundleDetailHubClient({
           >
             {t.viewItems}
           </Link>
-
-          {linkedBlogPost && (
-            <Link
-              href={`/blog/${linkedBlogPost.slug}?bundleId=${bundle.id}`}
-              className="group mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200/80 bg-[#f4faf5] p-3.5 transition hover:border-emerald-300 hover:bg-[#ebf6ee] dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50"
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#dff1e5] text-[#2f7d4a] dark:bg-emerald-900/60 dark:text-emerald-300">
-                  <BookOpen className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-[#2f7d4a] dark:text-emerald-300">
-                      {t.grammarGuideBadge}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                      <Clock3 className="h-3 w-3" />
-                      {language === 'ko' ? `${linkedBlogPost.readingMinutes}분` : `${linkedBlogPost.readingMinutes}m`}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-sm font-bold text-zinc-900 group-hover:text-[#2f7d4a] dark:text-zinc-100 dark:group-hover:text-emerald-300">
-                    {linkedBlogPost.title}
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-bold text-[#2f7d4a] dark:text-emerald-300">
-                <span className="hidden sm:inline">{t.grammarGuideCta}</span>
-                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-          )}
         </section>
 
         <section className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/20 lg:p-6">

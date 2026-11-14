@@ -29,15 +29,13 @@ export default function BundleDetail({
   items, 
   words = [],
   initialStudyWordIds = [],
-  blogPosts = [],
-  blogCategories = []
+  blogPosts = []
 }: { 
   bundle: any; 
   items: any[]; 
   words?: any[];
   initialStudyWordIds?: number[];
   blogPosts?: { slug: string; title: string; status: string }[];
-  blogCategories?: { slug: string; name: string; description: string | null }[];
 }) {
   const router = useRouter();
   const [bundle, setBundle] = useState(initialBundle);
@@ -536,17 +534,7 @@ export default function BundleDetail({
         const es = item.sentences?.sentence?.trim();
         const ko = item.sentences?.translation?.trim();
         if (!es) return null;
-
-        const sentenceWords = getSentenceWords(item);
-        const wordHints = sentenceWords
-          .map((w: any) => {
-            const form = w.used_as && w.used_as !== w.word ? `${w.used_as}(원형: ${w.word})` : w.word;
-            const meaning = getMeaningDisplay(w.meaning_ko || w.meaning);
-            return `${form}: ${meaning}`;
-          })
-          .join(', ');
-
-        return `${idx + 1}. ${es}${ko ? ` — ${ko}` : ''}${wordHints ? `\n   - 핵심 어휘: ${wordHints}` : ''}`;
+        return `${idx + 1}. ${es}${ko ? ` (${ko})` : ''}`;
       })
       .filter(Boolean)
       .join('\n');
@@ -556,78 +544,58 @@ export default function BundleDetail({
       return;
     }
 
-    const existingCategoriesText =
-      blogCategories.length > 0
-        ? blogCategories
-            .map((cat) => `* ${cat.slug}: ${cat.name}${cat.description ? ` - ${cat.description}` : ''}`)
-            .join('\n')
-        : '* 없음';
-
-    const existingPostsText =
-      blogPosts.length > 0
-        ? blogPosts.map((post) => `* ${post.slug} [${post.status}]: ${post.title}`).join('\n')
-        : '* 없음';
-
     const levelInfo = getBundleLevelDisplay(bundle.level, 'ko');
+    const bundleImageUrl = bundle.image_url || bundle.thumbnail_url || '';
+    const fixedBlogTitle = `${bundle.title} — 문장·문법 해설`;
 
     const promptText = `HolaLingo 스페인어 학습 번들 「${bundle.title}」의 문장·문법 상세 해설 블로그 신규 글 JSON을 생성해줘.
 
 역할:
 
-* 너는 한국어 사용자를 대상으로 스페인어 학습 콘텐츠를 쓰는 전문 에디터이자 친절한 스페인어 문법 코치야.
-* 학습자가 번들의 문장들을 단순히 외우는 것을 넘어, 왜 이런 어순·동사 변화·전치사·대명사가 쓰였는지 이해하고 단어 배열(Scramble)과 빈칸 채우기(Word Fill) 연습을 100% 마스터할 수 있도록 돕는 실용적인 해설 글을 작성해야 해.
+* 너는 한국어 사용자를 대상으로 스페인어 학습 콘텐츠를 쓰는 에디터야.
+* 초보 학습자가 모바일에서도 빠르게 읽고 각 문장의 어순·문법 핵심만 직관적으로 이해할 수 있도록 군더더기 없이 콤팩트하게 작성해야 해.
 * 스페인어 예문과 문법 설명은 철자와 악센트(á, é, í, ó, ú, ñ, ¿, ¡)까지 정확하고 자연스러워야 해.
 
 대상 번들 정보:
 
-* 번들 ID: ${bundle.id}
+* 번들 ID (bundleId): ${bundle.id}
 * 번들 제목: ${bundle.title}${bundle.title_en ? ` (${bundle.title_en})` : ''}
 * 번들 설명: ${bundle.description || '스페인어 회화 표현 묶음'}
 * 카테고리: ${bundle.bundle_category?.name || '일반 회화'}
 * 난이도: ${levelInfo.label} (${levelInfo.shortLabel})
+* 번들 대표 이미지 URL: ${bundleImageUrl}
 
-번들에 포함된 학습 문장 목록 (순서대로):
+번들에 포함된 문장 목록 (순서대로):
 
 ${sentenceLines}
 
-기존 블로그 카테고리:
-
-${existingCategoriesText}
-
-기존 블로그 게시물 (중복 방지용):
-
-${existingPostsText}
-
-생성 조건:
-
-* 위 번들에 수록된 모든 문장을 빠짐없이 다루는 문장·문법 상세 해설 글을 작성
-* 기존 게시물과 slug, title이 겹치지 않게 작성
-* 새 글 목적에 맞는 기존 카테고리가 있으면 반드시 기존 category.slug와 category.name을 그대로 사용 (기존 카테고리로 분류하기 어려운 경우에만 새 category 생성)
-
 필드 규칙:
 
+* bundleId는 반드시 "${bundle.id}"로 고정 (블로그 글 생성 시 해당 번들과 자동 연결됨)
+* title은 번들 제목과 일치하도록 반드시 "${fixedBlogTitle}"로 고정
+* category는 반드시 아래 스키마와 동일하게 { "slug": "bundle-guide", "name": "번들문장해설", "description": "HolaLingo 학습 번들의 문장 구조와 핵심 문법을 콤팩트하게 풀이한 해설" }로 고정
 * slug는 영문 소문자 kebab-case로 작성하고, 영문 소문자, 숫자, 하이픈만 사용
 * canonicalUrl은 반드시 "/blog/{slug}" 형식
 * status는 "published"
-* imageUrl과 ogImageUrl은 나중에 운영자가 채울 예정이므로 빈 문자열("")로 둠
-* title은 한국어 기준 공백 포함 22~45자 권장
-* description은 블로그 카드와 상세 상단에 보이는 독자 친화 요약으로 작성 (80~150자 권장)
-* seoTitle은 검색 결과에 자연스럽게 보이도록 25~55자 권장
-* seoDescription은 검색 결과 노출을 고려한 메타 설명으로 작성 (description과 표현을 다르게 80~150자 권장)
-* tags는 4~8개 (각 tag.slug는 영문 소문자 kebab-case, tag.name은 한국어 태그명)
-* readingMinutes는 문장 수와 해설 분량에 맞춰 4~10 사이의 정수
+* imageUrl과 ogImageUrl은 번들 대표 이미지 URL인 "${bundleImageUrl}"을 그대로 사용
+* description은 블로그 카드와 상세 상단에 보이는 독자 친화 요약으로 작성 (80~140자 권장)
+* seoTitle은 검색 유입을 고려해 핵심 스페인어 표현/문법 키워드가 드러나도록 25~55자로 작성 (title과 다르게 검색 친화적으로 작성)
+* seoDescription은 검색 결과 노출을 고려한 메타 설명으로 작성 (80~140자 권장)
+* tags는 4~6개 (번들 주제/카테고리 관련 태그 포함, 각 tag.slug는 영문 소문자 kebab-case, tag.name은 한국어 태그명)
+* readingMinutes는 3~6 사이의 정수
 
 본문(content) 작성 규칙:
 
 * content는 반드시 { "format": "markdown", "body": "..." } 구조를 사용
-* content.body 내부에서 지원되는 마크다운 문법을 적극 활용할 것:
-  1. 대제목(##)과 소제목(###)으로 섹션을 명확히 구분 (글 제목과 동일한 # H1 제목은 생략)
-  2. 글 초반에 번들 전체 문장을 한눈에 볼 수 있는 마크다운 요약 표(| 번호 | 스페인어 문장 | 한국어 뜻 | 핵심 패턴 |) 포함
-  3. 번들을 관통하는 핵심 문법/어순 패턴(동사 활용, 간접/직접목적격 대명사 위치, 전치사 결합 등) 요약 설명
-  4. 문장별 상세 쪼개기 해설: 어순 구조, 핵심 단어·활용형, 초보자가 단어 배열(Scramble)·빈칸 채우기에서 자주 헷갈리는 포인트와 응용 예문 제시
-  5. 스페인어 핵심 단어나 어절은 인라인 코드(\`표현\`)로 감싸 초록색 배지로 강조하고, 중요 설명은 굵게(**강조**) 표시
-  6. 핵심 문법 팁이나 주의점은 인용구(> 팁 내용)로 강조
-* 블로그 상세 페이지 하단에 번들 학습 이동 배너가 자동으로 붙으므로, 본문 마지막에는 배운 문장들을 소리 내어 연습해 보라는 짧은 마무리 인사로 자연스럽게 끝맺을 것
+* 모바일 화면에서 표가 깨지지 않도록 마크다운 표(| ... |)는 절대 사용하지 말 것
+* 글 제목과 동일한 # H1 제목은 생략하고, ## 대제목과 ### 문장 소제목으로만 구성할 것
+* 본문 구성은 아래 2단계로 간결하고 콤팩트하게 작성할 것:
+  1. **핵심 문법·어순 포인트 요약 (##)**: 이 번들 문장들을 이해하는 데 꼭 필요한 핵심 패턴 1~2가지를 인용구(> )와 짧은 설명(2~3문장)으로 요약
+  2. **문장별 콤팩트 해설 (##)**: 수록된 모든 문장을 순서대로 다루되, 각 문장(### 번호. 스페인어 문장)마다 아래 2~3줄 불릿으로만 짧고 명확하게 정리 (장황한 줄글 금지)
+     - **뜻**: 자연스러운 한국어 의미
+     - **어순·구조**: \`어절 단위로 쪼개어\` 의미 연결
+     - **핵심 포인트**: 동사 변화·전치사·대명사 등 퀴즈/어순 배열에서 헷갈리기 쉬운 핵심 1줄 팁
+* 스페인어 핵심 단어나 어절은 인라인 코드(\`표현\`)로 감싸 강조하고, 중요 키워드는 굵게(**강조**) 표시
 * JSON 문자열 내부이므로 content.body의 줄바꿈은 반드시 \\n으로 이스케이프하고, 내부 큰따옴표는 \\"로 이스케이프할 것
 
 출력 규칙:
@@ -639,13 +607,14 @@ ${existingPostsText}
 
 스키마:
 {
+    "bundleId": "${bundle.id}",
     "slug": "spanish-bundle-grammar-guide-example",
-    "title": "카페 주문 스페인어 필수 문장 5개 완벽 문법·어순 해설",
-    "description": "카페에서 바로 쓰는 스페인어 주문 표현 5문장의 어순 구조와 정중한 요청 표현(Quisiera, Me pone)을 초보자 눈높이에서 하나씩 쪼개어 해설합니다.",
+    "title": "${fixedBlogTitle}",
+    "description": "이 번들에 수록된 스페인어 회화 표현들의 어순 구조와 핵심 문법 포인트를 문장별로 간결하게 정리했습니다.",
     "category": {
-        "slug": "spanish-grammar",
-        "name": "스페인어 문법·표현",
-        "description": "실전 회화 문장의 문법 구조와 표현 뉘앙스를 쉽게 풀어주는 해설"
+        "slug": "bundle-guide",
+        "name": "번들문장해설",
+        "description": "HolaLingo 학습 번들의 문장 구조와 핵심 문법을 콤팩트하게 풀이한 해설"
     },
     "tags": [
         { "slug": "spanish-beginner", "name": "스페인어 초보" },
@@ -653,16 +622,16 @@ ${existingPostsText}
         { "slug": "spanish-grammar", "name": "스페인어 문법" },
         { "slug": "spanish-word-order", "name": "스페인어 어순" }
     ],
-    "imageUrl": "",
-    "readingMinutes": 6,
+    "imageUrl": "${bundleImageUrl}",
+    "readingMinutes": 4,
     "status": "published",
-    "seoTitle": "카페 주문 스페인어 필수 문장 문법·어순 상세 해설",
-    "seoDescription": "스페인어 카페 주문 회화 문장의 동사 변화, 대명사 위치, 어순 규칙을 문장별 쪼개기 해설과 요약 표로 쉽게 마스터해 보세요.",
-    "ogImageUrl": "",
+    "seoTitle": "스페인어 필수 회화 문장 문법·어순 핵심 해설",
+    "seoDescription": "실전 스페인어 회화 문장의 동사 변화, 대명사 위치, 어순 규칙을 문장별 콤팩트 해설로 빠르게 익혀 보세요.",
+    "ogImageUrl": "${bundleImageUrl}",
     "canonicalUrl": "/blog/spanish-bundle-grammar-guide-example",
     "content": {
         "format": "markdown",
-        "body": "이번 번들에서는 스페인어권 현지에서 가장 자주 쓰이는 핵심 문장들을 배웁니다. 각 문장이 어떤 어순과 문법 규칙으로 조립되었는지 이해하면 **단어 배열(Scramble)**과 **빈칸 채우기** 연습을 훨씬 쉽게 마스터할 수 있습니다.\\n\\n## 한눈에 보는 번들 핵심 문장 요약\\n\\n| 번호 | 스페인어 문장 | 한국어 뜻 | 핵심 문법·표현 포인트 |\\n| --- | --- | --- | --- |\\n| 1 | \`¿Me pone un café con leche, por favor?\` | 카페콘레체 한 잔 주시겠어요? | 간접목적격 대명사 \`me\` + \`poner\` 3인칭 단수 |\\n| 2 | \`¿Para tomar aquí o para llevar?\` | 드시고 가시나요, 포장하시나요? | 목적 전치사 \`para\` + 동사원형 |\\n\\n## 이 번들을 관통하는 핵심 문법 포인트\\n\\n> 스페인어에서는 목적격 대명사(\`me\`, \`te\`, \`lo\`)가 활용된 동사 바로 앞에 위치합니다.\\n\\n한국어와 달리 스페인어는 **누구에게(대명사) + 동작을 하다(동사) + 무엇을(목적어)** 순서로 문장이 전개됩니다.\\n\\n---\\n\\n## 문장별 상세 쪼개기 해설\\n\\n### 1. ¿Me pone un café con leche, por favor?\\n\\n**뜻:** 카페콘레체 한 잔 주시겠어요?\\n\\n- **어순 쪼개기:** \`¿Me\` (저에게) + \`pone\` (내어 주다) + \`un café con leche\` (우유 넣은 커피 한 잔을) + \`por favor?\` (부탁합니다)\\n- **핵심 문법:** 동사 \`poner\`는 원래 '놓다'라는 뜻이지만, 식당이나 카페에서는 '(음식을) 내어 주다'라는 뜻으로 아주 자주 쓰입니다. 정중하게 \`usted\`(당신)에게 요청하므로 3인칭 단수형인 \`pone\`를 사용했습니다.\\n- **연습 팁:** 어순 배열 문제에서 \`Me\`가 동사 \`pone\` 바로 앞에 온다는 점을 꼭 기억하세요."
+        "body": "이번 번들의 문장들이 어떤 어순과 문법 규칙으로 만들어졌는지 핵심만 빠르게 짚어봅니다. 구조를 이해하면 **단어 배열**과 **빈칸 채우기** 연습이 훨씬 쉬워집니다.\\n\\n## 핵심 문법 포인트\\n\\n> 목적격 대명사(\`me\`, \`te\`, \`lo\`)는 활용된 동사 바로 앞에 위치합니다.\\n\\n스페인어 요청문은 **누구에게(대명사) + 동사 + 무엇을(목적어)** 순서로 이어지는 경우가 많습니다. 전치사 \`para\` 뒤에 동사원형을 붙이면 '~하기 위해'라는 목적을 간단히 표현할 수 있습니다.\\n\\n---\\n\\n## 문장별 핵심 해설\\n\\n### 1. ¿Me pone un café con leche, por favor?\\n\\n- **뜻:** 카페콘레체 한 잔 주시겠어요?\\n- **어순·구조:** \`¿Me\` (저에게) + \`pone\` (내어 주다) + \`un café con leche\` (우유 넣은 커피 한 잔을) + \`por favor?\` (부탁합니다)\\n- **핵심 포인트:** \`poner\`(놓다·내어 주다)의 정중한 3인칭 단수형 \`pone\` 앞에 간접목적격 대명사 \`me\`를 붙여 주문할 때 가장 자연스럽게 쓰는 표현입니다.\\n\\n### 2. ¿Para tomar aquí o para llevar?\\n\\n- **뜻:** 드시고 가시나요, 포장하시나요?\\n- **어순·구조:** \`¿Para tomar aquí\` (여기서 마시기 위해) + \`o\` (또는) + \`para llevar?\` (가져가기 위해)\\n- **핵심 포인트:** 전치사 \`para\` 뒤에는 변형하지 않은 **동사원형**(\`tomar\`, \`llevar\`)이 바로 옵니다."
     }
 }`;
 
@@ -1122,10 +1091,10 @@ ${existingPostsText}
                       {isBlogPromptCopied ? '해설 프롬프트 복사됨' : '해설 블로그 프롬프트 복사'}
                     </button>
                     <Link
-                      href="/admin/blog"
+                      href="/admin/blog/new"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                     >
-                      블로그 관리
+                      블로그 글쓰기
                       <ExternalLink className="w-3 h-3" />
                     </Link>
                   </div>
